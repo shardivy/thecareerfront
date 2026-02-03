@@ -1,0 +1,58 @@
+from django.urls import path
+from lead_registration.views import (
+    AddEnquiryAPIView,
+    AddUserAPIView,
+    AdminUserFullUpdateAPIView,
+    ConvertLeadAPIView,
+    HobbyAPIView,
+    LeadListAPIView,
+    ParentSendOTPAPIView,
+    ParentVerifyOTPAPIView,
+    StreamAPIView,
+    StudentAcademicHistoryAPIView,
+    StudentAcademicHistoryDetailAPIView,
+    StudentHobbyAPIView,
+    StudentHobbyDetailAPIView,
+    StudentRegisterAPIView,
+    StudentStreamAPIView,
+    StudentStreamDetailAPIView,
+    StudentSubjectPreferenceAPIView,
+    StudentSubjectPreferenceDetailAPIView,
+    SubjectAPIView
+)
+
+urlpatterns = [
+    path('student-registration/', StudentRegisterAPIView.as_view(), name='student-registration'),
+    path('send-otp/', ParentSendOTPAPIView.as_view(), name='parent-otp'),
+    path('verify-otp-register/', ParentVerifyOTPAPIView.as_view(), name='parent-register-otp-verify'),
+    
+    path('add-enquiry/', AddEnquiryAPIView.as_view(), name='add-enquiry'),
+    path('leads/', AddEnquiryAPIView.as_view(), name='delete-lead'),
+    path("all-leads/", LeadListAPIView.as_view(), name="lead-list"), 
+    path('leads/<int:pk>/', AddEnquiryAPIView.as_view(), name='update-enquiry'),
+    
+    path('add-users/', AddUserAPIView.as_view(), name='add-users'),
+    path('add-users/<int:id>/', AddUserAPIView.as_view(), name='add-users'),
+    path('update-user/<int:user_id>/', AdminUserFullUpdateAPIView.as_view(), name="update-user"),
+    
+    path("leads/<int:lead_id>/convert/", ConvertLeadAPIView.as_view(), name="convert-to-user"),
+    
+    # ==================== Student Academic History URLs ====================
+    path('students/<int:student_id>/academic-history/', StudentAcademicHistoryAPIView.as_view(), name='student-academic-history'),
+    path('students/<int:student_id>/academic-history/<int:history_id>/', StudentAcademicHistoryDetailAPIView.as_view(), name='student-academic-history-detail'),
+    
+    # ==================== Stream URLs ====================
+    path("streams/", StreamAPIView.as_view()),
+    path("students/<int:student_id>/streams/", StudentStreamAPIView.as_view()),
+    path("students/<int:student_id>/streams/<int:stream_id>/", StudentStreamDetailAPIView.as_view()),
+
+    # ==================== Subject URLs ====================
+    path("subjects/", SubjectAPIView.as_view()),
+    path("students/<int:student_id>/subjects/", StudentSubjectPreferenceAPIView.as_view()),
+    path("students/<int:student_id>/subjects/<int:subject_id>/", StudentSubjectPreferenceDetailAPIView.as_view()),
+    
+    # ==================== Hobby URLs ====================
+    path("hobbies/", HobbyAPIView.as_view()),
+    path("students/<int:student_id>/hobbies/",StudentHobbyAPIView.as_view()),
+    path("students/<int:student_id>/hobbies/<int:hobby_id>/",StudentHobbyDetailAPIView.as_view()),
+]
