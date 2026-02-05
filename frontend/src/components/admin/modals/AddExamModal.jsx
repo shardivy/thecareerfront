@@ -1,81 +1,123 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { Modal, Form, Input, Select, Row, Col, message } from "antd";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchPrograms } from "../../../adminSlices/programSlice";
 import {
-  Modal,
-  Form,
-  Input,
-  Select,
-  Row,
-  Col,
-} from "antd";
-import dayjs from "dayjs";
+  fetchPackagesByProgram,
+  clearPackages,
+} from "../../../adminSlices/packageSlice";
+import { createExam, updateExam } from "../../../adminSlices/examSlice";
 
 const { Option } = Select;
 const { TextArea } = Input;
 
-const AddExamModal = ({ open, onCancel, onCreate, editingExam, mode }) => {
+const AddExamModal = ({ open, mode, editingExam, onCancel, onSuccess }) => {
   const [form] = Form.useForm();
+  const dispatch = useDispatch();
 
-  React.useEffect(() => {
-    if (editingExam && (mode === "edit" || mode === "view")) {
+  // Redux state
+  const { list: programs = [], loading: programsLoading } = useSelector(
+    (state) => state.programs
+  );
+  const { list: packages = [], loading: packagesLoading } = useSelector(
+    (state) => state.packages
+  );
+  const { loading: examsLoading } = useSelector((state) => state.exam);
+
+  // Fetch programs when modal opens
+  useEffect(() => {
+    if (open) dispatch(fetchPrograms());
+  }, [open, dispatch]);
+
+  // Populate form if editing or viewing
+  useEffect(() => {
+    if ((mode === "edit" || mode === "view") && editingExam) {
       form.setFieldsValue({
-        name: editingExam.name,
-        program: editingExam.program,
-        link: editingExam.link,
+        exam_name: editingExam.exam_name,
+        program: editingExam.program_id,
+        package: editingExam.package_id,
         instructions: editingExam.instructions,
-        package: editingExam.package, // ✅ NEW
+        exam_link: editingExam.exam_link,
       });
+
+      if (editingExam.program_id) {
+        dispatch(fetchPackagesByProgram(editingExam.program_id));
+      }
     } else {
       form.resetFields();
+      dispatch(clearPackages());
     }
-  }, [editingExam, mode, form]);
+  }, [mode, editingExam, form, dispatch]);
 
-  const handleOk = () => {
-    form.validateFields().then((values) => {
-      onCreate({
-        ...values,
-      });
-      form.resetFields();
-    });
+  // Handle program change
+  const handleProgramChange = (programId) => {
+    form.setFieldsValue({ package: undefined });
+    if (programId) dispatch(fetchPackagesByProgram(programId));
+    else dispatch(clearPackages());
   };
+
+  // Handle form submission
+  const handleOk = async () => {
+    if (mode === "view") return;
+
+    try {
+      const values = await form.validateFields();
+      const payload = {
+        exam_name: values.exam_name,
+        program: values.program,
+        package: values.package,
+        instructions: values.instructions,
+        exam_link: values.exam_link,
+      };
+
+      if (mode === "edit" && editingExam) {
+        const response = await dispatch(
+          updateExam({ id: editingExam.id, payload })
+        ).unwrap();
+        message.success(response.message || "Exam updated successfully!");
+      } else {
+        const response = await dispatch(createExam(payload)).unwrap();
+        message.success(response.message || "Exam created successfully!");
+      }
+
+      onCancel();
+      form.resetFields();
+      onSuccess?.();
+    } catch (err) {
+      console.log("Error:", err);
+      message.error(err.message || "Failed to save exam");
+    }
+  };
+
+  const isViewMode = mode === "view";
 
   return (
     <Modal
-      title={mode === "edit" ? "Edit Exam" : "Add Exam"}
       open={open}
+      title={
+        mode === "create"
+          ? "Add Exam"
+          : isViewMode
+          ? "View Exam"
+          : "Edit Exam"
+      }
       onCancel={onCancel}
-      onOk={handleOk}
-      okText={mode === "edit" ? "Update" : "Add"}
+      onOk={isViewMode ? null : handleOk} // hide OK button in view mode
+      okText={mode === "create" ? "Add" : "Update"}
+      confirmLoading={examsLoading}
+      cancelText={isViewMode ? "Close" : "Cancel"}
     >
-      <Form layout="vertical" form={form}>
-        {/* Row 1: Exam Name & Program */}
-        <Row gutter={16}>
-          <Col span={24}>
-            <Form.Item
-              label="Exam Name"
-              name="name"
-              rules={[{ required: true, message: "Please enter exam name" }]}
-            >
-              <Input />
-            </Form.Item>
-          </Col>
+      <Form form={form} layout="vertical">
+        {/* Exam Name */}
+        <Form.Item
+          label="Exam Name"
+          name="exam_name"
+          rules={[{ required: true, message: "Please enter exam name" }]}
+        >
+          <Input placeholder="Enter exam name" disabled={isViewMode} />
+        </Form.Item>
 
-          {/* <Col span={12}>
-            <Form.Item
-              label="Program"
-              name="program"
-              rules={[{ required: true, message: "Please select program" }]}
-            >
-              <Select placeholder="Select program">
-                <Option value="Mathematics">Mathematics</Option>
-                <Option value="Physics">Physics</Option>
-                <Option value="Chemistry">Chemistry</Option>
-                <Option value="Biology">Biology</Option>
-              </Select>
-            </Form.Item>
-          </Col> */}
-        </Row>
-
-        {/* Row 2: Package (NEW) */}
+        {/* Program & Package on same line */}
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
@@ -83,62 +125,71 @@ const AddExamModal = ({ open, onCancel, onCreate, editingExam, mode }) => {
               name="program"
               rules={[{ required: true, message: "Please select program" }]}
             >
-              <Select placeholder="Select program">
-                <Option value="Mathematics">Mathematics</Option>
-                <Option value="Physics">Physics</Option>
-                <Option value="Chemistry">Chemistry</Option>
-                <Option value="Biology">Biology</Option>
+              <Select
+                placeholder={programsLoading ? "Loading..." : "Select program"}
+                loading={programsLoading}
+                onChange={handleProgramChange}
+                allowClear
+                disabled={isViewMode}
+              >
+                {programs.map((p) => (
+                  <Option key={p.id} value={p.id}>
+                    {p.name}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
           </Col>
+
           <Col span={12}>
             <Form.Item
               label="Package"
               name="package"
-              rules={[{ required: true, message: "Please select a package" }]}
+              rules={[{ required: true, message: "Please select package" }]}
             >
-              <Select placeholder="Select package">
-                <Option value="Free">Free</Option>
-                <Option value="Basic">Basic</Option>
-                <Option value="Premium">Premium</Option>
+              <Select
+                placeholder={packagesLoading ? "Loading..." : "Select package"}
+                loading={packagesLoading}
+                allowClear
+                disabled={isViewMode}
+              >
+                {packages.map((p) => (
+                  <Option key={p.id} value={p.id}>
+                    {p.name}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
           </Col>
         </Row>
 
-        {/* Row 3: Exam Link */}
-        <Row gutter={16}>
-          <Col span={24}>
-            <Form.Item
-              label="Exam Link"
-              name="link"
-              rules={[
-                { required: true, message: "Please enter exam link" },
-                { type: "url", message: "Please enter a valid URL" },
-              ]}
-            >
-              <Input placeholder="https://example.com/exam" />
-            </Form.Item>
-          </Col>
-        </Row>
+        {/* Instruction */}
+        <Form.Item label="Instruction" name="instructions">
+          <TextArea
+            placeholder="Enter exam instructions"
+            rows={3}
+            disabled={isViewMode}
+          />
+        </Form.Item>
 
-        {/* Row 4: Instructions */}
-        <Row gutter={16}>
-          <Col span={24}>
-            <Form.Item
-              label="Instructions"
-              name="instructions"
-              rules={[
-                { required: true, message: "Please enter exam instructions" },
-              ]}
-            >
-              <TextArea
-                rows={4}
-                placeholder="Enter exam instructions here..."
-              />
-            </Form.Item>
-          </Col>
-        </Row>
+        {/* Exam Link */}
+        <Form.Item label="Exam Link" name="exam_link">
+          <Input
+            placeholder="Enter exam link"
+            disabled={isViewMode}
+            addonAfter={
+              isViewMode && form.getFieldValue("exam_link") ? (
+                <a
+                  href={form.getFieldValue("exam_link")}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open
+                </a>
+              ) : null
+            }
+          />
+        </Form.Item>
       </Form>
     </Modal>
   );

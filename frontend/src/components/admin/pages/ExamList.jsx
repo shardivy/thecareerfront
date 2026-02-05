@@ -1,10 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   Table,
-  Tag,
   Typography,
-  message,
   Space,
   Button,
   Input,
@@ -14,6 +12,7 @@ import {
   Select,
   Switch,
   Modal,
+  message,
 } from "antd";
 import {
   EditOutlined,
@@ -24,157 +23,195 @@ import {
   ExclamationCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchExams, updateExam } from "../../../adminSlices/examSlice";
 import AddExamModal from "../modals/AddExamModal";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+const { confirm } = Modal;
 
 const ExamList = () => {
-  const [exams, setExams] = useState([
-    {
-      key: 1,
-      name: "Mathematics Final Exam",
-      program: "Mathematics",
-      package: "Premium",
-      created_at: "2026-02-10",
-      status: true,
-    },
-    {
-      key: 2,
-      name: "Physics Midterm",
-      program: "Physics",
-      package: "Basic",
-      created_at: "2026-03-15",
-      status: false,
-    },
-    {
-      key: 3,
-      name: "Chemistry Test",
-      program: "Chemistry",
-      package: "Free",
-      created_at: "2026-04-05",
-      status: true,
-    },
-  ]);
+  const dispatch = useDispatch();
+  const { list: exams = [], loading } = useSelector((state) => state.exam);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingExam, setEditingExam] = useState(null);
   const [modalMode, setModalMode] = useState("create");
+  const [editingExam, setEditingExam] = useState(null);
 
-  /* -------- CONFIRM MODAL STATES -------- */
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirmType, setConfirmType] = useState(""); // status | delete
-  const [selectedRecord, setSelectedRecord] = useState(null);
-
-  /* -------- FILTER STATES -------- */
   const [searchText, setSearchText] = useState("");
   const [filterDate, setFilterDate] = useState(null);
   const [filterProgram, setFilterProgram] = useState(null);
   const [filterPackage, setFilterPackage] = useState(null);
 
-  /* -------- OPEN CONFIRM MODAL -------- */
-  const openConfirmModal = (type, record) => {
-    setConfirmType(type);
-    setSelectedRecord(record);
-    setConfirmOpen(true);
-  };
+  useEffect(() => {
+    dispatch(fetchExams());
+  }, [dispatch]);
 
-  /* -------- CONFIRM ACTION -------- */
-  const handleConfirmOk = () => {
-    if (!selectedRecord) return;
+  /* ---------- CONFIRM STATUS TOGGLE ---------- */
+const handleStatusToggle = (record) => {
+  confirm({
+    title: "Confirmation",
+    icon: <ExclamationCircleOutlined />,
+    centered: true,
+    okText: "Yes",
+    cancelText: "No",
 
-    if (confirmType === "status") {
-      setExams((prev) =>
-        prev.map((exam) =>
-          exam.key === selectedRecord.key
-            ? { ...exam, status: !exam.status }
-            : exam
-        )
-      );
+   content: (
+  <div>
+    <p>
+      Are you sure you want to{" "}
+      <strong>
+        {record.is_active ? "inactivate" : "activate"}
+      </strong>{" "}
+      the exam{" "}
+      <Text strong type="colorTextSecondary">
+        {record.exam_name}
+      </Text>
+      ?
+    </p>
+  </div>
+),
 
-      message.success(
-        `Exam ${
-          selectedRecord.status ? "Inactivated" : "Activated"
-        } successfully`
-      );
-    }
 
-    if (confirmType === "delete") {
-      setExams((prev) =>
-        prev.filter((exam) => exam.key !== selectedRecord.key)
-      );
-      message.success("Exam deleted successfully");
-    }
+    onOk: async () => {
+      try {
+        await dispatch(
+          updateExam({
+            id: record.id,
+            payload: { is_active: !record.is_active },
+          })
+        ).unwrap();
 
-    setConfirmOpen(false);
-    setSelectedRecord(null);
-    setConfirmType("");
-  };
+        message.success(
+          `Exam ${
+            record.is_active ? "inactivated" : "activated"
+          } successfully`
+        );
 
-  /* -------- FILTER LOGIC -------- */
-  const filteredExams = exams.filter((exam) => {
-    const search = searchText.toLowerCase();
+        dispatch(fetchExams());
+      } catch (err) {
+        message.error("Failed to update exam status");
+      }
+    },
+  });
+};
+
+
+
+  /* ---------- SAFE FILTER ---------- */
+  const filteredExams = (exams || []).filter((exam = {}) => {
+    const search = (searchText || "").toLowerCase();
+
+    const examName = (exam.exam_name || "").toLowerCase();
+    const program = (exam.program || "").toLowerCase();
+    const pack = (exam.package || "").toLowerCase();
 
     const matchesSearch =
-      exam.name.toLowerCase().includes(search) ||
-      exam.program.toLowerCase().includes(search) ||
-      exam.package.toLowerCase().includes(search);
+      examName.includes(search) ||
+      program.includes(search) ||
+      pack.includes(search);
 
     const matchesDate = filterDate
-      ? exam.created_at === dayjs(filterDate).format("YYYY-MM-DD")
+      ? exam.created_at &&
+        dayjs(exam.created_at).format("YYYY-MM-DD") ===
+          dayjs(filterDate).format("YYYY-MM-DD")
       : true;
 
-    const matchesProgram = filterProgram
-      ? exam.program === filterProgram
-      : true;
-
-    const matchesPackage = filterPackage
-      ? exam.package === filterPackage
-      : true;
+    const matchesProgram = filterProgram ? exam.program === filterProgram : true;
+    const matchesPackage = filterPackage ? exam.package === filterPackage : true;
 
     return matchesSearch && matchesDate && matchesProgram && matchesPackage;
   });
 
-  /* -------- TABLE COLUMNS -------- */
+  const breakAfterThreeWords = (text = "") => {
+    if (!text) return "-";
+    const words = text.split(" ");
+    let lines = [];
+    for (let i = 0; i < words.length; i += 3) {
+      lines.push(words.slice(i, i + 3).join(" "));
+    }
+    return lines.join("\n");
+  };
+
+  /* ---------- TABLE COLUMNS ---------- */
   const columns = [
     {
       title: "Sr. No.",
       render: (_, __, index) => index + 1,
+      width: 80,
     },
     {
       title: "Exam Name",
-      dataIndex: "name",
+      dataIndex: "exam_name",
+      render: (text) => (
+        <span style={{ whiteSpace: "pre-line" }}>
+          {breakAfterThreeWords(text)}
+        </span>
+      ),
     },
     {
       title: "Program",
       dataIndex: "program",
+      render: (text) => (
+        <span style={{ whiteSpace: "pre-line" }}>
+          {breakAfterThreeWords(text)}
+        </span>
+      ),
     },
     {
       title: "Package",
       dataIndex: "package",
+      render: (text) => (
+        <span style={{ whiteSpace: "pre-line" }}>
+          {breakAfterThreeWords(text)}
+        </span>
+      ),
+    },
+    {
+      title: "Instruction",
+      dataIndex: "instructions",
+      render: (text) => (
+        <span style={{ whiteSpace: "pre-line" }}>
+          {breakAfterThreeWords(text)}
+        </span>
+      ),
+    },
+    {
+      title: "Exam Link",
+      dataIndex: "exam_link",
+      render: (text) =>
+        text ? (
+          <a href={text} target="_blank" rel="noopener noreferrer">
+            View Link
+          </a>
+        ) : (
+          "-"
+        ),
     },
     {
       title: "Status",
       render: (_, record) => (
-        <Space>
-          <Tag color={record.status ? "green" : "red"}>
-            {record.status ? "Active" : "Inactive"}
-          </Tag>
-          <Switch
-            checked={record.status}
-            onClick={() => openConfirmModal("status", record)}
-          />
-        </Space>
+        <Switch
+          checked={record.is_active}
+          size="large"
+          checkedChildren="Active"
+          unCheckedChildren="Inactive"
+          onChange={() => handleStatusToggle(record)}
+        />
       ),
     },
     {
       title: "Created At",
-      dataIndex: "created_at",
+      render: (_, record) =>
+        record.created_at
+          ? dayjs(record.created_at).format("YYYY-MM-DD")
+          : "-",
     },
     {
       title: "Actions",
       render: (_, record) => (
-        <Space>
+        <Space wrap size="small">
           <Button
             icon={<EyeOutlined />}
             onClick={() => {
@@ -198,11 +235,7 @@ const ExamList = () => {
             Edit
           </Button>
 
-          <Button
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => openConfirmModal("delete", record)}
-          >
+          <Button danger icon={<DeleteOutlined />}>
             Delete
           </Button>
         </Space>
@@ -211,27 +244,42 @@ const ExamList = () => {
   ];
 
   return (
-    <div style={{ padding: 20 }}>
-      <Row justify="space-between" align="middle">
-        <Title level={3}>Manage Exams</Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => {
-            setEditingExam(null);
-            setModalMode("create");
-            setModalOpen(true);
-          }}
-        >
-          Add Exam
-        </Button>
+    <div style={{ padding: 16 }}>
+      <Row justify="space-between" align="middle" gutter={[16, 16]}>
+        <Col>
+          <Title level={3} style={{ margin: 0 }}>
+            Manage Exams
+          </Title>
+        </Col>
+
+
+
+        <Col>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setEditingExam(null);
+              setModalMode("create");
+              setModalOpen(true);
+            }}
+          >
+            Add Exam
+          </Button>
+        </Col>
       </Row>
 
       <Card style={{ marginTop: 16 }}>
+           <Col>
+  <Title level={5} style={{ margin: 10 }}>
+    Exam Records ({filteredExams.length})
+  </Title>
+</Col>
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          
           <Col md={6}>
             <Input
-              placeholder="Search exam..."
+              placeholder="Search..."
               prefix={<SearchOutlined />}
               allowClear
               value={searchText}
@@ -241,7 +289,7 @@ const ExamList = () => {
 
           <Col md={6}>
             <Select
-              placeholder="Filter by program"
+              placeholder="Program"
               allowClear
               style={{ width: "100%" }}
               value={filterProgram}
@@ -257,7 +305,7 @@ const ExamList = () => {
 
           <Col md={6}>
             <Select
-              placeholder="Filter by package"
+              placeholder="Package"
               allowClear
               style={{ width: "100%" }}
               value={filterPackage}
@@ -273,7 +321,6 @@ const ExamList = () => {
 
           <Col md={6}>
             <DatePicker
-              placeholder="Filter by date"
               style={{ width: "100%" }}
               value={filterDate}
               onChange={setFilterDate}
@@ -284,53 +331,23 @@ const ExamList = () => {
         <Table
           columns={columns}
           dataSource={filteredExams}
-          rowKey="key"
+          rowKey="id"
+          loading={loading}
           pagination={{ pageSize: 5 }}
-          scroll={{ x: 900 }}
+          scroll={{ x: "max-content" }}
         />
       </Card>
 
-      {/* ---------- CONFIRMATION MODAL ---------- */}
-      <Modal
-        open={confirmOpen}
-        centered
-        title={
-          <Space>
-            <ExclamationCircleOutlined style={{ color: "#faad14" }} />
-            Confirmation
-          </Space>
-        }
-        okText="Yes, Confirm"
-        cancelText="Cancel"
-        okButtonProps={{
-          danger: confirmType === "delete",
-        }}
-        onOk={handleConfirmOk}
-        onCancel={() => setConfirmOpen(false)}
-      >
-        <Text>
-          {confirmType === "status" &&
-            `Are you sure you want to ${
-              selectedRecord?.status ? "inactivate" : "activate"
-            } this exam?`}
-          {confirmType === "delete" &&
-            "Are you sure you want to delete this exam?"}
-        </Text>
-
-        <div style={{ marginTop: 8 }}>
-          <Text strong>{selectedRecord?.name}</Text>
-        </div>
-      </Modal>
-
       <AddExamModal
         open={modalOpen}
-        editingExam={editingExam}
         mode={modalMode}
+        editingExam={editingExam}
         onCancel={() => {
           setModalOpen(false);
           setEditingExam(null);
           setModalMode("create");
         }}
+        onSuccess={() => dispatch(fetchExams())}
       />
     </div>
   );

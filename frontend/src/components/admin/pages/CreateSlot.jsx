@@ -284,10 +284,7 @@ const columns = [
   loading={loading}
   locale={{ emptyText: error ? `Error: ${error}` : "No slots found" }}
 />
-
-
-
-        </Spin>
+ </Spin>
       </Card>
 
       <CreateSlotModal

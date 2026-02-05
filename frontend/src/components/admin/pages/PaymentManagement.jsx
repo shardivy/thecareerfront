@@ -100,54 +100,7 @@ const PaymentManagement = () => {
             ),
         },
     ];
-    /* ---------------- DATA ---------------- */
-    // const paymentRecords = [
-    //     {
-    //         key: 1,
-    //         name: "Priya Sharma",
-    //         package: "Premium",
-    //         amount: "₹25,000",
-    //         status: "Fully Paid",
-    //         paymentMethod: "UPI",
-    //         date: "2025-12-20",
-    //         txn: "TXN1234567890",
-    //         proof: true,
-    //     },
-    //     {
-    //         key: 2,
-    //         name: "Rajesh Kumar",
-    //         package: "Standard",
-    //         amount: "₹7,500 / ₹15,000",
-    //         status: "Partial Paid",
-    //         paymentMethod: "Cash",
-    //         date: "2026-01-05",
-    //         txn: "TXN1234567891",
-    //         proof: true,
-    //     },
-    //     {
-    //         key: 3,
-    //         name: "Anjali Verma",
-    //         package: "Basic",
-    //         amount: "₹10,000",
-    //         status: "Verification Pending",
-    //         paymentMethod: "UPI",
-    //         date: "2026-01-08",
-    //         txn: "TXN1234567892",
-    //         proof: true,
-    //     },
-    //     {
-    //         key: 4,
-    //         name: "Vikram Singh",
-    //         package: "Premium",
-    //         amount: "₹25,000",
-    //         status: "Pending",
-    //         paymentMethod: "-",
-    //         date: "-",
-    //         txn: "-",
-    //         proof: false,
-    //     },
-    // ];
-
+  
     /* ---------------- STATUS COLORS ---------------- */
     const statusColorMap = {
         "Fully Paid": "success",
@@ -215,30 +168,48 @@ const PaymentManagement = () => {
     });
 
 
-
+  const breakAfterThreeWords = (text = "") => {
+    if (!text) return "-";
+    const words = text.split(" ");
+    let lines = [];
+    for (let i = 0; i < words.length; i += 3) {
+      lines.push(words.slice(i, i + 3).join(" "));
+    }
+    return lines.join("\n");
+  };
     /* ---------------- TABLE COLUMNS ---------------- */
     const columns = [
+           {
+      title: "Sr. No.",
+      render: (_, __, index) => index + 1,
+      width: 50,
+    },
         { title: "User Name", dataIndex: "name" },
         { title: "Package", dataIndex: "package" },
         { title: "Amount", dataIndex: "amount" },
-        {
-            title: "Payment Status",
-            dataIndex: "status",
-            render: (status) => (
-                <Tag color={statusColorMap[status]}>
-                    {status}
-                </Tag>
-            ),
-        },
+{
+  title: "Payment Status",
+  dataIndex: "status",
+  render: (status) => (
+    <Tag color={statusColorMap[status]}>
+      {/* Use <div> with white-space: pre-line to respect \n line breaks */}
+      <div style={{ whiteSpace: "pre-line" }}>
+        {breakAfterThreeWords(status)}
+      </div>
+    </Tag>
+  ),
+},
+ 
         {
             title: "Payment Method",
             dataIndex: "paymentMethod",
             render: (method) =>
-                method === "-" ? <Text type="secondary">-</Text> : <Tag>{method}</Tag>,
+                method === "-" ? <Text type="colorTextSecondary">-</Text> : <Tag>{method}</Tag>,
         },
         {
             title: "Payment Date",
             dataIndex: "date",
+            width: 150,
             render: (date) =>
                 date === "-" ? "-" : (
                     <Space>
@@ -258,14 +229,14 @@ const PaymentManagement = () => {
                             size="large"
                             type="primary"
                             icon={<CheckCircleOutlined />}
-                          onClick={() => {
-    setSelectedPayment({
-        ...record,
-        mode: "verify",
-        paymentDate: record.date !== "-" ? record.date : null, // <-- ADD THIS
-    });
-    setIsModalOpen(true);
-}}
+                            onClick={() => {
+                                setSelectedPayment({
+                                    ...record,
+                                    mode: "verify",
+                                    paymentDate: record.date !== "-" ? record.date : null, // <-- ADD THIS
+                                });
+                                setIsModalOpen(true);
+                            }}
                         >
                             Verify
                         </Button>
@@ -405,6 +376,7 @@ const PaymentManagement = () => {
                 <UploadPaymentModal
                     open={isUploadModalOpen}
                     onClose={() => setIsUploadModalOpen(false)}
+                    onSuccess={() => dispatch(fetchPayments())}
                 />
 
             </div>

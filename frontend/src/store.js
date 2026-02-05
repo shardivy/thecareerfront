@@ -12,11 +12,14 @@ import packageReducer from "./adminSlices/packageSlice";
 import paymentReducer from "./adminSlices/paymentSlice";
 import counsellingSlotReducer from "./adminSlices/counsellingSlotSlice";
 import counsellorReducer from "./adminSlices/counsellorSlice";
-import normalCounsellorReducer from "./adminSlices/normalCounsellorSlice";
+// import normalCounsellorReducer from "./adminSlices/normalCounsellorSlice";
 import counsellingBookingReducer from "./adminSlices/counsellingBookingSlice";
 import profileReducer from "./adminSlices/profileSlice";
 import convertEnquiryReducer from "./adminSlices/convertEnquirySlice";
 import updateEnquiryReducer from "./adminSlices/updateEnquirySlice";
+import examReducer from "./adminSlices/examSlice";
+import userExamReducer from "./adminSlices/userExamSlice";
+import reportReducer from "./adminSlices/reportSlice";
 
 
 const store = configureStore({
@@ -32,11 +35,15 @@ const store = configureStore({
         payment: paymentReducer,
         counsellingSlots: counsellingSlotReducer,
         counsellors: counsellorReducer,
-        normalCounsellors: normalCounsellorReducer,
+        // normalCounsellors: normalCounsellorReducer,
         counsellingBooking: counsellingBookingReducer,
         profile: profileReducer,
         convertEnquiry: convertEnquiryReducer,
         updateEnquiry: updateEnquiryReducer,
+        exam: examReducer,
+        userExams: userExamReducer,
+        reports: reportReducer,
+
 
   },
 });

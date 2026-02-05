@@ -18,29 +18,29 @@ const AddPackageModal = ({
 
   const { list: packages, loading } = useSelector((state) => state.packages);
 
+  // Fetch packages when modal opens
   useEffect(() => {
     if (visible && !packages.length) {
       dispatch(fetchPackages());
     }
   }, [visible, packages.length, dispatch]);
 
-  // ✅ Prefill form correctly
-useEffect(() => {
-  if (initialValues) {
-    form.setFieldsValue({
-      name: initialValues.name || "",
-      program_id: initialValues.program?.id || undefined, // fetch program id
-      price: Number(initialValues.price) || "",
-      features: Array.isArray(initialValues.features)
-        ? initialValues.features.map(f => f.description) // map objects to strings
-        : [],
-    });
-  } else {
-    form.resetFields();
-  }
-}, [initialValues, form]);
-
-
+  // Prefill form (Edit / View)
+  useEffect(() => {
+    if (initialValues) {
+      form.setFieldsValue({
+        name: initialValues.name || "",
+        description: initialValues.description || "",
+        program_id: initialValues.program?.id || undefined,
+        price: Number(initialValues.price) || "",
+        features: Array.isArray(initialValues.features)
+          ? initialValues.features.map((f) => f.description)
+          : [],
+      });
+    } else {
+      form.resetFields();
+    }
+  }, [initialValues, form]);
 
   const handleFinish = (values) => {
     onSubmit(values);
@@ -49,32 +49,47 @@ useEffect(() => {
 
   return (
     <Modal
-      title={viewMode ? "View Package" : initialValues ? "Edit Package" : "Create Package"}
+      title={
+        viewMode
+          ? "View Package"
+          : initialValues
+          ? "Edit Package"
+          : "Create Package"
+      }
       open={visible}
       onCancel={onClose}
       footer={null}
       centered
+      destroyOnClose
     >
       <Form layout="vertical" form={form} onFinish={handleFinish}>
 
         {/* PACKAGE NAME */}
+      <Form.Item
+  label="Package"
+  name="name"
+  rules={[{ required: true, message: "Please enter package name" }]}
+>
+  <Input
+    placeholder="Enter package name"
+    disabled={viewMode}
+  />
+</Form.Item>
+
+        {/* DESCRIPTION */}
         <Form.Item
-          label="Package"
-          name="name"
-          rules={[{ required: true, message: "Please select package" }]}
+          label="Description"
+          name="description"
+          rules={[
+            { required: true, message: "Please enter description" },
+            { max: 200, message: "Maximum 200 characters allowed" },
+          ]}
         >
-          <Select
-            placeholder="Select package"
-            loading={loading}
-            allowClear
+          <Input.TextArea
+            placeholder="Enter package description"
+            rows={3}
             disabled={viewMode}
-          >
-            {packages.map((pkg) => (
-              <Option key={pkg.name} value={pkg.name}>
-                {pkg.name}
-              </Option>
-            ))}
-          </Select>
+          />
         </Form.Item>
 
         {/* PROGRAM */}
@@ -83,7 +98,11 @@ useEffect(() => {
           name="program_id"
           rules={[{ required: true, message: "Please select a program" }]}
         >
-          <Select placeholder="Select program" disabled={viewMode}>
+          <Select
+            placeholder="Select program"
+            disabled={viewMode}
+            loading={loading}
+          >
             {programs.map((prog) => (
               <Option key={prog.id} value={prog.id}>
                 {prog.name}
@@ -98,7 +117,11 @@ useEffect(() => {
           name="price"
           rules={[{ required: true, message: "Please enter price" }]}
         >
-          <Input type="number" placeholder="e.g. 999" disabled={viewMode} />
+          <Input
+            type="number"
+            placeholder="e.g. 999"
+            disabled={viewMode}
+          />
         </Form.Item>
 
         {/* FEATURES */}
@@ -118,7 +141,13 @@ useEffect(() => {
         {/* ACTION BUTTONS */}
         {!viewMode && (
           <Form.Item>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 8,
+              }}
+            >
               <Button onClick={onClose}>Cancel</Button>
               <Button type="primary" htmlType="submit">
                 Submit

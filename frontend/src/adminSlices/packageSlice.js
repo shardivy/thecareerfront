@@ -1,42 +1,58 @@
 // src/adminSlices/packageSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getPackagesApi, createPackageApi, updatePackageApi } from "../adminApi/packageApi";
+import {
+  getPackagesApi,
+  createPackageApi,
+  updatePackageApi,
+  getPackagesByProgramApi,
+} from "../adminApi/packageApi";
 
-// -------- FETCH PACKAGES --------
+/* FETCH ALL PACKAGES */
 export const fetchPackages = createAsyncThunk(
   "packages/fetch",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await getPackagesApi();
-      return res;
+      return await getPackagesApi();
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to load packages");
+      return rejectWithValue("Failed to load packages");
     }
   }
 );
 
-// -------- CREATE PACKAGE --------
+/* FETCH PACKAGES BY PROGRAM */
+export const fetchPackagesByProgram = createAsyncThunk(
+  "packages/fetchByProgram",
+  async (programId, { rejectWithValue }) => {
+    try {
+      const response = await getPackagesByProgramApi(programId);
+      return response.data.packages; // ✅ FIX
+    } catch {
+      return rejectWithValue("Failed to fetch packages");
+    }
+  }
+);
+
+
+/* CREATE PACKAGE */
 export const createPackage = createAsyncThunk(
   "packages/create",
   async (payload, { rejectWithValue }) => {
     try {
-      const res = await createPackageApi(payload);
-      return res;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to create package");
+      return await createPackageApi(payload);
+    } catch {
+      return rejectWithValue("Failed to create package");
     }
   }
 );
 
-// -------- UPDATE PACKAGE --------
+/* UPDATE PACKAGE */
 export const updatePackage = createAsyncThunk(
   "packages/update",
   async ({ id, payload }, { rejectWithValue }) => {
     try {
-      const res = await updatePackageApi(id, payload);
-      return res;
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.message || "Failed to update package");
+      return await updatePackageApi(id, payload);
+    } catch {
+      return rejectWithValue("Failed to update package");
     }
   }
 );
@@ -48,54 +64,57 @@ const packageSlice = createSlice({
     loading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    /* ✅ NOW clearPackages EXISTS */
+    clearPackages: (state) => {
+      state.list = [];
+    },
+  },
   extraReducers: (builder) => {
     builder
-      // FETCH
+      /* FETCH ALL */
       .addCase(fetchPackages.pending, (state) => {
         state.loading = true;
-        state.error = null;
       })
       .addCase(fetchPackages.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = Array.isArray(action.payload?.data) ? action.payload.data : [];
+        state.list = action.payload?.data || [];
       })
       .addCase(fetchPackages.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
-      // CREATE
-      .addCase(createPackage.pending, (state) => {
+      /* ✅ FETCH BY PROGRAM */
+    .addCase(fetchPackagesByProgram.pending, (state) => {
         state.loading = true;
-        state.error = null;
+        state.list = [];
       })
-      .addCase(createPackage.fulfilled, (state, action) => {
+      .addCase(fetchPackagesByProgram.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload?.data) state.list.unshift(action.payload.data);
+        state.list = action.payload; // ✅ ARRAY
       })
-      .addCase(createPackage.rejected, (state, action) => {
+      .addCase(fetchPackagesByProgram.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
-      // UPDATE
-      .addCase(updatePackage.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(updatePackage.fulfilled, (state, action) => {
-        state.loading = false;
+      /* CREATE */
+      .addCase(createPackage.fulfilled, (state, action) => {
         if (action.payload?.data) {
-          const index = state.list.findIndex(pkg => pkg.id === action.payload.data.id);
-          if (index !== -1) state.list[index] = action.payload.data;
+          state.list.unshift(action.payload.data);
         }
       })
-      .addCase(updatePackage.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+
+      /* UPDATE */
+      .addCase(updatePackage.fulfilled, (state, action) => {
+        const updated = action.payload?.data;
+        if (!updated) return;
+        const index = state.list.findIndex((p) => p.id === updated.id);
+        if (index !== -1) state.list[index] = updated;
       });
   },
 });
 
+export const { clearPackages } = packageSlice.actions;
 export default packageSlice.reducer;

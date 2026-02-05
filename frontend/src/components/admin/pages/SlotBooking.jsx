@@ -285,6 +285,7 @@ const SlotBooking = () => {
           </Button>
         </Col>
       </Row>
+      
 <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
   {stats.map((item, index) => (
     <Col xs={24} sm={12} md={6} key={index}>
@@ -294,6 +295,7 @@ const SlotBooking = () => {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
+          textAlign: "center",
         }}
       >
         <Text>{item.title}</Text>

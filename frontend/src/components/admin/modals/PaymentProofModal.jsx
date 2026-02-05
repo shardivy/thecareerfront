@@ -217,10 +217,15 @@ const PaymentProofModal = ({ open, onClose, data }) => {
               <Text style={labelStyle}>Student Name</Text>
               <div style={valueBoxStyle}>{data.name}</div>
             </Col>
-            <Col xs={24} md={12}>
-              <Text style={labelStyle}>Package</Text>
-              <div style={valueBoxStyle}>{data.package}</div>
-            </Col>
+           <Col xs={24} md={12}>
+  <Text style={labelStyle}>Package</Text>
+  <div style={valueBoxStyle}>
+    {data?.package
+      ? data.package.charAt(0).toUpperCase() + data.package.slice(1)
+      : "-"}
+  </div>
+</Col>
+
           </Row>
 
           {/* Method + Amount */}

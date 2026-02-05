@@ -25,7 +25,7 @@ import { fetchStudents } from "../../../adminSlices/userSlice";
 
 const { Option } = Select;
 
-const UploadPaymentModal = ({ open, onClose }) => {
+const UploadPaymentModal = ({ open, onClose , onSuccess}) => {
     const [form] = Form.useForm();
     const dispatch = useDispatch();
 
@@ -88,6 +88,7 @@ const UploadPaymentModal = ({ open, onClose }) => {
         if (success) {
             message.success("Payment submitted successfully");
             form.resetFields();
+            onSuccess?.();
             setFileList([]);
             setPreviewUrl("");
             dispatch(resetPaymentState());
@@ -165,27 +166,30 @@ const UploadPaymentModal = ({ open, onClose }) => {
                         </Form.Item>
                     </Col>
 
-                    <Col span={12}>
-                        <Form.Item
-                            label="Package"
-                            name="package"
-                            rules={[
-                                { required: true, message: "Please select package" },
-                            ]}
-                        >
-                            <Select
-                                placeholder="Select package"
-                                loading={packageLoading}
-                                allowClear
-                            >
-                                {packageList.map((pkg) => (
-                                    <Option key={pkg.id} value={pkg.id}>
-                                        {pkg.name}
-                                    </Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
-                    </Col>
+<Col span={12}>
+  <Form.Item
+    label="Package"
+    name="package"
+    rules={[
+      { required: true, message: "Please select package" },
+    ]}
+  >
+    <Select
+      placeholder="Select package"
+      loading={packageLoading}
+      allowClear
+    >
+      {packageList.map((pkg) => (
+        <Select.Option key={pkg.id} value={pkg.id}>
+          {pkg.name
+            ? pkg.name.charAt(0).toUpperCase() + pkg.name.slice(1)
+            : "-"}
+        </Select.Option>
+      ))}
+    </Select>
+  </Form.Item>
+</Col>
+
                 </Row>
 
                 <Row gutter={16}>

@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Row,
   Col,
@@ -22,128 +23,19 @@ import {
   SearchOutlined,
   CheckCircleOutlined,
   FileSyncOutlined,
+  DownOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import ViewReportModal from "../modals/ViewReportModal";
 import VerifyReviewModal from "../modals/VerifyReviewModal";
+import { fetchCompletedExamReports } from "../../../adminSlices/reportSlice";
+import { fetchReportStats } from "../../../adminSlices/reportSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-/* ----------------- STATS DATA ----------------- */
-const stats = [
-  {
-    title: "Total Reports",
-    value: 156,
-    icon: <FileOutlined style={{ color: adminTheme.token.colorPrimary }} />,
-  },
-  {
-    title: "Unlocked",
-    value: 118,
-    icon: <UnlockOutlined style={{ color: adminTheme.token.colorSuccess }} />,
-  },
-  {
-    title: "Locked",
-    value: 16,
-    icon: <LockOutlined style={{ color: adminTheme.token.colorError }} />,
-  },
-  {
-    title: "Pending Upload",
-    value: 8,
-    icon: <UploadOutlined style={{ color: adminTheme.token.colorWarning }} />,
-  },
-  {
-    title: "Review Pending",
-    value: 14,
-    icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
-  },
-];
 
-/* ----------------- TABLE DATA ----------------- */
-const reportData = [
-  {
-    key: 1,
-    name: "Priya Sharma",
-    email: "priya.sharma@email.com",
-    program: "Engineering Career Path",
-    status: "Unlocked",
-    paymentStatus: "Fully Paid",
-    examStatus: "Completed",
-    uploadedDate: "2026-01-06",
-  },
-  {
-    key: 2,
-    name: "Rajesh Kumar",
-    email: "rajesh.kumar@email.com",
-    program: "Medical Career Guidance",
-    status: "Locked",
-    paymentStatus: "Partial Paid",
-    examStatus: "Completed",
-    uploadedDate: "2026-01-11",
-  },
-  {
-    key: 3,
-    name: "Anjali Verma",
-    email: "anjali.verma@email.com",
-    program: "MBA Preparation",
-    status: "Review Verification Pending",
-    paymentStatus: "Fully Paid",
-    examStatus: "Completed",
-    uploadedDate: "2026-01-15",
-  },
-  {
-    key: 4,
-    name: "Vikram Singh",
-    email: "vikram.singh@email.com",
-    program: "Career Assessment",
-    status: "Pending Upload",
-    paymentStatus: "Pending",
-    examStatus: "Not Started",
-    uploadedDate: "-",
-  },
-  {
-    key: 5,
-    name: "Sneha Patel",
-    email: "sneha.patel@email.com",
-    program: "Law Career Guidance",
-    status: "Review Verification Pending",
-    paymentStatus: "Fully Paid",
-    examStatus: "Completed",
-    uploadedDate: "2026-01-18",
-  },
-  {
-    key: 6,
-    name: "Rahul Mehta",
-    email: "rahul.mehta@email.com",
-    program: "Data Science Career",
-    status: "Review Verification Pending",
-    paymentStatus: "Fully Paid",
-    examStatus: "Completed",
-    uploadedDate: "2026-01-20",
-  },
-  {
-    key: 7,
-    name: "Kavita Nair",
-    email: "kavita.nair@email.com",
-    program: "Design Thinking",
-    status: "Unlocked",
-    paymentStatus: "Fully Paid",
-    examStatus: "Completed",
-    uploadedDate: "2026-01-12",
-  },
-  {
-    key: 8,
-    name: "Amit Joshi",
-    email: "amit.joshi@email.com",
-    program: "Research Methodology",
-    status: "Review Verification Pending",
-    paymentStatus: "Partial Paid",
-    examStatus: "Completed",
-    uploadedDate: "2026-01-22",
-  },
-];
-
-/* ----------------- COLOR MAPS ----------------- */
+/* ----------------- STATUS COLOR MAPS ----------------- */
 const statusColorMap = {
   Unlocked: adminTheme.token.colorSuccess,
   Locked: adminTheme.token.colorError,
@@ -154,7 +46,6 @@ const statusColorMap = {
 const paymentStatusColorMap = {
   "Fully Paid": adminTheme.token.colorSuccess,
   "Partial Paid": adminTheme.token.colorWarning,
-  "Verification Pending": adminTheme.token.colorInfo,
   Pending: adminTheme.token.colorError,
 };
 
@@ -173,25 +64,113 @@ const statusIconMap = {
 
 /* ----------------- COMPONENT ----------------- */
 const ReportsManagement = () => {
+  const dispatch = useDispatch();
+
+  // const { reports: rawReports = [], loading } = useSelector(
+  //   (state) => state.reports
+  // );
+  const { reports: rawReports = [], stats, loading } = useSelector(
+  (state) => state.reports
+);
+
   const [openViewModal, setOpenViewModal] = useState(false);
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState(null);
   const [modalMode, setModalMode] = useState("view");
-  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
 
-  /* -------- FILTER STATES -------- */
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [showCheckboxes, setShowCheckboxes] = useState(false);
+
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
   const [paymentFilter, setPaymentFilter] = useState(null);
   const [examFilter, setExamFilter] = useState(null);
 
-  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+  /* ----------------- FETCH DATA ----------------- */
+  useEffect(() => {
+    dispatch(fetchCompletedExamReports());
+      dispatch(fetchReportStats()); 
+  }, [dispatch]);
 
 
-  /* -------- FILTER LOGIC -------- */
+  /* ----------------- STATS DATA ----------------- */
+const statsCards = [
+  {
+    title: "Total Reports",
+    value: stats?.total_reports || 0,
+    icon: <FileOutlined style={{ color: adminTheme.token.colorPrimary }} />,
+  },
+  {
+    title: "Unlocked",
+    value: stats?.unlocked || 0,
+    icon: <UnlockOutlined style={{ color: adminTheme.token.colorSuccess }} />,
+  },
+  {
+    title: "Locked",
+    value: stats?.locked || 0,
+    icon: <LockOutlined style={{ color: adminTheme.token.colorError }} />,
+  },
+  {
+    title: "Pending Upload",
+    value: stats?.pending_uploaded || 0,
+    icon: <UploadOutlined style={{ color: adminTheme.token.colorWarning }} />,
+  },
+  {
+    title: "Review Pending",
+    value: stats?.review_pending || 0, 
+    icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
+  },
+];
+
+
+
+  /* ----------------- MAP API → UI DATA ----------------- */
+  const mappedReports = useMemo(() => {
+    if (!Array.isArray(rawReports)) return [];
+
+    return rawReports.map((item) => ({
+      id: item.id,
+      name: `${item.first_name ?? ""} ${item.last_name ?? ""}`.trim(),
+      email: item.email,
+      program: item.program ?? "—",
+
+      status:
+        item.report_status === "pending_uploaded"
+          ? "Pending Upload"
+          : item.report_status === "review_pending"
+            ? "Review Verification Pending"
+            : item.report_status === "unlocked"
+              ? "Unlocked"
+              : item.report_status === "locked"
+                ? "Locked"
+                : "Unknown",
+
+      paymentStatus:
+        item.payment_status === "paid"
+          ? "Fully Paid"
+          : item.payment_status === "partial"
+            ? "Partial Paid"
+            : "Pending",
+
+      examStatus:
+        item.exam_status === "completed"
+          ? "Completed"
+          : item.exam_status === "pending"
+            ? "Pending"
+            : "Not Started",
+
+      uploadedDate: item.uploaded_at
+        ? new Date(item.uploaded_at).toISOString().split("T")[0]
+        : "—",
+    file_path: item.file_path || "",
+    }));
+  }, [rawReports]);
+
+  /* ----------------- FILTER DATA ----------------- */
   const filteredData = useMemo(() => {
     const search = searchText.toLowerCase();
 
-    return reportData.filter((item) => {
+    return mappedReports.filter((item) => {
       const matchesSearch = Object.values(item)
         .join(" ")
         .toLowerCase()
@@ -205,49 +184,70 @@ const ReportsManagement = () => {
 
       return matchesSearch && matchesStatus && matchesPayment && matchesExam;
     });
-  }, [searchText, statusFilter, paymentFilter, examFilter]);
+  }, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
 
-  /* ----------------- HANDLE VERIFY REVIEW ----------------- */
-  const handleVerifyReview = (record) => {
-    message.success(`Review verified for ${record.name}`);
-    // In real app, you would update the status in backend here
-    // For demo, we'll just show a success message
+  /* ----------------- BULK UPLOAD ----------------- */
+  const handleBulkUpload = () => {
+    if (!showCheckboxes) {
+      setShowCheckboxes(true);
+      message.info(
+        "Select reports for bulk upload. Only 'Pending Upload' reports are selectable."
+      );
+      return;
+    }
+
+    if (!selectedRowKeys.length) {
+      message.warning("Please select at least one report.");
+      return;
+    }
+
+    const selectedReports = filteredData.filter((item) =>
+      selectedRowKeys.includes(item.id)
+    );
+
+    setSelectedReport(selectedReports);
+    setModalMode("bulkUpload");
+    setOpenViewModal(true);
+
+    setShowCheckboxes(false);
+    setSelectedRowKeys([]);
   };
+
+  /* ----------------- ROW SELECTION ----------------- */
+  const rowSelection = showCheckboxes
+    ? {
+      selectedRowKeys,
+      onChange: (keys) => setSelectedRowKeys(keys),
+      getCheckboxProps: (record) => ({
+        disabled: record.status !== "Pending Upload",
+      }),
+    }
+    : null;
 
   /* ----------------- TABLE COLUMNS ----------------- */
   const columns = [
     {
       title: "Sr. No",
-      key: "srno",
       render: (_, __, index) => index + 1,
-      responsive: ["xs", "sm", "md", "lg", "xl"],
     },
-  {
-  title: "User",
-  dataIndex: "name",
-  key: "name",
-  render: (text, record) => (
-    <>
-      <Text strong>{text}</Text>
-      <br />
-      <Text type="colorTextSecondary" >
-        {record.email}
-      </Text>
-    </>
-  ),
-  responsive: ["xs", "sm", "md", "lg", "xl"],
-},
-
+    {
+      title: "User Name",
+      dataIndex: "name",
+      render: (text, record) => (
+        <>
+          <Text strong>{text}</Text>
+          <br />
+          <Text type="colorTextSecondary">{record.email}</Text>
+        </>
+      ),
+    },
     {
       title: "Program",
       dataIndex: "program",
-      key: "program",
-      responsive: ["sm", "md", "lg", "xl"],
     },
     {
-      title: "Status",
+      title: "Report Status",
       dataIndex: "status",
-      key: "status",
       render: (status) => (
         <Tag
           color={statusColorMap[status]}
@@ -257,39 +257,31 @@ const ReportsManagement = () => {
           {status}
         </Tag>
       ),
-      responsive: ["sm", "md", "lg", "xl"],
     },
     {
       title: "Payment Status",
       dataIndex: "paymentStatus",
-      key: "paymentStatus",
       render: (text) => (
         <Tag color={paymentStatusColorMap[text]} style={{ borderRadius: 20 }}>
           {text}
         </Tag>
       ),
-      responsive: ["md", "lg", "xl"],
     },
     {
       title: "Exam Status",
       dataIndex: "examStatus",
-      key: "examStatus",
       render: (text) => (
         <Tag color={examStatusColorMap[text]} style={{ borderRadius: 20 }}>
           {text}
         </Tag>
       ),
-      responsive: ["md", "lg", "xl"],
     },
     {
       title: "Uploaded Date",
       dataIndex: "uploadedDate",
-      key: "uploadedDate",
-      responsive: ["md", "lg", "xl"],
     },
     {
       title: "Actions",
-      key: "actions",
       render: (_, record) => (
         <Space wrap>
           {record.status === "Pending Upload" ? (
@@ -300,6 +292,7 @@ const ReportsManagement = () => {
                 setSelectedReport(record);
                 setModalMode("edit");
                 setOpenViewModal(true);
+                  console.log("ROW DATA 👉", record);
               }}
             >
               Upload
@@ -330,8 +323,6 @@ const ReportsManagement = () => {
               >
                 Verify Review
               </Button>
-
-
             </>
           ) : (
             <>
@@ -359,57 +350,83 @@ const ReportsManagement = () => {
           )}
         </Space>
       ),
-      responsive: ["xs", "sm", "md", "lg", "xl"],
     },
   ];
 
-  /* ----------------- BULK UPLOAD HANDLER ----------------- */
-  const handleBulkUpload = () => {
-    if (!selectedRowKeys.length) {
-      message.warning("Please select at least one report to upload.");
-      return;
-    }
-    const selectedReports = filteredData.filter((item) =>
-      selectedRowKeys.includes(item.key)
-    );
-    setSelectedReport(selectedReports);
-    setModalMode("bulkUpload");
-    setOpenViewModal(true);
-  };
-
-  /* ----------------- ROW SELECTION ----------------- */
-  const rowSelection = {
-    selectedRowKeys,
-    onChange: (keys) => setSelectedRowKeys(keys),
-    getCheckboxProps: (record) => ({
-      disabled: record.status !== "Pending Upload", // only Pending Upload selectable
-    }),
-  };
-
   return (
-    <div style={{ padding: "16px" }}>
+    <div style={{ padding: 16 }}>
       <Title level={3}>Report Management</Title>
-
       {/* ----------------- STATS ----------------- */}
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        {stats.map((stat, index) => (
-          <Col xs={24} sm={12} md={6} lg={4.8} key={index}>
-            <Card style={{ textAlign: "center" }}>
-              <Text>{stat.title}</Text>
-              <div style={{ fontSize: 24, marginTop: 8 }}>{stat.icon}</div>
-              <Title level={3}>{stat.value}</Title>
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        {statsCards.map((item, i) => (
+          <Col xs={24} sm={12} lg={6} key={i}>
+            <Card
+              hoverable
+              onClick={() => item.tabKey && setActiveTab(item.tabKey)}
+              style={{ borderRadius: 16, textAlign: "center" }}
+            >
+              <Text>{item.title}</Text>
+              <div style={{ marginTop: 8 }}>
+                {React.cloneElement(item.icon, {
+                  style: {
+                    fontSize: 28,
+                    color: adminTheme.token.colorPrimary,
+                  },
+                })}
+              </div>
+              <Title level={2} style={{ fontSize: 22 }}>
+                {item.value}
+              </Title>
             </Card>
           </Col>
         ))}
+      </Row><br></br><br></br><br></br>
+
+
+      {/* ACTION BUTTONS */}
+      <Row
+        gutter={[8, 8]}
+        style={{ marginBottom: 16 }}
+        justify={{ xs: "center", sm: "end" }}
+      >
+        <Col xs={24} sm={12} md={4}>
+          <Button
+            block
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={handleBulkUpload}
+            disabled={
+              filteredData.filter((i) => i.status === "Pending Upload").length === 0
+            }
+          >
+            {showCheckboxes
+              ? `Upload (${selectedRowKeys.length})`
+              : "Bulk Upload"}
+          </Button>
+        </Col>
+
+        <Col xs={24} sm={12} md={4}>
+          <Button block icon={<DownOutlined />}>
+            Export to Excel
+          </Button>
+        </Col>
       </Row>
 
-      {/* ----------------- FILTERS + BULK UPLOAD ----------------- */}
-      <Card style={{ marginTop: 24 }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={6}>
+
+
+
+      {/* FILTERS + TABLE */}
+      <Card>
+                     <Col>
+            <Title level={5} style={{ margin: 10 }}>
+              Report Records ({filteredData.length})
+            </Title>
+          </Col>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} md={8}>
             <Input
-              placeholder="Search name, program, status..."
               prefix={<SearchOutlined />}
+              placeholder="Search..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
             />
@@ -440,9 +457,6 @@ const ReportsManagement = () => {
             >
               <Option value="Fully Paid">Fully Paid</Option>
               <Option value="Partial Paid">Partial Paid</Option>
-              <Option value="Verification Pending">
-                Verification Pending
-              </Option>
               <Option value="Pending">Pending</Option>
             </Select>
           </Col>
@@ -459,37 +473,22 @@ const ReportsManagement = () => {
               <Option value="Not Started">Not Started</Option>
             </Select>
           </Col>
-
-          <Col xs={24} sm={12} md={3}>
-            <Button
-              type="primary"
-              icon={<UploadOutlined />}
-              onClick={handleBulkUpload}
-              disabled={
-                filteredData.filter((item) => item.status === "Pending Upload")
-                  .length === 0
-              }
-              block
-            >
-              Bulk Upload
-            </Button>
-          </Col>
         </Row>
+
 
         <br />
 
-        {/* ----------------- TABLE ----------------- */}
         <Table
+          loading={loading}
+          rowKey="id"
           rowSelection={rowSelection}
           columns={columns}
           dataSource={filteredData}
-          rowKey="key"
           pagination={{ pageSize: 5 }}
           scroll={{ x: "max-content" }}
         />
       </Card>
 
-      {/* ----------------- MODAL ----------------- */}
       <ViewReportModal
         open={openViewModal}
         onCancel={() => setOpenViewModal(false)}
@@ -501,11 +500,10 @@ const ReportsManagement = () => {
         open={verifyModalOpen}
         onCancel={() => setVerifyModalOpen(false)}
         reviewData={selectedReport}
-        onVerify={(data) => {
-          message.success(`Review verified & report unlocked for ${data.name}`);
-        }}
+        onVerify={(data) =>
+          message.success(`Review verified for ${data.name}`)
+        }
       />
-
     </div>
   );
 };

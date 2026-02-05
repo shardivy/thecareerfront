@@ -1,6 +1,19 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Row, Col, Card, Typography, Button, Table, Tag, Input, Tabs } from "antd";
+import {
+  Row,
+  Col,
+  Card,
+  Typography,
+  Button,
+  Table,
+  Input,
+  Tabs,
+  Switch,
+  Modal,
+  Space,
+  Grid,
+} from "antd";
 import {
   BookOutlined,
   TeamOutlined,
@@ -10,28 +23,39 @@ import {
   ReadOutlined,
   SearchOutlined,
   EyeOutlined,
+  ExclamationCircleOutlined,
 } from "@ant-design/icons";
+
 import AddProgramModal from "../modals/AddProgramModal";
 import AddPackageModal from "../modals/AddPackageModal";
 import adminTheme from "../../../theme/adminTheme";
-import { fetchPrograms ,fetchProgramStats} from "../../../adminSlices/programSlice";
-import { fetchPackages, createPackage, updatePackage } from "../../../adminSlices/packageSlice";
 
+import {
+  fetchPrograms,
+  fetchProgramStats,
+  updateProgram,
+} from "../../../adminSlices/programSlice";
+
+import {
+  fetchPackages,
+  createPackage,
+  updatePackage,
+} from "../../../adminSlices/packageSlice";
 
 const { Title, Text } = Typography;
-
+const { useBreakpoint } = Grid;
 
 const Programs = () => {
   const dispatch = useDispatch();
-  const { list: programData, loading } = useSelector((state) => state.programs);
-  const { stats } = useSelector((state) => state.programs);
+  const tableRef = useRef(null);
+  const screens = useBreakpoint();
 
-React.useEffect(() => {
-  dispatch(fetchPrograms());
-  dispatch(fetchPackages());
-  dispatch(fetchProgramStats()); // 🔥 fetch stats for dashboard cards
-}, [dispatch]);
-
+  const { list: programData, stats } = useSelector(
+    (state) => state.programs
+  );
+  const { list: packageData } = useSelector(
+    (state) => state.packages
+  );
 
   const [activeTab, setActiveTab] = useState("programs");
   const [searchText, setSearchText] = useState("");
@@ -39,111 +63,258 @@ React.useEffect(() => {
   const [editingProgram, setEditingProgram] = useState(null);
   const [editingPackage, setEditingPackage] = useState(null);
   const [viewMode, setViewMode] = useState(false);
-  const { list: packageData } = useSelector((state) => state.packages);
 
+  /* ---------- CONFIRM MODAL STATE ---------- */
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmData, setConfirmData] = useState(null);
 
-const statsCards = [
-  { title: "Total Programs", value: stats?.total_programs || 0, icon: <ReadOutlined /> },
-  { title: "Total Packages", value: stats?.total_packages || 0, icon: <BookOutlined /> },
-  { title: "Total Enrolled", value: stats?.total_enrolled_students || 0, icon: <TeamOutlined /> },
-  { title: "Revenue (Monthly)", value: `₹${stats?.revenue || 0}`, icon: <DollarOutlined /> },
-];
+  useEffect(() => {
+    dispatch(fetchPrograms());
+    dispatch(fetchPackages());
+    dispatch(fetchProgramStats());
+  }, [dispatch]);
 
+  /* ---------- CONFIRM HANDLERS ---------- */
 
+  const openStatusConfirm = (record, entity) => {
+    setConfirmData({ record, entity });
+    setConfirmOpen(true);
+  };
 
-  const programColumns = [
-    {
-      title: "Sr. No",
-      key: "srno",
-      render: (_, __, index) => index + 1,
-    },
-    { title: "Program Name", dataIndex: "name", render: (text) => <Text strong>{text}</Text> },
-    {
-      title: "Description",
-      dataIndex: "description", ellipsis: true, render: (text) => (<Text type="colorTextSecondary">{text || "-"}</Text>),
-    },
-    { title: "Duration", dataIndex: "duration" },
-    { title: "Sessions", dataIndex: "session" },
-    { title: "Enrolled Users", dataIndex: "enrolled_users" },
-    { title: "Status", render: () => <Tag color="success">Active</Tag> },
-    {
-      title: "Actions",
-      render: (_, record) => (
-        <div style={{ display: "flex", gap: 8 }}>
-          <Button
-            icon={<EyeOutlined />}
-            size="large"
-            onClick={() => {
-              setEditingProgram(record);
-              setViewMode(true);
-              setModalVisible(true);
-            }}
-          >
-            View
-          </Button>
+  const handleConfirmOk = async () => {
+    if (!confirmData) return;
 
-          <Button
-            icon={<EditOutlined />}
-            type="primary"
-            size="large"
-            onClick={() => {
-              setEditingProgram(record);
-              setViewMode(false);
-              setModalVisible(true);
-            }}
-          >
-            Edit
-          </Button>
-        </div>
-      ),
+    const { record, entity } = confirmData;
+
+    if (entity === "program") {
+      await dispatch(
+        updateProgram({
+          id: record.id,
+          payload: {
+            name: record.name,
+            is_active: !record.is_active,
+          },
+        })
+      );
+      dispatch(fetchPrograms());
     }
+
+    if (entity === "package") {
+      await dispatch(
+        updatePackage({
+          id: record.id,
+          payload: {
+            name: record.name,
+            is_active: !record.is_active,
+          },
+        })
+      );
+      dispatch(fetchPackages());
+    }
+
+    setConfirmOpen(false);
+    setConfirmData(null);
+  };
+
+  /* ---------- STATS ---------- */
+
+  const statsCards = [
+    {
+      title: "Total Programs",
+      value: stats?.total_programs || 0,
+      icon: <ReadOutlined />,
+      tabKey: "programs",
+    },
+    {
+      title: "Total Packages",
+      value: stats?.total_packages || 0,
+      icon: <BookOutlined />,
+      tabKey: "packages",
+    },
+    {
+      title: "Total Enrolled",
+      value: stats?.total_enrolled_students || 0,
+      icon: <TeamOutlined />,
+    },
+    {
+      title: "Revenue (Monthly)",
+      value: `₹${stats?.revenue || 0}`,
+      icon: <DollarOutlined />,
+    },
   ];
 
-  const packageColumns = [
-    {
-      title: "Sr. No",
-      key: "srno",
-      render: (_, __, index) => index + 1,
-    },
-    { title: "Package Name", dataIndex: "name", render: (text) => <Text strong>{text}</Text> },
-    {
-      title: "Program",
-      render: (_, record) => (
-        <Text>
-          {record.program?.name || "-"}
-        </Text>
-      ),
-    },
-    { title: "Price", dataIndex: "price" },
-{
-  title: "Features",
-  render: (_, record) => {
-    const featuresArray = Array.isArray(record.features)
-      ? record.features.map(f => f.description || "")
-      : [];
+  /* ---------- PROGRAM COLUMNS ---------- */
 
-    return featuresArray.length > 0 ? (
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {featuresArray.map((f, i) => (
-          <span key={i}>{f}</span>
-        ))}
-      </div>
-    ) : (
-      <Text type="secondary">-</Text>
+  const programColumns = [
+    { title: "Sr. No", render: (_, __, i) => i + 1 },
+    {
+      title: "Program Name",
+      dataIndex: "name",
+      render: (t) => <Text strong>{t}</Text>,
+    },
+{
+  title: "Description",
+  dataIndex: "description",
+  render: (text) => {
+    if (!text) return "-";
+
+    const words = text.split(" ");
+    const shortText =
+      words.length > 5
+        ? words.slice(0, 5).join(" ") + "..."
+        : text;
+
+    return (
+      <Text title={text}>
+        {shortText}
+      </Text>
     );
   },
 },
 
 
-    // { title: "Active Users", dataIndex: "users" },
-    { title: "Status", render: () => <Tag color="success">Active</Tag> },
+    { title: "Enrolled Users", dataIndex: "enrolled_users" },
+    {
+      title: "Status",
+      render: (_, record) => (
+        <Switch
+          checked={record.is_active}
+          checkedChildren="Active"
+          unCheckedChildren="Inactive"
+          onClick={() => openStatusConfirm(record, "program")}
+        />
+      ),
+    },
     {
       title: "Actions",
       render: (_, record) => (
-        <div style={{ display: "flex", gap: 8 }}>
+        <Space wrap>
           <Button
             icon={<EyeOutlined />}
-            size="large"
+            onClick={() => {
+              setEditingProgram(record);
+              setViewMode(true);
+              setModalVisible(true);
+            }}
+          >
+            View
+          </Button>
+          <Button
+            icon={<EditOutlined />}
+            type="primary"
+            onClick={() => {
+              setEditingProgram(record);
+              setViewMode(false);
+              setModalVisible(true);
+            }}
+          >
+            Edit
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
+  /* ---------- PACKAGE COLUMNS ---------- */
+
+  const packageColumns = [
+    { title: "Sr. No", render: (_, __, i) => i + 1 },
+{
+  title: "Package Name",
+  dataIndex: "name",
+  render: (text) => {
+    if (!text) return "-";
+
+    const words = text.split(/\s+/);
+    const firstLine = words.slice(0, 3).join(" ");
+    const remaining = words.slice(3).join(" ");
+
+    return (
+      <Text strong>
+        {firstLine}
+        {remaining && (
+          <>
+            <br />
+            <span style={{ fontWeight: 400 }}>{remaining}</span>
+          </>
+        )}
+      </Text>
+    );
+  },
+},
+
+   {
+      title: "Program",
+      render: (_, r) => r.program?.name || "-",
+    },
+{
+  title: "Description",
+  dataIndex: "description",
+  render: (text) => {
+    if (!text || text.trim() === "") return "-";
+
+    const words = text.trim().split(/\s+/);
+    const shortText =
+      words.length > 2
+        ? words.slice(0, 6).join(" ") + "..."
+        : text;
+
+    return (
+      <Text title={text}>
+        {shortText}
+      </Text>
+    );
+  },
+},
+
+    { title: "Price", dataIndex: "price" },
+  {
+  title: "Features",
+  render: (_, r) => {
+    if (!r.features?.length) return "-";
+
+    const words = r.features
+      .map((f) => f.description)
+      .join(" ")
+      .trim()
+      .split(/\s+/);
+
+    const lines = [];
+    for (let i = 0; i < words.length; i += 3) {
+      lines.push(words.slice(i, i + 3).join(" "));
+    }
+
+    const displayLines = lines.slice(0, 2);
+    const hasMore = lines.length > 2;
+
+    return (
+      <Text>
+        {displayLines.map((line, i) => (
+          <div key={i}>{line}</div>
+        ))}
+        {hasMore && <span>...</span>}
+      </Text>
+    );
+  },
+},
+
+    {
+      title: "Status",
+      render: (_, record) => (
+        <Switch
+          checked={record.is_active}
+          checkedChildren="Active"
+          unCheckedChildren="Inactive"
+          onClick={() => openStatusConfirm(record, "package")}
+        />
+      ),
+    },
+    {
+      title: "Actions",
+      render: (_, record) => (
+        <Space wrap>
+          <Button
+            icon={<EyeOutlined />}
             onClick={() => {
               setEditingPackage(record);
               setViewMode(true);
@@ -152,11 +323,9 @@ const statsCards = [
           >
             View
           </Button>
-
           <Button
             icon={<EditOutlined />}
             type="primary"
-            size="large"
             onClick={() => {
               setEditingPackage(record);
               setViewMode(false);
@@ -165,167 +334,195 @@ const statsCards = [
           >
             Edit
           </Button>
-        </div>
+        </Space>
       ),
-    }
-
+    },
   ];
 
-  // Search filter on all fields
+  /* ---------- FILTER ---------- */
+
   const filteredData =
     activeTab === "packages"
-      ? packageData.filter((item) =>
-        Object.values(item).some((value) =>
-          String(value).toLowerCase().includes(searchText.toLowerCase())
+      ? packageData.filter((i) =>
+          JSON.stringify(i)
+            .toLowerCase()
+            .includes(searchText.toLowerCase())
         )
-      )
-      : programData.filter((item) =>
-        Object.values(item).some((value) =>
-          String(value).toLowerCase().includes(searchText.toLowerCase())
-        )
-      );
+      : programData.filter((i) =>
+          JSON.stringify(i)
+            .toLowerCase()
+            .includes(searchText.toLowerCase())
+        );
+
+  /* ---------- RENDER ---------- */
 
   return (
-    <div style={{ padding: "16px" }}>
+    <div style={{ padding: screens.md ? 24 : 12 }}>
       <Title level={3}>Programs & Packages</Title>
 
-      {/* Stats Cards */}
+      {/* STATS */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        {statsCards.map((item, index) => (
-          <Col xs={24} sm={12} md={12} lg={6} key={index}>
-            <Card hoverable style={{ borderRadius: 16, textAlign: "center" }} bodyStyle={{ padding: 16 }}>
-              <Text style={{ fontSize: 14, color: "#6B7280" }}>{item.title}</Text>
+        {statsCards.map((item, i) => (
+          <Col xs={24} sm={12} lg={6} key={i}>
+            <Card
+              hoverable
+              onClick={() => item.tabKey && setActiveTab(item.tabKey)}
+              style={{ borderRadius: 16, textAlign: "center" }}
+            >
+              <Text>{item.title}</Text>
               <div style={{ marginTop: 8 }}>
                 {React.cloneElement(item.icon, {
-                  style: { fontSize: 28, color:adminTheme.token.colorPrimary },
+                  style: {
+                    fontSize: 28,
+                    color: adminTheme.token.colorPrimary,
+                  },
                 })}
               </div>
-              <Title level={2} style={{ marginTop: 8, fontSize: 22 }}>{item.value}</Title>
+              <Title level={2} style={{ fontSize: 22 }}>
+                {item.value}
+              </Title>
             </Card>
           </Col>
         ))}
       </Row>
 
-      {/* Tabs & Create Button */}
-      {/* Tabs & Create Button */}
-      <Row
-        justify="space-between"
-        align="middle"
-        style={{ marginTop: 24, marginBottom: 16, flexWrap: "wrap", gap: 16 }}
-      >
-        {/* TABS */}
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={[
-            {
-              key: "programs",
-              label: "Programs",
-            },
-            {
-              key: "packages",
-              label: "Packages",
-            },
-          ]}
+      {/* TABS + CREATE */}
+<Row
+  align="middle"
+  justify="space-between"
+  style={{ marginTop: 24, marginBottom: 16 }}
+  gutter={[8, 8]}
+>
+  <Col xs={24} md="auto">
+    <Tabs
+      activeKey={activeTab}
+      onChange={setActiveTab}
+      items={[
+        { key: "programs", label: "Programs" },
+        { key: "packages", label: "Packages" },
+      ]}
+    />
+  </Col>
+
+  <Col xs={24} md="auto" style={{ textAlign: "right" }}>
+    <Button
+      block={!screens.md}
+      type="primary"
+      icon={<PlusOutlined />}
+      onClick={() => {
+        setEditingProgram(null);
+        setEditingPackage(null);
+        setModalVisible(true);
+      }}
+    >
+      Create {activeTab === "packages" ? "Package" : "Program"}
+    </Button>
+  </Col>
+</Row>
+
+
+      {/* TABLE */}
+      <Card ref={tableRef}>
+
+      <Col>
+  <Title level={5} style={{ margin: 10 }}>
+    {activeTab === "packages"
+      ? `Package Records (${filteredData.length})`
+      : `Program Records (${filteredData.length})`}
+  </Title>
+</Col>
+
+        
+        <Input
+          prefix={<SearchOutlined />}
+          placeholder="Search..."
+          allowClear
+          onChange={(e) => setSearchText(e.target.value)}
+          style={{
+            marginBottom: 16,
+            width: screens.md ? 400 : "100%",
+          }}
         />
 
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => {
-            if (activeTab === "packages") setEditingPackage(null);
-            else setEditingProgram(null);
-            setModalVisible(true);
-          }}
-        >
-          Create {activeTab === "packages" ? "Package" : "Program"}
-        </Button>
-      </Row>
-
-
-      {/* Search + Table */}
-      <Card style={{ marginTop: 16, borderRadius: 16, overflowX: "auto" }}>
-        <Row justify="space-between" align="middle" style={{ marginBottom: 16, flexWrap: "wrap", gap: 16 }}>
-          <Title level={5} style={{ margin: 0, fontSize: 16 }}>
-            {activeTab === "packages" ? `All Packages (${filteredData.length})` : `All Programs (${filteredData.length})`}
-          </Title>
-
-          <Input
-            placeholder={activeTab === "packages" ? "Search package or program" : "Search program"}
-            prefix={<SearchOutlined />}
-            allowClear
-            onChange={e => setSearchText(e.target.value)}
-            style={{ width: "100%", maxWidth: 260, borderRadius: 8 }}
-          />
-        </Row>
-
         <Table
-          columns={activeTab === "packages" ? packageColumns : programColumns}
-          dataSource={filteredData}
-          pagination={{ pageSize: 5, showSizeChanger: false }}
+          rowKey="id"
           scroll={{ x: "max-content" }}
+          columns={
+            activeTab === "packages"
+              ? packageColumns
+              : programColumns
+          }
+          dataSource={filteredData}
+          pagination={{ pageSize: 5 }}
         />
       </Card>
 
-      {/* Program Modal */}
+      {/* CONFIRM MODAL */}
+      <Modal
+        open={confirmOpen}
+        centered
+        title={
+          <Space>
+            <ExclamationCircleOutlined style={{ color: "#faad14" }} />
+            Confirmation
+          </Space>
+        }
+        okText="Yes, Confirm"
+        cancelText="Cancel"
+        onOk={handleConfirmOk}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        <Text>
+          Are you sure you want to{" "}
+          {confirmData?.record?.is_active
+            ? "deactivate"
+            : "activate"}{" "}
+          this {confirmData?.entity}?
+        </Text>
+        <div style={{ marginTop: 8 }}>
+          <Text strong>{confirmData?.record?.name}</Text>
+        </div>
+      </Modal>
+
+      {/* MODALS */}
       {activeTab === "programs" && (
         <AddProgramModal
           visible={modalVisible}
           viewMode={viewMode}
-          onClose={() => { setModalVisible(false); setEditingProgram(null); }}
-          onSubmit={(values) => {
-            if (editingProgram) {
-              setProgramData(programData.map(p => p.key === editingProgram.key ? { ...p, ...values } : p));
-            } else {
-              setProgramData([...programData, { key: programData.length + 1, ...values }]);
-            }
-            setModalVisible(false);
-            setEditingProgram(null);
-            setViewMode(false);
-
-          }}
+          onClose={() => setModalVisible(false)}
           initialValues={editingProgram}
         />
       )}
 
-      {/* Package Modal */}
       {activeTab === "packages" && (
         <AddPackageModal
-  visible={modalVisible}
-  onClose={() => {
-    setModalVisible(false);
-    setEditingPackage(null);
-  }}
-  onSubmit={async (values) => {
-    const payload = {
-      name: values.name,
-      program_id: values.program_id,
-      price: Number(values.price),
-      description: "",
-      is_active: true,
-      features: values.features || [],
-    };
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          initialValues={editingPackage}
+          programs={programData}
+          onSubmit={async (values) => {
+            const payload = {
+              ...values,
+           name: values.name,
+              price: Number(values.price),
+              is_active: true,
+            };
 
-    try {
-      if (editingPackage) {
-        // ✅ UPDATE PACKAGE
-        await dispatch(updatePackage({ id: editingPackage.id, payload })).unwrap();
-      } else {
-        // ✅ CREATE PACKAGE
-        await dispatch(createPackage(payload)).unwrap();
-      }
-      dispatch(fetchPackages());
-      setModalVisible(false);
-      setEditingPackage(null);
-    } catch (err) {
-      console.error("Package API error:", err);
-    }
-  }}
-  initialValues={editingPackage}
-  programs={programData}
-/>
+            if (editingPackage) {
+              await dispatch(
+                updatePackage({
+                  id: editingPackage.id,
+                  payload,
+                })
+              );
+            } else {
+              await dispatch(createPackage(payload));
+            }
 
-
+            dispatch(fetchPackages());
+            setModalVisible(false);
+          }}
+        />
       )}
     </div>
   );

@@ -8,6 +8,15 @@ export const getPackagesApi = async () => {
   return response.data;
 };
 
+/* GET PACKAGES BY PROGRAM ID */
+export const getPackagesByProgramApi = async (programId) => {
+  const response = await axiosInstance.get(
+    `/program-package/programs/${programId}/packages/`
+  );
+  return response.data;
+};
+
+
 // Create a new package
 export const createPackageApi = async (payload) => {
   const response = await axiosInstance.post(

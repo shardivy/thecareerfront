@@ -26,7 +26,6 @@ const AddProgramModal = ({ visible, onClose, initialValues, viewMode = false }) 
     onClose();
   };
 
-  // ---------------- SUBMIT ----------------
 // ---------------- SUBMIT ----------------
 const handleFinish = async (values) => {
   try {
@@ -84,7 +83,7 @@ const handleFinish = async (values) => {
         <Form.Item
           label="Description"
           name="description"
-          rules={[{ required: true, message: "Enter description" }]}
+          rules={[{ required: false, message: "Enter description" }]}
         >
           <Input.TextArea
             rows={4}
@@ -93,7 +92,7 @@ const handleFinish = async (values) => {
           />
         </Form.Item>
 
-        <Row gutter={16}>
+        {/* <Row gutter={16}>
           <Col span={12}>
             <Form.Item
               label="Duration"
@@ -118,7 +117,7 @@ const handleFinish = async (values) => {
               />
             </Form.Item>
           </Col>
-        </Row>
+        </Row> */}
 
         <Form.Item>
           <div style={{ textAlign: "right" }}>
