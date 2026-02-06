@@ -1,35 +1,27 @@
 import axiosInstance from "../axiosInstance";
 
-// CREATE counselling slot
-export const createCounsellingSlotApi = async (payload) => {
-  const response = await axiosInstance.post(
-    "/counselling_slot/slots/",
-    payload
-  );
-  return response.data;
-};
-
-// GET all slots (optional – for later use)
-export const getCounsellingSlotsApi = async () => {
+// GET slots by date & counsellor
+export const getSlotsByDateApi = async (date, counsellorId) => {
   const response = await axiosInstance.get(
-    "/counselling_slot/slots/"
+    `/counselling_slot/slots/${date}/${counsellorId}/`
   );
-  return response.data;
+  return response.data; // should be array
 };
 
-// UPDATE slot
-export const updateCounsellingSlotApi = async (id, payload) => {
-  const response = await axiosInstance.put(
-    `/counselling_slot/slots/${id}/`,
-    payload
-  );
-  return response.data;
-};
 
-// DELETE slot
-export const deleteCounsellingSlotApi = async (id) => {
+// ✅ DELETE slot by slot ID
+export const deleteSlotApi = async (slotId) => {
   const response = await axiosInstance.delete(
-    `/counselling_slot/slots/${id}/`
+    `/counselling_slot/slots/${slotId}/`
+  );
+  return response.data;
+};
+
+// ✅ CREATE slots
+export const createSlotsApi = async (date, counsellorId, payload) => {
+  const response = await axiosInstance.post(
+    `/counselling_slot/slots/${date}/${counsellorId}/`,
+    payload
   );
   return response.data;
 };

@@ -3,7 +3,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { fetchLeadCounsellorsApi } from "../adminApi/counsellorApi"; 
 
-
 /* ================= THUNK ================= */
 
 export const fetchLeadCounsellors = createAsyncThunk(
@@ -23,7 +22,7 @@ export const fetchLeadCounsellors = createAsyncThunk(
 /* ================= SLICE ================= */
 
 const counsellorSlice = createSlice({
-  name: "Counsellors",
+  name: "counsellors", // Make sure this matches what you're using in useSelector
   initialState: {
     list: [],
     loading: false,
@@ -38,10 +37,24 @@ const counsellorSlice = createSlice({
       })
       .addCase(fetchLeadCounsellors.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = (action.payload.data || []).map((c) => ({
-          id: c.id,
-          name: `${c.first_name} ${c.last_name}`,
-        }));
+        // Transform the API response to match what the component expects
+        if (Array.isArray(action.payload)) {
+          // If payload is already an array
+          state.list = action.payload.map((c) => ({
+            id: c.user?.id || c.id,
+            name: `${c.user?.first_name || c.first_name} ${c.user?.last_name || c.last_name}`,
+            // email: c.user?.email || c.email,
+          }));
+        } else if (action.payload?.data) {
+          // If payload has a data property
+          state.list = action.payload.data.map((c) => ({
+            id: c.user?.id || c.id,
+            name: `${c.user?.first_name || c.first_name} ${c.user?.last_name || c.last_name}`,
+            // email: c.user?.email || c.email,
+          }));
+        } else {
+          state.list = [];
+        }
       })
       .addCase(fetchLeadCounsellors.rejected, (state, action) => {
         state.loading = false;

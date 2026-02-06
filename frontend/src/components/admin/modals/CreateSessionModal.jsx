@@ -11,11 +11,12 @@ import {
   Space,
   Typography,
   ConfigProvider,
-  message
+  message,
 } from "antd";
 import dayjs from "dayjs";
 import { bookCounsellingSlot } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchStudents } from "../../../adminSlices/userSlice";
+import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
 
 const { Option } = Select;
 const { Text } = Typography;
@@ -48,24 +49,40 @@ const CreateSessionModal = ({
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [filter, setFilter] = useState("All");
   const dispatch = useDispatch();
-  const { loading } = useSelector((state) => state.counsellingBooking);
-  const { list: students, loading: studentsLoading } = useSelector((state) => state.users || {});
-
   const isView = mode === "view";
 
+  // ===== Redux selectors =====
+  const students = useSelector((state) => state.users.list ?? []);
+  const studentsLoading = useSelector((state) => state.users.loading);
 
+  const counsellors = useSelector((state) => state.counsellors?.list ?? []);
+  const counsellorsLoading = useSelector((state) => state.counsellors?.loading ?? false);
+
+  const bookingLoading = useSelector((state) => state.counsellingBooking.loading);
+
+  // ===== Fetch data when modal opens =====
   useEffect(() => {
-  if (visible) {
-    dispatch(fetchStudents());
-  }
-}, [visible, dispatch]);
+    if (visible) {
+      dispatch(fetchStudents());
+      dispatch(fetchLeadCounsellors());
+    }
+  }, [visible, dispatch]);
 
+  // ===== Populate form when editing/viewing session =====
   useEffect(() => {
     if (sessionData) {
+      // Find counsellor IDs from names for form population
+      const primaryCounsellorId = sessionData.counsellors?.[0]?.name 
+        ? counsellors.find(c => c.name === sessionData.counsellors[0].name)?.id 
+        : null;
+      const secondaryCounsellorId = sessionData.counsellors?.[1]?.name 
+        ? counsellors.find(c => c.name === sessionData.counsellors[1].name)?.id 
+        : null;
+
       form.setFieldsValue({
         student: sessionData.user,
-        leadCounsellor: sessionData.counsellors.find(c => c.type === "lead")?.name,
-        normalCounsellor: sessionData.counsellors.find(c => c.type === "normal")?.name,
+        primaryCounsellor: primaryCounsellorId,
+        secondaryCounsellor: secondaryCounsellorId,
         mode: sessionData.mode,
         date: dayjs(sessionData.date),
       });
@@ -74,41 +91,50 @@ const CreateSessionModal = ({
       form.resetFields();
       setSelectedSlot(null);
     }
-  }, [sessionData, form]);
+  }, [sessionData, form, counsellors]);
 
-const handleOk = () => {
-  form.validateFields().then((values) => {
-    const payload = {
-      user: values.student,
-      counsellors: [
-        { name: values.leadCounsellor, type: "lead" },
-        ...(values.normalCounsellor
-          ? [{ name: values.normalCounsellor, type: "normal" }]
-          : []),
-      ],
-      date: values.date.format("YYYY-MM-DD"),
-      start_time: selectedSlot, // backend-friendly
-      duration_minutes: 60,
-      mode: values.mode,
-    };
+  // ===== Handle booking submission =====
+  const handleOk = () => {
+    form.validateFields().then((values) => {
+      // Find counsellor objects by their IDs
+      const primaryCounsellor = counsellors.find(c => c.id === values.primaryCounsellor);
+      const secondaryCounsellor = values.secondaryCounsellor 
+        ? counsellors.find(c => c.id === values.secondaryCounsellor)
+        : null;
 
-    dispatch(bookCounsellingSlot(payload))
-      .unwrap()
-      .then(() => {
-        message.success("Counselling session booked successfully");
-        onSave({
-          ...payload,
-          time: selectedSlot + " (60 mins)",
-          status: "Scheduled",
+      const payload = {
+        user: values.student,
+        counsellors: [
+          { name: primaryCounsellor?.name },
+          ...(secondaryCounsellor
+            ? [{ name: secondaryCounsellor.name }]
+            : []),
+        ],
+        date: values.date.format("YYYY-MM-DD"),
+        start_time: selectedSlot,
+        duration_minutes: 60,
+        mode: values.mode,
+      };
+
+      dispatch(bookCounsellingSlot(payload))
+        .unwrap()
+        .then(() => {
+          message.success("Counselling session booked successfully");
+          onSave({
+            ...payload,
+            time: selectedSlot + " (60 mins)",
+            status: "Scheduled",
+          });
+          onClose();
+        })
+        .catch((err) => {
+          message.error(err?.message || "Booking failed");
         });
-        onClose();
-      })
-      .catch((err) => {
-        message.error(err?.message || "Booking failed");
-      });
-  });
-};
-  const displayedSlots = timeSlots.filter(slot => {
+    });
+  };
+
+  // ===== Filter time slots =====
+  const displayedSlots = timeSlots.filter((slot) => {
     if (filter === "All") return true;
     const isBooked = bookedSlots.includes(slot);
     return filter === "Available" ? !isBooked : isBooked;
@@ -118,22 +144,16 @@ const handleOk = () => {
     <ConfigProvider
       theme={{
         components: {
-          Select: {
-            colorBgContainerDisabled: 'transparent',
-          },
-          DatePicker: {
-            colorBgContainerDisabled: 'transparent',
-          },
-          Input: {
-            colorBgContainerDisabled: 'transparent',
-          },
+          Select: { colorBgContainerDisabled: "transparent" },
+          DatePicker: { colorBgContainerDisabled: "transparent" },
+          Input: { colorBgContainerDisabled: "transparent" },
         },
       }}
     >
       <style>{mobileStyles}</style>
       <Modal
         open={visible}
-        title={mode === "view" ? "View Counselling Session" : "Book Counselling Session"}
+        title={isView ? "View Counselling Session" : "Book Counselling Session"}
         onCancel={onClose}
         width={820}
         className="session-modal"
@@ -142,52 +162,60 @@ const handleOk = () => {
             ? [<Button key="close" onClick={onClose}>Close</Button>]
             : [
                 <Button key="cancel" onClick={onClose}>Cancel</Button>,
-               <Button
-  key="submit"
-  type="primary"
-  loading={loading}
-  onClick={handleOk}
-  disabled={!selectedSlot}
->
-  Confirm Booking
-</Button>
+                <Button
+                  key="submit"
+                  type="primary"
+                  loading={bookingLoading}
+                  onClick={handleOk}
+                  disabled={!selectedSlot}
+                >
+                  Confirm Booking
+                </Button>,
               ]
         }
       >
         <Form form={form} layout="vertical">
           <Row gutter={16}>
+            {/* Student Dropdown */}
             <Col span={12}>
-              <Form.Item label="Student Name" name="student" rules={[{ required: true }]}>
-<Select
-  disabled={isView}
-  loading={studentsLoading}
-  showSearch
-  optionFilterProp="label"
-  placeholder="Select student"
->
-  {students?.map((student) => {
-    const fullName = `${student.first_name} ${student.last_name}`;
-    return (
-      <Option
-        key={student.id}
-        value={student.id}   // ✅ what gets submitted
-        label={`${fullName} ${student.email}`} // ✅ used for search
-      >
-        <div>
-          <Text>{fullName}</Text>
-          <div style={{ fontSize: 12 }}>
-            {student.email}
-          </div>
-        </div>
-      </Option>
-    );
-  })}
-</Select>
+              <Form.Item
+                label="Student Name"
+                name="student"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  disabled={isView}
+                  loading={studentsLoading}
+                  showSearch
+                  optionFilterProp="label"
+                  placeholder="Select student"
+                >
+                  {students.map((student) => {
+                    const fullName = `${student.first_name} ${student.last_name}`;
+                    return (
+                      <Option
+                        key={student.id}
+                        value={student.id}
+                        label={`${fullName} ${student.email}`}
+                      >
+                        <div>
+                          <Text>{fullName}</Text>
+                          <div style={{ fontSize: 12 }}>{student.email}</div>
+                        </div>
+                      </Option>
+                    );
+                  })}
+                </Select>
               </Form.Item>
             </Col>
 
+            {/* Mode Dropdown */}
             <Col span={12}>
-              <Form.Item label="Session Mode" name="mode" rules={[{ required: true }]}>
+              <Form.Item
+                label="Session Mode"
+                name="mode"
+                rules={[{ required: true }]}
+              >
                 <Select disabled={isView}>
                   <Option value="Online">Online</Option>
                   <Option value="Offline">Offline</Option>
@@ -197,32 +225,73 @@ const handleOk = () => {
           </Row>
 
           <Row gutter={16}>
+            {/* Primary Counsellor */}
             <Col span={12}>
-              <Form.Item label="Lead Counsellor" name="leadCounsellor" rules={[{ required: true }]}>
-                <Select disabled={isView}>
-                  <Option value="Dr. Ramesh Gupta">Dr. Ramesh Gupta</Option>
-                  <Option value="Dr. P Mehta">Dr. P Mehta</Option>
+              <Form.Item
+                label="Primary Counsellor"
+                name="primaryCounsellor"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  disabled={isView}
+                  loading={counsellorsLoading}
+                  showSearch
+                  placeholder="Select primary counsellor"
+                  optionFilterProp="children"
+                >
+                  {counsellors.map((c) => (
+                    <Option key={c.id} value={c.id}>
+                      {c.name} 
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
 
+            {/* Secondary Counsellor */}
             <Col span={12}>
-              <Form.Item label="Normal Counsellor" name="normalCounsellor">
-                <Select disabled={isView}>
-                  <Option value="Ms. Priya Menon">Ms. Priya Menon</Option>
-                  <Option value="Mr. K Joshi">Mr. K Joshi</Option>
+              <Form.Item
+                label="Secondary Counsellor (Optional)"
+                name="secondaryCounsellor"
+              >
+                <Select
+                  disabled={isView}
+                  loading={counsellorsLoading}
+                  showSearch
+                  placeholder="Select secondary counsellor"
+                  optionFilterProp="children"
+                  allowClear
+                >
+                  {counsellors.map((c) => (
+                    <Option key={c.id} value={c.id}>
+                      {c.name}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
           </Row>
 
-          <Form.Item label="Select Date" name="date" rules={[{ required: true }]}>
-            <DatePicker disabled={isView} style={{ width: "100%" }} />
+          {/* Date Picker */}
+          <Form.Item
+            label="Select Date"
+            name="date"
+            rules={[{ required: true }]}
+          >
+            <DatePicker 
+              disabled={isView} 
+              style={{ width: "100%" }} 
+              disabledDate={(current) => {
+                // Disable past dates
+                return current && current < dayjs().startOf('day');
+              }}
+            />
           </Form.Item>
 
+          {/* Time Slots */}
           <Form.Item label={<Text strong>Available Slots</Text>}>
             <Row gutter={[8, 8]}>
-              {displayedSlots.map(slot => {
+              {displayedSlots.map((slot) => {
                 const isBooked = bookedSlots.includes(slot);
                 return (
                   <Col key={slot}>
@@ -239,7 +308,7 @@ const handleOk = () => {
             </Row>
 
             <Space style={{ marginTop: 12 }}>
-              {["All", "Available", "Booked"].map(f => (
+              {["All", "Available", "Booked"].map((f) => (
                 <Button
                   key={f}
                   type={filter === f ? "primary" : "default"}
