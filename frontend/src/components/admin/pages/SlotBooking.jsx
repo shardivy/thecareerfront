@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Row,
   Col,
@@ -15,185 +16,177 @@ import {
 } from "antd";
 import {
   PlusOutlined,
-  CalendarOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
   SearchOutlined,
   EyeOutlined,
   EditOutlined,
   DeleteOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import CreateSessionModal from "../modals/CreateSessionModal";
-import adminTheme from "../../../theme/adminTheme";
+import {
+  fetchCounsellingBookings,
+  fetchCounsellingSessionCount,
+} from "../../../adminSlices/counsellingBookingSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { token } = adminTheme;
 
 const SlotBooking = () => {
+  const dispatch = useDispatch();
+  const { data = [], loading, stats, statsLoading } = useSelector(
+    (state) => state.counsellingBooking
+  );
+
   const [searchText, setSearchText] = useState("");
   const [modeFilter, setModeFilter] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
   const [dateFilter, setDateFilter] = useState(null);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
+  const [statsPeriod, setStatsPeriod] = useState("today"); // default period
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState("create");
   const [rescheduleData, setRescheduleData] = useState(null);
 
-  // ✅ ADDED (nothing else touched)
-  const [modalMode, setModalMode] = useState("create"); // create | edit | view
-
-  const [dataSource, setDataSource] = useState([
-    {
-      key: "1",
-      user: "Priya Sharma",
-      email: "priya.sharma@email.com",
-      sessionType: "Initial Counselling",
-      counsellors: [
-        { name: "Dr. Ramesh Gupta", type: "lead" },
-        { name: "Ms. Priya Menon", type: "normal" },
-      ],
-      date: "2026-01-15",
-      time: "10:00 AM - 11:00 AM (60 mins)",
-      mode: "Online",
-      status: "Scheduled",
-    },
-    {
-      key: "2",
-      user: "Rajesh Kumar",
-      email: "rajesh.kumar@email.com",
-      sessionType: "Follow-up Session",
-      counsellors: [{ name: "Ms. Priya Menon", type: "normal" }],
-      date: "2026-01-12",
-      time: "02:00 PM - 03:00 PM (60 mins)",
-      mode: "Online",
-      status: "Completed",
-    },
-    {
-      key: "3",
-      user: "Anjali Verma",
-      email: "anjali.verma@email.com",
-      sessionType: "Report Review",
-      counsellors: [{ name: "Dr. Ramesh Gupta", type: "lead" }],
-      date: "2026-01-16",
-      time: "11:00 AM - 12:00 PM (60 mins)",
-      mode: "Offline",
-      status: "Scheduled",
-    },
-  ]);
+  /* ================= FETCH BOOKINGS ================= */
+  useEffect(() => {
+    dispatch(fetchCounsellingBookings());
+    dispatch(fetchCounsellingSessionCount(statsPeriod));
+  }, [dispatch, statsPeriod]);
 
   /* ----------------- STATS DATA ----------------- */
-  const stats = [
-    {
-      title: "Total Sessions",
-      value: 284,
-      icon: <CalendarOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-    {
-      title: "Today's Sessions",
-      value: 12,
-      sub: "5 completed, 7 upcoming",
-      icon: <ClockCircleOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-    {
-      title: "This Week",
-      value: 38,
-      icon: <CalendarOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-    {
-      title: "Completed",
-      value: 234,
-      icon: <CheckCircleOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-  ];
+const statsCards = [
+  {
+    title: "Total Sessions",
+    value: stats?.total_sessions ?? 0,
+    icon: <CalendarOutlined />,
+  },
+  {
+    title: "Today's Sessions",
+    value: stats?.today_sessions?.total ?? 0,
+    sub: `Completed: ${stats?.today_sessions?.completed ?? 0} | Upcoming: ${stats?.today_sessions?.upcoming ?? 0}`,
+    icon: <ClockCircleOutlined />,
+  },
+  {
+    title: `${statsPeriod.charAt(0).toUpperCase() + statsPeriod.slice(1)} Sessions`,
+    value: stats?.period_sessions ?? 0,
+    icon: <CalendarOutlined />,
+  },
+  {
+    title: "Completed",
+    value: stats?.completed_sessions ?? 0,
+    icon: <CheckCircleOutlined />,
+  },
+];
 
-  /* ----------------- FILTER + SORT LOGIC ----------------- */
+
+  /* ================= MAP API → TABLE ================= */
+  const dataSource = useMemo(() => {
+    if (!Array.isArray(data)) return [];
+
+    return data.map((item) => ({
+      ...item,
+      key: item.id,
+      studentName: `${item.student?.first_name || ""} ${
+        item.student?.last_name || ""
+      }`,
+      email: item.student?.email || "—",
+      counsellorDisplay: Array.isArray(item.counsellors)
+        ? item.counsellors.map((c) => ({
+            name: `${c.counsellor.first_name} ${c.counsellor.last_name}`,
+            type: c.role,
+          }))
+        : [],
+      time: item.slot
+        ? `${item.slot.start_time} - ${item.slot.end_time}`
+        : "—",
+      modeLabel: item.slot?.mode
+        ? item.slot.mode.charAt(0).toUpperCase() + item.slot.mode.slice(1)
+        : "—",
+    }));
+  }, [data]);
+
+  /* ================= FILTER ================= */
   const filteredData = dataSource
     .filter((item) => {
-      const matchesSearch = Object.values(item)
-        .join(" ")
-        .toLowerCase()
-        .includes(searchText.toLowerCase());
-      const matchesMode = modeFilter ? item.mode === modeFilter : true;
-      const matchesStatus = statusFilter ? item.status === statusFilter : true;
-      const matchesDate = dateFilter
-        ? dayjs(item.date).isSame(dateFilter, "day")
-        : true;
-      return matchesSearch && matchesMode && matchesStatus && matchesDate;
+      const text = Object.values(item).join(" ").toLowerCase();
+      return (
+        text.includes(searchText.toLowerCase()) &&
+        (!modeFilter || item.mode === modeFilter) &&
+        (!statusFilter || item.status === statusFilter) &&
+        (!dateFilter || dayjs(item.date).isSame(dateFilter, "day"))
+      );
     })
     .sort((a, b) => dayjs(b.date).diff(dayjs(a.date)));
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchText, modeFilter, statusFilter, dateFilter]);
-
-  /* ----------------- TABLE COLUMNS ----------------- */
+  /* ================= TABLE COLUMNS ================= */
   const columns = [
-    { title: "Sr. No.", width: 50, render: (_, __, index) => index + 1 },
     {
-      title: "User Name",
-      dataIndex: "user",
-      width: 130,
-       render: (text, record) => (
-    <>
-      <Text strong>{text}</Text>
-      <br />
-      <Text type="colorTextSecondary" >
-        {record.email}
-      </Text>
-    </>
-  ),
+      title: "Sr.",
+      width: 60,
+      render: (_, __, i) => i + 1,
     },
     {
-      title: "Counsellors",
-      width: 150,
-      render: (_, record) => (
+      title: "User Name",
+      width: 200,
+      render: (_, r) => (
         <>
-          {record.counsellors.map((c, index) => (
-            <div key={index} style={{ marginBottom: 4 }}>
-              <Text strong>{c.name}</Text>
-              <br />
-              <Tag>{c.type === "lead" ? "Lead" : "Normal"}</Tag>
-            </div>
-          ))}
+          <Text strong>{r.studentName}</Text>
+          <br />
+          <Text type="colorTextSecondary">{r.email}</Text>
         </>
       ),
     },
     {
+      title: "Counsellors",
+      render: (_, r) =>
+        r.counsellorDisplay.length ? (
+          r.counsellorDisplay.map((c, i) => (
+            <div key={i}>
+              <Text strong>{c.name}</Text>
+              <br />
+              <Tag color={c.type === "lead" ? "blue" : "green"}>{c.type}</Tag>
+            </div>
+          ))
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
+    },
+    {
       title: "Date & Time",
-      width: 160,
-      render: (_, record) => (
+      width: 170,
+      render: (_, r) => (
         <>
-          <Text>{record.date}</Text>
+          <Text>{r.date}</Text>
           <br />
-          <Text type="colorTextSecondary">{record.time}</Text>
+          <Text type="colorTextSecondary">{r.time}</Text>
         </>
       ),
     },
     {
       title: "Mode",
-      dataIndex: "mode",
-      width: 80,
-      render: (mode) => <Tag>{mode}</Tag>,
+      dataIndex: "modeLabel",
+      width: 100,
+      render: (m) => <Tag>{m}</Tag>,
     },
     {
       title: "Status",
       dataIndex: "status",
-      width: 100,
-      render: (status) => <Tag>{status}</Tag>,
+      width: 110,
+      render: (s) => <Tag>{s}</Tag>,
     },
     {
       title: "Actions",
-      width: 120,
+      width: 140,
       render: (_, record) => (
-        <Space size="small" style={{ whiteSpace: "nowrap" }}>
-          {/* VIEW */}
+        <Space size="small">
           <Button
-            icon={<EyeOutlined />}
             size="large"
+            icon={<EyeOutlined />}
             onClick={() => {
               setRescheduleData(record);
               setModalMode("view");
@@ -202,12 +195,10 @@ const SlotBooking = () => {
           >
             View
           </Button>
-
-          {/* EDIT */}
           <Button
+            size="large"
             icon={<EditOutlined />}
             type="primary"
-            size="large"
             onClick={() => {
               setRescheduleData(record);
               setModalMode("edit");
@@ -216,17 +207,8 @@ const SlotBooking = () => {
           >
             Edit
           </Button>
-
-          {/* DELETE */}
-          <Popconfirm
-            title="Delete Content"
-            description="Are you sure you want to delete this booking?"
-            onConfirm={() => handleDelete(record)}
-            onCancel={() => {}}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button danger size="large" icon={<DeleteOutlined />}>
+          <Popconfirm title="Delete booking?">
+            <Button size="large" danger icon={<DeleteOutlined />}>
               Delete
             </Button>
           </Popconfirm>
@@ -235,139 +217,134 @@ const SlotBooking = () => {
     },
   ];
 
-  const handleSaveSession = (session) => {
-    if (modalMode === "edit") {
-      setDataSource((prev) =>
-        prev.map((item) =>
-          item.key === rescheduleData.key ? { ...item, ...session } : item
-        )
-      );
-    } else {
-      setDataSource((prev) => [
-        ...prev,
-        { key: Date.now().toString(), ...session },
-      ]);
-    }
-  };
-
-  const getBookedSlots = (date) => {
-    if (!date) return [];
-    return dataSource
-      .filter((s) => s.date === dayjs(date).format("YYYY-MM-DD"))
-      .map((s) => s.time.split(" (")[0]);
-  };
-
-  const handleDelete = (record) => {
-  setDataSource((prev) =>
-    prev.filter((item) => item.key !== record.key)
-  );
-};
-
-
   return (
-    <div style={{ padding: "8px 12px", maxWidth: "1400px", margin: "0 auto" }}>
-      <Row justify="space-between" align="middle" gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} md={12}>
-          <Title level={3} style={{ marginBottom: 0 }}>Counselling Sessions</Title>
+    <div style={{ padding: "12px" }}>
+      {/* ================= HEADER ================= */}
+      <Row
+        gutter={[12, 12]}
+        align="middle"
+        justify="space-between"
+        style={{ marginBottom: 16 }}
+      >
+        <Col xs={24} sm={12}>
+          <Title level={3} style={{ margin: 0 }}>
+            Counselling Sessions
+          </Title>
         </Col>
-        <Col xs={24} md={12} style={{ textAlign: "right" }}>
+        <Col xs={24} sm={6} style={{ textAlign: "right" }}>
           <Button
             type="primary"
             icon={<PlusOutlined />}
+            block={window.innerWidth < 576}
             onClick={() => {
-              setRescheduleData(null);
               setModalMode("create");
+              setRescheduleData(null);
               setIsModalOpen(true);
             }}
-            style={{ width: "100%", maxWidth: "140px" }}
           >
             Create Session
           </Button>
         </Col>
       </Row>
-      
-<Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-  {stats.map((item, index) => (
-    <Col xs={24} sm={12} md={6} key={index}>
-      <Card
-        style={{
-          height: 140,              // ✅ FIXED HEIGHT
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          textAlign: "center",
-        }}
-      >
-        <Text>{item.title}</Text>
 
-        <Title level={2} style={{ margin: 0 }}>
-          {item.value}
-        </Title>
+      {/* ================= STATS FILTER DROPDOWN ================= */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 12 }} align="middle">
+        <Col xs={24} sm={6}>
+          <Select
+            value={statsPeriod}
+            onChange={setStatsPeriod}
+            style={{ width: "100%" }}
+          >
+            <Option value="today">Today</Option>
+            <Option value="weekly">Weekly</Option>
+            <Option value="monthly">Monthly</Option>
+            <Option value="yearly">Yearly</Option>
+          </Select>
+        </Col>
+      </Row>
 
-        {/* reserve space even if sub text not present */}
-        <Text style={{ minHeight: 22 }}>
-          {item.sub || ""}
-        </Text>
-      </Card>
-    </Col>
-  ))}
-</Row>
+      {/* ================= STATS CARDS ================= */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {statsCards.map((item, index) => (
+          <Col xs={24} sm={12} md={6} key={index}>
+            <Card
+              loading={statsLoading}
+              style={{
+                height: 140,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+                textAlign: "center",
+              }}
+            >
+              <Text>{item.title}</Text>
 
+              <Title level={2} style={{ margin: 0 }}>
+                {item.value}
+              </Title>
 
+              <Text style={{ minHeight: 22 }}>{item.sub || ""}</Text>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      {/* ================= FILTERS ================= */}
       <Card>
-        <Title level={5}>Upcoming Session ({filteredData.length})</Title>
-
-        <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-          <Col xs={24} sm={24} md={10}>
+        <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
+          <Col xs={24} md={10}>
             <Input
-              placeholder="Search by name, type, etc..."
               prefix={<SearchOutlined />}
+              placeholder="Search"
               allowClear
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              size="middle"
             />
           </Col>
-          <Col xs={24} sm={12} md={4}>
-            <Select placeholder="Mode" allowClear onChange={setModeFilter} style={{ width: "100%" }}>
+          <Col xs={12} md={4}>
+            <Select
+              placeholder="Mode"
+              allowClear
+              onChange={setModeFilter}
+              style={{ width: "100%" }}
+            >
               <Option value="Online">Online</Option>
               <Option value="Offline">Offline</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={4}>
-            <Select placeholder="Status" allowClear onChange={setStatusFilter} style={{ width: "100%" }}>
-              <Option value="Scheduled">Scheduled</Option>
-              <Option value="Completed">Completed</Option>
+          <Col xs={12} md={4}>
+            <Select
+              placeholder="Status"
+              allowClear
+              onChange={setStatusFilter}
+              style={{ width: "100%" }}
+            >
+              <Option value="booked">Booked</Option>
             </Select>
           </Col>
           <Col xs={24} md={6}>
-            <DatePicker style={{ width: "100%" }} onChange={(d) => setDateFilter(d)} />
+            <DatePicker style={{ width: "100%" }} onChange={setDateFilter} />
           </Col>
         </Row>
 
-        <div style={{ overflowX: "auto", width: "100%" }}>
-          <Table
-            columns={columns}
-            dataSource={filteredData}
-            rowKey="key"
-            pagination={{ pageSize }}
-            size="small"
-            scroll={{ x: "max-content" }}
-          />
-        </div>
+        {/* ================= TABLE ================= */}
+        <Table
+          columns={columns}
+          dataSource={filteredData}
+          loading={loading}
+          rowKey="key"
+          size="small"
+          scroll={{ x: 1000 }}
+          pagination={{ pageSize: 5 }}
+        />
       </Card>
 
       <CreateSessionModal
         visible={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveSession}
-        sessionData={
-          rescheduleData
-            ? { ...rescheduleData, slot: rescheduleData.time.split(" (")[0] }
-            : null
-        }
-        bookedSlots={getBookedSlots(rescheduleData?.date)}
+        onSave={() => dispatch(fetchCounsellingBookings())}
         mode={modalMode}
+        data={rescheduleData}
       />
     </div>
   );

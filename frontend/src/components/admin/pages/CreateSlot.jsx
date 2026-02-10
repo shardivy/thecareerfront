@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   Typography,
@@ -10,122 +10,147 @@ import {
   Space,
   Divider,
   Spin,
+  Empty,
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 
-import { fetchSlotsByDate } from "../../../adminSlices/counsellingSlotSlice";
+import {
+  fetchSlotsByDate,
+  fetchSlotsCounsellorWise,
+  updateCounsellorStatus,
+} from "../../../adminSlices/counsellingSlotSlice";
 import CreateSlotModal from "../modals/CreateSlotModal";
 
 const { Title, Text } = Typography;
 
-const counsellors = [
-  { id: 1, name: "John Doe" },
-  { id: 2, name: "Alice Brown" },
-  { id: 3, name: "Jane Smith" },
-];
-
 const CreateSlot = () => {
   const dispatch = useDispatch();
-  const { list, loading } = useSelector(
+
+  const { list, counsellorWiseList, loading } = useSelector(
     (state) => state.counsellingSlots
   );
 
-  const [selectedDates, setSelectedDates] = useState({});
+  const [selectedDate, setSelectedDate] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Date change → API call
-  const handleDateChange = (date, counsellorId) => {
-    const formattedDate = dayjs(date).format("YYYY-MM-DD");
+  /* ---------- INITIAL LOAD ---------- */
+  useEffect(() => {
+    dispatch(fetchSlotsCounsellorWise());
+  }, [dispatch]);
 
-    setSelectedDates((prev) => ({
-      ...prev,
-      [counsellorId]: formattedDate,
-    }));
+
+const handleStatusToggle = (checked, item) => {
+  dispatch(
+ updateCounsellorStatus({
+  counsellor_id: item.counsellor_id,
+  date: dayjs(item.date).format("YYYY-MM-DD"),
+  is_active: checked, // ✅ correct key
+})
+
+  )
+    .unwrap()
+    .then(() => {
+      dispatch(fetchSlotsCounsellorWise());
+    });
+};
+
+
+  /* ---------- DATE CHANGE ---------- */
+  const handleDateChange = (date) => {
+    if (!date) return;
+    const formatted = dayjs(date).format("YYYY-MM-DD");
+    setSelectedDate(formatted);
 
     dispatch(
       fetchSlotsByDate({
-        date: formattedDate,
-        counsellorId,
+        date: formatted,
       })
     );
   };
 
+  /* ---------- DATA SOURCE SWITCH ---------- */
+  const dataSource = selectedDate ? list : counsellorWiseList;
+
   return (
     <div style={{ padding: 16 }}>
-      {/* Header */}
+      {/* HEADER */}
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Title level={4}>Manage Counselling Slots</Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setModalOpen(true)}
-        >
-          Create Slot
-        </Button>
+
+        <Space>
+          <DatePicker onChange={handleDateChange} />
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => setModalOpen(true)}
+          >
+            Create Slot
+          </Button>
+        </Space>
       </Row>
 
-      {/* Cards */}
-      <Row gutter={[16, 16]}>
-        {counsellors.map((counsellor) => {
-          const slotsForCounsellor = list.filter(
-            (s) => s.counsellor_id === counsellor.id
-          );
+      {/* LOADING */}
+      {loading && (
+        <Row justify="center">
+          <Spin />
+        </Row>
+      )}
 
-          return (
-            <Col xs={24} key={counsellor.id}>
+      {/* NO DATA */}
+      {!loading && dataSource.length === 0 && <Empty />}
+
+      {/* COUNSELLOR CARDS */}
+      <Row gutter={[16, 16]}>
+        {!loading &&
+          dataSource.map((item, index) => (
+            <Col xs={24} key={index}>
               <Card bordered>
+                {/* HEADER */}
                 <Row align="middle" gutter={16}>
                   <Col>
                     <Text strong>Counsellor:</Text>{" "}
-                    <Text>{counsellor.name}</Text>
+                    <Text>{item.counsellor_name}</Text>
                   </Col>
 
                   <Col>
                     <Text strong>Date:</Text>{" "}
-                    <DatePicker
-                      value={
-                        selectedDates[counsellor.id]
-                          ? dayjs(selectedDates[counsellor.id])
-                          : null
-                      }
-                      onChange={(date) =>
-                        handleDateChange(date, counsellor.id)
-                      }
-                    />
+                    <Text>
+                      {dayjs(item.date).format("DD MMM YYYY")}
+                    </Text>
                   </Col>
 
                   <Col>
                     <Text strong>Status:</Text>{" "}
-                    <Switch defaultChecked />
+                   <Switch
+  checked={item.counsellor_is_active}
+  onChange={(checked) => handleStatusToggle(checked, item)}
+/>
+
                   </Col>
                 </Row>
 
                 <Divider />
 
-                {loading ? (
-                  <Spin />
-                ) : (
-                  <Space wrap>
-                    {slotsForCounsellor.length > 0 ? (
-                      slotsForCounsellor.map((slot) =>
-                        slot.time_slots.map((time, i) => (
-                          <Button key={i}>{time}</Button>
-                        ))
-                      )
-                    ) : (
-                      <Text type="secondary">No slots available</Text>
-                    )}
-                  </Space>
-                )}
+                {/* SLOTS */}
+                <Space wrap>
+                  {item.slots && item.slots.length > 0 ? (
+                    item.slots.map((slot) => (
+                      <Button key={slot.id}>
+                        {slot.start_time} - {slot.end_time}
+                      </Button>
+                    ))
+                  ) : (
+                    <Text type="colorTextSecondary">No slots available</Text>
+                  )}
+                </Space>
               </Card>
             </Col>
-          );
-        })}
+          ))}
       </Row>
 
-      {/* Modal */}
+      {/* CREATE SLOT MODAL */}
       <CreateSlotModal
         open={modalOpen}
         onCancel={() => setModalOpen(false)}

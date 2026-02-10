@@ -34,7 +34,6 @@ import { fetchReportStats } from "../../../adminSlices/reportSlice";
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-
 /* ----------------- STATUS COLOR MAPS ----------------- */
 const statusColorMap = {
   Unlocked: adminTheme.token.colorSuccess,
@@ -66,12 +65,9 @@ const statusIconMap = {
 const ReportsManagement = () => {
   const dispatch = useDispatch();
 
-  // const { reports: rawReports = [], loading } = useSelector(
-  //   (state) => state.reports
-  // );
   const { reports: rawReports = [], stats, loading } = useSelector(
-  (state) => state.reports
-);
+    (state) => state.reports
+  );
 
   const [openViewModal, setOpenViewModal] = useState(false);
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
@@ -89,40 +85,37 @@ const ReportsManagement = () => {
   /* ----------------- FETCH DATA ----------------- */
   useEffect(() => {
     dispatch(fetchCompletedExamReports());
-      dispatch(fetchReportStats()); 
+    dispatch(fetchReportStats());
   }, [dispatch]);
 
-
   /* ----------------- STATS DATA ----------------- */
-const statsCards = [
-  {
-    title: "Total Reports",
-    value: stats?.total_reports || 0,
-    icon: <FileOutlined style={{ color: adminTheme.token.colorPrimary }} />,
-  },
-  {
-    title: "Unlocked",
-    value: stats?.unlocked || 0,
-    icon: <UnlockOutlined style={{ color: adminTheme.token.colorSuccess }} />,
-  },
-  {
-    title: "Locked",
-    value: stats?.locked || 0,
-    icon: <LockOutlined style={{ color: adminTheme.token.colorError }} />,
-  },
-  {
-    title: "Pending Upload",
-    value: stats?.pending_uploaded || 0,
-    icon: <UploadOutlined style={{ color: adminTheme.token.colorWarning }} />,
-  },
-  {
-    title: "Review Pending",
-    value: stats?.review_pending || 0, 
-    icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
-  },
-];
-
-
+  const statsCards = [
+    {
+      title: "Total Reports",
+      value: stats?.total_reports || 0,
+      icon: <FileOutlined style={{ color: adminTheme.token.colorPrimary }} />,
+    },
+    {
+      title: "Unlocked",
+      value: stats?.unlocked || 0,
+      icon: <UnlockOutlined style={{ color: adminTheme.token.colorSuccess }} />,
+    },
+    {
+      title: "Locked",
+      value: stats?.locked || 0,
+      icon: <LockOutlined style={{ color: adminTheme.token.colorError }} />,
+    },
+    {
+      title: "Pending Upload",
+      value: stats?.pending_uploaded || 0,
+      icon: <UploadOutlined style={{ color: adminTheme.token.colorWarning }} />,
+    },
+    {
+      title: "Review Pending",
+      value: stats?.review_pending || 0,
+      icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
+    },
+  ];
 
   /* ----------------- MAP API → UI DATA ----------------- */
   const mappedReports = useMemo(() => {
@@ -133,36 +126,32 @@ const statsCards = [
       name: `${item.first_name ?? ""} ${item.last_name ?? ""}`.trim(),
       email: item.email,
       program: item.program ?? "—",
-
       status:
         item.report_status === "pending_uploaded"
           ? "Pending Upload"
           : item.report_status === "review_pending"
-            ? "Review Verification Pending"
-            : item.report_status === "unlocked"
-              ? "Unlocked"
-              : item.report_status === "locked"
-                ? "Locked"
-                : "Unknown",
-
+          ? "Review Verification Pending"
+          : item.report_status === "unlocked"
+          ? "Unlocked"
+          : item.report_status === "locked"
+          ? "Locked"
+          : "Unknown",
       paymentStatus:
         item.payment_status === "paid"
           ? "Fully Paid"
           : item.payment_status === "partial"
-            ? "Partial Paid"
-            : "Pending",
-
+          ? "Partial Paid"
+          : "Pending",
       examStatus:
         item.exam_status === "completed"
           ? "Completed"
           : item.exam_status === "pending"
-            ? "Pending"
-            : "Not Started",
-
+          ? "Pending"
+          : "Not Started",
       uploadedDate: item.uploaded_at
         ? new Date(item.uploaded_at).toISOString().split("T")[0]
         : "—",
-    file_path: item.file_path || "",
+      file_path: item.file_path || "",
     }));
   }, [rawReports]);
 
@@ -216,12 +205,12 @@ const statsCards = [
   /* ----------------- ROW SELECTION ----------------- */
   const rowSelection = showCheckboxes
     ? {
-      selectedRowKeys,
-      onChange: (keys) => setSelectedRowKeys(keys),
-      getCheckboxProps: (record) => ({
-        disabled: record.status !== "Pending Upload",
-      }),
-    }
+        selectedRowKeys,
+        onChange: (keys) => setSelectedRowKeys(keys),
+        getCheckboxProps: (record) => ({
+          disabled: record.status !== "Pending Upload",
+        }),
+      }
     : null;
 
   /* ----------------- TABLE COLUMNS ----------------- */
@@ -289,10 +278,12 @@ const statsCards = [
               type="primary"
               icon={<UploadOutlined />}
               onClick={() => {
+                console.log("📤 Upload button clicked for:", record.name);
+                console.log("📋 Setting modal mode to: upload");
                 setSelectedReport(record);
-                setModalMode("edit");
+                setModalMode("upload"); // FIXED: Changed from "edit" to "upload"
                 setOpenViewModal(true);
-                  console.log("ROW DATA 👉", record);
+                console.log("✅ Modal opened with mode:", "upload");
               }}
             >
               Upload
@@ -339,9 +330,12 @@ const statsCards = [
               <Button
                 icon={<EditOutlined />}
                 onClick={() => {
+                  console.log("✏️ Edit button clicked for:", record.name);
+                  console.log("📋 Setting modal mode to: edit");
                   setSelectedReport(record);
                   setModalMode("edit");
                   setOpenViewModal(true);
+                  console.log("✅ Modal opened with mode:", "edit");
                 }}
               >
                 Edit
@@ -356,6 +350,7 @@ const statsCards = [
   return (
     <div style={{ padding: 16 }}>
       <Title level={3}>Report Management</Title>
+      
       {/* ----------------- STATS ----------------- */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         {statsCards.map((item, i) => (
@@ -380,8 +375,9 @@ const statsCards = [
             </Card>
           </Col>
         ))}
-      </Row><br></br><br></br><br></br>
-
+      </Row>
+      
+      <br /><br /><br />
 
       {/* ACTION BUTTONS */}
       <Row
@@ -400,7 +396,7 @@ const statsCards = [
             }
           >
             {showCheckboxes
-              ? `Upload (${selectedRowKeys.length})`
+              ? `Upload Selected (${selectedRowKeys.length})`
               : "Bulk Upload"}
           </Button>
         </Col>
@@ -412,16 +408,14 @@ const statsCards = [
         </Col>
       </Row>
 
-
-
-
       {/* FILTERS + TABLE */}
       <Card>
-                     <Col>
-            <Title level={5} style={{ margin: 10 }}>
-              Report Records ({filteredData.length})
-            </Title>
-          </Col>
+        <Col>
+          <Title level={5} style={{ margin: 10 }}>
+            Report Records ({filteredData.length})
+          </Title>
+        </Col>
+        
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={8}>
             <Input
@@ -474,7 +468,6 @@ const statsCards = [
             </Select>
           </Col>
         </Row>
-
 
         <br />
 

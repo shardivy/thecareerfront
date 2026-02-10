@@ -6,7 +6,6 @@ import {
   deleteUserApi
 } from "../adminApi/userApi";
 
-
 /* ===================== THUNKS ===================== */
 
 // ADD USER
@@ -28,13 +27,14 @@ export const fetchStudents = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const data = await fetchStudentsApi();
-      return data.data; // backend structure
+      console.log("📦 API Response from fetchStudents:", data);
+      return data.data || data; // backend structure
     } catch (error) {
+      console.error("❌ Error fetching students:", error);
       return rejectWithValue("Failed to fetch students");
     }
   }
 );
-
 
 // UPDATE USER
 export const updateUser = createAsyncThunk(
@@ -42,6 +42,7 @@ export const updateUser = createAsyncThunk(
   async ({ id, payload }, { rejectWithValue }) => {
     try {
       const data = await updateUserApi(id, payload);
+      console.log("🔄 Update API Response:", data);
 
       // if API returns updated object
       if (data?.data) return data.data;
@@ -49,18 +50,18 @@ export const updateUser = createAsyncThunk(
       // fallback
       return { id, ...payload };
     } catch (error) {
+      console.error("❌ Error updating user:", error);
       return rejectWithValue(error.response?.data || "Update failed");
     }
   }
 );
-
 
 // DELETE USER
 export const deleteUser = createAsyncThunk(
   "users/deleteUser",
   async (userId, { rejectWithValue }) => {
     try {
-      await axiosInstance.delete(`/users/${userId}/`);
+      await deleteUserApi(userId);
       return userId;
     } catch (error) {
       return rejectWithValue(error.response?.data || "Delete failed");
@@ -87,6 +88,14 @@ const userSlice = createSlice({
       state.success = false;
       state.successMessage = null;
     },
+    // Add a reducer to manually set a user (for debugging)
+    setUserData: (state, action) => {
+      const { id, data } = action.payload;
+      const index = state.list.findIndex((u) => u.id === id);
+      if (index !== -1) {
+        state.list[index] = { ...state.list[index], ...data };
+      }
+    }
   },
 
   extraReducers: (builder) => {
@@ -94,62 +103,97 @@ const userSlice = createSlice({
       /* ---------- FETCH STUDENTS ---------- */
       .addCase(fetchStudents.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
-.addCase(fetchStudents.fulfilled, (state, action) => {
-  state.loading = false;
+      .addCase(fetchStudents.fulfilled, (state, action) => {
+        state.loading = false;
+        
+        if (!action.payload) {
+          console.error("⚠️ No payload received from fetchStudents");
+          return;
+        }
 
-  // Map users
-  const mappedUsers = action.payload.map((u) => ({
-    key: u.id,
-    id: u.id,
-    first_name: u.first_name || "",
-    last_name: u.last_name || "",
-    student_name: u.student_name || "",
-    email: u.email || "",
-    phone: u.phone || "",
-    study_class: u.study_class || "",
-    current_academic_stage: u.current_academic_stage || "",
-    city: u.city || "",
+        // Map users with ALL fields from API
+        const mappedUsers = action.payload.map((u) => {
+          console.log("📋 Processing user from API:", u.id, u.first_name);
+          console.log("💰 Payment data:", {
+            amount: u.amount,
+            payment_type: u.payment_type,
+            method: u.method,
+            transaction_id: u.transaction_id,
+            proof_file: u.proof_file
+          });
+          
+          const userObj = {
+            key: u.id,
+            id: u.id,
+            first_name: u.first_name || "",
+            last_name: u.last_name || "",
+            student_name: u.student_name || "",
+            email: u.email || "",
+            phone: u.phone || "",
+            study_class: u.study_class || "",
+            current_academic_stage: u.current_academic_stage || "",
+            city: u.city || "",
 
-    // Include IDs so edit modal can pre-fill Selects
-    program_id: u.program?.id || u.program_id || null,
-    package_id: u.package?.id || u.package_id || null,
+            // Include IDs so edit modal can pre-fill Selects
+            program_id: u.program?.id || u.program_id || null,
+            package_id: u.package?.id || u.package_id || null,
 
-    program: u.program_name || "N/A",
-    package: u.package_name || "N/A",
+            program: u.program_name || u.program?.name || "N/A",
+            package: u.package_name || u.package?.name || "N/A",
 
-    paymentStatus: u.payment_status
-      ? u.payment_status
-          .split("_")
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(" ")
-      : "N/A",
+            // PAYMENT FIELDS - IMPORTANT: Store all payment data DIRECTLY
+            amount: u.amount || "",
+            payment_type: u.payment_type || "",
+            method: u.method || "",
+            transaction_id: u.transaction_id || "",
+            proof_file: u.proof_file || "",
+            
+            paymentStatus: u.payment_status
+              ? u.payment_status
+                  .split("_")
+                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(" ")
+              : "N/A",
 
-    examStatus: u.exam_status?.completed > 0 ? "Completed" : "Pending",
-reportStatus: u.is_report_locked ? "Unlocked" : "Locked",
-    sessions: u.exam_status
-      ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
-      : "0",
+            examStatus: u.exam_status?.completed > 0 ? "Completed" : "Pending",
+            reportStatus: u.is_report_locked ? "Unlocked" : "Locked",
+            sessions: u.exam_status
+              ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
+              : "0",
 
-    profile: {
-      email: u.email || "",
-      phone: u.phone || "",
-      study_class: u.study_class || "",
-      current_academic_stage: u.current_academic_stage || "",
-      city: u.city || "",
-      program_name: u.program_name || "",
-      package_name: u.package_name || "",
-      payment_status: u.payment_status || "",
-    },
-  }));
+            // Include all payment fields in profile for easy access
+            profile: {
+              email: u.email || "",
+              phone: u.phone || "",
+              study_class: u.study_class || "",
+              current_academic_stage: u.current_academic_stage || "",
+              city: u.city || "",
+              program_name: u.program_name || "",
+              package_name: u.package_name || "",
+              payment_status: u.payment_status || "",
+              // ADD PAYMENT DETAILS TO PROFILE
+              amount: u.amount || "",
+              payment_type: u.payment_type || "",
+              method: u.method || "",
+              transaction_id: u.transaction_id || "",
+              proof_file: u.proof_file || "",
+            },
+          };
+          
+          console.log("✅ Created user object:", userObj);
+          return userObj;
+        });
 
-  // 🔥 Ensure newest users appear at the top
-  state.list = mappedUsers.reverse(); 
-})
-
+        console.log("📊 Mapped users with payment data:", mappedUsers);
+        // 🔥 Ensure newest users appear at the top
+        state.list = mappedUsers.reverse(); 
+      })
       .addCase(fetchStudents.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        console.error("❌ Fetch students rejected:", action.payload);
       })
 
       /* ---------- ADD USER ---------- */
@@ -163,6 +207,7 @@ reportStatus: u.is_report_locked ? "Unlocked" : "Locked",
         state.successMessage = action.payload.message;
 
         const u = action.payload.data;
+        console.log("➕ New user data from API:", u);
 
         const newUser = {
           key: u.id,
@@ -181,6 +226,13 @@ reportStatus: u.is_report_locked ? "Unlocked" : "Locked",
           program: u.program?.name || "N/A",
           package: u.package?.name || "N/A",
 
+          // PAYMENT FIELDS
+          amount: u.amount || "",
+          payment_type: u.payment_type || "",
+          method: u.method || "",
+          transaction_id: u.transaction_id || "",
+          proof_file: u.proof_file || "",
+          
           paymentStatus: u.payment_status 
             ? u.payment_status.split('_').map(word => 
                 word.charAt(0).toUpperCase() + word.slice(1)
@@ -201,46 +253,85 @@ reportStatus: u.is_report_locked ? "Unlocked" : "Locked",
             city: u.city || "",
             program_name: u.program_name || "",
             package_name: u.package_name || "",
-            payment_status: u.payment_status || ""
+            payment_status: u.payment_status || "",
+            // ADD PAYMENT DETAILS TO PROFILE
+            amount: u.amount || "",
+            payment_type: u.payment_type || "",
+            method: u.method || "",
+            transaction_id: u.transaction_id || "",
+            proof_file: u.proof_file || "",
           }
         };
 
+        console.log("✅ New user added with payment data:", newUser);
         // Add new user at top
         state.list.unshift(newUser);
       })
       .addCase(addUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        console.error("❌ Add user rejected:", action.payload);
       })
 
       /* ---------- UPDATE ---------- */
       .addCase(updateUser.fulfilled, (state, action) => {
         const payload = action.payload || {};
+        console.log("🔄 Update payload received:", payload);
+        
         if (!payload.id) {
-          // Nothing to update (API returned only a message); keep existing state
+          console.log("⚠️ No ID in update payload, skipping");
           return;
         }
 
         const index = state.list.findIndex((u) => u.id === payload.id);
         if (index !== -1) {
           const existing = state.list[index];
+          console.log("📝 Existing user data:", existing);
 
-          // Merge only known/updated fields to avoid overwriting normalized fields accidentally
+          // Merge all fields including payment data
           const updated = {
             ...existing,
             first_name: payload.first_name ?? existing.first_name,
             last_name: payload.last_name ?? existing.last_name,
             email: payload.email ?? existing.email,
             phone: payload.phone ?? existing.phone,
+            study_class: payload.study_class ?? existing.study_class,
 
-            // Program / package: support both {program_id, package_id} or {program: {id, name}} or names
+            // Payment fields
+            amount: payload.amount ?? existing.amount,
+            payment_type: payload.payment_type ?? existing.payment_type,
+            method: payload.method ?? existing.method,
+            transaction_id: payload.transaction_id ?? existing.transaction_id,
+            proof_file: payload.proof_file ?? existing.proof_file,
+
+            // Program / package
             program_id: payload.program_id ?? payload.program?.id ?? existing.program_id,
             package_id: payload.package_id ?? payload.package?.id ?? existing.package_id,
             program: payload.program_name ?? payload.program?.name ?? existing.program,
             package: payload.package_name ?? payload.package?.name ?? existing.package,
+            
+            // Also update profile object
+            profile: {
+              ...existing.profile,
+              first_name: payload.first_name ?? existing.profile.first_name,
+              last_name: payload.last_name ?? existing.profile.last_name,
+              email: payload.email ?? existing.profile.email,
+              phone: payload.phone ?? existing.profile.phone,
+              study_class: payload.study_class ?? existing.profile.study_class,
+              amount: payload.amount ?? existing.profile.amount,
+              payment_type: payload.payment_type ?? existing.profile.payment_type,
+              method: payload.method ?? existing.profile.method,
+              transaction_id: payload.transaction_id ?? existing.profile.transaction_id,
+              proof_file: payload.proof_file ?? existing.profile.proof_file,
+              program_name: payload.program_name ?? payload.program?.name ?? existing.profile.program_name,
+              package_name: payload.package_name ?? payload.package?.name ?? existing.profile.package_name,
+            }
           };
 
+          console.log("✅ Updated user data:", updated);
           state.list[index] = updated;
+        } else {
+          console.log("⚠️ User not found in list for update:", payload.id);
         }
       })
 
@@ -253,5 +344,5 @@ reportStatus: u.is_report_locked ? "Unlocked" : "Locked",
   },
 });
 
-export const { resetUserState } = userSlice.actions;
+export const { resetUserState, setUserData } = userSlice.actions;
 export default userSlice.reducer;

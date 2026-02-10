@@ -12,210 +12,171 @@ import {
   Typography,
   ConfigProvider,
   message,
+  Spin,
 } from "antd";
 import dayjs from "dayjs";
-import { bookCounsellingSlot } from "../../../adminSlices/counsellingBookingSlice";
+
+import {
+  bookCounsellingSlot,
+  updateCounsellingBooking,
+} from "../../../adminSlices/counsellingBookingSlice";
 import { fetchStudents } from "../../../adminSlices/userSlice";
 import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
+import { fetchSlotsByDate } from "../../../adminSlices/counsellingSlotSlice";
 
 const { Option } = Select;
 const { Text } = Typography;
 
-const timeSlots = [
-  "09:00 AM - 10:00 AM",
-  "10:00 AM - 11:00 AM",
-  "11:00 AM - 12:00 PM",
-  "02:00 PM - 03:00 PM",
-  "04:00 PM - 05:00 PM",
-];
-
-const mobileStyles = `
-  @media (max-width: 576px) {
-    .session-modal .ant-modal-footer {
-      justify-content: flex-start !important;
-    }
-  }
-`;
-
-const CreateSessionModal = ({
-  visible,
-  onClose,
-  onSave,
-  sessionData,
-  bookedSlots = [],
-  mode = "create",
-}) => {
+const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data }) => {
   const [form] = Form.useForm();
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const [filter, setFilter] = useState("All");
   const dispatch = useDispatch();
   const isView = mode === "view";
 
-  // ===== Redux selectors =====
+  const [selectedSlot, setSelectedSlot] = useState(null);
+  const [primaryCounsellorId, setPrimaryCounsellorId] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [filter, setFilter] = useState(mode === "view" ? "Booked" : "All"); // Default filter
+
   const students = useSelector((state) => state.users.list ?? []);
   const studentsLoading = useSelector((state) => state.users.loading);
 
-  const counsellors = useSelector((state) => state.counsellors?.list ?? []);
-  const counsellorsLoading = useSelector((state) => state.counsellors?.loading ?? false);
+  const counsellors = useSelector((state) => state.counsellors.list ?? []);
+  const counsellorsLoading = useSelector((state) => state.counsellors.loading);
+
+  const slotsByDate = useSelector((state) => state.counsellingSlots.list ?? []);
+  const slotsLoading = useSelector((state) => state.counsellingSlots.loading);
 
   const bookingLoading = useSelector((state) => state.counsellingBooking.loading);
 
-  // ===== Fetch data when modal opens =====
+  // ================= FETCH DROPDOWNS =================
   useEffect(() => {
-    if (visible) {
+    if (visible && !isView) {
       dispatch(fetchStudents());
       dispatch(fetchLeadCounsellors());
     }
-  }, [visible, dispatch]);
+  }, [visible, dispatch, isView]);
 
-  // ===== Populate form when editing/viewing session =====
+  // ================= PREFILL EDIT / VIEW =================
   useEffect(() => {
-    if (sessionData) {
-      // Find counsellor IDs from names for form population
-      const primaryCounsellorId = sessionData.counsellors?.[0]?.name 
-        ? counsellors.find(c => c.name === sessionData.counsellors[0].name)?.id 
-        : null;
-      const secondaryCounsellorId = sessionData.counsellors?.[1]?.name 
-        ? counsellors.find(c => c.name === sessionData.counsellors[1].name)?.id 
-        : null;
+    if (!visible || !data || mode === "create") return;
+    if (!students.length || !counsellors.length) return;
 
-      form.setFieldsValue({
-        student: sessionData.user,
-        primaryCounsellor: primaryCounsellorId,
-        secondaryCounsellor: secondaryCounsellorId,
-        mode: sessionData.mode,
-        date: dayjs(sessionData.date),
-      });
-      setSelectedSlot(sessionData.slot);
-    } else {
-      form.resetFields();
-      setSelectedSlot(null);
+    const lead = data.counsellors?.find((c) => c.role === "lead");
+    const assistant = data.counsellors?.find((c) => c.role === "assistant");
+
+    form.setFieldsValue({
+      student: data.student?.id,
+      mode: data.slot?.mode
+        ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
+        : undefined,
+      primaryCounsellor: lead
+        ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
+        : null,
+      secondaryCounsellor: assistant
+        ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
+        : null,
+      date: data.date ? dayjs(data.date) : null,
+    });
+
+    setPrimaryCounsellorId(lead?.counsellor?.id || null);
+    setSelectedDate(data.date ? dayjs(data.date) : null);
+    setSelectedSlot(data.slot || null);
+  }, [visible, data, mode, students, counsellors, form]);
+
+  // ================= FETCH SLOTS =================
+  useEffect(() => {
+    if (primaryCounsellorId && selectedDate && !isView) {
+      dispatch(
+        fetchSlotsByDate({
+          counsellorId: primaryCounsellorId,
+          date: dayjs(selectedDate).format("YYYY-MM-DD"),
+        })
+      );
     }
-  }, [sessionData, form, counsellors]);
+  }, [primaryCounsellorId, selectedDate, dispatch, isView]);
 
-  // ===== Handle booking submission =====
-  const handleOk = () => {
+  // ================= SLOT FILTER =================
+  const filteredSlots = slotsByDate.filter((slot) => {
+    if (isView) return selectedSlot ? slot.id === selectedSlot.id : false; // Only booked slot in view
+    if (filter === "All") return true; // Show all in create/edit
+    if (filter === "Available") return slot.status === "available";
+    if (filter === "Booked") return slot.status === "booked";
+    return true;
+  });
+
+  // ================= SUBMIT =================
+  const handleSubmit = () => {
     form.validateFields().then((values) => {
-      // Find counsellor objects by their IDs
-      const primaryCounsellor = counsellors.find(c => c.id === values.primaryCounsellor);
-      const secondaryCounsellor = values.secondaryCounsellor 
-        ? counsellors.find(c => c.id === values.secondaryCounsellor)
-        : null;
+      if (!selectedSlot) {
+        message.warning("Please select a slot");
+        return;
+      }
 
       const payload = {
-        user: values.student,
-        counsellors: [
-          { name: primaryCounsellor?.name },
-          ...(secondaryCounsellor
-            ? [{ name: secondaryCounsellor.name }]
-            : []),
-        ],
+        student_id: values.student,
         date: values.date.format("YYYY-MM-DD"),
-        start_time: selectedSlot,
-        duration_minutes: 60,
-        mode: values.mode,
+        slots: [selectedSlot.id],
+        counsellors_data: [
+          { counsellor_id: primaryCounsellorId, role: "lead" },
+          ...(values.secondaryCounsellor ? [{ counsellor_id: values.secondaryCounsellor.value, role: "assistant" }] : []),
+        ],
       };
 
-      dispatch(bookCounsellingSlot(payload))
+      const action = mode === "edit"
+        ? updateCounsellingBooking({ id: data.id, payload })
+        : bookCounsellingSlot(payload);
+
+      dispatch(action)
         .unwrap()
         .then(() => {
-          message.success("Counselling session booked successfully");
-          onSave({
-            ...payload,
-            time: selectedSlot + " (60 mins)",
-            status: "Scheduled",
-          });
+          message.success(mode === "edit" ? "Session updated successfully" : "Session booked successfully");
+          onSave?.();
           onClose();
         })
-        .catch((err) => {
-          message.error(err?.message || "Booking failed");
-        });
+        .catch((err) => message.error(err));
     });
   };
 
-  // ===== Filter time slots =====
-  const displayedSlots = timeSlots.filter((slot) => {
-    if (filter === "All") return true;
-    const isBooked = bookedSlots.includes(slot);
-    return filter === "Available" ? !isBooked : isBooked;
-  });
-
+  // ================= UI =================
   return (
-    <ConfigProvider
-      theme={{
-        components: {
-          Select: { colorBgContainerDisabled: "transparent" },
-          DatePicker: { colorBgContainerDisabled: "transparent" },
-          Input: { colorBgContainerDisabled: "transparent" },
-        },
-      }}
-    >
-      <style>{mobileStyles}</style>
+    <ConfigProvider>
       <Modal
         open={visible}
-        title={isView ? "View Counselling Session" : "Book Counselling Session"}
-        onCancel={onClose}
         width={820}
-        className="session-modal"
+        title={mode === "view" ? "View Counselling Session" : mode === "edit" ? "Edit Counselling Session" : "Create Counselling Session"}
+        onCancel={onClose}
         footer={
           isView
             ? [<Button key="close" onClick={onClose}>Close</Button>]
             : [
                 <Button key="cancel" onClick={onClose}>Cancel</Button>,
-                <Button
-                  key="submit"
-                  type="primary"
-                  loading={bookingLoading}
-                  onClick={handleOk}
-                  disabled={!selectedSlot}
-                >
-                  Confirm Booking
+                <Button key="submit" type="primary" loading={bookingLoading} onClick={handleSubmit}>
+                  {mode === "edit" ? "Update" : "Confirm Booking"}
                 </Button>,
               ]
         }
       >
-        <Form form={form} layout="vertical">
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={(changed) => {
+            if (changed.primaryCounsellor) setPrimaryCounsellorId(changed.primaryCounsellor.value);
+            if (changed.date) setSelectedDate(changed.date);
+          }}
+        >
+          {/* ================= STUDENT & MODE ================= */}
           <Row gutter={16}>
-            {/* Student Dropdown */}
             <Col span={12}>
-              <Form.Item
-                label="Student Name"
-                name="student"
-                rules={[{ required: true }]}
-              >
-                <Select
-                  disabled={isView}
-                  loading={studentsLoading}
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder="Select student"
-                >
-                  {students.map((student) => {
-                    const fullName = `${student.first_name} ${student.last_name}`;
-                    return (
-                      <Option
-                        key={student.id}
-                        value={student.id}
-                        label={`${fullName} ${student.email}`}
-                      >
-                        <div>
-                          <Text>{fullName}</Text>
-                          <div style={{ fontSize: 12 }}>{student.email}</div>
-                        </div>
-                      </Option>
-                    );
-                  })}
+              <Form.Item label="Student" name="student" rules={[{ required: true }]}>
+                <Select disabled={isView} loading={studentsLoading} showSearch>
+                  {students.map((s) => (
+                    <Option key={s.id} value={s.id}>{s.first_name} {s.last_name}</Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
-
-            {/* Mode Dropdown */}
             <Col span={12}>
-              <Form.Item
-                label="Session Mode"
-                name="mode"
-                rules={[{ required: true }]}
-              >
+              <Form.Item label="Mode" name="mode" rules={[{ required: true }]}>
                 <Select disabled={isView}>
                   <Option value="Online">Online</Option>
                   <Option value="Offline">Offline</Option>
@@ -224,47 +185,23 @@ const CreateSessionModal = ({
             </Col>
           </Row>
 
+          {/* ================= PRIMARY & SECONDARY COUNSELLOR ================= */}
           <Row gutter={16}>
-            {/* Primary Counsellor */}
             <Col span={12}>
-              <Form.Item
-                label="Primary Counsellor"
-                name="primaryCounsellor"
-                rules={[{ required: true }]}
-              >
-                <Select
-                  disabled={isView}
-                  loading={counsellorsLoading}
-                  showSearch
-                  placeholder="Select primary counsellor"
-                  optionFilterProp="children"
-                >
+              <Form.Item label="Primary Counsellor" name="primaryCounsellor" rules={[{ required: true }]}>
+                <Select disabled={isView} loading={counsellorsLoading} labelInValue placeholder="Select Primary Counsellor">
                   {counsellors.map((c) => (
-                    <Option key={c.id} value={c.id}>
-                      {c.name} 
-                    </Option>
+                    <Option key={c.id} value={c.id}>{c.first_name} {c.last_name}</Option>
                   ))}
                 </Select>
               </Form.Item>
             </Col>
-
-            {/* Secondary Counsellor */}
             <Col span={12}>
-              <Form.Item
-                label="Secondary Counsellor (Optional)"
-                name="secondaryCounsellor"
-              >
-                <Select
-                  disabled={isView}
-                  loading={counsellorsLoading}
-                  showSearch
-                  placeholder="Select secondary counsellor"
-                  optionFilterProp="children"
-                  allowClear
-                >
+              <Form.Item label="Secondary Counsellor" name="secondaryCounsellor">
+                <Select disabled={isView} allowClear labelInValue>
                   {counsellors.map((c) => (
-                    <Option key={c.id} value={c.id}>
-                      {c.name}
+                    <Option key={c.id} value={c.id} label={`${c.first_name} ${c.last_name}`}>
+                      {c.first_name} {c.last_name}
                     </Option>
                   ))}
                 </Select>
@@ -272,54 +209,52 @@ const CreateSessionModal = ({
             </Col>
           </Row>
 
-          {/* Date Picker */}
-          <Form.Item
-            label="Select Date"
-            name="date"
-            rules={[{ required: true }]}
-          >
-            <DatePicker 
-              disabled={isView} 
-              style={{ width: "100%" }} 
-              disabledDate={(current) => {
-                // Disable past dates
-                return current && current < dayjs().startOf('day');
-              }}
-            />
+          {/* ================= DATE ================= */}
+          <Form.Item label="Date" name="date" rules={[{ required: true }]}>
+            <DatePicker disabled={isView} style={{ width: "100%" }} disabledDate={(d) => d && d < dayjs().startOf("day")} />
           </Form.Item>
 
-          {/* Time Slots */}
-          <Form.Item label={<Text strong>Available Slots</Text>}>
+          {/* ================= SLOTS ================= */}
+           {/* ================= SLOTS ================= */}
+          <Form.Item label={<Text strong>Slot</Text>}>
             <Row gutter={[8, 8]}>
-              {displayedSlots.map((slot) => {
-                const isBooked = bookedSlots.includes(slot);
-                return (
-                  <Col key={slot}>
+              {slotsLoading ? (
+                <Spin />
+              ) : filteredSlots.length ? (
+                filteredSlots.map((slot) => (
+                  <Col key={slot.id}>
                     <Button
-                      disabled={isBooked || isView}
-                      type={selectedSlot === slot ? "primary" : "default"}
-                      onClick={() => setSelectedSlot(slot)}
+                      type={selectedSlot?.id === slot.id && slot.status === "available" ? "primary" : "default"}
+                      disabled={slot.status === "booked"}
+                      onClick={() => {
+                        if (slot.status === "available") setSelectedSlot(slot);
+                      }}
                     >
-                      {slot}
+                      {slot.start_time} - {slot.end_time} {slot.status === "booked"}
                     </Button>
                   </Col>
-                );
-              })}
+                ))
+              ) : (
+                <Text type="secondary">No slots found</Text>
+              )}
             </Row>
 
-            <Space style={{ marginTop: 12 }}>
-              {["All", "Available", "Booked"].map((f) => (
-                <Button
-                  key={f}
-                  type={filter === f ? "primary" : "default"}
-                  size="small"
-                  onClick={() => setFilter(f)}
-                  disabled={isView}
-                >
-                  {f}
-                </Button>
-              ))}
-            </Space>
+
+            {/* Show filter buttons only in create/edit mode */}
+            {!isView && (
+              <Space style={{ marginTop: 12 }}>
+                {["All", "Available", "Booked"].map((f) => (
+                  <Button
+                    key={f}
+                    size="small"
+                    type={filter === f ? "primary" : "default"}
+                    onClick={() => setFilter(f)}
+                  >
+                    {f}
+                  </Button>
+                ))}
+              </Space>
+            )}
           </Form.Item>
         </Form>
       </Modal>

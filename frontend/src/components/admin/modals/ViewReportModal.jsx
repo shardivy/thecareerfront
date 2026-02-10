@@ -10,7 +10,6 @@ import {
   Col,
   Upload,
   Empty,
-  DatePicker,
   message,
 } from "antd";
 import {
@@ -42,13 +41,28 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
   const isEditMode = mode === "edit";
   const isViewMode = mode === "view";
   const isBulkMode = mode === "bulkUpload";
+  const isUploadMode = mode === "upload"; // This will be true for pending reports
 
-  /* -------------------- DEBUG -------------------- */
+  /* ---------------- LOG MODE WHEN MODAL OPENS ---------------- */
   useEffect(() => {
-    console.log("MODAL DATA 👉", data);
-  }, [data]);
+    if (open) {
+      console.log("📱 MODAL OPENED");
+      console.log("📋 Mode:", mode);
+      console.log("📊 Data received:", data);
+      console.log("🎭 Mode details:");
+      console.log("  - isEditMode:", isEditMode);
+      console.log("  - isViewMode:", isViewMode);
+      console.log("  - isBulkMode:", isBulkMode);
+      console.log("  - isUploadMode:", isUploadMode);
+      console.log("  - Modal Title:", 
+        isUploadMode ? "Upload Report" : 
+        isEditMode ? "Edit Report" : 
+        "Report Details"
+      );
+    }
+  }, [open, mode, data, isEditMode, isViewMode, isBulkMode, isUploadMode]);
 
-  /* -------------------- PREFILL FORM & FILE -------------------- */
+  /* ---------------- PREFILL ---------------- */
   useEffect(() => {
     if (!data || isBulkMode) return;
 
@@ -67,62 +81,110 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
           url: data.file_path,
         },
       ]);
+      console.log("📄 Existing file found:", data.file_path);
     } else {
       setPreviewUrl("");
       setFileList([]);
+      console.log("📄 No existing file");
     }
 
     setUploadedFile(null);
   }, [data, isBulkMode, form]);
 
-  /* -------------------- FILE SELECT -------------------- */
+  /* ---------------- FILE SELECT ---------------- */
   const handleFileSelect = (file) => {
+    console.log("📁 File selected:", file.name);
+    console.log("🎭 Current mode for file selection:", mode);
     setUploadedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
-    setFileList([file]); // Update Upload preview
-    return false; // prevent auto upload
+    setFileList([file]);
+    return false;
   };
 
-  /* -------------------- REMOVE FILE -------------------- */
   const handleRemove = () => {
+    console.log("🗑️ File removed");
     setUploadedFile(null);
     setPreviewUrl("");
     setFileList([]);
   };
 
-  /* -------------------- DOWNLOAD -------------------- */
-  const handleDownload = () => {
-    if (!previewUrl) return;
+  /* ---------------- DOWNLOAD ---------------- */
+  const handleDownload = async () => {
+    console.log("⬇️ Download initiated");
+    if (!previewUrl) {
+      console.log("❌ No file to download");
+      return;
+    }
 
-    const link = document.createElement("a");
-    link.href = previewUrl;
-    link.download = "Report.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      const response = await fetch(previewUrl);
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "Report.pdf";
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      console.log("✅ Download successful");
+    } catch {
+      console.error("❌ Download failed");
+      message.error("Failed to download report");
+    }
   };
 
-  /* -------------------- UPDATE REPORT -------------------- */
-  const handleUpdate = async () => {
-    if (!data?.id) {
-      message.error("Report ID missing");
-      console.error("Invalid report data:", data);
+  /* ---------------- UPLOAD / UPDATE ---------------- */
+  const handleSubmit = async () => {
+    console.log("🚀 Submit button clicked");
+    console.log("🎭 Current mode on submit:", mode);
+    console.log("📦 Uploaded file:", uploadedFile?.name || "None");
+    console.log("🔗 Preview URL exists:", !!previewUrl);
+
+    if (isUploadMode && !uploadedFile) {
+      console.log("⚠️ Upload mode requires file but none selected");
+      message.warning("Please select a PDF file");
+      return;
+    }
+
+    if (isEditMode && !uploadedFile && !previewUrl) {
+      console.log("⚠️ Edit mode requires file but none exists or selected");
+      message.warning("Please upload a file or keep the existing one");
       return;
     }
 
     try {
       const values = form.getFieldsValue();
       const formData = new FormData();
+      
+      console.log("📝 Form values:", values);
 
-      if (values.status) formData.append("status", values.status);
-      if (values.paymentStatus) formData.append("payment_status", values.paymentStatus);
-      if (values.uploadedDate)
-        formData.append(
-          "uploaded_date",
-          dayjs(values.uploadedDate).format("YYYY-MM-DD")
-        );
-      if (uploadedFile) formData.append("file", uploadedFile);
+      // For edit mode, send status and payment changes
+      if (isEditMode) {
+        console.log("✏️ Edit mode - adding status/payment data");
+        if (values.status) {
+          formData.append("status", values.status);
+          console.log("➕ Added status:", values.status);
+        }
+        if (values.paymentStatus) {
+          formData.append("payment_status", values.paymentStatus);
+          console.log("➕ Added payment_status:", values.paymentStatus);
+        }
+      } else {
+        console.log("⬆️ Upload mode - only file will be sent");
+      }
+      
+      // For upload mode, we only need the file
+      if (uploadedFile) {
+        formData.append("file", uploadedFile);
+        console.log("➕ Added file:", uploadedFile.name);
+      } else {
+        console.log("📄 No new file to upload");
+      }
 
+      console.log("📤 Sending form data...");
       setLoading(true);
 
       await dispatch(
@@ -132,34 +194,54 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
         })
       ).unwrap();
 
-      message.success("Report updated successfully");
+      const successMessage = isUploadMode 
+        ? "Report uploaded successfully" 
+        : "Report updated successfully";
+      
+      console.log("✅ " + successMessage);
+      message.success(successMessage);
+
       dispatch(fetchCompletedExamReports());
       onCancel();
     } catch (error) {
-      console.error(error);
-      message.error("Failed to update report");
+      console.error("❌ Operation failed:", error);
+      message.error("Operation failed");
     } finally {
       setLoading(false);
     }
   };
 
-  /* -------------------- UI -------------------- */
+  /* ---------------- LOG WHEN MODE CHANGES ---------------- */
+  useEffect(() => {
+    console.log("🔄 Mode changed to:", mode);
+    console.log("📋 Current mode configuration:");
+    console.log("  Title:", 
+      isUploadMode ? "Upload Report" : 
+      isEditMode ? "Edit Report" : 
+      "Report Details"
+    );
+    console.log("  Submit button text:", isUploadMode ? "Upload" : "Update");
+    console.log("  Show status dropdown:", isEditMode);
+    console.log("  Show status readonly:", isUploadMode || isViewMode);
+  }, [mode, isEditMode, isViewMode, isUploadMode]);
+
   return (
     <Modal
       open={open}
-      onCancel={onCancel}
+      onCancel={() => {
+        console.log("❌ Modal closed");
+        onCancel();
+      }}
       footer={null}
-      width="90%"
-      style={{ maxWidth: 720 }}
+      width={720}
       title={
-        isBulkMode
-          ? "Bulk Upload Reports"
+        isUploadMode
+          ? "Upload Report"
           : isEditMode
           ? "Edit Report"
           : "Report Details"
       }
     >
-      {/* ================= FORM ================= */}
       {!isBulkMode && (
         <Form form={form} layout="vertical">
           <Row gutter={[16, 12]}>
@@ -175,59 +257,83 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
               </Form.Item>
             </Col>
 
-            <Col xs={24} md={12}>
-              <Form.Item label="Status" name="status">
-                {isEditMode ? (
-                  <Select>
-                    <Option value="Unlocked">Unlocked</Option>
-                    <Option value="Locked">Locked</Option>
-                    <Option value="Pending Upload">Pending Upload</Option>
-                  </Select>
-                ) : (
-                  <Input readOnly />
-                )}
-              </Form.Item>
-            </Col>
+            {/* For upload mode: show status and payment status as readonly */}
+            {isUploadMode && (
+              <>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Status" name="status">
+                    <Input readOnly />
+                  </Form.Item>
+                </Col>
 
-            <Col xs={24} md={12}>
-              <Form.Item label="Payment Status" name="paymentStatus">
-                {isEditMode ? (
-                  <Select>
-                    <Option value="Fully Paid">Fully Paid</Option>
-                    <Option value="Partial Paid">Partial Paid</Option>
-                    <Option value="Pending">Pending</Option>
-                  </Select>
-                ) : (
-                  <Input readOnly />
-                )}
-              </Form.Item>
-            </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Payment Status" name="paymentStatus">
+                    <Input readOnly />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
 
-            <Col xs={24} md={12}>
-              <Form.Item label="Exam Status" name="examStatus">
-                <Input readOnly />
-              </Form.Item>
-            </Col>
+            {/* For edit mode: show editable dropdowns */}
+            {isEditMode && (
+              <>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Status" name="status">
+                    <Select>
+                      <Option value="Unlocked">Unlocked</Option>
+                      <Option value="Locked">Locked</Option>
+                      <Option value="Pending Upload">Pending Upload</Option>
+                      <Option value="Review Verification Pending">
+                        Review Verification Pending
+                      </Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item label="Payment Status" name="paymentStatus">
+                    <Select>
+                      <Option value="Fully Paid">Fully Paid</Option>
+                      <Option value="Partial Paid">Partial Paid</Option>
+                      <Option value="Pending">Pending</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </>
+            )}
+
+            {/* For view mode: show readonly inputs */}
+            {isViewMode && (
+              <>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Status" name="status">
+                    <Input readOnly />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={12}>
+                  <Form.Item label="Payment Status" name="paymentStatus">
+                    <Input readOnly />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
           </Row>
         </Form>
       )}
 
-      <br />
-
-      {/* ================= UPLOAD / PREVIEW ================= */}
       <Title level={5}>
-        <FilePdfOutlined />{" "}
-        {isEditMode || isBulkMode ? "Upload Report" : "Uploaded Report"}
+        <FilePdfOutlined /> Upload / Preview
       </Title>
 
       <div
         style={{
           border: `1px solid ${token.colorBorder}`,
           borderRadius: token.borderRadius,
-          padding: 20,
+          padding: 16,
         }}
       >
-        <Row gutter={[16, 16]} align="middle">
+        <Row gutter={16}>
           <Col xs={24} md={16}>
             {previewUrl ? (
               <iframe
@@ -236,54 +342,65 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
                 style={{ width: "100%", height: 220 }}
               />
             ) : (
-              <Empty description="No report uploaded yet" />
+              <Empty description="No file uploaded" />
             )}
           </Col>
 
           <Col xs={24} md={8}>
-            {(isEditMode || isBulkMode) && (
+            {/* Show upload button for edit, upload, and bulk modes */}
+            {(isEditMode || isUploadMode || isBulkMode) && (
               <Upload
-                showUploadList={{
-                  showRemoveIcon: true,
-                  showPreviewIcon: true,
-                }}
                 accept=".pdf"
-                fileList={fileList}
-                onRemove={handleRemove}
                 beforeUpload={handleFileSelect}
+                onRemove={handleRemove}
+                fileList={fileList}
+                maxCount={1}
               >
-                <Button type="primary" icon={<UploadOutlined />} block>
-                  Select File
+                <Button 
+                  icon={<UploadOutlined />} 
+                  block 
+                  type="primary"
+                  onClick={() => console.log("📁 Select PDF button clicked in", mode, "mode")}
+                >
+                  Select PDF
                 </Button>
               </Upload>
             )}
 
+            {/* Show download button for view mode with existing file */}
             {isViewMode && previewUrl && (
               <Button
-                type="primary"
                 icon={<DownloadOutlined />}
                 block
-                onClick={handleDownload}
                 style={{ marginTop: 12 }}
+                onClick={handleDownload}
               >
-                Download Report
+                Download
               </Button>
             )}
           </Col>
         </Row>
       </div>
 
-      {/* ================= FOOTER ================= */}
-      {!isBulkMode && !isViewMode && (
+      {/* Show submit buttons for non-view modes */}
+      {!isViewMode && (
         <div style={{ textAlign: "right", marginTop: 20 }}>
-          <Button onClick={onCancel} style={{ marginRight: 8 }}>
+          <Button 
+            onClick={() => {
+              console.log("🚫 Cancel button clicked");
+              onCancel();
+            }} 
+            style={{ marginRight: 8 }}
+          >
             Cancel
           </Button>
-          {isEditMode && (
-            <Button type="primary" onClick={handleUpdate} loading={loading}>
-              Update
-            </Button>
-          )}
+          <Button
+            type="primary"
+            loading={loading}
+            onClick={handleSubmit}
+          >
+            {isUploadMode ? "Upload" : "Update"}
+          </Button>
         </div>
       )}
     </Modal>

@@ -2,12 +2,10 @@ import axios from "axios";
 
 const axiosInstance = axios.create({
   baseURL: "http://192.168.0.107:8000/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
+  // ❌ DO NOT set Content-Type here
 });
 
-// 👇 PUBLIC ENDPOINTS (NO TOKEN)
+// 👇 PUBLIC ENDPOINTS
 const publicEndpoints = [
   "/forgot-password/",
   "/login/",
@@ -15,7 +13,7 @@ const publicEndpoints = [
   "/verify-otp/",
 ];
 
-// ================= REQUEST =================
+// ================= REQUEST INTERCEPTOR =================
 axiosInstance.interceptors.request.use(
   (config) => {
     const accessToken = localStorage.getItem("accessToken");
@@ -24,14 +22,18 @@ axiosInstance.interceptors.request.use(
       config.url?.includes(url)
     );
 
-    // ✅ Attach token ONLY for protected APIs
     if (accessToken && !isPublic) {
       config.headers.Authorization = `Bearer ${accessToken}`;
-      console.log("Request:", config.url, config.headers.Authorization);
-
     } else {
-      // 🔥 Make 100% sure it's removed
       delete config.headers.Authorization;
+    }
+
+    // ✅ CRITICAL FIX FOR FILE UPLOAD
+    if (config.data instanceof FormData) {
+      // let browser set multipart boundary
+      delete config.headers["Content-Type"];
+    } else {
+      config.headers["Content-Type"] = "application/json";
     }
 
     return config;
@@ -43,14 +45,10 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (
-      error.response?.status === 401 &&
-      !window.location.pathname.includes("/")
-    ) {
+    if (error.response?.status === 401) {
       localStorage.clear();
       window.location.replace("/");
     }
-
     return Promise.reject(error);
   }
 );

@@ -1,30 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
-    Row,
-    Col,
-    Card,
-    Typography,
-    Table,
-    Tag,
-    Button,
-    Space,
-    ConfigProvider,
-    Input,
-    Select,
-    DatePicker,
+  Row,
+  Col,
+  Card,
+  Typography,
+  Table,
+  Tag,
+  Button,
+  Space,
+  ConfigProvider,
+  Input,
+  Select,
+  DatePicker,
 } from "antd";
 import {
-    EyeOutlined,
-    CalendarOutlined,
-    DollarCircleOutlined,
-    FileTextOutlined,
-    PayCircleOutlined,
-    CloseCircleOutlined,
-    SearchOutlined,
-    UploadOutlined,
-    EditOutlined,
-    CheckCircleOutlined,
+  EyeOutlined,
+  CalendarOutlined,
+  DollarCircleOutlined,
+  FileTextOutlined,
+  PayCircleOutlined,
+  CloseCircleOutlined,
+  SearchOutlined,
+  UploadOutlined,
+  EditOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import adminTheme from "../../../theme/adminTheme";
@@ -36,137 +36,192 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 const PaymentManagement = () => {
-    const [searchText, setSearchText] = useState("");
-    const [statusFilter, setStatusFilter] = useState(null);
-    const [selectedDate, setSelectedDate] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedPayment, setSelectedPayment] = useState(null);
-    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const dispatch = useDispatch();
+  const [searchText, setSearchText] = useState("");
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const dispatch = useDispatch();
 
+  const { stats, statsLoading, list, listLoading } = useSelector(
+    (state) => state.payment
+  );
 
-    const { stats, statsLoading, list, listLoading } = useSelector(
-        (state) => state.payment
-    );
+  useEffect(() => {
+    dispatch(fetchPaymentStats());
+    dispatch(fetchPayments());
+  }, [dispatch]);
 
-    useEffect(() => {
-        dispatch(fetchPaymentStats());
-        dispatch(fetchPayments());
-    }, [dispatch]);
+  // Debug: Log the payment list
+  useEffect(() => {
+    console.log("📊 Payment list in component:", list);
+    if (list.length > 0) {
+      console.log("🔍 First payment item:", list[0]);
+      console.log("🔍 Date fields in first item:", {
+        payment_date: list[0].payment_date,
+        date: list[0].date,
+        original_payment_date: list[0].original_payment_date,
+        original_created_at: list[0].original_created_at
+      });
+    }
+  }, [list]);
 
-    const handleEditPayment = (record) => {
-        setSelectedPayment(record);
-        setIsModalOpen(true);
-    };
+  const handleEditPayment = (record) => {
+    setSelectedPayment(record);
+    setIsModalOpen(true);
+  };
 
+  /* ---------------- STATS ---------------- */
+  const statsCards = [
+    {
+      title: "Total Collected",
+      value: `₹${stats?.total_collected ?? 0}`,
+      icon: (
+        <DollarCircleOutlined
+          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
+        />
+      ),
+    },
+    {
+      title: "Pending Verification",
+      value: `₹${stats?.pending_verification ?? 0}`,
+      icon: (
+        <FileTextOutlined
+          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
+        />
+      ),
+    },
+    {
+      title: "Partial Payments",
+      value: `₹${stats?.partial_paid ?? 0}`,
+      icon: (
+        <PayCircleOutlined
+          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
+        />
+      ),
+    },
+    {
+      title: "Fully Pending",
+      value: `₹${stats?.pending ?? 0}`,
+      icon: (
+        <CloseCircleOutlined
+          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
+        />
+      ),
+    },
+  ];
 
+  /* ---------------- STATUS COLORS ---------------- */
+  const statusColorMap = {
+    "Fully Paid": "success",
+    "Partial Paid": "warning",
+    "Verification Pending": "processing",
+    Pending: "error",
+  };
 
-    /* ---------------- STATS ---------------- */
-    const statsCards = [
-        {
-            title: "Total Collected",
-            value: `₹${stats?.total_collected ?? 0}`,
-            icon: (
-                <DollarCircleOutlined
-                    style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-                />
-            ),
-        },
-        {
-            title: "Pending Verification",
-            value: `₹${stats?.pending_verification ?? 0}`,
-            icon: (
-                <FileTextOutlined
-                    style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-                />
-            ),
-        },
-        {
-            title: "Partial Payments",
-            value: `₹${stats?.partial_paid ?? 0}`,
-            icon: (
-                <PayCircleOutlined
-                    style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-                />
-            ),
-        },
-        {
-            title: "Fully Pending",
-            value: `₹${stats?.pending ?? 0}`,
-            icon: (
-                <CloseCircleOutlined
-                    style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-                />
-            ),
-        },
-    ];
-  
-    /* ---------------- STATUS COLORS ---------------- */
-    const statusColorMap = {
-        "Fully Paid": "success",
-        "Partial Paid": "warning",
-        "Verification Pending": "processing",
-        Pending: "error",
-    };
+  /* ---------------- UTILITY FUNCTIONS ---------------- */
+  const toTitle = (str) => {
+    if (!str) return "Pending";
+    return str
+      .toString()
+      .replace(/_/g, " ")
+      .split(" ")
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+      .join(" ");
+  };
 
-    /* ---------------- API -> TABLE DATA (DEFENSIVE MAPPING) ---------------- */
-    const toTitle = (str) =>
-        str
-            .toString()
-            .replace(/_/g, " ")
-            .split(" ")
-            .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-            .join(" ");
+  const formatAmt = (val) => {
+    const num = Number(val);
+    if (Number.isFinite(num)) {
+      return new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+      }).format(num);
+    }
+    return val ?? "-";
+  };
 
-    const formatAmt = (val) => {
-        const num = Number(val);
-        if (Number.isFinite(num)) {
-            return new Intl.NumberFormat("en-IN", {
-                style: "currency",
-                currency: "INR",
-                maximumFractionDigits: 0,
-            }).format(num);
-        }
-        return val ?? "-";
-    };
+  const extractName = (userName) => {
+    if (!userName) return "N/A";
+    if (userName.includes(" - ")) {
+      const parts = userName.split(" - ");
+      return parts[parts.length - 1].trim();
+    }
+    return userName;
+  };
 
-    const apiPaymentRecords = Array.isArray(list)
-        ? list.map((p, idx) => ({
-            key: p.id ?? p.key ?? idx,
-            name:
-                (p.user_first_name || p.user_first_name === "")
-                    ? `${p.user_first_name || ""} ${p.user_last_name || ""}`.trim() || p.user_email || "N/A"
-                    : p.student_name ?? p.name ?? p.user?.name ?? "N/A",
-            package: p.package_name ?? p.package?.name ?? p.package ?? "N/A",
-            amount: formatAmt(p.amount ?? p.package_price ?? p.amount_display),
-            status: toTitle(p.status ?? p.payment_status ?? "pending"),
-            paymentMethod:
-                (p.method ?? p.payment_method ?? p.paymentMethod ?? "-").toString().toUpperCase(),
-            date: p.payment_date ?? p.date ?? "-",
-            txn: p.transaction_id ?? p.txn ?? "-",
-            proof: !!(p.proof_file || p.receipt_url || p.proof || p.has_receipt),
-        }))
-        : [];
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "-";
+    try {
+      return new Date(dateStr).toISOString().split('T')[0];
+    } catch {
+      return dateStr;
+    }
+  };
 
-    /* ---------------- FILTER LOGIC ---------------- */
-    const filteredData = apiPaymentRecords.filter((item) => {
-        const search = searchText.toLowerCase();
+  /* ---------------- API -> TABLE DATA ---------------- */
+  const apiPaymentRecords = Array.isArray(list)
+    ? list.map((p, idx) => {
+        console.log(`📋 Processing payment ${idx} for table:`, p);
+        
+        // Extract clean name
+        const cleanName = extractName(p.user_name);
+        
+        // Get package/program name
+        const packageName = p.package_name || p.package || "N/A";
+        
+        // Get amount
+        const amount = p.amount || 0;
+        
+        // Get status
+        const status = toTitle(p.payment_status);
+        
+        // Get payment method
+        const paymentMethod = (p.payment_method || "-").toString().toUpperCase();
+        
+        // Get date - use the formatted date from Redux
+        const date = p.date || p.payment_date || "-";
+        
+        // Get transaction ID
+        const txn = p.transaction_id || p.txn || "-";
+        
+        return {
+          key: p.payment_id || p.id || `payment-${idx}`,
+          id: p.payment_id || p.id,
+          name: cleanName,
+          package: packageName,
+          amount: formatAmt(amount),
+          status: status,
+          paymentMethod: paymentMethod,
+          date: date,
+          txn: txn,
+          proof: !!(p.proof_file_url || p.proof_file || p.receipt_url),
+          // Store original data for modal
+          originalData: p
+        };
+      })
+    : [];
 
-        const matchesSearch = Object.values(item)
-            .filter((val) => typeof val === "string")
-            .join(" ")
-            .toLowerCase()
-            .includes(search);
+  /* ---------------- FILTER LOGIC ---------------- */
+  const filteredData = apiPaymentRecords.filter((item) => {
+    const search = searchText.toLowerCase();
 
-        const matchesStatus = statusFilter ? item.status === statusFilter : true;
+    const matchesSearch = Object.values(item)
+      .filter((val) => typeof val === "string")
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
 
-        const matchesDate = selectedDate
-            ? item.date !== "-" && dayjs(item.date).isSame(selectedDate, "day")
-            : true;
+    const matchesStatus = statusFilter ? item.status === statusFilter : true;
 
-        return matchesSearch && matchesStatus && matchesDate;
-    });
+    const matchesDate = selectedDate
+      ? item.date !== "-" && dayjs(item.date).isSame(selectedDate, "day")
+      : true;
 
+    return matchesSearch && matchesStatus && matchesDate;
+  });
 
   const breakAfterThreeWords = (text = "") => {
     if (!text) return "-";
@@ -177,211 +232,243 @@ const PaymentManagement = () => {
     }
     return lines.join("\n");
   };
-    /* ---------------- TABLE COLUMNS ---------------- */
-    const columns = [
-           {
+
+  const truncateAfterFive = (text = "") => {
+  if (!text) return "-";
+  return text.length > 5 ? `${text.slice(0, 5)}...` : text;
+};
+
+  /* ---------------- TABLE COLUMNS ---------------- */
+  const columns = [
+    {
       title: "Sr. No.",
       render: (_, __, index) => index + 1,
       width: 50,
     },
-        { title: "User Name", dataIndex: "name" },
-        { title: "Package", dataIndex: "package" },
-        { title: "Amount", dataIndex: "amount" },
+    { 
+      title: "User Name", 
+      dataIndex: "name",
+      render: (name) => name || "N/A"
+    },
+    { 
+      title: "Package", 
+      dataIndex: "package",
+      render: (pkg) => pkg || "N/A"
+    },
+    { 
+      title: "Amount", 
+      dataIndex: "amount",
+      render: (amt) => amt || "₹0"
+    },
+    {
+      title: "Payment Status",
+      dataIndex: "status",
+      render: (status) => (
+        <Tag color={statusColorMap[status] || "default"}>
+          <div style={{ whiteSpace: "pre-line" }}>
+            {breakAfterThreeWords(status)}
+          </div>
+        </Tag>
+      ),
+    },
+    {
+      title: "Payment Method",
+      dataIndex: "paymentMethod",
+      render: (method) =>
+        method === "-" ? <Text type="colorTextSecondary">-</Text> : <Tag>{method}</Tag>,
+    },
+    {
+      title: "Payment Date",
+      dataIndex: "date",
+      width: 150,
+      render: (date) => {
+        if (date === "-") {
+          return "-";
+        }
+        
+        // Parse the date string
+        let displayDate = date;
+        try {
+          // If it's already in YYYY-MM-DD format, use as is
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+            displayDate = date;
+          } else {
+            // Otherwise format it
+            displayDate = new Date(date).toISOString().split('T')[0];
+          }
+        } catch (e) {
+          console.error("❌ Error formatting display date:", date, e);
+        }
+        
+        return (
+          <Space>
+            <CalendarOutlined />
+            {displayDate}
+          </Space>
+        );
+      },
+    },
 {
-  title: "Payment Status",
-  dataIndex: "status",
-  render: (status) => (
-    <Tag color={statusColorMap[status]}>
-      {/* Use <div> with white-space: pre-line to respect \n line breaks */}
-      <div style={{ whiteSpace: "pre-line" }}>
-        {breakAfterThreeWords(status)}
-      </div>
-    </Tag>
-  ),
+  title: "Transaction ID",
+  dataIndex: "txn",
+  render: (txn) => truncateAfterFive(txn),
 },
- 
-        {
-            title: "Payment Method",
-            dataIndex: "paymentMethod",
-            render: (method) =>
-                method === "-" ? <Text type="colorTextSecondary">-</Text> : <Tag>{method}</Tag>,
-        },
-        {
-            title: "Payment Date",
-            dataIndex: "date",
-            width: 150,
-            render: (date) =>
-                date === "-" ? "-" : (
-                    <Space>
-                        <CalendarOutlined />
-                        {date}
-                    </Space>
-                ),
-        },
-        { title: "Transaction ID", dataIndex: "txn" },
-        {
-            title: "Action",
-            render: (_, record) => {
-                // Only show Verify button for Verification Pending
-                if (record.status === "Verification Pending") {
-                    return (
-                        <Button
-                            size="large"
-                            type="primary"
-                            icon={<CheckCircleOutlined />}
-                            onClick={() => {
-                                setSelectedPayment({
-                                    ...record,
-                                    mode: "verify",
-                                    paymentDate: record.date !== "-" ? record.date : null, // <-- ADD THIS
-                                });
-                                setIsModalOpen(true);
-                            }}
-                        >
-                            Verify
-                        </Button>
-                    );
-                }
-
-                // For all other statuses, always show View + Edit
-                return (
-                    <Space>
-                        <Button
-                            size="large"
-                            icon={<EyeOutlined />}
-                            onClick={() => {
-                                setSelectedPayment({ ...record, mode: "view" });
-                                setIsModalOpen(true);
-                            }}
-                        >
-                            View
-                        </Button>
-
-                        <Button
-                            size="large"
-                            icon={<EditOutlined />}
-                            onClick={() => {
-                                setSelectedPayment({ ...record, mode: "edit" });
-                                setIsModalOpen(true);
-                            }}
-                        >
-                            Edit
-                        </Button>
-                    </Space>
-                );
-            },
+    {
+      title: "Action",
+      render: (_, record) => {
+        // Only show Verify button for Verification Pending
+        if (record.status === "Verification Pending") {
+          return (
+            <Button
+              size="large"
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              onClick={() => {
+                setSelectedPayment({
+                  ...record,
+                  mode: "verify",
+                  paymentDate: record.date !== "-" ? record.date : null,
+                });
+                setIsModalOpen(true);
+              }}
+            >
+              Verify
+            </Button>
+          );
         }
 
+        // For all other statuses, always show View + Edit
+        return (
+          <Space>
+            <Button
+              size="large"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setSelectedPayment({ ...record, mode: "view" });
+                setIsModalOpen(true);
+              }}
+            >
+              View
+            </Button>
 
+            <Button
+              size="large"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setSelectedPayment({ ...record, mode: "edit" });
+                setIsModalOpen(true);
+              }}
+            >
+              Edit
+            </Button>
+          </Space>
+        );
+      },
+    }
+  ];
 
-    ];
+  return (
+    <ConfigProvider theme={adminTheme}>
+      <div style={{ padding: 16 }}>
+        <Title level={3}>Payment Management</Title>
 
+        {/* ---------------- STATS ---------------- */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+          {statsCards.map((stat, i) => (
+            <Col xs={24} sm={12} md={6} key={i}>
+              <Card loading={statsLoading} style={{ textAlign: "center" }}>
+                <Space direction="vertical" align="center" size={6}>
+                  <Text strong>{stat.title}</Text>
+                  {stat.icon}
+                  <Title level={4} style={{ margin: 0 }}>
+                    {stat.value}
+                  </Title>
+                </Space>
+              </Card>
+            </Col>
+          ))}
+        </Row>
 
-    return (
-        <ConfigProvider theme={adminTheme}>
-            <div style={{ padding: 16 }}>
-                <Title level={3}>Payment Management</Title>
+        {/* ---------------- TABLE ---------------- */}
+        <Card>
+          {/* HEADER WITH UPLOAD BUTTON */}
+          <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+            <Col>
+              <Title level={5} style={{ margin: 10 }}>
+                Payment Records ({filteredData.length})
+              </Title>
+            </Col>
 
-                {/* ---------------- STATS ---------------- */}
-                <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-                    {statsCards.map((stat, i) => (
-                        <Col xs={24} sm={12} md={6} key={i}>
-                            <Card loading={statsLoading} style={{ textAlign: "center" }}>
-                                <Space direction="vertical" align="center" size={6}>
-                                    <Text strong>{stat.title}</Text>
-                                    {stat.icon}
-                                    <Title level={4} style={{ margin: 0 }}>
-                                        {stat.value}
-                                    </Title>
-                                </Space>
-                            </Card>
-                        </Col>
-                    ))}
-                </Row>
+            <Col>
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                onClick={() => setIsUploadModalOpen(true)}
+              >
+                Upload Payment
+              </Button>
+            </Col>
+          </Row>
 
-                {/* ---------------- TABLE ---------------- */}
-                <Card>
-                    {/* HEADER WITH UPLOAD BUTTON */}
-                    <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-                        <Col>
-                            <Title level={5} style={{ margin: 10 }}>
-                                Payment Records ({filteredData.length})
-                            </Title>
-                        </Col>
+          {/* FILTERS */}
+          <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+            <Col xs={24} md={8}>
+              <Input
+                placeholder="Search"
+                prefix={<SearchOutlined />}
+                allowClear
+                onChange={(e) => setSearchText(e.target.value)}
+              />
+            </Col>
 
-                        <Col>
-                            <Button
-                                type="primary"
-                                icon={<UploadOutlined />}
-                                onClick={() => setIsUploadModalOpen(true)}
-                            >
-                                Upload Payment
-                            </Button>
+            <Col xs={24} md={6}>
+              <Select
+                placeholder="Payment Status"
+                allowClear
+                style={{ width: "100%" }}
+                onChange={setStatusFilter}
+              >
+                {Object.keys(statusColorMap).map((status) => (
+                  <Option key={status}>{status}</Option>
+                ))}
+              </Select>
+            </Col>
 
-                        </Col>
-                    </Row>
+            <Col xs={24} md={6}>
+              <DatePicker
+                style={{ width: "100%" }}
+                placeholder="Select date"
+                onChange={setSelectedDate}
+              />
+            </Col>
+          </Row>
 
-                    {/* FILTERS */}
-                    <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-                        <Col xs={24} md={8}>
-                            <Input
-                                placeholder="Search"
-                                prefix={<SearchOutlined />}
-                                allowClear
-                                onChange={(e) => setSearchText(e.target.value)}
-                            />
-                        </Col>
+          {/* TABLE */}
+          <Table
+            loading={listLoading}
+            columns={columns}
+            dataSource={filteredData}
+            pagination={{ pageSize: 5 }}
+            scroll={{ x: 1000 }}
+            locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}
+          />
+        </Card>
 
-                        <Col xs={24} md={6}>
-                            <Select
-                                placeholder="Payment Status"
-                                allowClear
-                                style={{ width: "100%" }}
-                                onChange={setStatusFilter}
-                            >
-                                {Object.keys(statusColorMap).map((status) => (
-                                    <Option key={status}>{status}</Option>
-                                ))}
-                            </Select>
-                        </Col>
+        {/* VIEW PAYMENT MODAL */}
+        <PaymentProofModal
+          open={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          data={selectedPayment}
+        />
 
-                        <Col xs={24} md={6}>
-                            <DatePicker
-                                style={{ width: "100%" }}
-                                placeholder="Select date"
-                                onChange={setSelectedDate}
-                            />
-                        </Col>
-                    </Row>
-
-                    {/* TABLE */}
-                    <Table
-                        loading={listLoading}
-                        columns={columns}
-                        dataSource={filteredData}
-                        pagination={{ pageSize: 5 }}
-                        scroll={{ x: 1000 }}
-                        locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}
-                    />
-                </Card>
-
-                {/* VIEW PAYMENT MODAL */}
-                <PaymentProofModal
-                    open={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    data={selectedPayment}
-                />
-
-
-                <UploadPaymentModal
-                    open={isUploadModalOpen}
-                    onClose={() => setIsUploadModalOpen(false)}
-                    onSuccess={() => dispatch(fetchPayments())}
-                />
-
-            </div>
-        </ConfigProvider>
-    );
+        <UploadPaymentModal
+          open={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onSuccess={() => dispatch(fetchPayments())}
+        />
+      </div>
+    </ConfigProvider>
+  );
 };
 
 export default PaymentManagement;

@@ -35,27 +35,21 @@ const counsellorSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchLeadCounsellors.fulfilled, (state, action) => {
-        state.loading = false;
-        // Transform the API response to match what the component expects
-        if (Array.isArray(action.payload)) {
-          // If payload is already an array
-          state.list = action.payload.map((c) => ({
-            id: c.user?.id || c.id,
-            name: `${c.user?.first_name || c.first_name} ${c.user?.last_name || c.last_name}`,
-            // email: c.user?.email || c.email,
-          }));
-        } else if (action.payload?.data) {
-          // If payload has a data property
-          state.list = action.payload.data.map((c) => ({
-            id: c.user?.id || c.id,
-            name: `${c.user?.first_name || c.first_name} ${c.user?.last_name || c.last_name}`,
-            // email: c.user?.email || c.email,
-          }));
-        } else {
-          state.list = [];
-        }
-      })
+
+.addCase(fetchLeadCounsellors.fulfilled, (state, action) => {
+  state.loading = false;
+  if (Array.isArray(action.payload)) {
+    state.list = action.payload.map((c) => ({
+      id: c.id || c.id,        // ✅ use user.id here
+      first_name: c.user?.first_name || "",
+      last_name: c.user?.last_name || "",
+      email: c.user?.email || "",
+    }));
+  } else {
+    state.list = [];
+  }
+})  
+
       .addCase(fetchLeadCounsellors.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;

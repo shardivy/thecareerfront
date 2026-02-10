@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Modal,
   Row,
@@ -15,7 +15,7 @@ import {
   Grid,
   DatePicker,
 } from "antd";
-import { UploadOutlined } from "@ant-design/icons";
+import { UploadOutlined, FileImageOutlined } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import dayjs from "dayjs";
 import { useDispatch } from "react-redux";
@@ -45,68 +45,273 @@ const PaymentProofModal = ({ open, onClose, data }) => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
   const [file, setFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [isImage, setIsImage] = useState(true);
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+
+  // Store blob URLs to revoke later
+  const blobUrlsRef = useRef(new Set());
 
   const mode = data?.mode || "view";
   const isEdit = mode === "edit";
   const isVerify = mode === "verify";
 
-  const previewUrl = file ? URL.createObjectURL(file) : data?.proofUrl || null;
+  // Helper to check if URL is an image
+  const isImageUrl = (url) => {
+    if (!url) return false;
+    
+    const hasImageExtension = url.match(/\.(jpeg|jpg|gif|png|webp|bmp|svg|jfif)$/i) !== null;
+    const hasImagePath = url.includes('/image/') || 
+                         url.includes('/media/') || 
+                         url.includes('/uploads/') ||
+                         url.includes('/payment/report/');
+    const isBlob = url.startsWith('blob:');
+    
+    return hasImageExtension || hasImagePath || isBlob;
+  };
+
+  // Extract data from nested structure
+  const extractData = (rawData) => {
+    if (!rawData) return {};
+    
+    const source = rawData.originalData || rawData;
+    
+    console.log("🔍 Extracting data from source:", source);
+    
+    return {
+      name: source.name || source.user_name || source.student_name || "Student Name",
+      package: source.package || source.program || "-",
+      package_id: source.package_id || source.program_id || source.package || "",
+      paymentMethod: source.paymentMethod || source.method || source.payment_method || "-",
+      amount: source.amount || "0",
+      txn: source.txn || source.transaction_id || "-",
+      paymentDate: source.paymentDate || source.date || source.payment_date || "-",
+      key: source.key || source.id || "",
+      proof_file_url: source.proof_file_url || "",
+      status: source.status || source.payment_status || "-",
+      // Store original data for reference
+      originalSource: source,
+      // Store user_id for student_profile
+      user_id: source.user_id || ""
+    };
+  };
+
+  // Get the extracted safe data
+  const safeData = extractData(data);
+  console.log("📋 Extracted safe data:", safeData);
+  
+  // Get the original proof URL
+  const originalProofUrl = safeData.proof_file_url || "";
+
+  // Helper to revoke blob URLs
+  const revokeBlobUrls = () => {
+    blobUrlsRef.current.forEach(url => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    blobUrlsRef.current.clear();
+  };
+
+  // Helper to create and track blob URL
+  const createBlobUrl = (file) => {
+    const blobUrl = URL.createObjectURL(file);
+    blobUrlsRef.current.add(blobUrl);
+    return blobUrl;
+  };
 
   useEffect(() => {
     if (open && data) {
+      console.log("🔄 Modal opened with data:", data);
+      console.log("📋 Safe data for form:", safeData);
+      
       form.resetFields();
+      
       form.setFieldsValue({
-        ...data,
-        paymentDate: data.paymentDate
-          ? dayjs(data.paymentDate)
-          : data.date && data.date !== "-"
-          ? dayjs(data.date)
+        name: safeData.name,
+        package: safeData.package,
+        paymentMethod: safeData.paymentMethod,
+        amount: safeData.amount,
+        txn: safeData.txn,
+        paymentDate: safeData.paymentDate && safeData.paymentDate !== "-" 
+          ? dayjs(safeData.paymentDate) 
           : null,
+
+            student_profile: safeData.student_id ,
       });
+      
+      // Reset to original when modal opens
       setFile(null);
+      setPreviewUrl(originalProofUrl);
+      
+      if (originalProofUrl) {
+        setIsImage(isImageUrl(originalProofUrl));
+      } else {
+        setIsImage(true);
+      }
     }
-  }, [open, data, form]);
+    
+    // Cleanup function to revoke blob URLs when modal closes
+    return () => {
+      revokeBlobUrls();
+    };
+  }, [open, data, form, originalProofUrl, safeData]);
 
-  if (!data) return null;
+  // Don't render anything if modal is not open
+  if (!open) return null;
 
-  /* ---------------- HANDLERS ---------------- */
-  const handleUpdate = () => {
-    form.validateFields().then((values) => {
-      const payload = new FormData();
+/* ---------------- HANDLERS ---------------- */
+const handleUpdate = () => {
+  form.validateFields().then((values) => {
+    const payload = new FormData();
 
-      Object.keys(values).forEach((key) => {
-        if (values[key] !== undefined && values[key] !== null) {
-          if (key === "paymentDate") {
-            payload.append(key, values[key].format("YYYY-MM-DD"));
-          } else {
-            payload.append(key, values[key]);
-          }
+    // Get original data to access IDs
+    const source = safeData.originalSource;
+    
+    console.log("🔍 Original data source:", source);
+    console.log("📝 Form values:", values);
+    console.log("📦 Safe data package_id from extract:", safeData.package_id);
+    
+    // REQUIRED: student_profile (user ID)
+    if (source.id) {
+      payload.append("student_profile", source.student_id);
+      console.log("👤 Student profile ID:", source.student_id);
+    } else {
+      message.error("Student profile ID is required");
+      return;
+    }
+    
+    // REQUIRED: package (package ID)
+    const packageId = source.package_id || safeData.package_id;
+    
+    if (packageId) {
+      const packageIdNum = parseInt(packageId);
+      if (!isNaN(packageIdNum)) {
+        payload.append("package", packageIdNum);
+        console.log("📦 Sending numeric Package ID:", packageIdNum);
+      } else {
+        console.error("❌ Package ID is not a number:", packageId);
+        message.error("Package ID must be a number");
+        return;
+      }
+    } else {
+      console.error("❌ No package_id found anywhere!");
+      message.error("Package ID is required but not found in payment data");
+      return;
+    }
+    
+    // REQUIRED: amount
+    if (values.amount) {
+      const amountStr = values.amount.toString();
+      const amountValue = amountStr.replace(/[^\d.]/g, '');
+      const amountNumber = parseFloat(amountValue) || 0;
+      payload.append("amount", amountNumber);
+      console.log("💰 Amount:", amountNumber);
+    } else {
+      message.error("Amount is required");
+      return;
+    }
+    
+    // REQUIRED: payment_type (online/cash)
+    let paymentType = "online";
+    if (values.paymentMethod === "cash") {
+      paymentType = "cash";
+    }
+    payload.append("payment_type", paymentType);
+    console.log("💳 Payment type:", paymentType);
+    
+    // REQUIRED: method (upi/cash)
+    if (values.paymentMethod) {
+      payload.append("method", values.paymentMethod.toLowerCase());
+      console.log("🏦 Method:", values.paymentMethod.toLowerCase());
+    } else {
+      message.error("Payment method is required");
+      return;
+    }
+    
+    // REQUIRED: transaction_id
+    if (values.txn) {
+      payload.append("transaction_id", values.txn);
+      console.log("🆔 Transaction ID:", values.txn);
+    } else {
+      message.error("Transaction ID is required");
+      return;
+    }
+    
+    // REQUIRED: payment_date
+    if (values.paymentDate) {
+      payload.append("payment_date", values.paymentDate.format("YYYY-MM-DD"));
+      console.log("📅 Payment date:", values.paymentDate.format("YYYY-MM-DD"));
+    } else {
+      message.error("Payment date is required");
+      return;
+    }
+    
+    // Handle proof_file - Use the correct field name "proof_file" (not "proof_file_url")
+    if (file) {
+      // New file selected - send the file with correct field name
+      payload.append("proof_file", file); // ← CORRECT FIELD NAME
+      console.log("📎 New file attached as 'proof_file':", file.name, file.type, file.size);
+    } else if (originalProofUrl && originalProofUrl !== "") {
+      // No new file but existing file
+      // Check what your backend expects when keeping existing file
+      
+      // Option 1: Send empty string (if backend accepts it)
+      payload.append("proof_file", ""); // ← CORRECT FIELD NAME
+      console.log("📎 Sending empty 'proof_file' field (keep existing file)");
+      
+
+    } else {
+      // No file at all - send empty
+      payload.append("proof_file", ""); // ← CORRECT FIELD NAME
+      console.log("📎 No file - sending empty 'proof_file' field");
+    }
+
+    // Log FormData contents for debugging
+    console.log("📤 FormData contents to be sent:");
+    for (let [key, value] of payload.entries()) {
+      if (key === 'proof_file' && value instanceof File) {
+        console.log(`${key}: File - ${value.name} (${value.type}, ${value.size} bytes)`);
+      } else if (key === 'proof_file' && value === "") {
+        console.log(`${key}: (empty string)`);
+      } else {
+        console.log(`${key}:`, value);
+      }
+    }
+
+    // Also log what fields are actually being sent
+    const formDataEntries = [];
+    for (let [key, value] of payload.entries()) {
+      formDataEntries.push({ key, value: value instanceof File ? `File: ${value.name}` : value });
+    }
+    console.log("📋 FormData entries array:", formDataEntries);
+
+    dispatch(updatePayment({ id: safeData.key, payload }))
+      .unwrap()
+      .then((res) => {
+        console.log("✅ Update response:", res);
+        message.success(res.message || "Payment updated successfully");
+        onClose();
+      })
+      .catch((err) => {
+        console.error("❌ Update error details:", err);
+        // Check if error mentions proof_file
+        if (err.message && err.message.includes("proof_file")) {
+          message.error("Proof file error: " + err.message);
+        } else {
+          message.error(err.message || err.toString() || "Failed to update payment");
         }
       });
-
-      if (file) payload.append("proof_file", file);
-
-      dispatch(updatePayment({ id: data.key, payload }))
-        .unwrap()
-        .then((res) => {
-          message.success(res.message || "Payment updated successfully");
-          onClose();
-        })
-        .catch((err) => {
-          message.error(err || "Failed to update payment");
-        });
-    });
-  };
-
+  });
+};
   const handleVerify = (status) => {
     form.validateFields().then((values) => {
       dispatch(
         verifyPayment({
-          id: data.key,
+          id: safeData.key,
           payload: {
-            verifiedAmount: values.verifiedAmount || data.amount,
+            verifiedAmount: values.verifiedAmount || safeData.amount,
             action: status,
           },
         })
@@ -120,16 +325,39 @@ const PaymentProofModal = ({ open, onClose, data }) => {
     });
   };
 
+  const handleFileChange = (selectedFile) => {
+    const isImageFile = selectedFile.type.startsWith('image/');
+    const isPdf = selectedFile.type === 'application/pdf';
+    
+    if (!isImageFile && !isPdf) {
+      message.error("Only image and PDF files are allowed");
+      return Upload.LIST_IGNORE;
+    }
+    
+    // Create new blob URL for preview
+    const newPreviewUrl = createBlobUrl(selectedFile);
+    
+    setFile(selectedFile);
+    setPreviewUrl(newPreviewUrl);
+    setIsImage(isImageFile);
+    
+    return false;
+  };
+
+  const handleRemoveFile = () => {
+    setFile(null);
+    setPreviewUrl(originalProofUrl); // Revert to original URL
+    
+    if (originalProofUrl) {
+      setIsImage(isImageUrl(originalProofUrl));
+    } else {
+      setIsImage(true);
+    }
+  };
+
   const uploadProps = {
-    accept: ".pdf",
-    beforeUpload: (file) => {
-      if (file.type !== "application/pdf") {
-        message.error("Only PDF files are allowed");
-        return Upload.LIST_IGNORE;
-      }
-      setFile(file);
-      return false;
-    },
+    accept: "image/*,.pdf",
+    beforeUpload: handleFileChange,
     maxCount: 1,
     showUploadList: false,
   };
@@ -215,28 +443,27 @@ const PaymentProofModal = ({ open, onClose, data }) => {
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Text style={labelStyle}>Student Name</Text>
-              <div style={valueBoxStyle}>{data.name}</div>
+              <div style={valueBoxStyle}>{safeData.name}</div>
             </Col>
-           <Col xs={24} md={12}>
-  <Text style={labelStyle}>Package</Text>
-  <div style={valueBoxStyle}>
-    {data?.package
-      ? data.package.charAt(0).toUpperCase() + data.package.slice(1)
-      : "-"}
-  </div>
-</Col>
-
+            <Col xs={24} md={12}>
+              <Text style={labelStyle}>Package</Text>
+              <div style={valueBoxStyle}>
+                {safeData.package && safeData.package !== "-"
+                  ? safeData.package.charAt(0).toUpperCase() + safeData.package.slice(1)
+                  : "-"}
+              </div>
+            </Col>
           </Row>
 
           {/* Method + Amount */}
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Text style={labelStyle}>Payment Method</Text>
-              <div style={valueBoxStyle}>{data.paymentMethod}</div>
+              <div style={valueBoxStyle}>{safeData.paymentMethod}</div>
             </Col>
             <Col xs={24} md={12}>
               <Text style={labelStyle}>Amount</Text>
-              <div style={valueBoxStyle}>{data.amount}</div>
+              <div style={valueBoxStyle}>{safeData.amount}</div>
             </Col>
           </Row>
 
@@ -244,13 +471,13 @@ const PaymentProofModal = ({ open, onClose, data }) => {
           <Row gutter={16}>
             <Col xs={24} md={12}>
               <Text style={labelStyle}>Transaction ID</Text>
-              <div style={valueBoxStyle}>{data.txn}</div>
+              <div style={valueBoxStyle}>{safeData.txn}</div>
             </Col>
             <Col xs={24} md={12}>
               <Text style={labelStyle}>Payment Date</Text>
               <div style={valueBoxStyle}>
-                {data.paymentDate
-                  ? dayjs(data.paymentDate).format("YYYY-MM-DD")
+                {safeData.paymentDate && safeData.paymentDate !== "-"
+                  ? dayjs(safeData.paymentDate).format("YYYY-MM-DD")
                   : "-"}
               </div>
             </Col>
@@ -261,7 +488,7 @@ const PaymentProofModal = ({ open, onClose, data }) => {
       {/* ================= RECEIPT ================= */}
       <Divider />
       <Title level={5} style={labelStyle}>
-        Upload Receipt / Screenshot
+        Payment Receipt / Proof
       </Title>
 
       <div
@@ -272,33 +499,108 @@ const PaymentProofModal = ({ open, onClose, data }) => {
           padding: 24,
           borderRadius: 16,
           border: `1px dashed ${token.colorBorder}`,
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: 220
         }}
       >
         {previewUrl ? (
-          <iframe
-            src={previewUrl}
-            title="PDF Preview"
-            style={{
-              width: "100%",
-              maxWidth: 360,
-              height: 220,
-              borderRadius: 12,
-            }}
-          />
+          <>
+            {isImage || isImageUrl(previewUrl) ? (
+              <div style={{ textAlign: 'center' }}>
+                <img
+                  key={previewUrl} // Key forces re-render when URL changes
+                  src={previewUrl}
+                  alt="Payment Proof"
+                  style={{
+                    width: "100%",
+                    maxWidth: 360,
+                    maxHeight: 220,
+                    objectFit: "contain",
+                    borderRadius: 12,
+                    border: "1px solid #eee",
+                  }}
+                  onError={(e) => {
+                    console.error("Image load error:", previewUrl, e);
+                    message.error("Failed to load receipt image");
+                  }}
+                />
+                <div style={{ marginTop: 8, display: 'flex', gap: 8, justifyContent: 'center' }}>
+                  {file && (
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                    </Text>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: 360,
+                  height: 220,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  borderRadius: 12,
+                  border: "1px solid #eee",
+                  backgroundColor: "#f5f5f5",
+                }}
+              >
+                <FileImageOutlined style={{ fontSize: 48, color: "#999", marginBottom: 16 }} />
+                <Text strong>PDF Receipt</Text>
+                {file && (
+                  <>
+                    <Text type="secondary" style={{ marginTop: 4, fontSize: '12px' }}>
+                      {file.name}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: '11px' }}>
+                      {(file.size / 1024).toFixed(2)} KB
+                    </Text>
+                  </>
+                )}
+                <Text type="secondary" style={{ marginTop: 8 }}>
+                  {previewUrl.startsWith('blob:') ? 'New upload' : 'View PDF'}
+                </Text>
+              </div>
+            )}
+          </>
         ) : (
-          <Empty description="No receipt uploaded" />
+          <Empty 
+            description={
+              <div>
+                <div>No receipt uploaded</div>
+                <Text type="secondary" style={{ fontSize: '12px', marginTop: '8px' }}>
+                  The payment has no proof image attached
+                </Text>
+              </div>
+            }
+          />
         )}
 
         {isEdit && (
-          <Upload {...uploadProps}>
-            <Button
-              type="primary"
-              icon={<UploadOutlined />}
-              block={isMobile}
-            >
-              {previewUrl ? "Change" : "Upload Receipt"}
-            </Button>
-          </Upload>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 150 }}>
+            <Upload {...uploadProps}>
+              <Button
+                type="primary"
+                icon={<UploadOutlined />}
+                block={isMobile}
+              >
+                {previewUrl && previewUrl !== originalProofUrl ? "Change File" : "Upload Receipt"}
+              </Button>
+            </Upload>
+            
+            {file && (
+              <Button
+                danger
+                onClick={handleRemoveFile}
+                block={isMobile}
+              >
+                Remove File
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
