@@ -1,4 +1,7 @@
 from django.shortcuts import get_object_or_404, render
+from exam.models import UserExam
+from payment.models import Payment
+from report.models import Report
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -9,11 +12,14 @@ from rest_framework import status
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.hashers import make_password
+from django.db.models import Count, Q
+from django.utils.timezone import now
 
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from accounts.serializers import PermissionSerializer, RolePermissionSerializer, RoleSerializer, StudentListSerializer, UserSerializer
 from lead_registration.models import StudentProfile
 from program_package.models import UserProgramPackage
+from counselling_slot.models import Booking, Counsellor
 
 from .models import PasswordResetOTP, Permission, Role, RolePermission, User
 from .utils import  generate_otp, generate_role_id, send_otp_email, send_password_reset_email
@@ -149,6 +155,9 @@ class AdminStaffRegisterAPIView(APIView):
         last_name = data.get("last_name")
         phone = data.get("phone")
 
+        # Counsellor specific
+        specialization = data.get("specialization")
+
         # -----------------------------
         # 1. BASIC VALIDATION
         # -----------------------------
@@ -161,12 +170,7 @@ class AdminStaffRegisterAPIView(APIView):
         # -----------------------------
         # 2. ROLE WHITELIST
         # -----------------------------
-        allowed_roles = [
-            "super_admin",
-            "admin",
-            "lead_counsellor",
-            "counsellor"
-        ]
+        allowed_roles = ["super_admin", "admin", "counsellor"]
 
         if role_name not in allowed_roles:
             return Response(
@@ -175,7 +179,7 @@ class AdminStaffRegisterAPIView(APIView):
             )
 
         # -----------------------------
-        # 3. CHECK DUPLICATES
+        # 3. DUPLICATE CHECK
         # -----------------------------
         if User.objects.filter(email=email).exists():
             return Response(
@@ -190,7 +194,7 @@ class AdminStaffRegisterAPIView(APIView):
             )
 
         # -----------------------------
-        # 4. GET ROLE
+        # 4. ROLE FETCH
         # -----------------------------
         role = Role.objects.filter(name=role_name).first()
         if not role:
@@ -214,7 +218,7 @@ class AdminStaffRegisterAPIView(APIView):
         )
 
         # -----------------------------
-        # 6. GENERATE ROLE ID
+        # 6. GENERATE ROLE BASED ID
         # -----------------------------
         user.public_id = generate_role_id(
             role_name,
@@ -223,14 +227,28 @@ class AdminStaffRegisterAPIView(APIView):
         )
         user.save()
 
-        return Response({
-            "message": "User registered successfully",
-            "user": {
-                "email": user.email,
-                "role": role_name,
-                "user_id": user.public_id
-            }
-        }, status=201)
+        # -----------------------------
+        # 7. CREATE COUNSELLOR PROFILE
+        # -----------------------------
+        if role_name == "counsellor":
+
+            Counsellor.objects.create(
+                user=user,
+                specialization=specialization,
+                is_active=True
+            )
+
+        return Response(
+            {
+                "message": "User registered successfully",
+                "user": {
+                    "email": user.email,
+                    "role": role_name,
+                    "user_id": user.public_id
+                }
+            },
+            status=201
+        )
 
 # class LoginAPIView(APIView):
 #     permission_classes = [AllowAny]
@@ -748,7 +766,7 @@ class StudentListAPIView(APIView):
             .select_related()
         )
         students = StudentProfile.objects.select_related("user")
-        serializer = StudentListSerializer(students, many=True)
+        serializer = StudentListSerializer(students, many=True, context={"request": request} )
 
         return Response(
             {
@@ -758,3 +776,81 @@ class StudentListAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+
+class AdminDashboardAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        today = now().date()
+
+        # 🔹 Registered Users (Student + Parent)
+        user_counts = User.objects.aggregate(
+            students=Count('id', filter=Q(role__name__iexact='student')),
+            parents=Count('id', filter=Q(role__name__iexact='parent')),
+        )
+
+        total_users = (user_counts.get('students') or 0) + (
+            user_counts.get('parents') or 0
+        )
+
+        # 🔹 Payment Pending
+        payment_pending = Payment.objects.filter(
+            status='pending'
+        ).count()
+
+        # 🔹 Exam Pending Approval
+        exam_pending_approval = UserExam.objects.filter(
+            status='pending_approval'
+        ).count()
+
+        # 🔹 Report Pending Uploaded
+        report_pending_uploaded = Report.objects.filter(
+            report_status='pending_uploaded'
+        ).count()
+
+        # 🔹 Today Sessions ✅ FIXED
+        today_sessions = Booking.objects.filter(
+            date=today
+        ).count()
+
+        return Response({
+            "registered_users": {
+                "students": user_counts.get('students', 0),
+                "parents": user_counts.get('parents', 0),
+                "total": total_users
+            },
+            "payment_pending": payment_pending,
+            "exam_pending_approval": exam_pending_approval,
+            "report_pending_uploaded": report_pending_uploaded,
+            "today_sessions": today_sessions
+        })
+        
+class PaymentStatusGraphAPIView(APIView):
+    """
+    Returns payment status-wise count for Plotly graphs
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        data = Payment.objects.aggregate(
+            fully_paid=Count('id', filter=Q(status='fully_paid')),
+            partial_paid=Count('id', filter=Q(status='partial_paid')),
+            verification_pending=Count('id', filter=Q(status='verification_pending')),
+            pending=Count('id', filter=Q(status='pending')),
+        )
+
+        return Response({
+            "labels": [
+                "Fully Paid",
+                "Partial Paid",
+                "Verification Pending",
+                "Pending"
+            ],
+            "values": [
+                data.get('fully_paid', 0),
+                data.get('partial_paid', 0),
+                data.get('verification_pending', 0),
+                data.get('pending', 0)
+            ]
+        })

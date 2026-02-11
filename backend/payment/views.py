@@ -3,8 +3,17 @@ from django.shortcuts import get_object_or_404, render
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.urls import reverse
 from rest_framework import status
 from django.db import transaction
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_exempt
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+import mimetypes
+import os
 
 from django.db.models import Sum
 from accounts.permissions import IsAdmin, IsSuperAdmin
@@ -255,34 +264,141 @@ class VerifyPaymentAPIView(APIView):
             "message": "Payment rejected and user notified"
         })
         
+# class PaymentListAPIView(APIView):
+#     """
+#     Get all payments with user, package price, and status details.
+#     """
+#     permission_classes = [IsAdmin | IsSuperAdmin]  
+
+#     def get(self, request):
+#         payments = Payment.objects.select_related(
+#             'user',
+#             'package',
+#             'package__program',
+#             'verified_by'
+#         ).order_by('-created_at')
+
+#         serializer = PaymentListSerializer(
+#             payments,
+#             many=True,
+#             context={'request': request}
+#         )
+
+#         return Response(
+#             {
+#                 "success": True,
+#                 "count": payments.count(),
+#                 "data": serializer.data
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
 class PaymentListAPIView(APIView):
     """
-    Get all payments with user, package price, and status details.
+    Get all payments with user, package, status
+    + payment proof file (image/pdf)
     """
-    permission_classes = [IsAdmin | IsSuperAdmin]  
+    permission_classes = [IsAdmin | IsSuperAdmin]
 
     def get(self, request):
         payments = Payment.objects.select_related(
             'user',
+            'user__student_profile',
             'package',
             'package__program',
             'verified_by'
-        ).order_by('-created_at')
+        ).order_by('-created_at')   # ✅ Payment field
 
-        serializer = PaymentListSerializer(
-            payments,
-            many=True,
-            context={'request': request}
-        )
+        response_data = []
+
+        for payment in payments:
+            proof_url = None
+
+            if payment.proof_file:
+                url = reverse(
+                    "payment-report-image",
+                    kwargs={"payment_id": payment.id}
+                )
+                proof_url = request.build_absolute_uri(url)
+
+            response_data.append({
+                "payment_id": payment.id,
+                "user_id": payment.user.id,
+                "student_id": (
+                    payment.user.student_profile.id                                                                         
+                    if getattr(payment.user, "student_profile", None)
+                    else None
+                ),
+
+                "user_name": f"{payment.user.first_name} {payment.user.last_name}",
+                "email": payment.user.email,
+                "amount": payment.amount,
+                "payment_date": payment.payment_date,
+                "transaction_id": payment.transaction_id,
+                "program": (
+                    payment.package.program.name
+                    if payment.package else None
+                ),
+                "package_id": (
+                    payment.package.id  
+                    if payment.package else None
+                ),
+                "package": (
+                    payment.package.name
+                    if payment.package else None
+                ),
+                "package_price": (
+                    payment.package.price
+                    if payment.package else None
+                ),
+
+                "payment_status": payment.status,
+                "payment_method": payment.method,
+                "created_at": payment.created_at,
+
+                # ✅ Payment proof (image/pdf)
+                "proof_file_url": proof_url,
+            })
 
         return Response(
             {
                 "success": True,
-                "count": payments.count(),
-                "data": serializer.data
+                "count": len(response_data),
+                "data": response_data
             },
             status=status.HTTP_200_OK
         )
+  
+  
+        
+@method_decorator(xframe_options_exempt, name="dispatch")
+class PaymentProofFileView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def get(self, request, payment_id):
+        payment = get_object_or_404(Payment, id=payment_id)
+
+        if not payment.proof_file:
+            raise Http404("Proof file not found")
+
+        content_type, _ = mimetypes.guess_type(payment.proof_file.name)
+
+        if content_type not in [
+            "image/png",
+            "image/jpeg",
+            "application/pdf"
+        ]:
+            raise Http404("Unsupported file type")
+
+        response = FileResponse(
+            payment.proof_file.open("rb"),
+            content_type=content_type
+        )
+        response["Content-Disposition"] = "inline"
+        response["X-Frame-Options"] = "ALLOWALL"
+        return response
+
 
 
 class PaymentStatsAPIView(APIView):

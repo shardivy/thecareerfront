@@ -1,6 +1,6 @@
 from django.urls import path
 
-from counselling_slot.views import AddCounsellorAPIView, BookingCreateAPIView, CreateSlotAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView
+from counselling_slot.views import AddCounsellorAPIView, BookingCreateAPIView, CounsellorListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SessionDashboardCountAPIView, SlotCreateAPIView, SlotDeleteAPIView, UpdateCounsellorStatusAPIView
 
 
 urlpatterns = [
@@ -15,7 +15,29 @@ urlpatterns = [
     path("slots/", CreateSlotAPIView.as_view(), name="create-slot"),
     path("slots/<int:pk>/", CreateSlotAPIView.as_view(), name="update-slot"),
     
-     path("booking/", BookingCreateAPIView.as_view(), name="book-slot"),
+    #  path("booking/", BookingCreateAPIView.as_view(), name="book-slot"),
      path("booking/<int:booking_id>/", BookingCreateAPIView.as_view()),
+     
+     
+    # ==================== New Updates Below ======================================================    
+    
+    path("counsellors/", CounsellorListAPIView.as_view(), name="counsellor-list"),
+    path("slots/create/", SlotCreateAPIView.as_view(), name="create-slot"),
+    path("slots/<str:date>/<int:counsellor>/",SlotCreateAPIView.as_view(), name="counsellor-slots"),
+    path("slots/<int:slot_id>/",SlotDeleteAPIView.as_view(), name="delete-slot"),
+    path("api/counsellor/status/<int:counsellor>/",UpdateCounsellorStatusAPIView.as_view(),name="update-counsellor-status"),
+    path('slots/counsellor-wise/', DateWiseSlotListAPIView.as_view(), name='counsellor-wise-slots'),
+    
+    path("bookings/create/", BookingCreateAPIView.as_view()),
+    path("bookings/<int:booking_id>/", BookingCreateAPIView.as_view()),
+    
+    path(
+    "session-count/",
+    SessionDashboardCountAPIView.as_view(),
+    name="session-dashboard-count"
+)
+
+
+
 
 ]

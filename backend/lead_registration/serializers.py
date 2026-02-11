@@ -1,9 +1,10 @@
 from rest_framework import serializers
 
 from accounts.models import User
-from lead_registration.models import Hobby, Lead, Stream, StudentAcademicHistory, StudentHobby, StudentStream, StudentSubjectPreference, Subject
+from lead_registration.models import Hobby, Lead, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from program_package.models import Package, Program, UserProgramPackage
 from program_package.serializers import PackageSerializer, ProgramSerializer
+from payment.models import Payment  
 
 
 
@@ -41,6 +42,7 @@ class LeadSerializer(serializers.ModelSerializer):
 
         return value
     
+
 class AddUserSerializer(serializers.Serializer):
     # User fields
     first_name = serializers.CharField()
@@ -54,19 +56,50 @@ class AddUserSerializer(serializers.Serializer):
     current_academic_year = serializers.CharField(required=False, allow_blank=True)
     school_college = serializers.CharField(required=False, allow_blank=True)
     city = serializers.CharField(required=False, allow_blank=True)
+    preferred_counselling_mode = serializers.CharField(required=False, allow_blank=True)
 
-    # Program & Package (IDs only)
-    program = serializers.PrimaryKeyRelatedField(
-        queryset=Program.objects.all()
+    # Program & Package
+    program = serializers.PrimaryKeyRelatedField(queryset=Program.objects.all())
+    package = serializers.PrimaryKeyRelatedField(queryset=Package.objects.all())
+
+    # Payment (optional)
+    amount = serializers.DecimalField(
+        max_digits=20, decimal_places=2, required=False, allow_null=True
     )
-    package = serializers.PrimaryKeyRelatedField(
-        queryset=Package.objects.all()
+    payment_type = serializers.ChoiceField(
+        choices=Payment.PAYMENTTYPE_CHOICE, required=False
     )
+    transaction_id = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
+    method = serializers.CharField(required=False, allow_blank=True)
+    proof_file = serializers.FileField(required=False, allow_null=True)
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("User with this email already exists.")
+        user_id = self.context.get("user_id")
+
+        qs = User.objects.filter(email=value)
+        if user_id:
+            qs = qs.exclude(id=user_id)
+
+        if qs.exists():
+            raise serializers.ValidationError("Email already exists.")
+
         return value
+
+    def validate_phone(self, value):
+        user_id = self.context.get("user_id")
+
+        qs = User.objects.filter(phone=value)
+        if user_id:
+            qs = qs.exclude(id=user_id)
+
+        if qs.exists():
+            raise serializers.ValidationError("Phone number already exists.")
+
+        return value
+
+
 
 
 class UserProgramPackageResponseSerializer(serializers.ModelSerializer):
@@ -137,6 +170,126 @@ class StudentHobbySerializer(serializers.ModelSerializer):
             "hobby_detail",
             "created_at",
         )
+        
 
+class UserDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "is_active"
+        ]
+
+class StudentProfileDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentProfile
+        fields = "__all__"
+class ProgramMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Program
+        fields = ["id", "name"]
+class PackageMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Package
+        fields = ["id", "name", "price"]
+class UserProgramPackageDetailSerializer(serializers.ModelSerializer):
+    program = ProgramMiniSerializer()
+    package = PackageMiniSerializer()
+
+    class Meta:
+        model = UserProgramPackage
+        fields = "__all__"
+class PaymentDetailSerializer(serializers.ModelSerializer):
+    proof_file = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "amount",
+            "payment_type",
+            "method",
+            "transaction_id",
+            "status",
+            "proof_file",
+            "created_at"
+        ]
+
+    def get_proof_file(self, obj):
+        request = self.context.get("request")
+        if obj.proof_file and request:
+            return request.build_absolute_uri(obj.proof_file.url)
+        return None
+
+
+# ============================ Student Registration form serializers below =========================
+
+class StudentRegistrationSerializer(serializers.Serializer):
+    # =========================
+    # 👨‍🎓 Student
+    # =========================
+    student_name = serializers.CharField(required=True)
+    dob = serializers.DateField(required=True)
+    student_email = serializers.EmailField(required=True)
+    student_mobile = serializers.CharField(required=True)
+    study_class = serializers.CharField(required=True)
+    stream_id = serializers.IntegerField(required=False, allow_null=True)
+
+    # =========================
+    # 👨‍👩 Parent
+    # =========================
+    parent_mobile = serializers.CharField(required=True)
+    parent_email = serializers.EmailField(required=True)
+
+    # =========================
+    # 🔐 Auth
+    # =========================
+    password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+
+        # 🔐 Password match check
+        if attrs["password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({
+                "password": "Passwords do not match"
+            })
+
+        # =========================
+        # 👨‍🎓 Student must be unique
+        # =========================
+        if User.objects.filter(email=attrs["student_email"]).exists():
+            raise serializers.ValidationError({
+                "student_email": "Student email already exists"
+            })
+
+        if User.objects.filter(phone=attrs["student_mobile"]).exists():
+            raise serializers.ValidationError({
+                "student_mobile": "Student mobile already exists"
+            })
+
+        # =========================
+        # 👨‍👩 Parent can already exist
+        # DO NOT validate uniqueness here
+        # =========================
+
+        # 🎓 Stream validation
+        stream_id = attrs.get("stream_id")
+        if stream_id and not Stream.objects.filter(id=stream_id).exists():
+            raise serializers.ValidationError({
+                "stream_id": "Invalid stream selected"
+            })
+
+        return attrs
+
+    
+class ParentDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "first_name", "last_name", "email", "phone")
 
 

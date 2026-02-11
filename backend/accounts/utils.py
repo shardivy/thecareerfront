@@ -95,7 +95,7 @@ ROLE_PREFIX = {
     "admin": "ADM",
     "student": "STU",
     "parent": "PAR",
-    "lead_counsellor": "LCNS",
+    # "lead_counsellor": "LCNS",
     "counsellor": "CNS",
 }
 

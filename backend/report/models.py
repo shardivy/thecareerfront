@@ -4,16 +4,22 @@ from accounts.models import User
 from exam.models import Exam
 
 class Report(models.Model):
+    STATUSCHOICES = (
+        ('locked', 'Locked'),
+        ('unlocked', 'Unlocked'),
+        ('pending_uploaded', 'Pending Uploaded'),
+    )
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
-    file_path = models.FileField(upload_to='reports/')
-    is_locked = models.BooleanField(default=False)
+    file_path = models.FileField(upload_to='reports/', blank=True, null=True)
+    report_status = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES)
     review_required = models.BooleanField(default=False)
 
     uploaded_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name='uploaded_reports'
     )
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_at = models.DateTimeField(null=True, blank=True)
     
     def __str__(self):
         return f"{self.uploaded_by}"

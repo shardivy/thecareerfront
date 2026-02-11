@@ -1,6 +1,6 @@
 from django.urls import path
 
-from exam.views import AddExamToPackageAPIView, ApproveUserExamAPIView, ExamCreateAPIView, UserExamCreateAPIView, UserExamListAPIView
+from exam.views import AddExamToPackageAPIView, ApproveUserExamAPIView, ExamCreateAPIView, RejectUserExamAPIView, UserExamCreateAPIView, UserExamListAPIView
 
 
 urlpatterns = [
@@ -12,5 +12,6 @@ urlpatterns = [
 
     path("user-exams/", UserExamListAPIView.as_view(), name="user-exam-list"),
     path("user-exams/<int:pk>/approve/", ApproveUserExamAPIView.as_view(),name="approve-user-exam"),
+    path("user-exams/<int:pk>/reject/", RejectUserExamAPIView.as_view(),name="reject-user-exam" ),
     
 ]

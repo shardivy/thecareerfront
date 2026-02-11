@@ -42,6 +42,10 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         allow_blank=False,
         allow_null=True
     )
+    proof_file = serializers.FileField(
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = Payment
@@ -56,19 +60,20 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
             "proof_file",
         ]
 
-    def validate(self, data):
-        method = data.get("method")
-        transaction_id = data.get("transaction_id")
+    # def validate(self, data):
+    #     method = data.get("method")
+    #     transaction_id = data.get("transaction_id")
 
-        if method == "upi" and not transaction_id:
-            raise serializers.ValidationError({
-                "transaction_id": "Transaction ID is required for UPI payments."
-            })
+    #     if method == "upi" and not transaction_id:
+    #         raise serializers.ValidationError({
+    #             "transaction_id": "Transaction ID is required for UPI payments."
+    #         })
 
-        if method != "upi":
-            data["transaction_id"] = None
+    #     if method != "upi":
+    #         data["transaction_id"] = None
 
-        return data
+    #     return data
+
 
     def create(self, validated_data):
         student_profile = validated_data.pop("student_profile")
@@ -115,6 +120,8 @@ class PaymentListSerializer(serializers.ModelSerializer):
     user_first_name = serializers.CharField(source='user.first_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
+    
+    proof_file = serializers.SerializerMethodField()
 
     package_name = serializers.CharField(source='package.name', read_only=True)
     package_price = serializers.DecimalField(
@@ -151,6 +158,11 @@ class PaymentListSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
+    def get_proof_file(self, obj):
+        request = self.context.get('request')
+        if obj.proof_file and request:
+            return request.build_absolute_uri(obj.proof_file.url)
+        return None
         
         
 class PaymentLogSerializer(serializers.ModelSerializer):

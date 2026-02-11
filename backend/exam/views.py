@@ -1,11 +1,12 @@
 from datetime import timezone
 from django.shortcuts import get_object_or_404, render
+from report.models import Report
 from rest_framework.views import APIView
 from rest_framework.authentication import (TokenAuthentication)
 from django.utils import timezone
 
 from accounts.models import User
-from accounts.permissions import IsAdmin, IsCounsellor, IsLeadCounsellor, IsSuperAdmin
+from accounts.permissions import IsAdmin, IsCounsellor, IsSuperAdmin
 from exam.models import Exam, UserExam
 from exam.serializers import ExamCreateSerializer, PackageExamCreateSerializer, PackageExamResponseSerializer, PackageExamUpdateSerializer, UserExamApproveResponseSerializer, UserExamCreateSerializer, UserExamListSerializer
 from rest_framework.response import Response
@@ -149,7 +150,7 @@ class AddExamToPackageAPIView(APIView):
     PUT   -> Update exam + package exam mapping
     """
     permission_classes = [
-        IsSuperAdmin | IsAdmin | IsCounsellor | IsLeadCounsellor
+        IsSuperAdmin | IsAdmin | IsCounsellor
     ]
 
     # 🔹 GET – list exams
@@ -221,7 +222,7 @@ class AddExamToPackageAPIView(APIView):
         
 class UserExamListAPIView(APIView):
     permission_classes = [
-        IsSuperAdmin | IsAdmin | IsCounsellor | IsLeadCounsellor
+        IsSuperAdmin | IsAdmin | IsCounsellor
     ]
 
     def get(self, request):
@@ -237,10 +238,11 @@ class UserExamListAPIView(APIView):
 
 class ApproveUserExamAPIView(APIView):
     """
-    Approve a user exam only if exam is successfully completed
+    Approve a user exam only if exam is successfully completed.
+    On approval, initialize a Report entry (without upload info).
     """
     permission_classes = [
-        IsSuperAdmin | IsAdmin | IsCounsellor | IsLeadCounsellor
+        IsSuperAdmin | IsAdmin | IsCounsellor
     ]
 
     def post(self, request, pk):
@@ -253,8 +255,10 @@ class ApproveUserExamAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 🔴 Not eligible for approval
-        if user_exam.status not in ["submitted", "pending_approval"]:
+        # 🔴 Not eligible
+        ALLOWED_STATUSES = ["submitted", "pending_approval", "in_progress"]
+
+        if user_exam.status not in ALLOWED_STATUSES:
             return Response(
                 {
                     "message": "Exam is not eligible for approval",
@@ -263,17 +267,76 @@ class ApproveUserExamAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ APPROVE
+
+        # ✅ APPROVE EXAM
         user_exam.status = "completed"
         user_exam.approved_by = request.user
         user_exam.completed_at = timezone.now()
+        user_exam.save()
+
+        # ✅ INITIALIZE REPORT (NO UPLOAD INFO)
+        report, created = Report.objects.get_or_create(
+            user=user_exam.user,
+            exam=user_exam.exam,
+            defaults={
+                "report_status": "pending_uploaded",
+                "review_required": False,
+            }
+        )
+
+        serializer = UserExamApproveResponseSerializer(user_exam)
+
+        return Response(
+            {
+                "message": "Exam approved successfully and report entry created",
+                "data": serializer.data,
+                "report_id": report.id
+            },
+            status=status.HTTP_200_OK
+        )
+
+        
+class RejectUserExamAPIView(APIView):
+    """
+    Reject a user exam and move it back to in_progress
+    """
+    permission_classes = [
+        IsSuperAdmin | IsAdmin | IsCounsellor 
+    ]
+
+    def post(self, request, pk):
+        user_exam = get_object_or_404(UserExam, id=pk)
+
+        # 🔴 Already in progress
+        if user_exam.status == "in_progress":
+            return Response(
+                {"message": "Exam is already in progress"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 🔴 Not eligible
+        ALLOWED_STATUSES = ["submitted", "pending_approval", "completed"]
+
+        if user_exam.status not in ALLOWED_STATUSES:
+            return Response(
+                {
+                    "message": "Exam is not eligible for approval",
+                    "current_status": user_exam.status
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ❌ REJECT
+        user_exam.status = "in_progress"
+        user_exam.rejected_by = request.user  # optional field
+        user_exam.rejected_at = timezone.now()  # optional field
         user_exam.save()
 
         serializer = UserExamApproveResponseSerializer(user_exam)
 
         return Response(
             {
-                "message": "Exam approved successfully",
+                "message": "Exam rejected successfully",
                 "data": serializer.data
             },
             status=status.HTTP_200_OK

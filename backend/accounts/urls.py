@@ -1,6 +1,6 @@
 from django.urls import path
 
-from accounts.views import AdminStaffRegisterAPIView, AdminUserListAPIView, AssignPermissionsToRoleAPIView, ForgotPasswordAPIView, LoginAPIView, LogoutAPIView, PermissionListCreateAPIView, ProfileUpdateAPIView,  ResetPasswordAPIView, RoleListCreateAPIView, RolePermissionListAPIView, RoleUpdateAPIView, StudentListAPIView, VerifyOTPAPIView
+from accounts.views import AdminDashboardAPIView, AdminStaffRegisterAPIView, AdminUserListAPIView, AssignPermissionsToRoleAPIView, ForgotPasswordAPIView, LoginAPIView, LogoutAPIView, PaymentStatusGraphAPIView, PermissionListCreateAPIView, ProfileUpdateAPIView,  ResetPasswordAPIView, RoleListCreateAPIView, RolePermissionListAPIView, RoleUpdateAPIView, StudentListAPIView, VerifyOTPAPIView
 
 urlpatterns = [
     path('register/', AdminStaffRegisterAPIView.as_view(), name='register'),
@@ -19,7 +19,11 @@ urlpatterns = [
     path("roles/<int:role_id>/permissions/list/", RolePermissionListAPIView.as_view()),
     
     path("admin-users/", AdminUserListAPIView.as_view(), name="admin-users"),
-    path("only-students/", StudentListAPIView.as_view(), name="only-students")
+    path("only-students/", StudentListAPIView.as_view(), name="only-students"),
+    
+    #====================== Dashboard Url ===========================
+    path('dashboard/', AdminDashboardAPIView.as_view()),
+    path('dashboard/payment-status-graph/', PaymentStatusGraphAPIView.as_view()),
     
     
 ]

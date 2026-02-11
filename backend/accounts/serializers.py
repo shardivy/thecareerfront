@@ -6,6 +6,7 @@ from lead_registration.models import StudentProfile
 from payment.models import Payment
 from program_package.models import PackageExam, UserProgramPackage
 from report.models import Report
+from django.urls import reverse
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -178,6 +179,11 @@ class StudentListSerializer(serializers.ModelSerializer):
     package_id = serializers.SerializerMethodField()
     package_name = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
+    payment_type = serializers.SerializerMethodField()
+    method = serializers.SerializerMethodField()
+    transaction_id = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
+    proof_file = serializers.SerializerMethodField()
     is_report_locked = serializers.SerializerMethodField()
     exam_status = serializers.SerializerMethodField()
 
@@ -197,6 +203,11 @@ class StudentListSerializer(serializers.ModelSerializer):
             "package_id",
             "package_name",
             "payment_status",
+            "payment_type",
+            "method",
+            "transaction_id",
+            "amount",
+            "proof_file",
             "is_report_locked",
             "exam_status",
         ]
@@ -224,9 +235,52 @@ class StudentListSerializer(serializers.ModelSerializer):
     def get_payment_status(self, obj):
         payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
         return payment.status if payment else "pending"
+    
+    def get_payment_type(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.payment_type if payment else None
+    
+    def get_method(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.method if payment else None
+    
+    def get_transaction_id(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.transaction_id if payment else None
+    
+    def get_amount(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.amount if payment else None
+    
+    def get_proof_file(self, obj):
+        payment = (
+            Payment.objects
+            .filter(user=obj.user)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not payment or not payment.proof_file:
+            return None
+
+        request = self.context.get("request")
+        if not request:
+            return None
+
+        # 🔥 Return iframe-safe API URL
+        url = reverse(
+            "payment-report-image",
+            kwargs={"payment_id": payment.id}
+        )
+        return request.build_absolute_uri(url)
+
+
 
     def get_is_report_locked(self, obj):
-        return Report.objects.filter(user=obj.user, is_locked=True).exists()
+        return Report.objects.filter(
+            user=obj.user,
+            report_status="locked"
+        ).exists()
 
     def get_exam_status(self, obj):
         qs = UserExam.objects.filter(user=obj.user)
