@@ -175,22 +175,32 @@ class SlotCreateAPIView(APIView):
         fixed_slot_set = set(FIXED_SLOTS)
 
         # =========================
-        # 🔹 1. CREATE FIXED SLOTS
+        # 🔹 1. CREATE FIXED SLOTS (ONLY IF NO SLOT EXISTS FOR DATE)
         # =========================
+
+        existing_slots = Slot.objects.filter(
+            counsellor_id=counsellor_user_id,
+            date=date
+        )
+
         fixed_created = False
 
-        for start_time, end_time in FIXED_SLOTS:
-            _, created = Slot.objects.get_or_create(
-                counsellor_id=counsellor_user_id,   # ✅ USER ID
-                date=date,
-                start_time=start_time,
-                end_time=end_time,
-                defaults={
-                    "is_available": True
-                }
-            )
-            if created:
-                fixed_created = True
+        if not existing_slots.exists():
+            fixed_created = True
+
+            fixed_slot_objects = [
+                Slot(
+                    counsellor_id=counsellor_user_id,
+                    date=date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    is_available=True
+                )
+                for start_time, end_time in FIXED_SLOTS
+            ]
+
+            Slot.objects.bulk_create(fixed_slot_objects)
+
 
         # =========================
         # 🔹 2. CREATE MANUAL SLOTS

@@ -1485,6 +1485,18 @@ class StudentRegistrationAPIView(APIView):
             dob=data["dob"],
             study_class=data["study_class"]
         )
+        
+        # =========================
+        # 📧 SEND LOGIN CREDENTIAL EMAIL
+        # =========================
+
+        # raw_password = data["password"]
+
+        try:
+            send_credentials_email(student_user.email, student_user.password)
+            send_credentials_email(parent_user.email, parent_user.password)
+        except Exception as e:
+            print("Email sending failed:", str(e))
 
         return Response(
             {
