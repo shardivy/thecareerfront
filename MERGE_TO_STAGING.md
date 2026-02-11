@@ -1,48 +1,45 @@
 # Simple Integration Guide for Lead
 
-Pull frontend and backend changes into staging daily.
+Work on `staging` for testing, then push to `main` for production.
 
-## Daily Steps
+## Merge to Staging Daily
 
 ```bash
-# Go to project
 cd career-counselling-assessment-platform
-
-# Update all branches
 git fetch origin
-
-# Go to staging
 git checkout staging
-
-# Pull frontend changes
 git merge origin/frontend
-
-# Pull backend changes  
 git merge origin/backend
-
-# Push to staging
 git push origin staging
 ```
 
-Done! Staging now has latest code from both teams.
+Test the code on staging. When it's working, push to main.
+
+---
+
+## Push to Main (Production)
+
+When staging is tested and working:
+
+```bash
+git checkout main
+git merge staging
+git push origin main
+```
+
+Done! Code is live.
 
 ---
 
 ## If Merge Conflict
 
-If `git merge` shows conflicts:
-
-```bash
-git status
-```
-
-Shows conflicted files. Open each file and remove conflict markers:
+Open the conflicted file and remove markers:
 
 ```
 <<<<<<< HEAD
-[keep this version]
+[choose this]
 =======
-[or this version]
+[or this]
 >>>>>>> origin/backend
 ```
 
@@ -50,32 +47,43 @@ Then:
 ```bash
 git add .
 git commit -m "Resolve conflicts"
-git push origin staging
+git push origin staging  # or main
 ```
 
 ---
 
 ## If Something Goes Wrong
 
-Undo the merge:
+Undo merge:
 ```bash
-git reset --hard origin/staging
+git reset --hard origin/staging  # or origin/main
 ```
-
-Then merge again carefully.
 
 ---
 
-## Quick Commands
+## Workflow Summary
+
+1. **Developers push** → to `frontend` or `backend` branch
+2. **You merge daily** → `git merge origin/frontend` + `git merge origin/backend` into `staging`
+3. **Test on staging** → Check if everything works
+4. **Push to main** → `git merge staging` then `git push origin main` when ready
+5. **Repeat daily**
+
+Simple workflow!
+
+---
+
+## Commands Quick Reference
 
 ```bash
-git fetch origin                    # Download latest
-git checkout staging                # Switch to staging
-git merge origin/frontend           # Merge frontend
-git merge origin/backend            # Merge backend
-git push origin staging             # Push to remote
-git status                          # See conflicts
-git reset --hard origin/staging     # Undo if needed
+git fetch origin                # Get latest updates
+git checkout staging            # Work on staging
+git merge origin/frontend       # Merge frontend
+git merge origin/backend        # Merge backend
+git push origin staging         # Push staging
+git checkout main               # Work on main
+git merge staging               # Merge staging to main
+git push origin main            # Push main (PRODUCTION!)
+git status                      # See conflicts/changes
+git reset --hard origin/staging # Undo if needed
 ```
-
-That's all you need!
