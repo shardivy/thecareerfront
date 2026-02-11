@@ -114,7 +114,7 @@ const counsellingSlotSlice = createSlice({
               date: day.date,
               counsellor_id: c.counsellor_id,
               counsellor_name: c.counsellor_name,
-              counsellor_is_active: c.counsellor_is_active,
+              is_active: c.is_active,
               slots: c.slots,
             });
           });
@@ -147,26 +147,26 @@ const counsellingSlotSlice = createSlice({
         state.error = action.payload;
       })
 
-      /* ---------- UPDATE COUNSELLOR STATUS ---------- */
-.addCase(updateCounsellorStatus.pending, (state, action) => {
-const { counsellor_id, date, is_active } = action.meta.arg;
-
-  
-state.counsellorWiseList = state.counsellorWiseList.map((item) =>
-  item.counsellor_id === counsellor_id && item.date === date
-    ? { ...item, counsellor_is_active: is_active }
-    : item
-);
+    .addCase(updateCounsellorStatus.pending, (state) => {
+  state.loading = true; // show spinner if you want
 })
 
-.addCase(updateCounsellorStatus.fulfilled, (state) => {
-  state.loading = false;
-})
+ .addCase(updateCounsellorStatus.fulfilled, (state, action) => {
+        const { counsellor_id, date, is_active } = action.payload;
+
+        state.counsellorWiseList = state.counsellorWiseList.map((item) =>
+          item.counsellor_id === counsellor_id && item.date === date
+            ? { ...item, is_active }
+            : item
+        );
+
+        state.loading = false;
+      })
 
 .addCase(updateCounsellorStatus.rejected, (state, action) => {
+  state.loading = false;
   state.error = action.payload;
 });
-
 
   },
 });

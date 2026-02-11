@@ -162,47 +162,41 @@ const PaymentManagement = () => {
   };
 
   /* ---------------- API -> TABLE DATA ---------------- */
-  const apiPaymentRecords = Array.isArray(list)
-    ? list.map((p, idx) => {
-        console.log(`📋 Processing payment ${idx} for table:`, p);
-        
-        // Extract clean name
-        const cleanName = extractName(p.user_name);
-        
-        // Get package/program name
-        const packageName = p.package_name || p.package || "N/A";
-        
-        // Get amount
-        const amount = p.amount || 0;
-        
-        // Get status
-        const status = toTitle(p.payment_status);
-        
-        // Get payment method
-        const paymentMethod = (p.payment_method || "-").toString().toUpperCase();
-        
-        // Get date - use the formatted date from Redux
-        const date = p.date || p.payment_date || "-";
-        
-        // Get transaction ID
-        const txn = p.transaction_id || p.txn || "-";
-        
-        return {
-          key: p.payment_id || p.id || `payment-${idx}`,
-          id: p.payment_id || p.id,
-          name: cleanName,
-          package: packageName,
-          amount: formatAmt(amount),
-          status: status,
-          paymentMethod: paymentMethod,
-          date: date,
-          txn: txn,
-          proof: !!(p.proof_file_url || p.proof_file || p.receipt_url),
-          // Store original data for modal
-          originalData: p
-        };
-      })
-    : [];
+const apiPaymentRecords = Array.isArray(list)
+  ? list.map((p, idx) => {
+      console.log(`📋 Processing payment ${idx} for table:`, p);
+      
+      const cleanName = extractName(p.user_name);
+      const packageName = p.package_name || p.package || "N/A";
+
+      // ✅ Paid + Total
+      const paidAmount = Number(p.amount || 0);
+      const packagePrice = Number(p.package_price || 0);
+
+      const status = toTitle(p.payment_status);
+      const paymentMethod = (p.payment_method || "-").toString().toUpperCase();
+      const date = p.date || p.payment_date || "-";
+      const txn = p.transaction_id || p.txn || "-";
+
+      return {
+        key: p.payment_id || p.id || `payment-${idx}`,
+        id: p.payment_id || p.id,
+        name: cleanName,
+        package: packageName,
+
+        // ✅ Store both separately (better than merging string)
+        paidAmount,
+        packagePrice,
+
+        status,
+        paymentMethod,
+        date,
+        txn,
+        proof: !!(p.proof_file_url || p.proof_file || p.receipt_url),
+        originalData: p
+      };
+    })
+  : [];
 
   /* ---------------- FILTER LOGIC ---------------- */
   const filteredData = apiPaymentRecords.filter((item) => {
@@ -255,11 +249,25 @@ const PaymentManagement = () => {
       dataIndex: "package",
       render: (pkg) => pkg || "N/A"
     },
-    { 
-      title: "Amount", 
-      dataIndex: "amount",
-      render: (amt) => amt || "₹0"
-    },
+{
+  title: "Amount",
+  render: (_, record) => {
+    const paid = record.paidAmount || 0;
+    const total = record.packagePrice || 0;
+
+    return (
+      <span>
+        ₹{paid.toLocaleString("en-IN")}
+        <Text type="colorTextSecondary">
+          {" "}
+          / ₹{total.toLocaleString("en-IN")}
+        </Text>
+      </span>
+    );
+  },
+},
+
+
     {
       title: "Payment Status",
       dataIndex: "status",
@@ -459,6 +467,7 @@ const PaymentManagement = () => {
           open={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           data={selectedPayment}
+          onSuccess={() => dispatch(fetchPayments())}
         />
 
         <UploadPaymentModal

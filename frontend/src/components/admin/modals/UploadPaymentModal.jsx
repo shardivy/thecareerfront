@@ -29,15 +29,21 @@ const UploadPaymentModal = ({ open, onClose, onSuccess }) => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
 
-  const { loading, success, error } = useSelector(
-    (state) => state.payment
-  );
+  // const { loading, success, error } = useSelector(
+  //   (state) => state.payment
+  // );
   const { list: students, loading: studentsLoading } = useSelector(
     (state) => state.users
   );
   const { list: packageList, loading: packageLoading } = useSelector(
     (state) => state.packages
   );
+
+  const {
+  submitLoading,
+  submitSuccess,
+  submitError
+} = useSelector((state) => state.payment);
 
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -61,11 +67,6 @@ const UploadPaymentModal = ({ open, onClose, onSuccess }) => {
 
   /* -------------------- SUBMIT -------------------- */
 const handleSubmit = (values) => {
-  if (!fileList.length || !fileList[0].originFileObj) {
-    message.error("Please upload receipt");
-    return;
-  }
-
   const formData = new FormData();
 
   formData.append("student_profile", values.student_profile);
@@ -83,23 +84,18 @@ const handleSubmit = (values) => {
     dayjs(values.paymentDate).format("YYYY-MM-DD")
   );
 
-  // ✅ REAL FILE (BINARY, NOT ARRAY, NOT OBJECT)
-  formData.append(
-    "proof_file",
-    fileList[0].originFileObj
-  );
-
-  // 🔍 DEBUG (you will NOT see this in DevTools Payload)
-  for (let pair of formData.entries()) {
-    console.log(pair[0], pair[1]);
+  // ✅ OPTIONAL RECEIPT
+  if (fileList.length && fileList[0].originFileObj) {
+    formData.append("proof_file", fileList[0].originFileObj);
   }
 
   dispatch(submitPayment(formData));
 };
 
+
   /* -------------------- SUCCESS / ERROR -------------------- */
   useEffect(() => {
-    if (success) {
+    if (submitSuccess) {
       message.success("Payment submitted successfully");
       form.resetFields();
       setFileList([]);
@@ -109,10 +105,14 @@ const handleSubmit = (values) => {
       onClose();
     }
 
-    if (error) {
-      message.error(error);
+   if (submitError) {
+    message.error(
+      typeof submitError === "string"
+        ? submitError
+        : JSON.stringify(submitError)
+    );
     }
-  }, [success, error, dispatch, form, onClose, onSuccess]);
+  }, [submitSuccess, submitError, dispatch, form, onClose, onSuccess]);
 
   return (
     <Modal
@@ -121,7 +121,7 @@ const handleSubmit = (values) => {
       title="Upload Payment"
       okText="Submit Payment"
       onOk={() => form.submit()}
-      confirmLoading={loading}
+      confirmLoading={submitLoading}
       width={600}
       centered
     >
@@ -245,7 +245,7 @@ const handleSubmit = (values) => {
                   <Form.Item
                     label="Transaction ID"
                     name="transactionId"
-                    rules={[{ required: true }]}
+                    rules={[{ required: false}]}
                   >
                     <Input />
                   </Form.Item>
@@ -266,7 +266,7 @@ const handleSubmit = (values) => {
 {/* RECEIPT UPLOAD */}
 <Form.Item
   label="Upload Receipt"
-  required
+  
 >
   <div
     style={{

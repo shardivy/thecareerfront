@@ -11,6 +11,7 @@ import {
   Divider,
   Spin,
   Empty,
+  Modal,
 } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -40,38 +41,43 @@ const CreateSlot = () => {
     dispatch(fetchSlotsCounsellorWise());
   }, [dispatch]);
 
-
-const handleStatusToggle = (checked, item) => {
-  dispatch(
- updateCounsellorStatus({
-  counsellor_id: item.counsellor_id,
-  date: dayjs(item.date).format("YYYY-MM-DD"),
-  is_active: checked, // ✅ correct key
-})
-
-  )
-    .unwrap()
-    .then(() => {
-      dispatch(fetchSlotsCounsellorWise());
+  /* ---------- STATUS TOGGLE WITH CONFIRM ---------- */
+  const handleStatusToggle = (checked, item) => {
+    Modal.confirm({
+      title: "Confirm Status Change",
+      centered: true,
+      content: `Are you sure you want to ${
+        checked ? "activate" : "deactivate"
+      } this counsellor on ${dayjs(item.date).format("DD MMM YYYY")}?`,
+      okText: "Yes",
+      cancelText: "No",
+      onOk: () => {
+        dispatch(
+          updateCounsellorStatus({
+            counsellor_id: item.counsellor_id,
+            date: item.date,
+            is_active: checked,
+          })
+        );
+      },
     });
-};
-
+  };
 
   /* ---------- DATE CHANGE ---------- */
   const handleDateChange = (date) => {
-    if (!date) return;
+    if (!date) {
+      setSelectedDate(null);
+      return;
+    }
+
     const formatted = dayjs(date).format("YYYY-MM-DD");
     setSelectedDate(formatted);
-
-    dispatch(
-      fetchSlotsByDate({
-        date: formatted,
-      })
-    );
   };
 
-  /* ---------- DATA SOURCE SWITCH ---------- */
-  const dataSource = selectedDate ? list : counsellorWiseList;
+  /* ---------- DATA SOURCE ---------- */
+  const normalizedList = selectedDate
+    ? counsellorWiseList.filter((item) => item.date === selectedDate)
+    : counsellorWiseList;
 
   return (
     <div style={{ padding: 16 }}>
@@ -80,7 +86,7 @@ const handleStatusToggle = (checked, item) => {
         <Title level={4}>Manage Counselling Slots</Title>
 
         <Space>
-          <DatePicker onChange={handleDateChange} />
+          <DatePicker allowClear onChange={handleDateChange}   style={{ padding: '9px 8px' }}/>
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -99,15 +105,14 @@ const handleStatusToggle = (checked, item) => {
       )}
 
       {/* NO DATA */}
-      {!loading && dataSource.length === 0 && <Empty />}
+      {!loading && normalizedList.length === 0 && <Empty />}
 
       {/* COUNSELLOR CARDS */}
       <Row gutter={[16, 16]}>
         {!loading &&
-          dataSource.map((item, index) => (
+          normalizedList.map((item, index) => (
             <Col xs={24} key={index}>
               <Card bordered>
-                {/* HEADER */}
                 <Row align="middle" gutter={16}>
                   <Col>
                     <Text strong>Counsellor:</Text>{" "}
@@ -116,33 +121,31 @@ const handleStatusToggle = (checked, item) => {
 
                   <Col>
                     <Text strong>Date:</Text>{" "}
-                    <Text>
-                      {dayjs(item.date).format("DD MMM YYYY")}
-                    </Text>
+                    <Text>{dayjs(item.date).format("DD MMM YYYY")}</Text>
                   </Col>
 
                   <Col>
                     <Text strong>Status:</Text>{" "}
-                   <Switch
-  checked={item.counsellor_is_active}
-  onChange={(checked) => handleStatusToggle(checked, item)}
-/>
-
+                    <Switch
+                      checked={item.is_active}
+                      onChange={(checked) =>
+                        handleStatusToggle(checked, item)
+                      }
+                    />
                   </Col>
                 </Row>
 
                 <Divider />
 
-                {/* SLOTS */}
                 <Space wrap>
-                  {item.slots && item.slots.length > 0 ? (
+                  {item.slots?.length ? (
                     item.slots.map((slot) => (
-                      <Button key={slot.id}>
+                      <Button key={slot.slot_id}>
                         {slot.start_time} - {slot.end_time}
                       </Button>
                     ))
                   ) : (
-                    <Text type="colorTextSecondary">No slots available</Text>
+                    <Text type="secondary">No slots available</Text>
                   )}
                 </Space>
               </Card>
@@ -154,6 +157,10 @@ const handleStatusToggle = (checked, item) => {
       <CreateSlotModal
         open={modalOpen}
         onCancel={() => setModalOpen(false)}
+        onSuccess={() => {
+          setModalOpen(false);
+          dispatch(fetchSlotsCounsellorWise());
+        }}
       />
     </div>
   );

@@ -45,72 +45,45 @@ export const fetchPayments = createAsyncThunk(
   }
 );
 
-// ================= VERIFY PAYMENT =================
+/* ================= VERIFY PAYMENT ================= */
 export const verifyPayment = createAsyncThunk(
   "payment/verify",
   async ({ id, payload }, { rejectWithValue }) => {
     try {
       const response = await verifyPaymentApi(id, payload);
 
-      // Check if backend returned success false
       if (!response.success) {
-        // Reject with backend error
         return rejectWithValue(response.error);
-      }
-
-      return response; // success true
-    } catch (error) {
-      return rejectWithValue(error.response?.data?.error);
-    }
-  }
-);
-
-// ================= UPDATE PAYMENT =================
-// ================= UPDATE PAYMENT =================
-export const updatePayment = createAsyncThunk(
-  "payment/update",
-  async ({ id, payload }, { rejectWithValue }) => {
-    try {
-      // Log what we're sending
-      console.log("🚀 Sending update for payment ID:", id);
-      console.log("📤 Payload type:", payload instanceof FormData ? 'FormData' : 'Object');
-      
-      if (payload instanceof FormData) {
-        console.log("📦 FormData contents in thunk:");
-        const entries = [];
-        for (let [key, value] of payload.entries()) {
-          entries.push({
-            key,
-            value: value instanceof File ? `File: ${value.name}` : value
-          });
-        }
-        console.log("Entries:", entries);
-      }
-      
-      const response = await updatePaymentApi(id, payload);
-
-      console.log("📥 Update API response in thunk:", response);
-
-      if (!response.success) {
-        console.error("❌ Backend returned error:", response);
-        return rejectWithValue(response.error || response.message || "Update failed");
       }
 
       return response;
     } catch (error) {
-      console.error("❌ Update catch error in thunk:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        headers: error.response?.headers
-      });
-      
+      return rejectWithValue(error.response?.data?.error || "Verification failed");
+    }
+  }
+);
+
+/* ================= UPDATE PAYMENT ================= */
+export const updatePayment = createAsyncThunk(
+  "payment/update",
+  async ({ id, payload }, { rejectWithValue }) => {
+    try {
+      const response = await updatePaymentApi(id, payload);
+
+      if (!response.success) {
+        return rejectWithValue(
+          response.error || response.message || "Update failed"
+        );
+      }
+
+      return response;
+    } catch (error) {
       return rejectWithValue(
-        error.response?.data?.error || 
-        error.response?.data?.message || 
-        error.response?.data || 
-        error.message || 
-        "Update failed"
+        error.response?.data?.error ||
+          error.response?.data?.message ||
+          error.response?.data ||
+          error.message ||
+          "Update failed"
       );
     }
   }
@@ -120,49 +93,68 @@ export const updatePayment = createAsyncThunk(
 const paymentSlice = createSlice({
   name: "payment",
   initialState: {
-    loading: false,
-    success: false,
-    error: null,
+    /* ===== Submit State ===== */
+    submitLoading: false,
+    submitSuccess: false,
+    submitError: null,
 
-    // 👇 NEW
+    /* ===== Verify State ===== */
+    verifyLoading: false,
+    verifySuccess: false,
+    verifyError: null,
+
+    /* ===== Update State ===== */
+    updateLoading: false,
+    updateSuccess: false,
+    updateError: null,
+
+    /* ===== Stats State ===== */
     statsLoading: false,
     statsError: null,
     stats: null,
 
+    /* ===== List State ===== */
     listLoading: false,
     listError: null,
     list: [],
   },
+
   reducers: {
     resetPaymentState: (state) => {
-      state.loading = false;
-      state.success = false;
-      state.error = null;
+      state.submitSuccess = false;
+      state.submitError = null;
+
+      state.verifySuccess = false;
+      state.verifyError = null;
+
+      state.updateSuccess = false;
+      state.updateError = null;
     },
   },
+
   extraReducers: (builder) => {
     builder
-      /* ----- submit payment ----- */
+
+      /* ================= SUBMIT ================= */
       .addCase(submitPayment.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+        state.submitLoading = true;
+        state.submitError = null;
       })
       .addCase(submitPayment.fulfilled, (state) => {
-        state.loading = false;
-        state.success = true;
+        state.submitLoading = false;
+        state.submitSuccess = true;
       })
       .addCase(submitPayment.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.submitLoading = false;
+        state.submitError = action.payload;
       })
 
-      /* ----- payment stats ----- */
+      /* ================= FETCH STATS ================= */
       .addCase(fetchPaymentStats.pending, (state) => {
         state.statsLoading = true;
       })
       .addCase(fetchPaymentStats.fulfilled, (state, action) => {
         state.statsLoading = false;
-        // API may return { success: true, data: { ... } } or raw object/array
         state.stats = action.payload?.data ?? action.payload;
       })
       .addCase(fetchPaymentStats.rejected, (state, action) => {
@@ -170,127 +162,99 @@ const paymentSlice = createSlice({
         state.statsError = action.payload;
       })
 
-      /* ----- payment list ----- */
+      /* ================= FETCH LIST ================= */
       .addCase(fetchPayments.pending, (state) => {
         state.listLoading = true;
       })
       .addCase(fetchPayments.fulfilled, (state, action) => {
         state.listLoading = false;
-        const payload = action.payload;
-        
-        console.log("📦 Payment API Response:", payload);
 
+        const payload = action.payload;
         let paymentList = [];
-        
+
         if (Array.isArray(payload)) {
           paymentList = payload;
         } else if (Array.isArray(payload?.data)) {
           paymentList = payload.data;
-        } else if (payload?.data && typeof payload.data === 'object') {
-          // If data is an object with array inside
-          paymentList = Object.values(payload.data).find(Array.isArray) || [];
-        } else {
-          paymentList = [];
         }
 
-        console.log("📊 Extracted payment list:", paymentList);
-
-        // Map API fields to expected table fields
         state.list = paymentList.map((payment, index) => {
-          console.log(`📋 Processing payment ${index}:`, payment);
-          
-          // Extract name from user_name if it contains " - "
           let userName = payment.user_name || "";
           if (userName.includes(" - ")) {
             const parts = userName.split(" - ");
             userName = parts[parts.length - 1].trim();
           }
-          
-          // Format date - use payment_date if available, otherwise created_at
+
           let formattedDate = "-";
-          let dateToUse = payment.payment_date || payment.created_at;
-          
+          const dateToUse = payment.payment_date || payment.created_at;
+
           if (dateToUse) {
             try {
-              formattedDate = new Date(dateToUse).toISOString().split('T')[0];
-            } catch (e) {
-              console.error("❌ Error formatting date:", dateToUse, e);
+              formattedDate = new Date(dateToUse)
+                .toISOString()
+                .split("T")[0];
+            } catch {
               formattedDate = "-";
             }
           }
-          
-          console.log(`📅 Date for payment ${index}:`, {
-            payment_date: payment.payment_date,
-            created_at: payment.created_at,
-            formatted: formattedDate
-          });
-          
+
           return {
             key: payment.payment_id || payment.id || `payment-${index}`,
             id: payment.payment_id || payment.id,
             user_id: payment.user_id,
-              student_id: payment.student_id,     
-            
-            // Name fields
-            user_name: userName,
+            student_id: payment.student_id,
+
             name: userName,
+            user_name: userName,
             student_name: userName,
             user_email: payment.email || "",
-            
-            // Package fields
-         package_id: payment.package_id ,
-      package_name: payment.package || "", 
-            // program: payment.program || "",
-            
-            // Amount fields
-            amount: payment.amount || 0,
-            package_price: payment.package_price || 0,
-            
-            // Status fields
-            payment_status: payment.payment_status || payment.status || "pending",
-            status: payment.payment_status || payment.status || "pending",
-            
-            // Payment method fields
-            payment_method: payment.payment_method || payment.method || "",
-            method: payment.payment_method || payment.method || "",
-            
-            // Date fields - use payment_date first, fallback to created_at
-            payment_date: formattedDate,
-            date: formattedDate,
-            original_payment_date: payment.payment_date, // Store original for debugging
-            original_created_at: payment.created_at, // Store original for debugging
-            
-            // Transaction fields
-            transaction_id: payment.transaction_id || payment.txn || "-",
-            txn: payment.transaction_id || payment.txn || "-",
-            
-            // Proof/receipt fields
-            proof_file_url: payment.proof_file_url ||  "",
 
+            package_id: payment.package_id,
+            package_name: payment.package || "",
+            package_price: payment.package_price || 0,
+
+
+            amount: payment.amount || 0,
+
+            payment_status:
+              payment.payment_status || payment.status || "pending",
+            status:
+              payment.payment_status || payment.status || "pending",
+
+            payment_method:
+              payment.payment_method || payment.method || "",
+
+            payment_date: formattedDate,
+            transaction_id:
+              payment.transaction_id || payment.txn || "-",
+
+            proof_file_url: payment.proof_file_url || "",
           };
         });
-
-        console.log("✅ Final mapped list:", state.list);
       })
       .addCase(fetchPayments.rejected, (state, action) => {
         state.listLoading = false;
         state.listError = action.payload;
-        console.error("❌ Failed to fetch payments:", action.payload);
       })
 
-      /* ----- verify payment ----- */
+      /* ================= VERIFY ================= */
       .addCase(verifyPayment.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+        state.verifyLoading = true;
+        state.verifyError = null;
       })
       .addCase(verifyPayment.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
-        
-        // Update the payment in the list if verification was successful
-        const paymentId = action.payload?.data?.payment_id || action.payload?.payment_id;
+        state.verifyLoading = false;
+        state.verifySuccess = true;
+
+        const paymentId =
+          action.payload?.data?.payment_id ||
+          action.payload?.payment_id;
+
         if (paymentId) {
-          const index = state.list.findIndex(p => p.id === paymentId);
+          const index = state.list.findIndex(
+            (p) => p.id === paymentId
+          );
+
           if (index !== -1) {
             state.list[index].payment_status = "verified";
             state.list[index].status = "verified";
@@ -298,34 +262,39 @@ const paymentSlice = createSlice({
         }
       })
       .addCase(verifyPayment.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.verifyLoading = false;
+        state.verifyError = action.payload;
       })
 
-      /* ----- update payment ----- */
+      /* ================= UPDATE ================= */
       .addCase(updatePayment.pending, (state) => {
-        state.loading = true;
-        state.error = null;
+        state.updateLoading = true;
+        state.updateError = null;
       })
       .addCase(updatePayment.fulfilled, (state, action) => {
-        state.loading = false;
-        state.success = true;
-        
-        // Update the payment in the list
-        const paymentId = action.payload?.data?.payment_id || action.payload?.payment_id;
+        state.updateLoading = false;
+        state.updateSuccess = true;
+
+        const paymentId =
+          action.payload?.data?.payment_id ||
+          action.payload?.payment_id;
+
         if (paymentId) {
-          const index = state.list.findIndex(p => p.id === paymentId);
+          const index = state.list.findIndex(
+            (p) => p.id === paymentId
+          );
+
           if (index !== -1) {
             state.list[index] = {
               ...state.list[index],
-              ...action.payload.data
+              ...action.payload.data,
             };
           }
         }
       })
       .addCase(updatePayment.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.updateLoading = false;
+        state.updateError = action.payload;
       });
   },
 });
