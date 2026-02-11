@@ -16,13 +16,9 @@ class Program(models.Model):
         return self.name
     
 class Package(models.Model):
-    PACKAGE_CHOICE = (
-        ('basic', 'Basic'),
-        ('standard', 'Standard'),
-        ('premium', 'Premium')
-    )
+    
     program = models.ForeignKey(Program, on_delete=models.CASCADE)
-    name = models.CharField(max_length=150, choices=PACKAGE_CHOICE)
+    name = models.CharField(max_length=250, blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField(blank=True, null=True)
     is_active = models.BooleanField(default=True)

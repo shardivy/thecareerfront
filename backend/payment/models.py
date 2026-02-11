@@ -30,7 +30,7 @@ class Payment(models.Model):
     status = models.CharField(max_length=50, choices=STATUS_CHOICE, default='verification_pending')
     payment_date = models.DateField(blank=True, null=True)
     transaction_id = models.CharField(max_length=100, blank=True, unique=True, null=True)
-    proof_file = models.FileField(upload_to='payments/', blank=True)
+    proof_file = models.FileField(upload_to='payments/', blank=True, null=True)
     verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='verified_payments')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

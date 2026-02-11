@@ -79,6 +79,7 @@ class PackageExamCreateSerializer(serializers.Serializer):
     provider = serializers.CharField(required=False, allow_blank=True)
     exam_link = serializers.URLField(required=False, allow_null=True)
     instructions = serializers.CharField(required=False, allow_blank=True)
+    is_active = serializers.BooleanField(default=True)
 
     is_mandatory = serializers.BooleanField(default=False)
     sequence_order = serializers.IntegerField(required=False, allow_null=True)
@@ -101,6 +102,7 @@ class PackageExamCreateSerializer(serializers.Serializer):
             provider=validated_data.pop("provider", None),
             exam_link=validated_data.pop("exam_link", None),
             instructions=validated_data.pop("instructions", None),
+            is_active=validated_data.pop("is_active", True),
         )
 
         # ─── Create PackageExam ──────────────────────
@@ -118,18 +120,25 @@ class PackageExamResponseSerializer(serializers.ModelSerializer):
     exam_name = serializers.CharField(source="exam.name", read_only=True)
     exam_link = serializers.CharField(source="exam.exam_link", read_only=True)
     instructions = serializers.CharField(source="exam.instructions", read_only=True)
+    # is_mandatory = serializers.BooleanField(read_only=True)
+    is_active = serializers.BooleanField(source="exam.is_active", read_only=True)
 
+    package_id = serializers.IntegerField(source="package.id", read_only=True)
     package = serializers.CharField(source="package.name", read_only=True)
+    program_id = serializers.IntegerField(source="package.program.id", read_only=True)
     program = serializers.CharField(source="package.program.name", read_only=True)
 
     class Meta:
         model = PackageExam
         fields = (
             "id",
+            "program_id",
             "program",
+            "package_id",
             "package",
             "exam_name",
             "exam_link",
+            "is_active",
             "instructions",
             "is_mandatory",
             "sequence_order",
@@ -142,6 +151,7 @@ class PackageExamUpdateSerializer(serializers.Serializer):
     provider = serializers.CharField(required=False, allow_blank=True)
     exam_link = serializers.URLField(required=False, allow_null=True)
     instructions = serializers.CharField(required=False, allow_blank=True)
+    is_active = serializers.BooleanField(required=False)
 
     is_mandatory = serializers.BooleanField(required=False)
     sequence_order = serializers.IntegerField(required=False, allow_null=True)
@@ -149,7 +159,7 @@ class PackageExamUpdateSerializer(serializers.Serializer):
     def update(self, instance, validated_data):
         # Update exam
         exam = instance.exam
-        for field in ["exam_name", "provider", "exam_link", "instructions"]:
+        for field in ["exam_name", "provider", "exam_link", "instructions", "is_active"]:
             if field in validated_data:
                 setattr(
                     exam,

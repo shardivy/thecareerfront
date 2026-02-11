@@ -1,13 +1,183 @@
+from lead_registration.models import StudentProfile
 from rest_framework import serializers
 
 from accounts.models import User
 from django.contrib.auth import get_user_model
 
-from counselling_slot.models import Booking, Counsellor, Slot
+from counselling_slot.models import Booking, BookingCounsellor, Counsellor, Slot
 from datetime import date, datetime, timedelta
 
+# =========================== Updated Serializers Below ===========================
+class UserMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "first_name", "last_name", "email")
+
+class CounsellorListSerializer(serializers.ModelSerializer):
+    user = UserMiniSerializer(read_only=True)
+
+    class Meta:
+        model = Counsellor
+        fields = ("id", "user", "specialization", "is_active")
+  
+# Add counselling slot serializers        
+class SlotCreateSerializer(serializers.ModelSerializer):
+    counsellor_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Slot
+        fields = (
+            "id",
+            "counsellor_id",
+            "date",
+            "start_time",
+            "end_time",
+            "mode",
+            "created_at",
+        )
+
+    def validate_counsellor_id(self, value):
+        if not Counsellor.objects.filter(id=value, is_active=True).exists():
+            raise serializers.ValidationError("Invalid or inactive counsellor.")
+        return value
+
+    def create(self, validated_data):
+        counsellor_id = validated_data.pop("counsellor_id")
+
+        counsellor = Counsellor.objects.get(id=counsellor_id)
+
+        slot = Slot.objects.create(
+            counsellor=counsellor.user,
+            **validated_data
+        )
+        return slot
+    
+class BookingCounsellorInputSerializer(serializers.Serializer):
+    counsellor_id = serializers.PrimaryKeyRelatedField(
+        queryset=Counsellor.objects.all()
+    )
+    role = serializers.ChoiceField(
+        choices=["lead", "assistant"]
+    )
+
+class StudentMiniSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source="user.first_name", read_only=True)
+    last_name = serializers.CharField(source="user.last_name", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = StudentProfile
+        fields = ["id", "first_name", "last_name", "email"]
+
+class CounsellorMiniSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source="user.id", read_only=True)
+    first_name = serializers.CharField(source="user.first_name", read_only=True)
+    last_name = serializers.CharField(source="user.last_name", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+
+    class Meta:
+        model = Counsellor
+        fields = ["id", "user_id", "first_name", "last_name", "email", "specialization"]
+
+class SlotMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Slot
+        fields = [
+            "id",
+            "date",
+            "start_time",
+            "end_time",
+            "mode",
+        ]
+
+class BookingCounsellorMiniSerializer(serializers.ModelSerializer):
+    counsellor = CounsellorMiniSerializer(read_only=True)
+
+    class Meta:
+        model = BookingCounsellor
+        fields = [
+            "counsellor",
+            "role",
+            "assigned_at",
+        ]
+
+class BookingReadSerializer(serializers.ModelSerializer):
+    student = StudentMiniSerializer(read_only=True)
+    slot = SlotMiniSerializer(read_only=True)
+    counsellors = BookingCounsellorMiniSerializer(
+        source="bookingcounsellor_set",
+        many=True,
+        read_only=True
+    )
+
+    class Meta:
+        model = Booking
+        fields = [
+            "id",
+            "student",
+            "slot",
+            "date",
+            "status",
+            "meeting_link",
+            "created_at",
+            "counsellors",
+        ]
 
 
+
+    
+class BookingCreateSerializer(serializers.Serializer):
+    student_id = serializers.PrimaryKeyRelatedField(
+        queryset=StudentProfile.objects.all()
+    )
+    date = serializers.DateField()
+
+    # 🔥 RENAMED FIELD (THIS FIXES EVERYTHING)
+    slots = serializers.ListField(
+        child=serializers.PrimaryKeyRelatedField(
+            queryset=Slot.objects.all()
+        ),
+        allow_empty=False
+    )
+
+    counsellors_data = BookingCounsellorInputSerializer(many=True)
+
+    def validate(self, data):
+        # exactly one lead
+        lead_count = sum(
+            1 for c in data["counsellors_data"] if c["role"] == "lead"
+        )
+        if lead_count != 1:
+            raise serializers.ValidationError(
+                "Exactly one lead counsellor is required."
+            )
+
+        # prevent double booking
+        for slot in data["slots"]:
+            if Booking.objects.filter(slot=slot, date=data["date"]).exists():
+                raise serializers.ValidationError(
+                    f"Slot {slot.id} already booked for this date"
+                )
+
+        return data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ============================ Old Serializers Above ==========================
 User = get_user_model()
 
 class LeadCounsellorUserSerializer(serializers.ModelSerializer):
@@ -107,74 +277,74 @@ class AddCounsellorSerializer(serializers.ModelSerializer):
 #         return attrs
 
 
-class SlotCreateSerializer(serializers.ModelSerializer):
-    lead_counsellor = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all()
-    )
-    normal_counsellor = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        required=False,
-        allow_null=True
-    )
+# class SlotCreateSerializer(serializers.ModelSerializer):
+#     lead_counsellor = serializers.PrimaryKeyRelatedField(
+#         queryset=User.objects.all()
+#     )
+#     normal_counsellor = serializers.PrimaryKeyRelatedField(
+#         queryset=User.objects.all(),
+#         required=False,
+#         allow_null=True
+#     )
 
-    class Meta:
-        model = Slot
-        fields = [
-            'id',
-            'lead_counsellor',
-            'normal_counsellor',
-            'date',
-            'start_time',
-            'end_time',
-            'mode',
-            'duration_minutes',
-            'is_available',
-        ]
-        read_only_fields = ('end_time',)
+#     class Meta:
+#         model = Slot
+#         fields = [
+#             'id',
+#             'lead_counsellor',
+#             'normal_counsellor',
+#             'date',
+#             'start_time',
+#             'end_time',
+#             'mode',
+#             'duration_minutes',
+#             'is_available',
+#         ]
+#         read_only_fields = ('end_time',)
 
-    def _parse_time(self, value):
-        """Accept HH:MM and HH:MM AM/PM"""
-        for fmt in ("%H:%M", "%I:%M %p"):
-            try:
-                return datetime.strptime(value, fmt).time()
-            except ValueError:
-                continue
-        raise serializers.ValidationError({
-            "start_time": "Invalid time format. Use HH:MM or HH:MM AM/PM."
-        })
+#     def _parse_time(self, value):
+#         """Accept HH:MM and HH:MM AM/PM"""
+#         for fmt in ("%H:%M", "%I:%M %p"):
+#             try:
+#                 return datetime.strptime(value, fmt).time()
+#             except ValueError:
+#                 continue
+#         raise serializers.ValidationError({
+#             "start_time": "Invalid time format. Use HH:MM or HH:MM AM/PM."
+#         })
 
-    def validate(self, attrs):
-        lead = attrs.get('lead_counsellor')
-        normal = attrs.get('normal_counsellor')
-        start_time = attrs.get('start_time')
-        duration = attrs.get('duration_minutes')
+#     def validate(self, attrs):
+#         lead = attrs.get('lead_counsellor')
+#         normal = attrs.get('normal_counsellor')
+#         start_time = attrs.get('start_time')
+#         duration = attrs.get('duration_minutes')
 
-        if lead.role.name != 'lead_counsellor':
-            raise serializers.ValidationError({
-                "lead_counsellor": "Selected user is not a lead counsellor"
-            })
+#         if lead.role.name != 'lead_counsellor':
+#             raise serializers.ValidationError({
+#                 "lead_counsellor": "Selected user is not a lead counsellor"
+#             })
 
-        if normal and normal.role.name != 'counsellor':
-            raise serializers.ValidationError({
-                "normal_counsellor": "Selected user is not a counsellor"
-            })
+#         if normal and normal.role.name != 'counsellor':
+#             raise serializers.ValidationError({
+#                 "normal_counsellor": "Selected user is not a counsellor"
+#             })
 
-        if start_time and duration:
-            if isinstance(start_time, str):
-                start_time_obj = self._parse_time(start_time)
-            else:
-                start_time_obj = start_time
+#         if start_time and duration:
+#             if isinstance(start_time, str):
+#                 start_time_obj = self._parse_time(start_time)
+#             else:
+#                 start_time_obj = start_time
 
-            end_time = (
-                datetime.combine(date.today(), start_time_obj)
-                + timedelta(minutes=duration)
-            ).time()
+#             end_time = (
+#                 datetime.combine(date.today(), start_time_obj)
+#                 + timedelta(minutes=duration)
+#             ).time()
 
-            # store as string since model uses CharField
-            attrs['start_time'] = start_time_obj.strftime("%I:%M %p")
-            attrs['end_time'] = end_time.strftime("%I:%M %p")
+#             # store as string since model uses CharField
+#             attrs['start_time'] = start_time_obj.strftime("%I:%M %p")
+#             attrs['end_time'] = end_time.strftime("%I:%M %p")
 
-        return attrs
+#         return attrs
 
 
 
@@ -290,113 +460,128 @@ class SlotUpdateSerializer(serializers.ModelSerializer):
 
 
 # =================== Add counselling booking slot =========================
-class StudentMiniSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ("id", "first_name", "last_name", "email")
-
-class CounsellorMiniSerializer(serializers.ModelSerializer):
-    user = StudentMiniSerializer(read_only=True)
-
-    class Meta:
-        model = Counsellor
-        fields = ("id", "user", "specialization")
-
-class SlotMiniSerializer(serializers.ModelSerializer):
-    counsellor = CounsellorMiniSerializer(read_only=True)
-
-    class Meta:
-        model = Slot
-        fields = ("id", "date", "start_time", "end_time", "mode", "counsellor")
+# class BookingCounsellorCreateSerializer(serializers.Serializer):
+#     counsellor_id = serializers.IntegerField()
+#     role = serializers.ChoiceField(choices=["lead", "assistant"])
 
 
-class BookingCreateSerializer(serializers.ModelSerializer):
-    # READ (nested objects with proper details)
-    student = StudentMiniSerializer(read_only=True)
-    slot = SlotMiniSerializer(read_only=True)
-    lead_counsellor = StudentMiniSerializer(read_only=True)
-    normal_counsellor = StudentMiniSerializer(read_only=True)
+# class StudentMiniSerializer(serializers.ModelSerializer):
+#     first_name = serializers.CharField(source="user.first_name", read_only=True)
+#     last_name = serializers.CharField(source="user.last_name", read_only=True)
+#     email = serializers.EmailField(source="user.email", read_only=True)
 
-    # WRITE (accept User IDs directly)
-    student_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        source="student",
-        write_only=True
-    )
-    slot_id = serializers.PrimaryKeyRelatedField(
-        queryset=Slot.objects.all(),
-        source="slot",
-        write_only=True
-    )
-    lead_counsellor_id = serializers.IntegerField(write_only=True)
-    normal_counsellor_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+#     class Meta:
+#         model = StudentProfile
+#         fields = ["id", "first_name", "last_name", "email"]
 
-    class Meta:
-        model = Booking
-        fields = [
-            "id",
-            "student",
-            "student_id",
-            "slot",
-            "slot_id",
-            "lead_counsellor",
-            "lead_counsellor_id",
-            "normal_counsellor",
-            "normal_counsellor_id",
-            "mode",
-            "date",
-            "meeting_link",
-            "status",
-            "created_at",
-        ]
-        read_only_fields = ("id", "status", "created_at")
 
-    def validate(self, attrs):
-        # Validate lead_counsellor
-        lead_user_id = attrs.pop("lead_counsellor_id", None)
-        try:
-            lead_user = User.objects.get(id=lead_user_id)
-        except User.DoesNotExist:
-            raise serializers.ValidationError({"lead_counsellor_id": "Lead counsellor does not exist."})
+# class CounsellorMiniSerializer(serializers.ModelSerializer):
+#     user = StudentMiniSerializer(read_only=True)
 
-        if lead_user.role.name != "lead_counsellor":
-            raise serializers.ValidationError({"lead_counsellor_id": "User is not a lead counsellor."})
+#     class Meta:
+#         model = Counsellor
+#         fields = ("id", "user", "specialization")
 
-        attrs["lead_counsellor"] = lead_user
+# class SlotMiniSerializer(serializers.ModelSerializer):
+#     counsellor = CounsellorMiniSerializer(read_only=True)
 
-        # Validate normal_counsellor if provided
-        normal_user_id = attrs.pop("normal_counsellor_id", None)
-        if normal_user_id:
-            try:
-                normal_user = User.objects.get(id=normal_user_id)
-            except User.DoesNotExist:
-                raise serializers.ValidationError({"normal_counsellor_id": "Normal counsellor does not exist."})
+#     class Meta:
+#         model = Slot
+#         fields = ("id", "date", "start_time", "end_time", "mode", "counsellor")
 
-            if normal_user.role.name != "counsellor":
-                raise serializers.ValidationError({"normal_counsellor_id": "User is not a counsellor."})
 
-            attrs["normal_counsellor"] = normal_user
-        else:
-            attrs["normal_counsellor"] = None
+# class BookingCreateSerializer(serializers.ModelSerializer):
+#     # READ
+#     student = StudentMiniSerializer(read_only=True)
+#     slot = SlotMiniSerializer(read_only=True)
 
-        # Prevent duplicate slot bookings for same date
-        slot = attrs.get("slot", self.instance.slot if self.instance else None)
-        date = attrs.get("date", self.instance.date if self.instance else None)
-        qs = Booking.objects.filter(slot=slot, date=date)
-        if self.instance:
-            qs = qs.exclude(id=self.instance.id)
-        if qs.exists():
-            raise serializers.ValidationError({"slot": "This slot is already booked for the selected date."})
+#     counsellors = serializers.SerializerMethodField()
 
-        return attrs
+#     # WRITE
+#     student_id = serializers.PrimaryKeyRelatedField(
+#         queryset=StudentProfile.objects.all(),
+#         source="student",
+#         write_only=True
+#     )
+#     slot_id = serializers.PrimaryKeyRelatedField(
+#         queryset=Slot.objects.all(),
+#         source="slot",
+#         write_only=True
+#     )
+#     counsellors_data = BookingCounsellorCreateSerializer(
+#         many=True,
+#         write_only=True,
+#         source="counsellors"
+#     )
 
-    def create(self, validated_data):
-        validated_data["status"] = "scheduled"
-        return super().create(validated_data)
+#     class Meta:
+#         model = Booking
+#         fields = [
+#             "id",
+#             "student",
+#             "student_id",
+#             "slot",
+#             "slot_id",
+#             "date",
+#             "meeting_link",
+#             "status",
+#             "created_at",
+#             "counsellors",
+#             "counsellors_data",
+#         ]
+#         read_only_fields = ("id", "status", "created_at")
 
-    def update(self, instance, validated_data):
-        # allow partial update via PUT
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        return instance
+#     def get_counsellors(self, obj):
+#         qs = obj.bookingcounsellor_set.select_related("counsellor__user")
+#         return [
+#             {
+#                 "id": bc.counsellor.id,
+#                 "role": bc.role,
+#                 "user": {
+#                     "id": bc.counsellor.user.id,
+#                     "first_name": bc.counsellor.user.first_name,
+#                     "last_name": bc.counsellor.user.last_name,
+#                     "email": bc.counsellor.user.email,
+#                 }
+#             }
+#             for bc in qs
+#         ]
+
+#     def validate(self, attrs):
+#         counsellors_data = attrs.get("counsellors", [])
+
+#         # 🔒 exactly ONE lead counsellor
+#         leads = [c for c in counsellors_data if c["role"] == "lead"]
+#         if len(leads) != 1:
+#             raise serializers.ValidationError({
+#                 "counsellors": "Exactly one lead counsellor is required."
+#             })
+
+#         # 🔒 slot double booking check
+#         slot = attrs.get("slot")
+#         date = attrs.get("date")
+#         if Booking.objects.filter(slot=slot, date=date).exists():
+#             raise serializers.ValidationError({
+#                 "slot": "This slot is already booked."
+#             })
+
+#         return attrs
+
+#     def create(self, validated_data):
+#         counsellors_data = validated_data.pop("counsellors")
+#         booking = Booking.objects.create(**validated_data)
+
+#         for item in counsellors_data:
+#             user = User.objects.get(
+#                 id=item["counsellor_id"],
+#                 role__name="counsellor"
+#             )
+#             counsellor = Counsellor.objects.get(user=user)
+
+#             BookingCounsellor.objects.create(
+#                 booking=booking,
+#                 counsellor=counsellor,
+#                 role=item["role"]
+#             )
+
+#         return booking

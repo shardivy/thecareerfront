@@ -34,7 +34,6 @@ class Role(models.Model):
         ('superadmin', 'Super Admin'),
         ('admin', 'Admin'),
         ('counsellor', 'Counsellor'),
-        ('lead_counsellor', 'Lead Counsellor'),
         ('student', 'Student'),
         ('parent', 'Parent'),
         ('free_user', 'Free User'),

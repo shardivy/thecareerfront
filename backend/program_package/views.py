@@ -8,7 +8,7 @@ from rest_framework.permissions import  IsAuthenticated
 
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from program_package.models import Package, PackageFeature, Program, UserProgramPackage
-from program_package.serializers import PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer
+from program_package.serializers import PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer, ProgramWithPackagesSerializer
 from django.db.models import Count
 
 
@@ -272,6 +272,23 @@ class DashboardCountAPIView(APIView):
             "total_packages": total_packages,
             "total_enrolled_students": total_enrolled_students
         })
+ 
+# Fetch packages for a specific program        
+class ProgramPackagesAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, program_id):
+        program = get_object_or_404(Program, id=program_id, is_active=True)
+
+        serializer = ProgramWithPackagesSerializer(program)
+
+        return Response(
+            {
+                "message": "Program packages fetched successfully",
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 

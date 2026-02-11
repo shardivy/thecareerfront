@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from program_package.models import Package, PackageFeature, Program
+from program_package.models import Package, PackageFeature, Program, UserProgramPackage
 
 
 class ProgramListSerializer(serializers.ModelSerializer):
@@ -70,7 +70,7 @@ class PackageCreateSerializer(serializers.ModelSerializer):
             "name",
             "price",
             "description",
-            
+            "is_active",
             "features"
         ]
 
@@ -107,6 +107,7 @@ class PackageListSerializer(serializers.ModelSerializer):
             "price",
             "is_active",
             "program",
+            "description",
             "active_users",
             "features"
         ]
@@ -126,3 +127,39 @@ class PackageListSerializer(serializers.ModelSerializer):
             }
             for feature in obj.packagefeature_set.all()
         ]
+        
+class PackageMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Package
+        fields = (
+            "id",
+            "name",
+            "price",
+            "description",
+            "is_active",
+            "created_at",
+        )
+
+
+class ProgramWithPackagesSerializer(serializers.ModelSerializer):
+    packages = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Program
+        fields = (
+            "id",
+            "name",
+            "description",
+            "duration",
+            "session",
+            "is_active",
+            "packages",
+        )
+
+    def get_packages(self, obj):
+        packages = Package.objects.filter(
+            program=obj,
+            is_active=True
+        )
+
+        return PackageMiniSerializer(packages, many=True).data

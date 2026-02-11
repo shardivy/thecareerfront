@@ -6,25 +6,25 @@ from lead_registration.views import (
     ConvertLeadAPIView,
     HobbyAPIView,
     LeadListAPIView,
-    ParentSendOTPAPIView,
-    ParentVerifyOTPAPIView,
+    SendParentOTPAPIView,
     StreamAPIView,
     StudentAcademicHistoryAPIView,
     StudentAcademicHistoryDetailAPIView,
     StudentHobbyAPIView,
     StudentHobbyDetailAPIView,
-    StudentRegisterAPIView,
+    StudentRegistrationAPIView,
     StudentStreamAPIView,
     StudentStreamDetailAPIView,
     StudentSubjectPreferenceAPIView,
     StudentSubjectPreferenceDetailAPIView,
-    SubjectAPIView
+    SubjectAPIView,
+    VerifyParentOTPAPIView
 )
 
 urlpatterns = [
-    path('student-registration/', StudentRegisterAPIView.as_view(), name='student-registration'),
-    path('send-otp/', ParentSendOTPAPIView.as_view(), name='parent-otp'),
-    path('verify-otp-register/', ParentVerifyOTPAPIView.as_view(), name='parent-register-otp-verify'),
+    path('student/register/', StudentRegistrationAPIView.as_view(), name='student-registration'),
+    path("send-parent-otp/", SendParentOTPAPIView.as_view()),
+    path("verify-parent-otp/", VerifyParentOTPAPIView.as_view()),
     
     path('add-enquiry/', AddEnquiryAPIView.as_view(), name='add-enquiry'),
     path('leads/', AddEnquiryAPIView.as_view(), name='delete-lead'),
@@ -55,4 +55,6 @@ urlpatterns = [
     path("hobbies/", HobbyAPIView.as_view()),
     path("students/<int:student_id>/hobbies/",StudentHobbyAPIView.as_view()),
     path("students/<int:student_id>/hobbies/<int:hobby_id>/",StudentHobbyDetailAPIView.as_view()),
+    
+    
 ]

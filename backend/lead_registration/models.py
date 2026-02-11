@@ -91,11 +91,18 @@ class ParentProfile(models.Model):
     
 
 class StudentProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    parent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='children')
+    MODECHOICES = (
+        ('online', 'Online'),
+        ('offline', 'Offline'),
+    )
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile")
+    parent = models.ForeignKey(ParentProfile, on_delete=models.SET_NULL, null=True, related_name='children')
     study_class = models.CharField(max_length=20, blank=True, null=True)
+    dob = models.DateField(blank=True, null=True)
     current_academic_stage = models.CharField(max_length=20, blank=True, null=True)
     current_academic_year = models.CharField(max_length=10, blank=True, null=True)
+    preferred_counselling_mode = models.CharField(max_length=50, blank=True, null=True,choices=MODECHOICES) 
 
     school_college = models.CharField(max_length=200, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)

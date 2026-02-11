@@ -23,72 +23,57 @@ class CounsellorAdmin(admin.ModelAdmin):
 class SlotAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "lead_counsellor",
-        "normal_counsellor",
+        "counsellor",
         "date",
         "start_time",
         "end_time",
         "mode",
-        "duration_minutes",
         "is_available",
+        "created_at",
     )
 
     list_filter = (
         "mode",
         "is_available",
         "date",
+        "created_at",
     )
 
     search_fields = (
-        "lead_counsellor__user__first_name",
-        "lead_counsellor__user__last_name",
-        "normal_counsellor__user__first_name",
-        "normal_counsellor__user__last_name",
+        "counsellor__email",
+        "counsellor__first_name",
+        "counsellor__last_name",
     )
 
-    ordering = ("-date", "-start_time")
+    ordering = ("-date", "-created_at")
+
+    readonly_fields = ("created_at", "updated_at")
+
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "student",
-        "get_counsellors",  # Combined column for lead + normal counsellor
         "slot",
-        "date",
         "status",
+        "date",
         "created_at",
     )
 
     list_filter = (
         "status",
+        "date",
         "created_at",
     )
 
     search_fields = (
-        "student__first_name",
-        "student__last_name",
-        "student__email",
-        "lead_counsellor__user__first_name",
-        "lead_counsellor__user__last_name",
-        "normal_counsellor__user__first_name",
-        "normal_counsellor__user__last_name",
+        "student__user__email",
+        "student__user__first_name",
+        "student__user__last_name",
+        "counsellor__user__email",
     )
 
     ordering = ("-created_at",)
 
-    # Method to combine lead + normal counsellor for list_display
-    def get_counsellors(self, obj):
-        if obj.lead_counsellor and obj.lead_counsellor.user:
-            lead_user = obj.lead_counsellor.user
-            lead = f"{lead_user.first_name} {lead_user.last_name}".strip()
-        else:
-            lead = "N/A"
-
-        if obj.normal_counsellor and obj.normal_counsellor.user:
-            normal_user = obj.normal_counsellor.user
-            normal = f"{normal_user.first_name} {normal_user.last_name}".strip()
-        else:
-            normal = "N/A"
-
-        return f"Lead: {lead}, Normal: {normal}"
+    readonly_fields = ("created_at", "updated_at")

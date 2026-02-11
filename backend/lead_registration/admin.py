@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from lead_registration.models import Lead, ParentProfile, StudentProfile
+from lead_registration.models import Hobby, Lead, ParentProfile, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 
 @admin.register(StudentProfile)
 class StudentProfileAdmin(admin.ModelAdmin):
@@ -48,4 +48,102 @@ class LeadAdmin(admin.ModelAdmin):
     list_filter = ('source', 'status', 'created_at')
     search_fields = ('first_name','last_name', 'phone', 'email')
     ordering = ('-created_at',)
+    
+@admin.register(StudentAcademicHistory)
+class StudentAcademicHistoryAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "student_email",
+        "academic_stage",
+        "start_year",
+        "end_year",
+        "is_current",
+        "created_at",
+    )
 
+    list_filter = ("academic_stage", "is_current")
+    search_fields = ("student_profile__user__email",)
+    ordering = ("-created_at",)
+
+    def student_email(self, obj):
+        return obj.student_profile.user.email
+
+    student_email.short_description = "Student Email"
+
+@admin.register(Stream)
+class StreamAdmin(admin.ModelAdmin):
+    list_display = ("id", "name")
+    search_fields = ("name",)
+
+@admin.register(StudentStream)
+class StudentStreamAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "student_email",
+        "stream",
+        "created_at",
+    )
+
+    search_fields = (
+        "student_profile__user__email",
+        "stream__name",
+    )
+
+    list_filter = ("stream",)
+
+    def student_email(self, obj):
+        return obj.student_profile.user.email
+
+    student_email.short_description = "Student Email"
+
+@admin.register(Subject)
+class SubjectAdmin(admin.ModelAdmin):
+    list_display = ("id", "name")
+    search_fields = ("name",)
+
+@admin.register(StudentSubjectPreference)
+class StudentSubjectPreferenceAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "student_email",
+        "subject",
+        "preference_type",
+        "created_at",
+    )
+
+    list_filter = ("preference_type", "subject")
+    search_fields = (
+        "student_profile__user__email",
+        "subject__name",
+    )
+
+    def student_email(self, obj):
+        return obj.student_profile.user.email
+
+    student_email.short_description = "Student Email"
+
+@admin.register(Hobby)
+class HobbyAdmin(admin.ModelAdmin):
+    list_display = ("id", "name")
+    search_fields = ("name",)
+
+@admin.register(StudentHobby)
+class StudentHobbyAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "student_email",
+        "hobby",
+        "created_at",
+    )
+
+    search_fields = (
+        "student_profile__user__email",
+        "hobby__name",
+    )
+
+    list_filter = ("hobby",)
+
+    def student_email(self, obj):
+        return obj.student_profile.user.email
+
+    student_email.short_description = "Student Email"
