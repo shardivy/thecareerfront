@@ -36,11 +36,8 @@ Done! Code is live.
 Open the conflicted file and remove markers:
 
 ```
-<<<<<<< HEAD
 [choose this]
-=======
 [or this]
->>>>>>> origin/backend
 ```
 
 Then:
