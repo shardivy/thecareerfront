@@ -18,7 +18,7 @@ import {
 import { UploadOutlined, FileImageOutlined } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import dayjs from "dayjs";
-import { useDispatch } from "react-redux";
+import { useDispatch ,useSelector} from "react-redux";
 import { verifyPayment, updatePayment } from "../../../adminSlices/paymentSlice";
 
 const { Title, Text } = Typography;
@@ -41,9 +41,16 @@ const valueBoxStyle = {
 };
 
 /* ---------------- COMPONENT ---------------- */
-const PaymentProofModal = ({ open, onClose, data }) => {
+const PaymentProofModal = ({ open, onClose, data,  onSuccess  }) => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
+
+const {
+  verifyLoading,
+  updateLoading
+} = useSelector((state) => state.payment);
+
+
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [isImage, setIsImage] = useState(true);
@@ -81,8 +88,9 @@ const PaymentProofModal = ({ open, onClose, data }) => {
     
     return {
       name: source.name || source.user_name || source.student_name || "Student Name",
-      package: source.package || source.program || "-",
-      package_id: source.package_id || source.program_id || source.package || "",
+      package: source.package_name || source.package || source.program || "-",
+      package_id: source.package_id || source.program_id || "",
+
       paymentMethod: source.paymentMethod || source.method || source.payment_method || "-",
       amount: source.amount || "0",
       txn: source.txn || source.transaction_id || "-",
@@ -126,37 +134,27 @@ const PaymentProofModal = ({ open, onClose, data }) => {
       console.log("🔄 Modal opened with data:", data);
       console.log("📋 Safe data for form:", safeData);
       
-      form.resetFields();
-      
       form.setFieldsValue({
-        name: safeData.name,
-        package: safeData.package,
-        paymentMethod: safeData.paymentMethod,
-        amount: safeData.amount,
-        txn: safeData.txn,
-        paymentDate: safeData.paymentDate && safeData.paymentDate !== "-" 
-          ? dayjs(safeData.paymentDate) 
+      name: safeData.name,
+      package: safeData.package,
+      paymentMethod: safeData.paymentMethod,
+      amount: safeData.amount,
+      txn: safeData.txn,
+      paymentDate:
+        safeData.paymentDate && safeData.paymentDate !== "-"
+          ? dayjs(safeData.paymentDate)
           : null,
+    });
 
-            student_profile: safeData.student_id ,
-      });
-      
-      // Reset to original when modal opens
-      setFile(null);
-      setPreviewUrl(originalProofUrl);
-      
-      if (originalProofUrl) {
-        setIsImage(isImageUrl(originalProofUrl));
-      } else {
-        setIsImage(true);
-      }
-    }
-    
-    // Cleanup function to revoke blob URLs when modal closes
-    return () => {
-      revokeBlobUrls();
-    };
-  }, [open, data, form, originalProofUrl, safeData]);
+    setFile(null);
+    setPreviewUrl(originalProofUrl);
+    setIsImage(isImageUrl(originalProofUrl));
+  }
+
+  return () => {
+    revokeBlobUrls();
+  };
+  }, [open]);
 
   // Don't render anything if modal is not open
   if (!open) return null;
@@ -248,17 +246,16 @@ const handleUpdate = () => {
       return;
     }
     
-    // Handle proof_file - Use the correct field name "proof_file" (not "proof_file_url")
+ 
     if (file) {
       // New file selected - send the file with correct field name
-      payload.append("proof_file", file); // ← CORRECT FIELD NAME
+      payload.append("proof_file", file); 
       console.log("📎 New file attached as 'proof_file':", file.name, file.type, file.size);
     } else if (originalProofUrl && originalProofUrl !== "") {
-      // No new file but existing file
-      // Check what your backend expects when keeping existing file
+      
       
       // Option 1: Send empty string (if backend accepts it)
-      payload.append("proof_file", ""); // ← CORRECT FIELD NAME
+      payload.append("proof_file", ""); 
       console.log("📎 Sending empty 'proof_file' field (keep existing file)");
       
 
@@ -292,6 +289,7 @@ const handleUpdate = () => {
       .then((res) => {
         console.log("✅ Update response:", res);
         message.success(res.message || "Payment updated successfully");
+          onSuccess?.();
         onClose();
       })
       .catch((err) => {
@@ -319,6 +317,7 @@ const handleUpdate = () => {
         .unwrap()
         .then((res) => {
           res.success ? message.success(res.message) : message.error(res.error);
+          onSuccess?.();
           onClose();
         })
         .catch((err) => message.error(err?.error));
@@ -375,7 +374,7 @@ const handleUpdate = () => {
         isEdit ? (
           <>
             <Button onClick={onClose}>Cancel</Button>
-            <Button type="primary" onClick={handleUpdate}>
+            <Button type="primary" onClick={handleUpdate} loading={updateLoading}>
               Update
             </Button>
           </>
@@ -615,7 +614,7 @@ const handleUpdate = () => {
               </Button>
             </Col>
             <Col>
-              <Button type="primary" onClick={() => handleVerify("approve")}>
+              <Button type="primary" onClick={() => handleVerify("approve")} loading={verifyLoading}>
                 Approve
               </Button>
             </Col>

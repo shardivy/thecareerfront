@@ -5,7 +5,6 @@ import {
   Select,
   DatePicker,
   TimePicker,
-  Radio,
   Button,
   Row,
   Col,
@@ -14,11 +13,7 @@ import {
   Space,
   Typography,
 } from "antd";
-import {
-  VideoCameraOutlined,
-  EnvironmentOutlined,
-  CloseOutlined,
-} from "@ant-design/icons";
+import { CloseOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { useDispatch, useSelector } from "react-redux";
@@ -35,7 +30,7 @@ dayjs.extend(customParseFormat);
 const { Option } = Select;
 const { Text } = Typography;
 
-const CreateSlotModal = ({ open, onCancel }) => {
+const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
   const [form] = Form.useForm();
   const [slotsList, setSlotsList] = useState([]);
   const [slotError, setSlotError] = useState("");
@@ -88,50 +83,29 @@ const CreateSlotModal = ({ open, onCancel }) => {
       const normalized = fetchedSlots
         .map((slot) => {
           try {
-            // Parse time with multiple format attempts
             const parseTime = (timeStr) => {
               if (!timeStr) return null;
-              
               const cleaned = timeStr.trim().toUpperCase();
-              
-              // Try different formats in order
-              const formats = [
-                "hh:mm A",  // 12-hour with leading zero
-                "h:mm A",   // 12-hour without leading zero
-                "HH:mm",    // 24-hour
-              ];
-              
+              const formats = ["hh:mm A", "h:mm A", "HH:mm"];
               for (const format of formats) {
                 const parsed = dayjs(cleaned, format, true);
-                if (parsed.isValid()) {
-                  return parsed;
-                }
+                if (parsed.isValid()) return parsed;
               }
-              
-              // If none worked, try to parse as is
               return dayjs(cleaned);
             };
-            
+
             const startTime = parseTime(slot.start_time);
             const endTime = parseTime(slot.end_time);
-            
-            if (!startTime.isValid() || !endTime.isValid()) {
-              console.warn("Invalid time format for slot:", slot);
-              return null;
-            }
-            
-            return {
-              ...slot,
-              start_time: startTime,
-              end_time: endTime,
-            };
-          } catch (error) {
-            console.error("Error parsing slot:", slot, error);
+
+            if (!startTime.isValid() || !endTime.isValid()) return null;
+
+            return { ...slot, start_time: startTime, end_time: endTime };
+          } catch {
             return null;
           }
         })
-        .filter(slot => slot !== null);
-      
+        .filter((slot) => slot !== null);
+
       setSlotsList(normalized);
     }
   }, [fetchedSlots]);
@@ -151,11 +125,10 @@ const CreateSlotModal = ({ open, onCancel }) => {
       return;
     }
 
-    // Check for overlapping slots (15-minute buffer)
-    const isOverlapping = slotsList.some(slot => {
+    const isOverlapping = slotsList.some((slot) => {
       const slotStart = slot.start_time;
       const slotEnd = slot.end_time;
-      
+
       return (
         (start.isAfter(slotStart) && start.isBefore(slotEnd)) ||
         (end.isAfter(slotStart) && end.isBefore(slotEnd)) ||
@@ -169,12 +142,7 @@ const CreateSlotModal = ({ open, onCancel }) => {
       return;
     }
 
-    const newSlot = {
-      start_time: start,
-      end_time: end,
-      isNew: true,
-    };
-
+    const newSlot = { start_time: start, end_time: end, isNew: true };
     setSlotsList((prev) => [...prev, newSlot]);
     form.setFieldsValue({ start_time: null, end_time: null });
     setSlotError("");
@@ -183,10 +151,8 @@ const CreateSlotModal = ({ open, onCancel }) => {
   /* ---------- DELETE SLOT ---------- */
   const handleDeleteSlot = (slotId, index) => {
     if (slotId) {
-      // delete from backend
       dispatch(deleteSlot(slotId));
     } else {
-      // delete locally for new slots
       setSlotsList((prev) => prev.filter((_, i) => i !== index));
     }
   };
@@ -195,34 +161,35 @@ const CreateSlotModal = ({ open, onCancel }) => {
   const handleCreateSlots = (values) => {
     const date = dayjs(values.date).format("YYYY-MM-DD");
     const counsellorId = values.counsellor;
-    const mode = values.mode;
 
     if (!slotsList.length) {
       setSlotError("Please add at least one slot");
       return;
     }
 
-    // Convert slots to backend format (12-hour format with AM/PM)
-    const normalizedSlots = slotsList.map((slot) => ({
-      date,
-      start_time: slot.start_time.format("hh:mm A"), // Keep 12-hour format with AM/PM
-      end_time: slot.end_time.format("hh:mm A"),     // Keep 12-hour format with AM/PM
+    const formattedSlots = slotsList.map((slot) => ({
+      start_time: slot.start_time.format("hh:mm A"),
+      end_time: slot.end_time.format("hh:mm A"),
     }));
 
     const payload = {
-      mode,
-      slots: normalizedSlots,
+      counsellor_id: counsellorId,
+      date: date,
+      slots: formattedSlots,
     };
-
-    console.log("FINAL PAYLOAD (12-hour format):", payload);
-    console.log("Sample time format:", normalizedSlots[0]?.start_time);
-
-    dispatch(createSlots({ date, counsellorId, payload })).then(() => {
-      form.resetFields();
-      setSlotsList([]);
-      onCancel();
+    console.log("Sending slots:", formattedSlots);
+    console.log("Payload:", payload);
+    dispatch(createSlots({ date, counsellorId, payload })).then((res) => {
+      if (!res.error) {
+        form.resetFields();
+        setSlotsList([]);
+        onSuccess();
+        onCancel();
+      }
     });
   };
+
+
 
   /* ---------- UI ---------- */
   return (
@@ -237,22 +204,22 @@ const CreateSlotModal = ({ open, onCancel }) => {
       <Form form={form} layout="vertical" onFinish={handleCreateSlots}>
         <Row gutter={16}>
           <Col span={24}>
-            <Form.Item 
-              name="counsellor" 
-              label="Counsellor" 
-              rules={[{ required: true, message: 'Please select a counsellor' }]}
+            <Form.Item
+              name="counsellor"
+              label="Counsellor"
+              rules={[{ required: true, message: "Please select a counsellor" }]}
             >
               {loading ? (
                 <Spin />
               ) : (
-                <Select 
+                <Select
                   placeholder="Select counsellor"
                   onChange={handleCounsellorChange}
                   allowClear
                 >
                   {counsellors.map((c) => (
                     <Option key={c.id} value={c.id}>
-                      {c.name}
+                      {c.first_name} {c.last_name}
                     </Option>
                   ))}
                 </Select>
@@ -261,28 +228,24 @@ const CreateSlotModal = ({ open, onCancel }) => {
           </Col>
 
           <Col span={24}>
-            <Form.Item 
-              name="date" 
-              label="Date" 
-              rules={[{ required: true, message: 'Please select a date' }]}
+            <Form.Item
+              name="date"
+              label="Date"
+              rules={[{ required: true, message: "Please select a date" }]}
             >
               <DatePicker
                 style={{ width: "100%" }}
                 onChange={handleDateChange}
-                disabledDate={(current) => {
-                  return current && current < dayjs().startOf('day');
-                }}
+                disabledDate={(current) =>
+                  current && current < dayjs().startOf("day")
+                }
               />
             </Form.Item>
           </Col>
 
           {/* START & END TIME */}
           <Col span={10}>
-            <Form.Item
-              name="start_time"
-              label="Start Time"
-              style={{ marginBottom: 12 }}
-            >
+            <Form.Item name="start_time" label="Start Time" style={{ marginBottom: 12 }}>
               <TimePicker
                 use12Hours
                 format="hh:mm A"
@@ -294,11 +257,7 @@ const CreateSlotModal = ({ open, onCancel }) => {
             </Form.Item>
           </Col>
           <Col span={10}>
-            <Form.Item
-              name="end_time"
-              label="End Time"
-              style={{ marginBottom: 12 }}
-            >
+            <Form.Item name="end_time" label="End Time" style={{ marginBottom: 12 }}>
               <TimePicker
                 use12Hours
                 format="hh:mm A"
@@ -309,7 +268,7 @@ const CreateSlotModal = ({ open, onCancel }) => {
               />
             </Form.Item>
           </Col>
-          <Col span={4} style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <Col span={4} style={{ display: "flex", alignItems: "flex-end" }}>
             <Button type="primary" onClick={addSlot} style={{ marginBottom: 12 }}>
               Add
             </Button>
@@ -325,27 +284,36 @@ const CreateSlotModal = ({ open, onCancel }) => {
           {slotsList.length > 0 && (
             <Col span={24} style={{ marginTop: 16 }}>
               <Text strong>Available Slots ({slotsList.length})</Text>
-              <div style={{ marginTop: 8, maxHeight: 200, overflowY: 'auto', border: '1px solid #d9d9d9', borderRadius: 6, padding: 12 }}>
-                <Space wrap style={{ width: '100%' }}>
+              <div
+                style={{
+                  marginTop: 8,
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  border: "1px solid #d9d9d9",
+                  borderRadius: 6,
+                  padding: 12,
+                }}
+              >
+                <Space wrap style={{ width: "100%" }}>
                   {slotsList.map((slot, index) => (
                     <div
                       key={slot.id || `new-slot-${index}`}
                       style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        margin: '4px',
-                        padding: '6px 12px',
-                        backgroundColor: '#f0f0f0',
+                        display: "inline-flex",
+                        alignItems: "center",
+                        margin: "4px",
+                        padding: "6px 12px",
+                        backgroundColor: "#f0f0f0",
                         borderRadius: 4,
-                        border: '1px solid #d9d9d9'
+                        border: "1px solid #d9d9d9",
                       }}
                     >
                       <span style={{ marginRight: 8 }}>
                         {slot.start_time.format("hh:mm A")} - {slot.end_time.format("hh:mm A")}
                       </span>
-                      <CloseOutlined 
+                      <CloseOutlined
                         onClick={() => handleDeleteSlot(slot.id, index)}
-                        style={{ cursor: 'pointer', color: '#ff4d4f' }}
+                        style={{ cursor: "pointer", color: "#ff4d4f" }}
                       />
                     </div>
                   ))}
@@ -354,29 +322,11 @@ const CreateSlotModal = ({ open, onCancel }) => {
             </Col>
           )}
 
-          <Col span={24} style={{ marginTop: 16 }}>
-            <Form.Item 
-              name="mode" 
-              label="Session Mode"
-              rules={[{ required: true, message: 'Please select session mode' }]}
-              initialValue="offline"
-            >
-              <Radio.Group>
-                <Radio.Button value="online">
-                  <VideoCameraOutlined /> Online
-                </Radio.Button>
-                <Radio.Button value="offline">
-                  <EnvironmentOutlined /> Offline
-                </Radio.Button>
-              </Radio.Group>
-            </Form.Item>
-          </Col>
-
           <Col span={24} style={{ textAlign: "right", marginTop: 24 }}>
             <Button onClick={onCancel}>Cancel</Button>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
+            <Button
+              type="primary"
+              htmlType="submit"
               style={{ marginLeft: 8 }}
               disabled={slotsList.length === 0}
             >
