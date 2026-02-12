@@ -426,12 +426,12 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
               <Col span={12}>
                 <Form.Item
-                  label="Package"
+                  label="Counselling Services"
                   name="package"
-                  rules={isView ? [] : [{ required: true, message: "Please select package" }]}
+                  rules={isView ? [] : [{ required: true, message: "Please select counselling service" }]}
                 >
                   <Select
-                    placeholder={packagesLoading ? "Loading..." : "Select package"}
+                    placeholder={packagesLoading ? "Loading..." : "Select service"}
                     loading={packagesLoading}
                     allowClear
                     disabled={isView}
@@ -528,7 +528,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                 <p><b>Program:</b> {
                   programs.find(p => p.id === form.getFieldValue('program'))?.name || 'Not selected'
                 }</p>
-                <p><b>Package:</b> {
+                <p><b>Counselling Services:</b> {
                   packages.find(p => p.id === form.getFieldValue('package'))?.name || 'Not selected'
                 }</p>
                 

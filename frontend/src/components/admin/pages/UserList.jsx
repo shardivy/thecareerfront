@@ -98,7 +98,7 @@ const filteredData = users.filter((user) => {
     },
 
     {
-      title: "Program / Package",
+      title: "Program / Counselling Services ",
       key: "program",
       render: (_, record) => (
         <div>

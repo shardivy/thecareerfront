@@ -40,10 +40,10 @@ const UploadPaymentModal = ({ open, onClose, onSuccess }) => {
   );
 
   const {
-  submitLoading,
-  submitSuccess,
-  submitError
-} = useSelector((state) => state.payment);
+    submitLoading,
+    submitSuccess,
+    submitError
+  } = useSelector((state) => state.payment);
 
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -66,31 +66,31 @@ const UploadPaymentModal = ({ open, onClose, onSuccess }) => {
   }, [fileList]);
 
   /* -------------------- SUBMIT -------------------- */
-const handleSubmit = (values) => {
-  const formData = new FormData();
+  const handleSubmit = (values) => {
+    const formData = new FormData();
 
-  formData.append("student_profile", values.student_profile);
-  formData.append("package", values.package);
-  formData.append("amount", values.amount);
-  formData.append("payment_type", values.paymentType);
-  formData.append("method", values.paymentMethod);
+    formData.append("student_profile", values.student_profile);
+    formData.append("package", values.package);
+    formData.append("amount", values.amount);
+    formData.append("payment_type", values.paymentType);
+    formData.append("method", values.paymentMethod);
 
-  if (values.transactionId) {
-    formData.append("transaction_id", values.transactionId);
-  }
+    if (values.transactionId) {
+      formData.append("transaction_id", values.transactionId);
+    }
 
-  formData.append(
-    "payment_date",
-    dayjs(values.paymentDate).format("YYYY-MM-DD")
-  );
+    formData.append(
+      "payment_date",
+      dayjs(values.paymentDate).format("YYYY-MM-DD")
+    );
 
-  // ✅ OPTIONAL RECEIPT
-  if (fileList.length && fileList[0].originFileObj) {
-    formData.append("proof_file", fileList[0].originFileObj);
-  }
+    // ✅ OPTIONAL RECEIPT
+    if (fileList.length && fileList[0].originFileObj) {
+      formData.append("proof_file", fileList[0].originFileObj);
+    }
 
-  dispatch(submitPayment(formData));
-};
+    dispatch(submitPayment(formData));
+  };
 
 
   /* -------------------- SUCCESS / ERROR -------------------- */
@@ -105,12 +105,12 @@ const handleSubmit = (values) => {
       onClose();
     }
 
-   if (submitError) {
-    message.error(
-      typeof submitError === "string"
-        ? submitError
-        : JSON.stringify(submitError)
-    );
+    if (submitError) {
+      message.error(
+        typeof submitError === "string"
+          ? submitError
+          : JSON.stringify(submitError)
+      );
     }
   }, [submitSuccess, submitError, dispatch, form, onClose, onSuccess]);
 
@@ -182,11 +182,11 @@ const handleSubmit = (values) => {
 
           <Col span={12}>
             <Form.Item
-              label="Package"
+              label="Counselling Service"
               name="package"
               rules={[{ required: true }]}
             >
-              <Select placeholder="Select package" loading={packageLoading}>
+              <Select placeholder="Select counselling service" loading={packageLoading}>
                 {packageList.map((pkg) => (
                   <Option key={pkg.id} value={pkg.id}>
                     {pkg.name}
@@ -245,7 +245,7 @@ const handleSubmit = (values) => {
                   <Form.Item
                     label="Transaction ID"
                     name="transactionId"
-                    rules={[{ required: false}]}
+                    rules={[{ required: false }]}
                   >
                     <Input />
                   </Form.Item>
@@ -263,57 +263,57 @@ const handleSubmit = (values) => {
           <DatePicker style={{ width: "100%" }} />
         </Form.Item>
 
-{/* RECEIPT UPLOAD */}
-<Form.Item
-  label="Upload Receipt"
-  
->
-  <div
-    style={{
-      display: "flex",
-      gap: 16,
-      alignItems: "center",
-      border: "1px dashed #d9d9d9",
-      padding: 16,
-      borderRadius: 8,
-    }}
-  >
-    {previewUrl ? (
-      <img
-        src={previewUrl}
-        alt="Receipt Preview"
-        style={{
-          width: 160,
-          height: 160,
-          objectFit: "cover",
-          borderRadius: 8,
-        }}
-      />
-    ) : (
-      <Empty description="No receipt uploaded" />
-    )}
+        {/* RECEIPT UPLOAD */}
+        <Form.Item
+          label="Upload Receipt"
 
-    <Upload
-      beforeUpload={() => false}   // 🚫 stop auto upload
-      maxCount={1}
-      showUploadList={false}
-      fileList={fileList}
-      onChange={({ fileList }) => {
-        setFileList(fileList);
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: 16,
+              alignItems: "center",
+              border: "1px dashed #d9d9d9",
+              padding: 16,
+              borderRadius: 8,
+            }}
+          >
+            {previewUrl ? (
+              <img
+                src={previewUrl}
+                alt="Receipt Preview"
+                style={{
+                  width: 160,
+                  height: 160,
+                  objectFit: "cover",
+                  borderRadius: 8,
+                }}
+              />
+            ) : (
+              <Empty description="No receipt uploaded" />
+            )}
 
-        if (fileList[0]?.originFileObj) {
-          setPreviewUrl(
-            URL.createObjectURL(fileList[0].originFileObj)
-          );
-        } else {
-          setPreviewUrl("");
-        }
-      }}
-    >
-      <Button icon={<UploadOutlined />}>Upload Receipt</Button>
-    </Upload>
-  </div>
-</Form.Item>
+            <Upload
+              beforeUpload={() => false}   // 🚫 stop auto upload
+              maxCount={1}
+              showUploadList={false}
+              fileList={fileList}
+              onChange={({ fileList }) => {
+                setFileList(fileList);
+
+                if (fileList[0]?.originFileObj) {
+                  setPreviewUrl(
+                    URL.createObjectURL(fileList[0].originFileObj)
+                  );
+                } else {
+                  setPreviewUrl("");
+                }
+              }}
+            >
+              <Button icon={<UploadOutlined />}>Upload Receipt</Button>
+            </Upload>
+          </div>
+        </Form.Item>
 
       </Form>
     </Modal>

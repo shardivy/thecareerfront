@@ -46,12 +46,14 @@ const updateEnquirySlice = createSlice({
     loading: false,
     success: false,
     error: null,
+    message: null,
   },
   reducers: {
     clearUpdateState: (state) => {
       state.loading = false;
       state.success = false;
       state.error = null;
+       state.message = null;
     },
   },
   extraReducers: (builder) => {
@@ -60,9 +62,10 @@ const updateEnquirySlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(updateEnquiry.fulfilled, (state) => {
+      .addCase(updateEnquiry.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
+        state.message = action.payload.message;
       })
       .addCase(updateEnquiry.rejected, (state, action) => {
         state.loading = false;

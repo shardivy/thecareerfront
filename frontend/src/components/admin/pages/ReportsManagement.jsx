@@ -30,6 +30,8 @@ import ViewReportModal from "../modals/ViewReportModal";
 import VerifyReviewModal from "../modals/VerifyReviewModal";
 import { fetchCompletedExamReports } from "../../../adminSlices/reportSlice";
 import { fetchReportStats } from "../../../adminSlices/reportSlice";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -347,6 +349,55 @@ const ReportsManagement = () => {
     },
   ];
 
+
+const handleExportToExcel = () => {
+  // Prepare export data
+  const exportData =
+    filteredData.length > 0
+      ? filteredData.map((item, index) => ({
+          "Sr. No": index + 1,
+          "User Name": item.name,
+          Email: item.email,
+          Program: item.program,
+          "Report Status": item.status,
+          "Payment Status": item.paymentStatus,
+          "Exam Status": item.examStatus,
+          "Uploaded Date": item.uploadedDate,
+        }))
+      : [
+          {
+            "Sr. No": "",
+            "User Name": "No records found",
+            Email: "",
+            Program: "",
+            "Report Status": "",
+            "Payment Status": "",
+            "Exam Status": "",
+            "Uploaded Date": "",
+          },
+        ];
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Reports");
+
+  const excelBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array",
+  });
+
+  const data = new Blob([excelBuffer], {
+    type:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+  });
+
+  saveAs(data, `Reports_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+  message.success("Excel file downloaded successfully!");
+};
+
+
   return (
     <div style={{ padding: 16 }}>
       <Title level={3}>Report Management</Title>
@@ -402,9 +453,14 @@ const ReportsManagement = () => {
         </Col>
 
         <Col xs={24} sm={12} md={4}>
-          <Button block icon={<DownOutlined />}>
-            Export to Excel
-          </Button>
+          <Button
+  block
+  icon={<DownOutlined />}
+  onClick={handleExportToExcel}
+>
+  Export to Excel
+</Button>
+
         </Col>
       </Row>
 

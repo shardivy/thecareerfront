@@ -1,19 +1,21 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { convertEnquiryApi } from "../adminApi/enquiryApi";
+import { m } from "framer-motion";
 
 // ---------------- CONVERT ENQUIRY / USER ----------------
 export const convertEnquiry = createAsyncThunk(
   "convertEnquiry/convert",
-  async (id, { rejectWithValue }) => {
-    try {
-      const response = await convertEnquiryApi(id);
-      return response;
-    } catch (error) {
-      return rejectWithValue(
-        error.response?.data?.message || "Failed to convert enquiry"
-      );
-    }
+ async ({ id, payload }, { rejectWithValue }) => {
+  try {
+    const response = await convertEnquiryApi(id, payload);
+    return response;
+  } catch (error) {
+    return rejectWithValue(
+      error.response?.data?.message || "Failed to convert enquiry"
+    );
   }
+}
+
 );
 
 const convertEnquirySlice = createSlice({
@@ -22,12 +24,14 @@ const convertEnquirySlice = createSlice({
     loading: false,
     success: false,
     error: null,
+    message: null,
   },
   reducers: {
     clearConvertState: (state) => {
       state.loading = false;
       state.success = false;
       state.error = null;
+      state.message = null;
     },
   },
   extraReducers: (builder) => {
@@ -38,9 +42,10 @@ const convertEnquirySlice = createSlice({
         state.error = null;
       })
       // fulfilled
-      .addCase(convertEnquiry.fulfilled, (state) => {
+      .addCase(convertEnquiry.fulfilled, (state,action) => {
         state.loading = false;
         state.success = true;
+        state.message = action.payload.message;
       })
       // rejected
       .addCase(convertEnquiry.rejected, (state, action) => {

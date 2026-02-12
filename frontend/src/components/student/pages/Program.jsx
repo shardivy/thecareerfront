@@ -565,7 +565,7 @@ const Program = () => {
               fontSize: screens.xs ? "20px" : "24px"
             }}
           >
-            {selectedProgram} Packages
+            {selectedProgram} Counselling Services
           </Title>
 
           <Row 
@@ -660,7 +660,7 @@ const Program = () => {
                     }}
                     size={screens.xs ? "small" : "middle"}
                   >
-                    Select Package
+                    Select Service
                   </Button>
                 </Card>
               </Col>

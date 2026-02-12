@@ -130,12 +130,23 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
         .unwrap()
         .then(() => {
           message.success(mode === "edit" ? "Session updated successfully" : "Session booked successfully");
+           resetModal(); 
           onSave?.();
           onClose();
         })
         .catch((err) => message.error(err));
     });
   };
+
+    /* ================= RESET FUNCTION ================= */
+  const resetModal = () => {
+    form.resetFields();
+    setSelectedSlot(null);
+    setPrimaryCounsellorId(null);
+    setSelectedDate(null);
+    setFilter(mode === "view" ? "Booked" : "All");
+  };
+
 
   // ================= UI =================
   return (
@@ -144,7 +155,11 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
         open={visible}
         width={820}
         title={mode === "view" ? "View Counselling Session" : mode === "edit" ? "Edit Counselling Session" : "Create Counselling Session"}
-        onCancel={onClose}
+        onCancel={() => {
+  resetModal();
+  onClose();
+}}
+
         footer={
           isView
             ? [<Button key="close" onClick={onClose}>Close</Button>]

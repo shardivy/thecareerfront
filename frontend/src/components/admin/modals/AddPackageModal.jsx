@@ -51,10 +51,10 @@ const AddPackageModal = ({
     <Modal
       title={
         viewMode
-          ? "View Package"
+          ? "View Counselling Service"
           : initialValues
-          ? "Edit Package"
-          : "Create Package"
+          ? "Edit Counselling Service"
+          : "Create Counselling Service"
       }
       open={visible}
       onCancel={onClose}
@@ -66,12 +66,12 @@ const AddPackageModal = ({
 
         {/* PACKAGE NAME */}
       <Form.Item
-  label="Package"
+  label="Counselling Service"
   name="name"
-  rules={[{ required: true, message: "Please enter package name" }]}
+  rules={[{ required: true, message: "Please enter counselling service name" }]}
 >
   <Input
-    placeholder="Enter package name"
+    placeholder="Enter counselling service name"
     disabled={viewMode}
   />
 </Form.Item>
@@ -86,7 +86,7 @@ const AddPackageModal = ({
           ]}
         >
           <Input.TextArea
-            placeholder="Enter package description"
+            placeholder="Enter counselling service description"
             rows={3}
             disabled={viewMode}
           />

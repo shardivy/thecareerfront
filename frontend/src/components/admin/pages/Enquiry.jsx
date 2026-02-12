@@ -81,33 +81,37 @@ const Enquiry = () => {
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
 
   // ---------------- FILTER LOGIC ----------------
-  const filteredEnquiries = enquiriesData.filter((enquiry) => {
-    const matchesSearch =
-      enquiry.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.program.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.source.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.email.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.phone.includes(searchText);
+const filteredEnquiries = enquiriesData.filter((enquiry) => {
+  const search = searchText.toLowerCase();
 
-    const matchesStatus = statusFilter
-      ? enquiry.status.toLowerCase() === statusFilter.toLowerCase()
-      : true;
+  const matchesSearch =
+    (enquiry.name?.toLowerCase() || "").includes(search) ||
+    (enquiry.program?.toLowerCase() || "").includes(search) ||
+    (enquiry.source?.toLowerCase() || "").includes(search) ||
+    (enquiry.email?.toLowerCase() || "").includes(search) ||
+    (enquiry.phone || "").includes(searchText);
 
-    const matchesSource = sourceFilter
-      ? enquiry.source.toLowerCase() === sourceFilter.toLowerCase()
-      : true;
+  const matchesStatus = statusFilter
+    ? enquiry.status?.toLowerCase() === statusFilter.toLowerCase()
+    : true;
 
-    const matchesDate = dateFilter && enquiry.date !== "N/A"
+  const matchesSource = sourceFilter
+    ? enquiry.source?.toLowerCase() === sourceFilter.toLowerCase()
+    : true;
+
+  const matchesDate =
+    dateFilter && enquiry.date !== "N/A"
       ? dayjs(enquiry.date).isSame(dateFilter, "day")
       : !dateFilter;
 
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesSource &&
-      matchesDate
-    );
-  });
+  return (
+    matchesSearch &&
+    matchesStatus &&
+    matchesSource &&
+    matchesDate
+  );
+});
+ 
 
   // ---------------- TABLE COLUMNS ----------------
   const columns = [
@@ -277,8 +281,7 @@ const Enquiry = () => {
       allowClear
       style={{ width: "100%" }}
     >
-      <Option value="New">New</Option>
-      <Option value="Contacted">Contacted</Option>
+      <Option value="enquiry">Enquiry</Option>
       <Option value="Converted">Converted</Option>
     </Select>
   </Col>

@@ -9,6 +9,7 @@ import {
   Divider,
   ConfigProvider,
   theme,
+  Tooltip, // ✅ ADDED
 } from "antd";
 import { CheckOutlined } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
@@ -18,7 +19,7 @@ const { Title, Text } = Typography;
 /* ---------------- JOURNEY CONFIG ---------------- */
 const journeySteps = [
   "Registration",
-  "Package Selection",
+  "Counselling Services",
   "Payment",
   "Exam",
   "Report",
@@ -53,21 +54,30 @@ const sessionHistory = [
   },
 ];
 
-
 const UserProfileModal = ({ open, onClose, user }) => {
   const { token } = theme.useToken();
   if (!user) return null;
 
-  // Prefer explicit name; fall back to first_name + last_name
   const displayName =
     (user.name && user.name.toString().trim()) ||
-    `${(user.first_name || "").toString().trim()} ${(user.last_name || "").toString().trim()}`.trim();
+    `${(user.first_name || "").toString().trim()} ${(user.last_name || "")
+      .toString()
+      .trim()}`.trim();
 
-  /* -------- MAP USER STATUS → CURRENT STEP -------- */
+  /* -------- JOURNEY LOGIC -------- */
   let currentStep = 1;
-  if (user.paymentStatus === "Fully Paid") currentStep = 3;
-  if (user.examStatus === "Completed") currentStep = 4;
-  if (user.reportStatus === "Unlocked") currentStep = 5;
+
+  if (user.reportStatus === "Unlocked") {
+    currentStep = 6;
+  } else if (user.examStatus === "Completed") {
+    currentStep = 5;
+  } else if (user.paymentStatus === "Fully Paid") {
+    currentStep = 4;
+  } else {
+    currentStep = 3;
+  }
+
+  const isPartial = user.paymentStatus === "Partial Paid";
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -79,16 +89,29 @@ const UserProfileModal = ({ open, onClose, user }) => {
         centered
         title={<Title level={4} style={{ margin: 0 }}>User Profile</Title>}
       >
+
         {/* ================== DETAILS ================== */}
         <Row gutter={24}>
           <Col xs={24} md={12}>
             <Title level={5}>Student Details</Title>
             <Descriptions bordered column={1}>
-              <Descriptions.Item label="Name">{displayName}</Descriptions.Item>
-              <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
-              <Descriptions.Item label="Sessions">{user.sessions}</Descriptions.Item>
+              <Descriptions.Item label="Name">
+                {displayName}
+              </Descriptions.Item>
+              <Descriptions.Item label="Email">
+                {user.email}
+              </Descriptions.Item>
+              <Descriptions.Item label="Sessions">
+                {user.sessions}
+              </Descriptions.Item>
               <Descriptions.Item label="Report Status">
-                <Tag color={user.reportStatus === "Unlocked" ? "success" : "default"}>
+                <Tag
+                  color={
+                    user.reportStatus === "Unlocked"
+                      ? "success"
+                      : "default"
+                  }
+                >
                   {user.reportStatus}
                 </Tag>
               </Descriptions.Item>
@@ -98,8 +121,12 @@ const UserProfileModal = ({ open, onClose, user }) => {
           <Col xs={24} md={12}>
             <Title level={5}>Program Details</Title>
             <Descriptions bordered column={1}>
-              <Descriptions.Item label="Program">{user.program}</Descriptions.Item>
-              <Descriptions.Item label="Package">{user.package}</Descriptions.Item>
+              <Descriptions.Item label="Program">
+                {user.program}
+              </Descriptions.Item>
+              <Descriptions.Item label="Counselling Services">
+                {user.package}
+              </Descriptions.Item>
               <Descriptions.Item label="Payment Status">
                 <Tag
                   color={
@@ -112,10 +139,18 @@ const UserProfileModal = ({ open, onClose, user }) => {
                 >
                   {user.paymentStatus}
                 </Tag>
-                <Text style={{ marginLeft: 8 }}>{user.paymentAmount}</Text>
+                <Text style={{ marginLeft: 8 }}>
+                  {user.paymentAmount}
+                </Text>
               </Descriptions.Item>
               <Descriptions.Item label="Exam Status">
-                <Tag color={user.examStatus === "Completed" ? "success" : "warning"}>
+                <Tag
+                  color={
+                    user.examStatus === "Completed"
+                      ? "success"
+                      : "warning"
+                  }
+                >
                   {user.examStatus}
                 </Tag>
               </Descriptions.Item>
@@ -138,13 +173,24 @@ const UserProfileModal = ({ open, onClose, user }) => {
             borderRadius: 16,
             border: `1px solid ${token.colorBorder}`,
             marginTop: 16,
-            overflowX: "auto",
           }}
         >
           {journeySteps.map((label, index) => {
             const stepNo = index + 1;
             const isCompleted = stepNo < currentStep;
             const isActive = stepNo === currentStep;
+
+            const progressWidth =
+              isCompleted
+                ? "100%"
+                : isActive && isPartial && stepNo === 3
+                ? "50%"
+                : isActive
+                ? "100%"
+                : "0%";
+
+            const showPartialTooltip =
+              isPartial && isActive && stepNo === 3;
 
             return (
               <div
@@ -155,10 +201,9 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   flexDirection: "column",
                   alignItems: "center",
                   flex: 1,
-                  minWidth: 120,
                 }}
               >
-                {/* LINE */}
+                {/* CONNECTOR */}
                 {index !== 0 && (
                   <div
                     style={{
@@ -166,17 +211,33 @@ const UserProfileModal = ({ open, onClose, user }) => {
                       top: 18,
                       left: "-50%",
                       width: "100%",
-                      height: 3,
-                      background:
-                        isCompleted || isActive
-                          ? token.colorPrimary
-                          : token.colorBorder,
+                      height: 4,
+                      background: token.colorBorder,
                       zIndex: 0,
                     }}
-                  />
+                  >
+                    {/* BLUE PROGRESS WITH TOOLTIP */}
+                    <Tooltip
+                      title={
+                        showPartialTooltip ? "Partially Paid" : ""
+                      }
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          background: token.colorPrimary,
+                          width: progressWidth,
+                          transition: "width 0.3s ease",
+                          cursor: showPartialTooltip
+                            ? "pointer"
+                            : "default",
+                        }}
+                      />
+                    </Tooltip>
+                  </div>
                 )}
 
-                {/* CIRCLE */}
+                {/* STEP CIRCLE */}
                 <div
                   style={{
                     width: 36,
@@ -194,20 +255,18 @@ const UserProfileModal = ({ open, onClose, user }) => {
                       : token.colorBorder,
                     color:
                       isCompleted || isActive
-                        ? token.colorTextPrimary
+                        ? "#fff"
                         : token.colorTextSecondary,
                   }}
                 >
                   {isCompleted ? <CheckOutlined /> : stepNo}
                 </div>
 
-                {/* LABEL */}
                 <div
                   style={{
                     marginTop: 8,
                     fontSize: 14,
                     textAlign: "center",
-                    whiteSpace: "nowrap",
                     color: token.colorTextSecondary,
                   }}
                 >
@@ -218,85 +277,81 @@ const UserProfileModal = ({ open, onClose, user }) => {
           })}
         </div>
 
-<Divider />
+        <Divider />
 
-{/* ================== SESSION HISTORY ================== */}
-<Title level={5}>Session History</Title>
-
-<div
-  style={{
-    marginTop: 16,
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  }}
->
-  {sessionHistory.map((session, index) => (
-    <div
-      key={session.id}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 20,
-        padding: 20,
-        borderRadius: 16,
-        background: token.colorBgContainer,
-        border: `1px solid ${token.colorBorder}`,
-      }}
-    >
-      {/* NUMBER CIRCLE */}
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: "50%",
-          background: token.colorPrimary,
-          color: token.colorTextPrimary,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 18,
-          fontWeight: 600,
-          flexShrink: 0,
-        }}
-      >
-        {index + 1}
-      </div>
-
-      {/* SESSION INFO */}
-      <div style={{ flex: 1 }}>
-        <Text style={{ fontSize: 16, fontWeight: 600 }}>
-          {session.title}
-        </Text>
+        {/* ================== SESSION HISTORY ================== */}
+        <Title level={5}>Session History</Title>
 
         <div
           style={{
-            marginTop: 4,
-            color: token.colorTextSecondary,
-            fontSize: 14,
+            marginTop: 16,
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
           }}
         >
-          {session.date} • {session.duration} • {session.counselor}
+          {sessionHistory.map((session, index) => (
+            <div
+              key={session.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 20,
+                padding: 20,
+                borderRadius: 16,
+                background: token.colorBgContainer,
+                border: `1px solid ${token.colorBorder}`,
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  background: token.colorPrimary,
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 18,
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {index + 1}
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: 600 }}>
+                  {session.title}
+                </Text>
+
+                <div
+                  style={{
+                    marginTop: 4,
+                    color: token.colorTextSecondary,
+                    fontSize: 14,
+                  }}
+                >
+                  {session.date} • {session.duration} • {session.counselor}
+                </div>
+
+                <Tag
+                  style={{
+                    marginTop: 8,
+                    borderRadius: 20,
+                    padding: "4px 12px",
+                    background: "#ECFDF5",
+                    color: token.colorSuccess,
+                    border: `1px solid ${token.colorSuccess}`,
+                  }}
+                >
+                  {session.status}
+                </Tag>
+              </div>
+            </div>
+          ))}
         </div>
-
-        <Tag
-          style={{
-            marginTop: 8,
-            borderRadius: 20,
-            padding: "4px 12px",
-            background: "#ECFDF5",
-            color: token.colorSuccess,
-            border: `1px solid ${token.colorSuccess}`,
-          }}
-        >
-          {session.status}
-        </Tag>
-      </div>
-    </div>
-  ))}
-</div>
-
-
       </Modal>
     </ConfigProvider>
   );

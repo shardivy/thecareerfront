@@ -143,12 +143,12 @@ const AddExamModal = ({ open, mode, editingExam, onCancel, onSuccess }) => {
 
           <Col span={12}>
             <Form.Item
-              label="Package"
+              label="Counselling Services"
               name="package"
-              rules={[{ required: true, message: "Please select package" }]}
+              rules={[{ required: true, message: "Please select counselling service" }]}
             >
               <Select
-                placeholder={packagesLoading ? "Loading..." : "Select package"}
+                placeholder={packagesLoading ? "Loading..." : "Select counselling service"}
                 loading={packagesLoading}
                 allowClear
                 disabled={isViewMode}

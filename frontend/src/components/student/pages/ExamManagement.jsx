@@ -155,22 +155,23 @@ const ExamManagement = () => {
                 Before You Begin
               </Title>
 
-              <List
-                size="small"
-                dataSource={[
-                  "Stable internet connection required",
-                  "Find a quiet place without distractions",
-                  "Have a pen and paper for rough work (optional)",
-                ]}
-                renderItem={(item) => (
-                  <List.Item>
-                    <CheckCircleOutlined
-                      style={{ color: token.colorSuccess, marginRight: 6 }}
-                    />
-                    <Text>{item}</Text>
-                  </List.Item>
-                )}
-              />
+             <List
+  size="small"
+  dataSource={[
+    "Stable internet connection required",
+    "Find a quiet place without distractions",
+    "Have a pen and paper for rough work (optional)",
+  ]}
+  renderItem={(item) => (
+    <List.Item style={{ padding: "4px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+        <Text>{item}</Text>
+      </div>
+    </List.Item>
+  )}
+/>
+
             </Card>
 
             {/* PAYMENT STATUS */}

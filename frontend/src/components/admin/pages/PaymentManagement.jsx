@@ -162,10 +162,10 @@ const PaymentManagement = () => {
   };
 
   /* ---------------- API -> TABLE DATA ---------------- */
-const apiPaymentRecords = Array.isArray(list)
-  ? list.map((p, idx) => {
+  const apiPaymentRecords = Array.isArray(list)
+    ? list.map((p, idx) => {
       console.log(`📋 Processing payment ${idx} for table:`, p);
-      
+
       const cleanName = extractName(p.user_name);
       const packageName = p.package_name || p.package || "N/A";
 
@@ -196,7 +196,7 @@ const apiPaymentRecords = Array.isArray(list)
         originalData: p
       };
     })
-  : [];
+    : [];
 
   /* ---------------- FILTER LOGIC ---------------- */
   const filteredData = apiPaymentRecords.filter((item) => {
@@ -228,9 +228,9 @@ const apiPaymentRecords = Array.isArray(list)
   };
 
   const truncateAfterFive = (text = "") => {
-  if (!text) return "-";
-  return text.length > 5 ? `${text.slice(0, 5)}...` : text;
-};
+    if (!text) return "-";
+    return text.length > 5 ? `${text.slice(0, 5)}...` : text;
+  };
 
   /* ---------------- TABLE COLUMNS ---------------- */
   const columns = [
@@ -239,33 +239,33 @@ const apiPaymentRecords = Array.isArray(list)
       render: (_, __, index) => index + 1,
       width: 50,
     },
-    { 
-      title: "User Name", 
+    {
+      title: "User Name",
       dataIndex: "name",
       render: (name) => name || "N/A"
     },
-    { 
-      title: "Package", 
+    {
+      title: "Counselling Services",
       dataIndex: "package",
       render: (pkg) => pkg || "N/A"
     },
-{
-  title: "Amount",
-  render: (_, record) => {
-    const paid = record.paidAmount || 0;
-    const total = record.packagePrice || 0;
+    {
+      title: "Amount",
+      render: (_, record) => {
+        const paid = record.paidAmount || 0;
+        const total = record.packagePrice || 0;
 
-    return (
-      <span>
-        ₹{paid.toLocaleString("en-IN")}
-        <Text type="colorTextSecondary">
-          {" "}
-          / ₹{total.toLocaleString("en-IN")}
-        </Text>
-      </span>
-    );
-  },
-},
+        return (
+          <span>
+            ₹{paid.toLocaleString("en-IN")}
+            <Text type="colorTextSecondary">
+              {" "}
+              / ₹{total.toLocaleString("en-IN")}
+            </Text>
+          </span>
+        );
+      },
+    },
 
 
     {
@@ -293,7 +293,7 @@ const apiPaymentRecords = Array.isArray(list)
         if (date === "-") {
           return "-";
         }
-        
+
         // Parse the date string
         let displayDate = date;
         try {
@@ -307,7 +307,7 @@ const apiPaymentRecords = Array.isArray(list)
         } catch (e) {
           console.error("❌ Error formatting display date:", date, e);
         }
-        
+
         return (
           <Space>
             <CalendarOutlined />
@@ -316,11 +316,11 @@ const apiPaymentRecords = Array.isArray(list)
         );
       },
     },
-{
-  title: "Transaction ID",
-  dataIndex: "txn",
-  render: (txn) => truncateAfterFive(txn),
-},
+    {
+      title: "Transaction ID",
+      dataIndex: "txn",
+      render: (txn) => truncateAfterFive(txn),
+    },
     {
       title: "Action",
       render: (_, record) => {

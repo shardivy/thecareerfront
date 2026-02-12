@@ -396,7 +396,7 @@ const handleUpdate = () => {
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item label="Package" name="package">
+              <Form.Item label="Counselling Service" name="package">
                 <Input />
               </Form.Item>
             </Col>
@@ -445,7 +445,7 @@ const handleUpdate = () => {
               <div style={valueBoxStyle}>{safeData.name}</div>
             </Col>
             <Col xs={24} md={12}>
-              <Text style={labelStyle}>Package</Text>
+              <Text style={labelStyle}>Counselling Service</Text>
               <div style={valueBoxStyle}>
                 {safeData.package && safeData.package !== "-"
                   ? safeData.package.charAt(0).toUpperCase() + safeData.package.slice(1)

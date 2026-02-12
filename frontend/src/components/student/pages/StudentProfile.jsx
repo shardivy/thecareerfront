@@ -144,7 +144,7 @@ const StudentProfile = () => {
             <div style={infoItemStyle}>
               <CrownOutlined style={{ color: "#faad14", fontSize: 18 }} />
               <div>
-                <Text type="colorTextSecondary">Package</Text>
+                <Text type="colorTextSecondary">Counselling Service</Text>
                 <br />
                 <Text strong>{profile.package}</Text>
               </div>

@@ -68,7 +68,7 @@ export default function StudentLayout() {
   /* ===================== BREADCRUMB ===================== */
   const breadcrumbNameMap = {
     "/student/dashboard": "Dashboard",
-    "/student/program": "Program & Packages",
+    "/student/program": "Program & Services",
     "/student/exam-management": "Exam Management",
     "/student/report-management": "Report Management",
     "/student/slot-booking": "Slot Booking",
@@ -105,7 +105,7 @@ export default function StudentLayout() {
     {
       key: "/student/program",
       icon: <ReadFilled />,
-      label: "Program & Packages",
+      label: "Program & Services",
       onClick: () => {
         navigate("/student/program");
         setDrawerVisible(false);
