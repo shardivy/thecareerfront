@@ -5,6 +5,7 @@ import {
   fetchPaymentsApi,
   verifyPaymentApi,
   updatePaymentApi,
+  fetchStudentPaymentSummaryApi,
 } from "../adminApi/paymentApi";
 
 /* ================= SUBMIT PAYMENT ================= */
@@ -80,14 +81,32 @@ export const updatePayment = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.error ||
-          error.response?.data?.message ||
-          error.response?.data ||
-          error.message ||
-          "Update failed"
+        error.response?.data?.message ||
+        error.response?.data ||
+        error.message ||
+        "Update failed"
       );
     }
   }
 );
+
+/* ================= FETCH STUDENT PAYMENT SUMMARY ================= */
+export const fetchStudentPaymentSummary = createAsyncThunk(
+  "payment/fetchStudentSummary",
+  async ({ studentId, packageId }, { rejectWithValue }) => {
+    try {
+      return await fetchStudentPaymentSummaryApi(
+        studentId,
+        packageId
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch summary"
+      );
+    }
+  }
+);
+
 
 /* ================= SLICE ================= */
 const paymentSlice = createSlice({
@@ -117,6 +136,12 @@ const paymentSlice = createSlice({
     listLoading: false,
     listError: null,
     list: [],
+
+    /* ===== Student Summary ===== */
+    summaryLoading: false,
+    summaryError: null,
+    summaryData: null,
+
   },
 
   reducers: {
@@ -295,7 +320,25 @@ const paymentSlice = createSlice({
       .addCase(updatePayment.rejected, (state, action) => {
         state.updateLoading = false;
         state.updateError = action.payload;
+      })
+
+      /* ================= STUDENT SUMMARY ================= */
+      .addCase(fetchStudentPaymentSummary.pending, (state) => {
+        state.summaryLoading = true;
+        state.summaryData = null;
+        state.summaryError = null;
+      })
+      .addCase(fetchStudentPaymentSummary.fulfilled, (state, action) => {
+        state.summaryLoading = false;
+        state.summaryData = action.payload?.data;
+        state.summaryError = null;
+      })
+      .addCase(fetchStudentPaymentSummary.rejected, (state, action) => {
+        state.summaryLoading = false;
+        state.summaryError = action.payload || action.error.message;
+        state.summaryData = null;
       });
+
   },
 });
 

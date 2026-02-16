@@ -72,3 +72,4 @@ export const deleteUserApi = async (id) => {
   const response = await axiosInstance.delete(`/users/${id}/`);
   return response.data;
 };
+

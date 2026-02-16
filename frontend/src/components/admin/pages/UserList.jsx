@@ -36,12 +36,12 @@ const { Option } = Select;
 const UserList = () => {
 
   const dispatch = useDispatch();
- const { list: users, loading, error } = useSelector((state) => state.users);
+  const { list: users, loading, error } = useSelector((state) => state.users);
 
 
-useEffect(() => {
-  dispatch(fetchStudents());
-}, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchStudents());
+  }, [dispatch]);
 
   const [searchText, setSearchText] = useState("");
   const [paymentFilter, setPaymentFilter] = useState(null);
@@ -51,40 +51,47 @@ useEffect(() => {
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [selectedUser, setSelectedUser] = useState(null);
+  const [pagination, setPagination] = useState({
+  current: 1,
+  pageSize: 5,
+});
+
 
 
   // ---------------- FILTERED DATA ----------------
-const filteredData = users.filter((user) => {
-  const firstName = user.first_name || "";
-  const lastName = user.last_name || "";
-  const program = typeof user.program === "string" ? user.program : user.program?.name || "";
-  const packageName = typeof user.package === "string" ? user.package : user.package?.name || "";
-  const email = user.email || "";
+  const filteredData = users.filter((user) => {
+    const firstName = user.first_name || "";
+    const lastName = user.last_name || "";
+    const program = typeof user.program === "string" ? user.program : user.program?.name || "";
+    const packageName = typeof user.package === "string" ? user.package : user.package?.name || "";
+    const email = user.email || "";
 
-  const fullName = `${firstName} ${lastName}`.toLowerCase();
-  const search = searchText.toLowerCase();
+    const fullName = `${firstName} ${lastName}`.toLowerCase();
+    const search = searchText.toLowerCase();
 
-  const matchesSearch =
-    fullName.includes(search) ||
-    program.toLowerCase().includes(search) ||
-    packageName.toLowerCase().includes(search) ||
-    email.toLowerCase().includes(search);
+    const matchesSearch =
+      fullName.includes(search) ||
+      program.toLowerCase().includes(search) ||
+      packageName.toLowerCase().includes(search) ||
+      email.toLowerCase().includes(search);
 
-  const matchesPayment = paymentFilter ? user.paymentStatus === paymentFilter : true;
-  const matchesExam = examFilter ? user.examStatus === examFilter : true;
+    const matchesPayment = paymentFilter ? user.paymentStatus === paymentFilter : true;
+    const matchesExam = examFilter ? user.examStatus === examFilter : true;
 
-  return matchesSearch && matchesPayment && matchesExam;
-});
+    return matchesSearch && matchesPayment && matchesExam;
+  });
 
 
 
   // TABLE COLUMNS (ALL columns visible)
   const columns = [
-    {
-      title: "Sr. No",
-      key: "srno",
-      render: (_, __, index) => index + 1,
-    },
+  {
+  title: "Sr. No",
+  key: "srno",
+  render: (_, __, index) =>
+    (pagination.current - 1) * pagination.pageSize + index + 1,
+},
+
     {
       title: "Name",
       key: "name",
@@ -154,9 +161,10 @@ const filteredData = users.filter((user) => {
       ),
     },
     {
-      title: "Sessions",
-      dataIndex: "sessions",
-      key: "sessions",
+      title: "Review",
+      dataIndex: "review",
+      key: "review",
+      render: (text) => text ? text : " - ",
     },
     {
       title: "Actions",
@@ -173,24 +181,24 @@ const filteredData = users.filter((user) => {
             View
           </Button>
           <Button
-  type="primary"
-  icon={<EditOutlined />}
-  onClick={() => {
-    setSelectedUser(record);
-    setModalMode("edit");
-    setAddEditModalOpen(true);
-  }}
->
-  Edit
-</Button>
-          <Button
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => {
+              setSelectedUser(record);
+              setModalMode("edit");
+              setAddEditModalOpen(true);
+            }}
+          >
+            Edit
+          </Button>
+          {/* <Button
             type="default"
             danger
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record)}
           >
             Delete
-          </Button>
+          </Button> */}
         </Space>
       ),
     },
@@ -289,8 +297,21 @@ const filteredData = users.filter((user) => {
         <Table
           columns={columns}
           dataSource={filteredData}
-          pagination={{ pageSize: 5 }}
+          pagination={{
+            defaultPageSize: 5,          
+            showSizeChanger: true,        
+            pageSizeOptions: [5, 10, 20, 50],
+             onChange: (page, pageSize) => {
+      setPagination({
+        current: page,
+        pageSize: pageSize,
+      });
+    }, 
+            // showTotal: (total, range) =>
+            //   `${range[0]}-${range[1]} of ${total} users`,
+          }}
           scroll={{ x: "max-content" }}
+
         />
       </Card>
 

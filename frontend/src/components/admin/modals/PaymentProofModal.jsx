@@ -15,7 +15,7 @@ import {
   Grid,
   DatePicker,
 } from "antd";
-import { UploadOutlined, FileImageOutlined } from "@ant-design/icons";
+import { UploadOutlined, FileImageOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import dayjs from "dayjs";
 import { useDispatch ,useSelector} from "react-redux";
@@ -25,6 +25,8 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { token } = adminTheme;
 const { useBreakpoint } = Grid;
+const { confirm } = Modal;
+
 
 /* ---------------- STYLES ---------------- */
 const labelStyle = {
@@ -93,7 +95,7 @@ const {
 
       paymentMethod: source.paymentMethod || source.method || source.payment_method || "-",
       amount: source.amount || "0",
-      txn: source.txn || source.transaction_id || "-",
+      txn: source.txn || source.transaction_id || "",
       paymentDate: source.paymentDate || source.date || source.payment_date || "-",
       key: source.key || source.id || "",
       proof_file_url: source.proof_file_url || "",
@@ -212,9 +214,9 @@ const handleUpdate = () => {
     }
     
     // REQUIRED: payment_type (online/cash)
-    let paymentType = "online";
-    if (values.paymentMethod === "cash") {
-      paymentType = "cash";
+    let paymentType = "offline"; // default to offline
+    if (values.paymentMethod === "online") {
+      paymentType = "offline";
     }
     payload.append("payment_type", paymentType);
     console.log("💳 Payment type:", paymentType);
@@ -228,14 +230,21 @@ const handleUpdate = () => {
       return;
     }
     
-    // REQUIRED: transaction_id
-    if (values.txn) {
-      payload.append("transaction_id", values.txn);
-      console.log("🆔 Transaction ID:", values.txn);
-    } else {
-      message.error("Transaction ID is required");
-      return;
-    }
+
+// Transaction ID (Only send if valid and not "-")
+// Transaction ID (OPTIONAL - for both UPI & Cash)
+if (values.txn && values.txn !== "-") {
+  payload.append("transaction_id", values.txn);
+  console.log("🆔 Transaction ID:", values.txn);
+}
+
+// ✅ If empty → do nothing
+// DO NOT show error
+// DO NOT return
+
+
+// 🚫 For cash → DO NOT append transaction_id at all
+
     
     // REQUIRED: payment_date
     if (values.paymentDate) {
@@ -247,23 +256,15 @@ const handleUpdate = () => {
     }
     
  
-    if (file) {
-      // New file selected - send the file with correct field name
-      payload.append("proof_file", file); 
-      console.log("📎 New file attached as 'proof_file':", file.name, file.type, file.size);
-    } else if (originalProofUrl && originalProofUrl !== "") {
-      
-      
-      // Option 1: Send empty string (if backend accepts it)
-      payload.append("proof_file", ""); 
-      console.log("📎 Sending empty 'proof_file' field (keep existing file)");
-      
+if (file) {
+  // New file selected
+  payload.append("proof_file", file);
+  console.log("📎 New file attached:", file.name);
+} else {
+  console.log("📎 No new file selected - keeping existing proof file");
+  // Do NOT append proof_file
+}
 
-    } else {
-      // No file at all - send empty
-      payload.append("proof_file", ""); // ← CORRECT FIELD NAME
-      console.log("📎 No file - sending empty 'proof_file' field");
-    }
 
     // Log FormData contents for debugging
     console.log("📤 FormData contents to be sent:");
@@ -303,6 +304,9 @@ const handleUpdate = () => {
       });
   });
 };
+
+
+
   const handleVerify = (status) => {
     form.validateFields().then((values) => {
       dispatch(
@@ -361,6 +365,89 @@ const handleUpdate = () => {
     showUploadList: false,
   };
 
+
+  const handleApproveConfirm = () => {
+  confirm({
+    title: "Approve Payment?",
+    icon: <CheckCircleOutlined style={{ color: "#52c41a" }} />,
+    content:
+      "Are you sure you want to approve this payment? This action will mark the payment as verified.",
+    centered: true,
+    okText: "Yes, Approve",
+    okButtonProps: {
+      style: { background: "#52c41a", borderColor: "#52c41a" },
+    },
+    cancelText: "Cancel",
+
+    async onOk() {
+      try {
+        const res = await dispatch(
+          verifyPayment({
+            id: safeData.key,
+            payload: {
+              verifiedAmount:
+                form.getFieldValue("amount") || safeData.amount,
+              action: "approve",
+            },
+          })
+        ).unwrap();
+
+        message.success(res?.message || "Payment approved successfully");
+        onSuccess?.();
+        onClose();
+      } catch (err) {
+        message.error(
+          typeof err === "string"
+            ? err
+            : err?.message || "Something went wrong"
+        );
+      }
+    },
+  });
+};
+
+const handleRejectConfirm = () => {
+  confirm({
+    title: "Reject Payment?",
+    icon: <CloseCircleOutlined style={{ color: "#ff4d4f" }} />,
+    content:
+      "Are you sure you want to reject this payment? This action cannot be undone.",
+    centered: true,
+    okText: "Yes, Reject",
+    okButtonProps: {
+      danger: true,
+    },
+    cancelText: "Cancel",
+
+    async onOk() {
+      try {
+        const res = await dispatch(
+          verifyPayment({
+            id: safeData.key,
+            payload: {
+              verifiedAmount:
+                form.getFieldValue("amount") || safeData.amount,
+              action: "reject",
+            },
+          })
+        ).unwrap();
+
+        message.success(res?.message || "Payment rejected successfully");
+        onSuccess?.();
+        onClose();
+      } catch (err) {
+        message.error(
+          typeof err === "string"
+            ? err
+            : err?.message || "Something went wrong"
+        );
+      }
+    },
+  });
+};
+
+
+
   return (
     <Modal
       key={mode}
@@ -370,20 +457,56 @@ const handleUpdate = () => {
       width={isMobile ? "95%" : 760}
       onCancel={onClose}
       title={<Title level={4}>Payment Details</Title>}
-      footer={
-        isEdit ? (
-          <>
-            <Button onClick={onClose}>Cancel</Button>
-            <Button type="primary" onClick={handleUpdate} loading={updateLoading}>
-              Update
-            </Button>
-          </>
-        ) : isVerify ? null : (
-          <Button type="primary" onClick={onClose}>
-            Close
-          </Button>
-        )
-      }
+  footer={
+  isEdit ? (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        width: "100%",
+      }}
+    >
+      {/* LEFT SIDE - Approve / Reject */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button
+          danger
+          onClick={handleRejectConfirm}
+          loading={verifyLoading}
+        >
+          Reject
+        </Button>
+
+        <Button
+          type="primary"
+          style={{ background: "#52c41a", borderColor: "#52c41a" }}
+          onClick={handleApproveConfirm}
+          loading={verifyLoading}
+        >
+          Approve
+        </Button>
+      </div>
+
+      {/* RIGHT SIDE - Cancel / Update */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <Button onClick={onClose}>Cancel</Button>
+
+        <Button
+          type="primary"
+          onClick={handleUpdate}
+          loading={updateLoading}
+        >
+          Update
+        </Button>
+      </div>
+    </div>
+  ) : isVerify ? null : (
+    <Button type="primary" onClick={onClose}>
+      Close
+    </Button>
+  )
+}
+
     >
       {/* ================= FORM / VIEW ================= */}
       {isEdit ? (

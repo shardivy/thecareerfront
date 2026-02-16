@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import {
   Card,
   Typography,
@@ -13,15 +13,23 @@ import {
   Empty,
   Modal,
 } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import {
+  CloseOutlined,
+  EyeInvisibleOutlined,
+  EyeOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 
 import {
-  fetchSlotsByDate,
   fetchSlotsCounsellorWise,
   updateCounsellorStatus,
+  fetchSlotsForSelectedDate,
+  updateSlotAvailability,
+  deleteSlot,
 } from "../../../adminSlices/counsellingSlotSlice";
+
 import CreateSlotModal from "../modals/CreateSlotModal";
 
 const { Title, Text } = Typography;
@@ -41,43 +49,106 @@ const CreateSlot = () => {
     dispatch(fetchSlotsCounsellorWise());
   }, [dispatch]);
 
-  /* ---------- STATUS TOGGLE WITH CONFIRM ---------- */
-  const handleStatusToggle = (checked, item) => {
-    Modal.confirm({
-      title: "Confirm Status Change",
-      centered: true,
-      content: `Are you sure you want to ${
-        checked ? "activate" : "deactivate"
-      } this counsellor on ${dayjs(item.date).format("DD MMM YYYY")}?`,
-      okText: "Yes",
-      cancelText: "No",
-      onOk: () => {
-        dispatch(
-          updateCounsellorStatus({
-            counsellor_id: item.counsellor_id,
-            date: item.date,
-            is_active: checked,
-          })
-        );
-      },
-    });
+  /* ---------- GET ALL CREATED DATES ---------- */
+  const createdDates = useMemo(() => {
+    return [
+      ...new Set(
+        counsellorWiseList.map((item) =>
+          dayjs(item.date).format("YYYY-MM-DD")
+        )
+      ),
+    ];
+  }, [counsellorWiseList]);
+
+  /* ---------- DISABLE DATE LOGIC ---------- */
+  const disableCreatedDates = (current) => {
+    if (!current) return false;
+
+    const formatted = current.format("YYYY-MM-DD");
+
+    return (
+      current.isBefore(dayjs().startOf("day")) ||
+      createdDates.includes(formatted)
+    );
   };
 
+  /* ---------- STATUS TOGGLE ---------- */
+const handleStatusToggle = (checked, item) => {
+  const bookedSlotsCount =
+    item.slots?.filter((slot) => slot.status === "booked").length || 0;
+
+  if (!checked && bookedSlotsCount > 0) {
+    Modal.warning({
+      title: "Cannot Deactivate Counsellor",
+      centered: true,
+      content: `There ${
+        bookedSlotsCount === 1 ? "is" : "are"
+      } ${bookedSlotsCount} booked slot${
+        bookedSlotsCount > 1 ? "s" : ""
+      } on ${dayjs(item.date).format("DD MMM YYYY")}. 
+Please go to Slot Booking and delete the booked slot(s) before making this counsellor inactive.`,
+    });
+
+    return;
+  }
+
+  Modal.confirm({
+    title: "Confirm Status Change",
+    centered: true,
+    content: `Are you sure you want to ${
+      checked ? "activate" : "deactivate"
+    } this counsellor on ${dayjs(item.date).format("DD MMM YYYY")}?`,
+    onOk: () => {
+      dispatch(
+        updateCounsellorStatus({
+          counsellor_id: item.counsellor_id,
+          date: item.date,
+          is_active: checked,
+        })
+      );
+    },
+  });
+};
+
+
+
   /* ---------- DATE CHANGE ---------- */
-  const handleDateChange = (date) => {
+  const handleDateChange = async (date) => {
     if (!date) {
       setSelectedDate(null);
+      dispatch(fetchSlotsCounsellorWise());
       return;
     }
 
     const formatted = dayjs(date).format("YYYY-MM-DD");
     setSelectedDate(formatted);
+
+    try {
+      await dispatch(fetchSlotsForSelectedDate(formatted)).unwrap();
+    } catch (error) {
+      console.error("Error fetching slots:", error);
+    }
   };
 
-  /* ---------- DATA SOURCE ---------- */
-  const normalizedList = selectedDate
-    ? counsellorWiseList.filter((item) => item.date === selectedDate)
-    : counsellorWiseList;
+  /* ---------- DELETE SLOT ---------- */
+  const handleDeleteSlot = (slot) => {
+    Modal.confirm({
+      title: "Delete Slot",
+      centered: true,
+      content: "Are you sure you want to delete this slot?",
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await dispatch(deleteSlot(slot.slot_id)).unwrap();
+          dispatch(fetchSlotsCounsellorWise());
+        } catch (error) {
+          console.error("Delete failed:", error);
+        }
+      },
+    });
+  };
+
+  const normalizedList = selectedDate ? list : counsellorWiseList;
 
   return (
     <div style={{ padding: 16 }}>
@@ -86,7 +157,12 @@ const CreateSlot = () => {
         <Title level={4}>Manage Counselling Slots</Title>
 
         <Space>
-          <DatePicker allowClear onChange={handleDateChange}   style={{ padding: '9px 8px' }}/>
+          <DatePicker
+            allowClear
+            onChange={handleDateChange}
+            disabledDate={disableCreatedDates}
+          />
+
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -97,14 +173,12 @@ const CreateSlot = () => {
         </Space>
       </Row>
 
-      {/* LOADING */}
       {loading && (
         <Row justify="center">
           <Spin />
         </Row>
       )}
 
-      {/* NO DATA */}
       {!loading && normalizedList.length === 0 && <Empty />}
 
       {/* COUNSELLOR CARDS */}
@@ -121,7 +195,9 @@ const CreateSlot = () => {
 
                   <Col>
                     <Text strong>Date:</Text>{" "}
-                    <Text>{dayjs(item.date).format("DD MMM YYYY")}</Text>
+                    <Text>
+                      {dayjs(item.date).format("DD MMM YYYY")}
+                    </Text>
                   </Col>
 
                   <Col>
@@ -139,13 +215,113 @@ const CreateSlot = () => {
 
                 <Space wrap>
                   {item.slots?.length ? (
-                    item.slots.map((slot) => (
-                      <Button key={slot.slot_id}>
-                        {slot.start_time} - {slot.end_time}
-                      </Button>
-                    ))
+                    item.slots.map((slot) => {
+                      const isBooked = slot.status === "booked";
+                      const isDisabled =
+                        !item.is_active ||
+                        !slot.is_available ||
+                        isBooked;
+
+                      return (
+                        <Space key={slot.slot_id} size="small">
+                          {/* SLOT BUTTON */}
+                          <Button
+                            disabled={isDisabled}
+                            type={isBooked ? "primary" : "default"}
+                            danger={isBooked}
+                            style={{
+                              opacity: isDisabled ? 0.6 : 1,
+                            }}
+                          >
+                            {slot.start_time} - {slot.end_time}
+                          </Button>
+
+                          {/* EYE ICON (NOT FOR BOOKED) */}
+                          {!isBooked &&
+                            (slot.is_available ? (
+                              <EyeOutlined
+                                style={{
+                                  fontSize: 18,
+                                  cursor: isDisabled
+                                    ? "not-allowed"
+                                    : "pointer",
+                                  color: "green",
+                                }}
+                                onClick={() => {
+                                  if (isDisabled) return;
+
+                                  const newAvailability =
+                                    !slot.is_available;
+
+                                  Modal.confirm({
+                                    title:
+                                      "Change Slot Availability",
+                                    centered: true,
+                                    content: `Are you sure you want to mark this slot as ${
+                                      newAvailability
+                                        ? "available"
+                                        : "unavailable"
+                                    }?`,
+                                    onOk: () => {
+                                      dispatch(
+                                        updateSlotAvailability({
+                                          slotId: slot.slot_id,
+                                          is_available:
+                                            newAvailability,
+                                        })
+                                      );
+                                    },
+                                  });
+                                }}
+                              />
+                            ) : (
+                              <EyeInvisibleOutlined
+                                style={{
+                                  fontSize: 18,
+                                  cursor: isDisabled
+                                    ? "not-allowed"
+                                    : "pointer",
+                                  color: "gray",
+                                }}
+                                onClick={() => {
+                                  if (isDisabled) return;
+
+                                  const newAvailability =
+                                    !slot.is_available;
+
+                                  dispatch(
+                                    updateSlotAvailability({
+                                      slotId: slot.slot_id,
+                                      is_available:
+                                        newAvailability,
+                                    })
+                                  );
+                                }}
+                              />
+                            ))}
+
+                          {/* DELETE ICON (ONLY WHEN ACTIVE + NOT BOOKED) */}
+                          {slot.is_available &&
+                            !isBooked &&
+                            item.is_active && (
+                              <CloseOutlined
+                                style={{
+                                  fontSize: 16,
+                                  color: "#ff4d4f",
+                                  cursor: "pointer",
+                                }}
+                                onClick={() =>
+                                  handleDeleteSlot(slot)
+                                }
+                              />
+                            )}
+                        </Space>
+                      );
+                    })
                   ) : (
-                    <Text type="secondary">No slots available</Text>
+                    <Text type="secondary">
+                      No slots available
+                    </Text>
                   )}
                 </Space>
               </Card>

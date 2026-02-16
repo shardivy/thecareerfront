@@ -23,10 +23,56 @@ const { useBreakpoint } = Grid;
 
 const StudentDashboard = () => {
   const screens = useBreakpoint();
-  const navigate = useNavigate();
+  const navigate = useNavigate();   
 
   // 🔥 Access theme tokens
   const { token } = theme.useToken();
+
+     const currentStep = 2; // example
+
+   const getJourneyAction = () => {
+    switch (currentStep) {
+      case 0:
+      case 1:
+        return {
+          label: "View Programs & Services →",
+          path: "/student/program",
+        };
+
+      case 2:
+        return {
+          label: "Pay Now →",
+          path: "/student/payments",
+        };
+
+      case 3:
+        return {
+          label: "Start Exam →",
+          path: "/student/exam-management",
+        };
+
+      case 4:
+        return {
+          label: "Book Counselling Session →",
+          path: "/student/slot-booking",
+        };
+
+       
+      case 6:
+        return {
+          label: "View Report →",
+          path: "/student/report-management",
+        };
+
+      default:
+        return {
+          label: "Go to Dashboard →",
+          path: "/student/dashboard",
+        };
+    }
+  };
+
+  const journeyAction = getJourneyAction();
 
   return (
     <div
@@ -58,20 +104,21 @@ const StudentDashboard = () => {
               Choose Your Path
             </Title>
             <Text style={{ color: token.colorTextTertiary, fontSize: 15 }}>
-              Select a program and package to begin your career counselling journey
+              Select a program and service to begin your career counselling journey
             </Text>
           </Col>
 
-          <Col
+         <Col
             xs={24}
             md={8}
             style={{ display: "flex", justifyContent: "flex-end" }}
           >
             <Button
               size="large"
-              onClick={() => navigate("/student/program")}
+              type="primary"
+              onClick={() => navigate(journeyAction.path)}
             >
-              View Programs & Packages →
+              {journeyAction.label}
             </Button>
           </Col>
         </Row>
@@ -95,10 +142,10 @@ const StudentDashboard = () => {
               />
             </Row>
             <Title level={5} style={{ marginTop: 16 }}>
-              Free Content Library
+              Explore Content Library
             </Title>
             <Text type="colorTextSecondary">
-              Explore free videos, articles and guidance
+              Explore videos, articles and guidance
             </Text>
           </Card>
         </Col>

@@ -110,43 +110,41 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
     }
   }, [fetchedSlots]);
 
+  
+
   /* ---------- ADD SLOT ---------- */
-  const addSlot = () => {
-    const start = form.getFieldValue("start_time");
-    const end = form.getFieldValue("end_time");
+ const addSlot = () => {
+  const start = form.getFieldValue("start_time");
+  const end = form.getFieldValue("end_time");
+  const date = form.getFieldValue("date");
+  const counsellorId = form.getFieldValue("counsellor");
 
-    if (!start || !end) {
-      setSlotError("Select start and end time");
-      return;
-    }
+  if (!start || !end || !date || !counsellorId) {
+    setSlotError("Please select date, counsellor, start and end time");
+    return;
+  }
 
-    if (!end.isAfter(start)) {
-      setSlotError("End time must be after start time");
-      return;
-    }
+  if (!end.isAfter(start)) {
+    setSlotError("End time must be after start time");
+    return;
+  }
 
-    const isOverlapping = slotsList.some((slot) => {
-      const slotStart = slot.start_time;
-      const slotEnd = slot.end_time;
-
-      return (
-        (start.isAfter(slotStart) && start.isBefore(slotEnd)) ||
-        (end.isAfter(slotStart) && end.isBefore(slotEnd)) ||
-        (start.isSame(slotStart) && end.isSame(slotEnd)) ||
-        (start.isBefore(slotEnd) && end.isAfter(slotStart))
-      );
-    });
-
-    if (isOverlapping) {
-      setSlotError("This slot overlaps with an existing slot");
-      return;
-    }
-
-    const newSlot = { start_time: start, end_time: end, isNew: true };
-    setSlotsList((prev) => [...prev, newSlot]);
-    form.setFieldsValue({ start_time: null, end_time: null });
-    setSlotError("");
+  const newSlot = {
+    start_time: start.format("hh:mm A"),
+    end_time: end.format("hh:mm A"),
   };
+
+  // Call API immediately
+  dispatch(
+    createSlots({ date: dayjs(date).format("YYYY-MM-DD"), counsellorId, payload: { counsellor_id: counsellorId, date: dayjs(date).format("YYYY-MM-DD"), slots: [newSlot] } })
+  ).then((res) => {
+    if (!res.error) {
+      setSlotsList((prev) => [...prev, { ...newSlot, start_time: start, end_time: end }]);
+      form.setFieldsValue({ start_time: null, end_time: null });
+      setSlotError("");
+    }
+  });
+};
 
   /* ---------- DELETE SLOT ---------- */
   const handleDeleteSlot = (slotId, index) => {
@@ -188,6 +186,51 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
       }
     });
   };
+
+/* ---------- DISABLE TIME BASED ON EXISTING SLOTS ---------- */
+const getDisabledTime = (isStart) => (selectedValue) => {
+  if (!selectedValue) return { disabledHours: () => [], disabledMinutes: () => [] };
+
+  // Disabled hours
+  const disabledHoursSet = new Set();
+  const disabledMinutesMap = {};
+
+  slotsList.forEach((slot) => {
+    const startHour = slot.start_time.hour();
+    const startMin = slot.start_time.minute();
+    const endHour = slot.end_time.hour();
+    const endMin = slot.end_time.minute();
+
+    // All hours fully covered
+    for (let h = startHour + 1; h < endHour; h++) {
+      disabledHoursSet.add(h);
+    }
+
+    // Start hour minutes
+    if (selectedValue.hour() === startHour) {
+      for (let m = isStart ? startMin : 0; m <= (isStart ? 59 : endMin); m += 15) {
+        if (!disabledMinutesMap[selectedValue.hour()]) disabledMinutesMap[selectedValue.hour()] = new Set();
+        disabledMinutesMap[selectedValue.hour()].add(m);
+      }
+    }
+
+    // End hour minutes
+    if (selectedValue.hour() === endHour) {
+      for (let m = 0; m <= endMin; m += 15) {
+        if (!disabledMinutesMap[selectedValue.hour()]) disabledMinutesMap[selectedValue.hour()] = new Set();
+        disabledMinutesMap[selectedValue.hour()].add(m);
+      }
+    }
+  });
+
+  return {
+    disabledHours: () => Array.from(disabledHoursSet),
+    disabledMinutes: (hour) => {
+      return disabledMinutesMap[hour] ? Array.from(disabledMinutesMap[hour]) : [];
+    },
+  };
+};
+
 
 
 
@@ -253,6 +296,7 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
                 placeholder="Start time"
                 minuteStep={15}
                 showNow={false}
+                  disabledTime={getDisabledTime}
               />
             </Form.Item>
           </Col>
@@ -265,6 +309,7 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
                 placeholder="End time"
                 minuteStep={15}
                 showNow={false}
+                  disabledTime={getDisabledTime}
               />
             </Form.Item>
           </Col>

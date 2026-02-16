@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Row,
   Col,
@@ -16,10 +17,15 @@ import {
   FileTextOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
+  UploadOutlined,
 } from "@ant-design/icons";
+
+import UploadPaymentModal from "../modals/UploadPaymentModal"; 
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
+
+
 
 /* ===================== MOCK DATA ===================== */
 const summaryData = {
@@ -59,9 +65,25 @@ const invoiceData = [
 const Payments = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const navigate = useNavigate();
+
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   const paymentProgress =
     (summaryData.paidAmount / summaryData.totalFee) * 100;
+
+  const handleUploadPaymentClick = () => {
+    setIsUploadModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsUploadModalOpen(false);
+  };
+
+  const handleUploadSuccess = () => {
+    // Refresh payments or summary if needed
+    console.log("Payment uploaded successfully");
+  };
 
   /* ===================== TABLE COLUMNS ===================== */
   const columns = [
@@ -110,18 +132,20 @@ const Payments = () => {
       render: (_, record) =>
         record.status === "Due" ? (
           <Button
-            type="primary"
-            size={isMobile ? "small" : "middle"}
-            icon={<CreditCardOutlined />}
-          >
-            {isMobile ? "" : "Pay Now"}
-          </Button>
+  type="primary"
+  size={isMobile ? "small" : "middle"}
+  icon={<CreditCardOutlined />}
+  onClick={() => navigate("/student/payment-page")}
+>
+  {isMobile ? "Pay Now" : "Pay Now"}
+</Button>
+
         ) : (
           <Button
             size={isMobile ? "small" : "middle"}
             icon={<FileTextOutlined />}
           >
-            {isMobile ? "" : "Invoice"}
+            {isMobile ? "Invoice" : "View Invoice"}
           </Button>
         ),
     },
@@ -129,18 +153,41 @@ const Payments = () => {
 
   return (
     <div style={{ padding: isMobile ? 12 : 24 }}>
-      {/* PAGE TITLE */}
-      <div style={{ textAlign: "center" }}>
-        <Title level={isMobile ? 4 : 3}>Payments</Title>
-        <Text type="colorTextSecondary" style={{ fontSize: isMobile ? 12 : 14 }}>
-          View your payment status, pending dues and invoices
-        </Text>
-      </div>
+      {/* ===================== HEADER ===================== */}
+      <Row justify="center">
+        <Col>
+          <Title
+            level={isMobile ? 4 : 3}
+            style={{ margin: 5, textAlign: "center" }}
+          >
+            Payments
+          </Title>
 
-      <Divider />
+          <Text
+            type="colorTextSecondary"
+            style={{ display: "block", textAlign: "center" }}
+          >
+            View your payment status, pending dues and invoices
+          </Text>
+        </Col>
+      </Row>
+
+      {/* ===================== UPLOAD BUTTON ===================== */}
+      {/* <Row justify="end" style={{ marginTop: 16 }}>
+        <Col>
+          <Button
+            type="primary"
+            icon={<UploadOutlined />}
+            size={isMobile ? "middle" : "large"}
+            onClick={handleUploadPaymentClick}
+          >
+            {isMobile ? "Upload" : "Upload Payment"}
+          </Button>
+        </Col>
+      </Row> */}
 
       {/* ===================== SUMMARY CARDS ===================== */}
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} sm={12} md={8}>
           <Card bordered={false}>
             <Text>Total Fee</Text>
@@ -187,9 +234,16 @@ const Payments = () => {
           dataSource={invoiceData}
           pagination={false}
           size={isMobile ? "small" : "middle"}
-            scroll={{ x: "max-content" }}
+          scroll={{ x: "max-content" }}
         />
       </Card>
+
+      {/* ===================== UPLOAD PAYMENT MODAL ===================== */}
+      <UploadPaymentModal
+        open={isUploadModalOpen}
+        onClose={handleModalClose}
+        onSuccess={handleUploadSuccess}
+      />
     </div>
   );
 };

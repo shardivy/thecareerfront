@@ -446,9 +446,37 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
               </Col>
 
               <Col xs={24} md={12}>
-                <Form.Item name="amount" label="Amount" rules={isView ? [] : amountRules}>
-                  <Input disabled={isView} />
-                </Form.Item>
+               <Form.Item
+  name="amount"
+  label="Amount"
+  rules={[
+    { required: true, message: "Please enter amount" },
+    {
+      validator: (_, value) => {
+        if (!value) return Promise.resolve();
+
+        const numericValue = Number(value);
+
+        if (isNaN(numericValue)) {
+          return Promise.reject("Amount must be a number");
+        }
+
+        if (numericValue < 500) {
+          return Promise.reject("Minimum amount should be ₹500");
+        }
+
+        if (totalPackageAmount && numericValue > totalPackageAmount) {
+          return Promise.reject(`Amount cannot exceed ₹${totalPackageAmount}`);
+        }
+
+        return Promise.resolve();
+      },
+    },
+  ]}
+>
+  <Input type="number" min={0} disabled={isView} />
+</Form.Item>
+
               </Col>
             </Row>
 

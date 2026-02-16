@@ -42,7 +42,9 @@ const PaymentManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const dispatch = useDispatch();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+   const dispatch = useDispatch();
 
   const { stats, statsLoading, list, listLoading } = useSelector(
     (state) => state.payment
@@ -117,7 +119,7 @@ const PaymentManagement = () => {
     "Fully Paid": "success",
     "Partial Paid": "warning",
     "Verification Pending": "processing",
-    Pending: "error",
+   
   };
 
   /* ---------------- UTILITY FUNCTIONS ---------------- */
@@ -236,7 +238,8 @@ const PaymentManagement = () => {
   const columns = [
     {
       title: "Sr. No.",
-      render: (_, __, index) => index + 1,
+     render: (_, __, index) =>
+    (currentPage - 1) * pageSize + index + 1,
       width: 50,
     },
     {
@@ -456,7 +459,17 @@ const PaymentManagement = () => {
             loading={listLoading}
             columns={columns}
             dataSource={filteredData}
-            pagination={{ pageSize: 5 }}
+           pagination={{
+  current: currentPage,
+  pageSize: pageSize,
+  showSizeChanger: true,
+  pageSizeOptions: [5, 10, 20, 50],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+  },
+}}
+
             scroll={{ x: 1000 }}
             locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}
           />

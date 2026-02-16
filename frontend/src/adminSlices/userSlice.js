@@ -144,6 +144,7 @@ const userSlice = createSlice({
             package: u.package_name || u.package?.name || "N/A",
 
             // PAYMENT FIELDS - IMPORTANT: Store all payment data DIRECTLY
+            price: u.price || "",
             amount: u.amount || "",
             payment_type: u.payment_type || "",
             method: u.method || "",
@@ -174,6 +175,7 @@ const userSlice = createSlice({
               package_name: u.package_name || "",
               payment_status: u.payment_status || "",
               // ADD PAYMENT DETAILS TO PROFILE
+              price: u.price || "",
               amount: u.amount || "",
               payment_type: u.payment_type || "",
               method: u.method || "",

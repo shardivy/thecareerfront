@@ -59,3 +59,14 @@ export const updatePaymentApi = async (id, payload) => {
   );
   return response.data;
 };
+
+// ================= STUDENT PAYMENT  REMAINING AMT =================
+export const fetchStudentPaymentSummaryApi = async (
+  studentId,
+  packageId
+) => {
+  const response = await axiosInstance.get(
+    `/payment/student-payment-summary/${studentId}/${packageId}/`
+  );
+  return response.data;
+};

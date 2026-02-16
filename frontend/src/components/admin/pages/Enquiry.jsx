@@ -74,7 +74,8 @@ const Enquiry = () => {
   const [sourceFilter, setSourceFilter] = useState(null);
   const [dateFilter, setDateFilter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const [pageSize, setPageSize] = useState(5);
+
 
   // 🔥 NEW STATES (FOR CONVERT)
   const [modalMode, setModalMode] = useState("add"); // add | convert
@@ -119,7 +120,6 @@ const filteredEnquiries = enquiriesData.filter((enquiry) => {
     title: "Sr. No",
     key: "srno",
     render: (_, __, index) => (currentPage - 1) * pageSize + index + 1, // Page-aware serial number
-    responsive: ["xs", "sm", "md", "lg", "xl"],
   },
 {
   title: "User Name",
@@ -316,20 +316,28 @@ const filteredEnquiries = enquiriesData.filter((enquiry) => {
 
 
         {/* Table */}
-        <Table
-          style={{ marginTop: 16 }}
-          columns={columns}
-          dataSource={filteredEnquiries}
-          pagination={{ 
-            pageSize: pageSize,
-            current: currentPage,
-            onChange: (page) => setCurrentPage(page),
-          }}
-          rowClassName={() => "enquiry-row"}
-          scroll={{ x: "max-content" }}
-          loading={loading}
-          locale={{ emptyText: error ? `Error: ${error}` : "No enquiries found" }}
-        />
+       <Table
+  style={{ marginTop: 16 }}
+  columns={columns}
+  dataSource={filteredEnquiries}
+  pagination={{
+    current: currentPage,
+    pageSize: pageSize,
+    showSizeChanger: true,
+    pageSizeOptions: [5, 10, 20, 50],
+    onChange: (page, size) => {
+      setCurrentPage(page);
+      setPageSize(size);
+    },
+  }}
+  rowClassName={() => "enquiry-row"}
+  scroll={{ x: "max-content" }}
+  loading={loading}
+  locale={{
+    emptyText: error ? `Error: ${error}` : "No enquiries found",
+  }}
+/>
+
       </Card>
 
       {/* Hover Effect (UNCHANGED) */}
@@ -345,7 +353,8 @@ const filteredEnquiries = enquiriesData.filter((enquiry) => {
   onCancel={() => setOpenAddModal(false)}
   mode={modalMode}
   enquiryData={selectedEnquiry}
-  readonly={modalMode === "convert"} // READONLY WHEN CONVERTING
+  readonly={modalMode === "convert"} 
+  
 />
 
     </div>

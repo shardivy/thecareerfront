@@ -42,6 +42,9 @@ const ExamManagements = () => {
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
   const [rollbackId, setRollbackId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+
 
     /* ================= APPROVE ================= */
 const handleApproveExam = (id) => {
@@ -183,11 +186,13 @@ const filteredData = mappedData.filter((item) => {
 
   /* ================= COLUMNS ================= */
   const columns = [
-    {
-      title: "Sr. No",
-      render: (_, __, index) => index + 1,
-      width: 50,
-    },
+   {
+  title: "Sr. No",
+  width: 50,
+  render: (_, __, index) =>
+    (currentPage - 1) * pageSize + index + 1,
+},
+
     {
       title: "User Name",
       render: (_, record) => (
@@ -363,7 +368,17 @@ const filteredData = mappedData.filter((item) => {
           columns={columns}
           dataSource={filteredData}
           rowKey="id"
-          pagination={{ pageSize: 5 }}
+          pagination={{
+  current: currentPage,
+  pageSize: pageSize,
+  showSizeChanger: true,
+  pageSizeOptions: [5, 10, 20, 50],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+  },
+}}
+
           scroll={{ x: "max-content" }} // ✅ mobile-safe
         />
       </Card>

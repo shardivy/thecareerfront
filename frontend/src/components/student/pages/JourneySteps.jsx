@@ -28,7 +28,7 @@ const Journeysteps = ({ currentStep = 1 }) => {
       path: "/student/exam-management",
     },
     {
-      title: "Counselling",
+      title: "Counselling Slot Booking",
       tooltip: "Attend expert counselling session",
       path: "/student/slot-booking",
     },

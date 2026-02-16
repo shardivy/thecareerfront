@@ -5,6 +5,8 @@ import {
   deleteSlotApi,
   createSlotsApi,
   updateCounsellorStatusApi,
+  getSlotsForSelectedDateApi,
+    updateSlotAvailabilityApi,
 } from "../adminApi/counsellingSlotApi";
 
 /* ---------- FETCH BY DATE ---------- */
@@ -68,6 +70,35 @@ export const updateCounsellorStatus = createAsyncThunk(
 );
 
 
+export const fetchSlotsForSelectedDate = createAsyncThunk(
+  "counsellingSlots/fetchForSelectedDate",
+  async (date, { rejectWithValue }) => {
+    try {
+      return await getSlotsForSelectedDateApi(date);
+    } catch (error) {
+      console.error("API ERROR:", error.response || error);
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch slots for selected date"
+      );
+    }
+  }
+);
+
+// ✅ UPDATE SLOT AVAILABILITY
+export const updateSlotAvailability = createAsyncThunk(
+  "counsellingSlots/updateSlotAvailability",
+  async ({ slotId, is_available }, { rejectWithValue }) => {
+    try {
+      return await updateSlotAvailabilityApi(slotId, { is_available });
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to update slot availability"
+      );
+    }
+  }
+);
+
+
 const counsellingSlotSlice = createSlice({
   name: "counsellingSlots",
   initialState: {
@@ -90,11 +121,11 @@ const counsellingSlotSlice = createSlice({
       .addCase(fetchSlotsByDate.pending, (state) => {
         state.loading = true;
       })
-          .addCase(fetchSlotsByDate.fulfilled, (state, action) => {
+      .addCase(fetchSlotsByDate.fulfilled, (state, action) => {
         state.loading = false;
         state.list = action.payload?.data || action.payload || [];
       })
-         .addCase(fetchSlotsByDate.rejected, (state, action) => {
+      .addCase(fetchSlotsByDate.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -147,11 +178,13 @@ const counsellingSlotSlice = createSlice({
         state.error = action.payload;
       })
 
-    .addCase(updateCounsellorStatus.pending, (state) => {
-  state.loading = true; // show spinner if you want
-})
+      //
 
- .addCase(updateCounsellorStatus.fulfilled, (state, action) => {
+      .addCase(updateCounsellorStatus.pending, (state) => {
+        state.loading = true; // show spinner if you want
+      })
+
+      .addCase(updateCounsellorStatus.fulfilled, (state, action) => {
         const { counsellor_id, date, is_active } = action.payload;
 
         state.counsellorWiseList = state.counsellorWiseList.map((item) =>
@@ -163,10 +196,59 @@ const counsellingSlotSlice = createSlice({
         state.loading = false;
       })
 
-.addCase(updateCounsellorStatus.rejected, (state, action) => {
+      .addCase(updateCounsellorStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      //
+      .addCase(fetchSlotsForSelectedDate.pending, (state) => {
+        state.loading = true;
+      })
+
+      .addCase(fetchSlotsForSelectedDate.fulfilled, (state, action) => {
+        state.loading = false;
+
+        const apiData = action.payload?.data || [];
+        const date = action.payload?.date;
+
+        state.list = apiData.map((c) => ({
+          date: date,
+          counsellor_id: c.counsellor_id,
+          counsellor_name: c.counsellor_name,
+          is_active: c.is_active,
+          slots: c.slots || [],
+        }));
+      })
+      .addCase(fetchSlotsForSelectedDate.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+.addCase(updateSlotAvailability.fulfilled, (state, action) => {
+  const updatedSlot = action.payload; // API returns { slot_id, is_available }
+
+  // Merge availability instead of replacing the whole slot
+  state.list = state.list.map((item) => ({
+    ...item,
+    slots: item.slots?.map((slot) =>
+      slot.slot_id === updatedSlot.slot_id
+        ? { ...slot, is_available: updatedSlot.is_available }
+        : slot
+    ),
+  }));
+
+  state.counsellorWiseList = state.counsellorWiseList.map((item) => ({
+    ...item,
+    slots: item.slots?.map((slot) =>
+      slot.slot_id === updatedSlot.slot_id
+        ? { ...slot, is_available: updatedSlot.is_available }
+        : slot
+    ),
+  }));
+
   state.loading = false;
-  state.error = action.payload;
-});
+})
+
 
   },
 });

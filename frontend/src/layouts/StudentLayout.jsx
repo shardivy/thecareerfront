@@ -75,7 +75,8 @@ export default function StudentLayout() {
     "/student/freecontent": "Free Content",
     "/student/content-library": "Content Library",
     "/student/student-profile": "Profile",
-    "/student/payments":"Payments"
+    "/student/payments":"Payments",
+    "/student/payment-page":"Payment",
   };
 
 

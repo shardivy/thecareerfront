@@ -1,9 +1,9 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  // baseURL: "http://192.168.0.108:8000/api",
+  baseURL: "http://192.168.0.106:8000/api",
 
-  baseURL: "https://tricks-classroom-ended-respondents.trycloudflare.com/api",
+  // baseURL: "https://dairy-americans-representations-consulting.trycloudflare.com/api",
 
 
 });
