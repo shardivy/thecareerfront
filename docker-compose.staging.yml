@@ -13,6 +13,8 @@ services:
       - db
       - redis
     restart: always
+    volumes:
+    - static_volume:/app/staticfiles
 
   frontend:
     build: ./frontend
@@ -48,6 +50,7 @@ services:
       - redis
       - db
     restart: always
+    
 
 volumes:
   staging_mysql_data:
