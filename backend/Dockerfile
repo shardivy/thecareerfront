@@ -25,9 +25,6 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create static directory and give permissions
-RUN mkdir -p /app/staticfiles \
-    && chown -R appuser:appuser /app
 
 # ===============================
 # Production Stage
@@ -48,13 +45,18 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy project files
 COPY . .
 
+# Create non-root user
+RUN useradd -m appuser
+
+# Create static directory and fix permissions
+RUN mkdir -p /app/staticfiles
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root
+USER appuser
+
 # Expose port
 EXPOSE 8000
 
-# Create non-root user
-RUN useradd -m appuser
-USER appuser
-
 # Run Django with ASGI (async supported)
 CMD ["gunicorn", "backend.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "3"]
-
