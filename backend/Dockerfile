@@ -25,6 +25,9 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create static directory and give permissions
+RUN mkdir -p /app/staticfiles \
+    && chown -R appuser:appuser /app
 
 # ===============================
 # Production Stage
@@ -54,3 +57,4 @@ USER appuser
 
 # Run Django with ASGI (async supported)
 CMD ["gunicorn", "backend.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "3"]
+
