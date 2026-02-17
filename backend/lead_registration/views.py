@@ -13,17 +13,18 @@ from django.db import IntegrityError, transaction
 from django.contrib.auth.hashers import make_password
 import logging
 from accounts.constants import PROGRAM_PREFIX_MAP
+from django.db.models import Sum
 
 from accounts.models import Role, User
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from accounts.services.whatsapp_service import send_whatsapp_message, send_whatsapp_otp
 from accounts.utils import generate_otp, generate_password, generate_role_id, send_credentials_email, send_otp_email
-from exam.models import UserExam
+from exam.models import Exam, UserExam
 from lead_registration.models import Hobby, Lead, ParentProfile, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from lead_registration.serializers import AddUserSerializer, HobbySerializer, LeadSerializer, ParentDetailSerializer, PaymentDetailSerializer, StreamSerializer, StudentAcademicHistorySerializer, StudentHobbySerializer, StudentProfileDetailSerializer, StudentRegistrationSerializer, StudentStreamSerializer, StudentSubjectPreferenceSerializer, SubjectSerializer, UserDetailSerializer, UserProgramPackageDetailSerializer, UserProgramPackageResponseSerializer
 from payment.models import Payment, PaymentLog
-from program_package.models import UserProgramPackage
-from report.models import Report
+from program_package.models import Program, UserProgramPackage
+from report.models import Report, Review
 
 
 logger = logging.getLogger('lead_registration')
@@ -460,8 +461,17 @@ class AddUserAPIView(APIView):
             with transaction.atomic():
 
                 # 🔹 Role & password
+                # student_role = Role.objects.get(name="student")
+                # password = generate_password()
+                
                 student_role = Role.objects.get(name="student")
-                password = generate_password()
+
+                # 🔹 Check if password provided in request
+                password = serializer.validated_data.get("password")
+
+                if not password:
+                    password = generate_password()
+
 
                 # 🔹 Create user
                 # 🔹 Program-based prefix logic
@@ -517,7 +527,16 @@ class AddUserAPIView(APIView):
                 amount = serializer.validated_data.get("amount")
                 proof_file = serializer.validated_data.get("proof_file")
 
-                if amount is not None or proof_file:
+                if amount is not None:
+
+                    package_price = serializer.validated_data["package"].price
+
+                    # 🔹 Determine payment status
+                    if amount == package_price:
+                        payment_status = "fully_paid"
+                    else:
+                        payment_status = "partially_paid"
+
                     payment = Payment.objects.create(
                         user=user,
                         package=serializer.validated_data["package"],
@@ -526,8 +545,9 @@ class AddUserAPIView(APIView):
                         method=serializer.validated_data.get("method"),
                         transaction_id=serializer.validated_data.get("transaction_id"),
                         proof_file=proof_file,
-                        status="verification_pending"
+                        status=payment_status
                     )
+
 
                 # 🔹 Send credentials email
                 try:
@@ -699,10 +719,40 @@ class AddUserAPIView(APIView):
             # 🔹 Fetch latest payment
             payment = Payment.objects.filter(user=user).order_by("-created_at").first()
 
-            if payment and proof_file:
-                payment.proof_file = proof_file
-                payment.status = "verification_pending"
+            # if payment and proof_file:
+            #     payment.proof_file = proof_file
+            #     payment.status = "verification_pending"
+            #     payment.save()
+            
+            amount = serializer.validated_data.get("amount")
+
+            if amount is not None:
+
+                package_price = payment.package.price
+
+                if amount < 500:
+                    return Response(
+                        {"message": "Amount must be at least ₹500"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if amount > package_price:
+                    return Response(
+                        {"message": f"Amount cannot exceed ₹{package_price}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                payment.amount = amount
+
+                # 🔹 Auto update status
+                if amount == package_price:
+                    payment.status = "fully_paid"
+                else:
+                    payment.status = "partially_paid"
+
+
                 payment.save()
+
             payment_data = None
 
             if payment:
@@ -1003,7 +1053,6 @@ class ConvertLeadAPIView(APIView):
         try:
             with transaction.atomic():
 
-                # 🔹 Role & password
                 student_role = Role.objects.get(name="student")
                 password = generate_password()
 
@@ -1015,7 +1064,7 @@ class ConvertLeadAPIView(APIView):
                 if prefix and not first_name.startswith(prefix):
                     first_name = f"{prefix} - {first_name}"
 
-                # 🔹 Create user
+                # 🔹 Create User
                 user = User.objects.create(
                     first_name=first_name,
                     last_name=serializer.validated_data["last_name"],
@@ -1027,8 +1076,8 @@ class ConvertLeadAPIView(APIView):
                 user.set_password(password)
                 user.save()
 
-                # 🔹 Create student profile
-                StudentProfile.objects.create(
+                # 🔹 Create Student Profile (FIXED)
+                student_profile = StudentProfile.objects.create(
                     user=user,
                     study_class=serializer.validated_data.get("study_class"),
                     current_academic_stage=serializer.validated_data.get("current_academic_stage"),
@@ -1040,7 +1089,7 @@ class ConvertLeadAPIView(APIView):
                     ),
                 )
 
-                # 🔹 Assign program & package
+                # 🔹 Assign Program & Package
                 upp = UserProgramPackage.objects.create(
                     user=user,
                     program=serializer.validated_data["program"],
@@ -1048,51 +1097,59 @@ class ConvertLeadAPIView(APIView):
                     assigned_by="lead-conversion"
                 )
 
-                # 🔹 Payment (optional)
+                # 🔹 Payment (CLEAN LOGIC)
                 payment = None
-                if serializer.validated_data.get("amount") or serializer.validated_data.get("proof_file"):
+                amount = serializer.validated_data.get("amount")
+
+                if amount:
+                    package = serializer.validated_data["package"]
+                    package_price = package.price
+
+                    # Decide status
+                    if amount >= package_price:
+                        paymnet_status = "fully_paid"
+                    else:
+                        paymnet_status = "partial_paid"
+                        
+                    transaction_id = serializer.validated_data.get("transaction_id")
+
+                    # Convert blank → None (extra safety)
+                    if not transaction_id:
+                        transaction_id = None
+
                     payment = Payment.objects.create(
                         user=user,
-                        package=serializer.validated_data["package"],
-                        amount=serializer.validated_data.get("amount"),
+                        package=package,
+                        amount=amount,
                         payment_type=serializer.validated_data.get("payment_type"),
                         method=serializer.validated_data.get("method"),
-                        transaction_id=serializer.validated_data.get("transaction_id"),
+                        transaction_id=transaction_id,
                         proof_file=serializer.validated_data.get("proof_file"),
-                        status="verification_pending"
+                        status=paymnet_status   # ✅ override default
                     )
 
-                # 🔹 Update lead
+
+                    # upp.save(update_fields=["payment_status"])
+
+                # 🔹 Update Lead
                 lead.status = "converted"
                 lead.save(update_fields=["status"])
 
-                # 🔹 Email
+                # 🔹 Send Email
                 send_credentials_email(user.email, password)
-
-                # 🔹 WhatsApp (non-blocking)
-                if lead.phone:
-                    try:
-                        send_whatsapp_message(
-                            phone=lead.phone,
-                            email=lead.email,
-                            password=password
-                        )
-                    except Exception as e:
-                        print("WhatsApp error:", e)
 
                 return Response(
                     {
                         "message": "Lead converted successfully",
                         "data": {
                             "user": UserDetailSerializer(user).data,
-                            "student_profile": StudentProfileDetailSerializer(StudentProfile).data,
+                            "student_profile": StudentProfileDetailSerializer(student_profile).data,
                             "program_package": UserProgramPackageDetailSerializer(upp).data,
                             "payment": (
                                 PaymentDetailSerializer(
                                     payment,
                                     context={"request": request}
-                                ).data
-                                if payment else None
+                                ).data if payment else None
                             )
                         }
                     },
@@ -1602,3 +1659,277 @@ class VerifyParentOTPAPIView(APIView):
             status=200
         )
 
+# class UserJourneyAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         user = request.user
+
+#         response_data = {
+#             "registration": False,
+#             "counselling_service": False,
+#             "payment": "pending",
+#             "exam": False,
+#             "review": False,
+#             "report": "locked",
+#             "full_access": False,
+#             "current_step": 1
+#         }
+
+#         # ==========================================
+#         # 1️⃣ Registration (StudentProfile exists)
+#         # ==========================================
+#         student_profile = StudentProfile.objects.filter(user=user).first()
+
+#         if not student_profile:
+#             return Response(response_data)
+
+#         response_data["registration"] = True
+#         response_data["current_step"] = 2
+
+#         # ==========================================
+#         # 2️⃣ Counselling Service (UserProgramPackage)
+#         # ==========================================
+#         user_program = (
+#             UserProgramPackage.objects
+#             .select_related("program", "package")
+#             .filter(user=user)   # ✅ FIXED HERE
+#             .first()
+#         )
+
+#         if not user_program:
+#             return Response(response_data)
+
+#         response_data["counselling_service"] = True
+#         response_data["current_step"] = 3
+
+#         package = user_program.package
+
+#         # ==========================================
+#         # 3️⃣ Payment Status
+#         # ==========================================
+#         total_paid = (
+#             Payment.objects
+#             .filter(user=user)   # ⚠️ Adjust if needed
+#             .aggregate(total=Sum("amount"))["total"] or 0
+#         )
+
+#         if total_paid == 0:
+#             response_data["payment"] = "pending"
+#             return Response(response_data)
+
+#         if total_paid < package.price:
+#             response_data["payment"] = "partial_paid"
+#             return Response(response_data)
+#         else:
+#             response_data["payment"] = "fully_paid"
+#             response_data["current_step"] = 4
+
+#         # ==========================================
+#         # 4️⃣ Exam
+#         # ==========================================
+#         exam_completed = Exam.objects.filter(
+#             student=student_profile,
+#             is_completed=True
+#         ).exists()
+
+#         if not exam_completed:
+#             return Response(response_data)
+
+#         response_data["exam"] = True
+#         response_data["current_step"] = 5
+
+#         # ==========================================
+#         # 5️⃣ Review
+#         # ==========================================
+#         review_completed = Review.objects.filter(
+#             student=student_profile,
+#             is_completed=True
+#         ).exists()
+
+#         if not review_completed:
+#             return Response(response_data)
+
+#         response_data["review"] = True
+#         response_data["current_step"] = 6
+
+#         # ==========================================
+#         # 6️⃣ Report
+#         # ==========================================
+#         report_exists = Report.objects.filter(
+#             student=student_profile,
+#             is_generated=True
+#         ).exists()
+
+#         if report_exists:
+#             response_data["report"] = "unlocked"
+#             response_data["current_step"] = 7
+
+#         # ==========================================
+#         # 7️⃣ Full Access
+#         # ==========================================
+#         if (
+#             response_data["registration"]
+#             and response_data["counselling_service"]
+#             and response_data["payment"] == "fully_paid"
+#             and response_data["exam"]
+#             and response_data["review"]
+#             and response_data["report"] == "unlocked"
+#         ):
+#             response_data["full_access"] = True
+#             response_data["current_step"] = 8
+
+#         return Response(response_data)
+
+
+class UserJourneyAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+        """
+        Fetch the actual user journey using student ID.
+        """
+        student_profile = get_object_or_404(StudentProfile, id=student_id)
+
+        response_data = {
+            "progress": {
+                "registration": False,
+                "counselling_service": False,
+                "payment": "pending",
+                "exam": None,
+                "review": False,
+                "report": "locked",
+                "full_access": False,
+                "current_step": 1
+            },
+            "history": []
+        }
+
+        current_step = 1  # We'll increment this as we check actual data
+
+        # 1️⃣ Registration
+        if student_profile:
+            response_data["progress"]["registration"] = True
+            current_step = 2
+            response_data["history"].append({
+                "step": "Registration",
+                "status": "completed",
+                "date": student_profile.created_at.date() if hasattr(student_profile, "created_at") else None,
+                "details": f"Student {student_profile.user.email} registered"
+            })
+
+        # 2️⃣ Counselling Service
+        user_program = (
+            UserProgramPackage.objects
+            .select_related("program", "package")
+            .filter(user=student_profile.user)
+            .first()
+        )
+
+        if user_program:
+            response_data["progress"]["counselling_service"] = True
+            current_step = 3
+            response_data["history"].append({
+                "step": "Counselling Service Selection",
+                "status": "completed",
+                "date": user_program.created_at.date() if hasattr(user_program, "created_at") else None,
+                "details": f"{user_program.package.name} selected for program {user_program.program.name}"
+            })
+            package = user_program.package
+        else:
+            package = None  # No package selected
+
+        # 3️⃣ Payment Status
+        payments = Payment.objects.filter(user=student_profile.user)
+        total_paid = payments.aggregate(total=Sum("amount"))["total"] or 0
+
+        if package:
+            if total_paid == 0:
+                payment_status = "pending"
+            elif total_paid < package.price:
+                payment_status = "partial_paid"
+            else:
+                payment_status = "fully_paid"
+        else:
+            payment_status = "pending"
+
+        response_data["progress"]["payment"] = payment_status
+        if payment_status == "fully_paid":
+            current_step = 4
+
+        # Payment history
+        for payment in payments:
+            response_data["history"].append({
+                "step": "Payment",
+                "status": "completed" if payment.amount >= (package.price if package else 0) else "partial",
+                "date": payment.created_at.date() if hasattr(payment, "created_at") else None,
+                "details": f"₹{payment.amount} paid ({payment.payment_type})"
+            })
+
+        # 4️⃣ Exam (only for certain programs)
+        exam_applicable = user_program and user_program.program.name.lower() in ["pg-counselling", "8-12-aptitude-test"]
+        if exam_applicable:
+            exam = Exam.objects.filter(student=student_profile).first()
+            if exam and getattr(exam, "is_completed", False):
+                response_data["progress"]["exam"] = True
+                current_step = 5
+                exam_status = "completed"
+            else:
+                response_data["progress"]["exam"] = False
+                exam_status = "pending"
+
+            response_data["history"].append({
+                "step": "Exam",
+                "status": exam_status,
+                "date": exam.completed_at.date() if exam and hasattr(exam, "completed_at") else None,
+                "details": "Psychometric Test Completed" if exam_status == "completed" else "Pending"
+            })
+        else:
+            response_data["progress"]["exam"] = None  # Not applicable
+
+        # 5️⃣ Review
+        review = Review.objects.filter(user=student_profile.user, is_shared=True).first()
+        if review:
+            response_data["progress"]["review"] = True
+            current_step = 6
+            review_status = "completed"
+        else:
+            review_status = "pending"
+
+        response_data["history"].append({
+            "step": "Review",
+            "status": review_status,
+            "date": review.created_at.date() if review else None,
+            "details": "Review Completed" if review_status == "completed" else "Pending"
+        })
+
+        # 6️⃣ Report
+        report = Report.objects.filter(user=student_profile.user, report_status="generated").first()
+        if report:
+            response_data["progress"]["report"] = "unlocked"
+            current_step = 7
+        else:
+            response_data["progress"]["report"] = "locked"
+
+        response_data["history"].append({
+            "step": "Report",
+            "status": "generated" if report else "pending",
+            "date": report.uploaded_at.date() if report and hasattr(report, "uploaded_at") else None,
+            "details": "Career Report Generated" if report else "Pending"
+        })
+
+        # 7️⃣ Full Access
+        if (
+            response_data["progress"]["registration"]
+            and response_data["progress"]["counselling_service"]
+            and response_data["progress"]["payment"] == "fully_paid"
+            and (response_data["progress"]["exam"] in [True, None])
+            and response_data["progress"]["review"]
+            and response_data["progress"]["report"] == "unlocked"
+        ):
+            response_data["progress"]["full_access"] = True
+            current_step = 8
+
+        response_data["progress"]["current_step"] = current_step
+
+        return Response(response_data)

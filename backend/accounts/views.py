@@ -503,9 +503,9 @@ class LoginAPIView(APIView):
                 user.save()
             response_user_id = user.public_id
         elif actual_role == "student":
-            if not hasattr(user, "studentprofile"):
+            if not hasattr(user, "student_profile"):
                 return Response({"error": "Student profile not found"}, status=404)
-            response_user_id = user.studentprofile.id
+            response_user_id = user.student_profile.id
         elif actual_role == "parent":
             if not hasattr(user, "parentprofile"):
                 return Response({"error": "Parent profile not found"}, status=404)

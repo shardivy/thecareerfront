@@ -178,8 +178,10 @@ class StudentListSerializer(serializers.ModelSerializer):
     program_name = serializers.SerializerMethodField()
     package_id = serializers.SerializerMethodField()
     package_name = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     payment_type = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField()
     method = serializers.SerializerMethodField()
     transaction_id = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
@@ -202,8 +204,10 @@ class StudentListSerializer(serializers.ModelSerializer):
             "program_name",
             "package_id",
             "package_name",
+            "price",
             "payment_status",
             "payment_type",
+            "created_at",
             "method",
             "transaction_id",
             "amount",
@@ -230,6 +234,10 @@ class StudentListSerializer(serializers.ModelSerializer):
     def get_package_name(self, obj):
         upp = UserProgramPackage.objects.filter(user=obj.user).last()
         return upp.package.name if upp and upp.package else None
+    
+    def get_price(self, obj):
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        return upp.package.price if upp and upp.package else None
 
 
     def get_payment_status(self, obj):
@@ -239,6 +247,10 @@ class StudentListSerializer(serializers.ModelSerializer):
     def get_payment_type(self, obj):
         payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
         return payment.payment_type if payment else None
+    
+    def get_created_at(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.created_at if payment else None
     
     def get_method(self, obj):
         payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()

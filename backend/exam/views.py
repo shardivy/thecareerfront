@@ -1,5 +1,6 @@
 from datetime import timezone
 from django.shortcuts import get_object_or_404, render
+from exam.service import ALLOWED_PROGRAMS, create_default_exams_for_all_packages
 from report.models import Report
 from rest_framework.views import APIView
 from rest_framework.authentication import (TokenAuthentication)
@@ -13,7 +14,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils.timezone import now
 
-from program_package.models import PackageExam
+from program_package.models import Package, PackageExam
 
 class ExamCreateAPIView(APIView):
     """
@@ -154,20 +155,32 @@ class AddExamToPackageAPIView(APIView):
     ]
 
     # 🔹 GET – list exams
+    # def get(self, request):
+    #     package_id = request.query_params.get("package")
+
+    #     qs = (
+    #         PackageExam.objects
+    #         .select_related("exam", "package__program")
+    #         .order_by("sequence_order")
+    #     )
+
+    #     if package_id:
+    #         qs = qs.filter(package_id=package_id)
+
+    #     serializer = PackageExamResponseSerializer(qs, many=True)
+    #     return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    
+
     def get(self, request):
-        package_id = request.query_params.get("package")
+        # ✅ Auto-create defaults first
+        create_default_exams_for_all_packages()
 
-        qs = (
-            PackageExam.objects
-            .select_related("exam", "package__program")
-            .order_by("sequence_order")
-        )
-
-        if package_id:
-            qs = qs.filter(package_id=package_id)
-
+        # 🔹 Return all package exams
+        qs = PackageExam.objects.select_related("exam", "package__program").order_by("sequence_order")
         serializer = PackageExamResponseSerializer(qs, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.data, status=200)
+
 
     # 🔹 POST – create
     def post(self, request):

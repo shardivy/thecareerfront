@@ -1,6 +1,8 @@
 from django.db import models
 from django.shortcuts import get_object_or_404, render
 
+from lead_registration.models import StudentProfile
+from lead_registration.serializers import PaymentDetailSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.urls import reverse
@@ -17,10 +19,12 @@ import os
 
 from django.db.models import Sum
 from accounts.permissions import IsAdmin, IsSuperAdmin
+from rest_framework.permissions import IsAuthenticated
+
 from payment.models import Payment, PaymentLog
 from payment.serializers import PaymentCreateSerializer, PaymentListSerializer, PaymentLogSerializer, PaymentResponseSerializer
 from payment.utils import send_payment_reject_email, send_payment_reject_whatsapp
-from program_package.models import UserProgramPackage
+from program_package.models import Package, UserProgramPackage
 
 class PaymentCreateAPIView(APIView):
     """
@@ -264,31 +268,172 @@ class VerifyPaymentAPIView(APIView):
             "message": "Payment rejected and user notified"
         })
         
+# =================================================================================
 # class PaymentListAPIView(APIView):
 #     """
-#     Get all payments with user, package price, and status details.
+#     Get all payments with user, package, status
+#     + payment proof file (image/pdf)
 #     """
-#     permission_classes = [IsAdmin | IsSuperAdmin]  
+#     permission_classes = [IsAdmin | IsSuperAdmin]
 
 #     def get(self, request):
 #         payments = Payment.objects.select_related(
 #             'user',
+#             'user__student_profile',
+#             'package',
+#             'package__program',
+#             'verified_by'
+#         ).order_by('-created_at')   # ✅ Payment field
+
+#         response_data = []
+
+#         for payment in payments:
+#             proof_url = None
+
+#             if payment.proof_file:
+#                 url = reverse(
+#                     "payment-report-image",
+#                     kwargs={"payment_id": payment.id}
+#                 )
+#                 proof_url = request.build_absolute_uri(url)
+
+#             response_data.append({
+#                 "payment_id": payment.id,
+#                 "user_id": payment.user.id,
+#                 "student_id": (
+#                     payment.user.student_profile.id                                                                         
+#                     if getattr(payment.user, "student_profile", None)
+#                     else None
+#                 ),
+
+#                 "user_name": f"{payment.user.first_name} {payment.user.last_name}",
+#                 "email": payment.user.email,
+#                 "amount": payment.amount,
+#                 "payment_date": payment.payment_date,
+#                 "transaction_id": payment.transaction_id,
+#                 "program": (
+#                     payment.package.program.name
+#                     if payment.package else None
+#                 ),
+#                 "package_id": (
+#                     payment.package.id  
+#                     if payment.package else None
+#                 ),
+#                 "package": (
+#                     payment.package.name
+#                     if payment.package else None
+#                 ),
+#                 "package_price": (
+#                     payment.package.price
+#                     if payment.package else None
+#                 ),
+#                 "payment_type": payment.payment_type,
+
+#                 "payment_status": payment.status,
+#                 "payment_method": payment.method,
+#                 "created_at": payment.created_at,
+
+#                 # ✅ Payment proof (image/pdf)
+#                 "proof_file_url": proof_url,
+#             })
+
+#         return Response(
+#             {
+#                 "success": True,
+#                 "count": len(response_data),
+#                 "data": response_data
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
+
+# class PaymentListAPIView(APIView):
+#     """
+#     Get all payments with user, package, status
+#     + payment proof file (image/pdf)
+#     + total_paid
+#     + remaining_amount
+#     """
+#     permission_classes = [IsAdmin | IsSuperAdmin]
+
+#     def get(self, request):
+
+#         payments = Payment.objects.select_related(
+#             'user',
+#             'user__student_profile',
 #             'package',
 #             'package__program',
 #             'verified_by'
 #         ).order_by('-created_at')
 
-#         serializer = PaymentListSerializer(
-#             payments,
-#             many=True,
-#             context={'request': request}
-#         )
+#         response_data = []
+
+#         for payment in payments:
+
+#             # ✅ Calculate total paid for this user + package
+#             total_paid = (
+#                 Payment.objects.filter(
+#                     user=payment.user,
+#                     package=payment.package
+#                 ).aggregate(total=Sum("amount"))["total"] or 0
+#             )
+
+#             package_price = payment.package.price if payment.package else 0
+#             remaining_amount = max(package_price - total_paid, 0)
+
+#             proof_url = None
+#             if payment.proof_file:
+#                 url = reverse(
+#                     "payment-report-image",
+#                     kwargs={"payment_id": payment.id}
+#                 )
+#                 proof_url = request.build_absolute_uri(url)
+
+#             response_data.append({
+#                 "payment_id": payment.id,
+#                 "user_id": payment.user.id,
+#                 "student_id": (
+#                     payment.user.student_profile.id
+#                     if getattr(payment.user, "student_profile", None)
+#                     else None
+#                 ),
+#                 "user_name": f"{payment.user.first_name} {payment.user.last_name}",
+#                 "email": payment.user.email,
+
+#                 "amount": payment.amount,
+#                 "total_paid": total_paid,
+#                 "remaining_amount": remaining_amount,
+
+#                 "payment_date": payment.payment_date,
+#                 "transaction_id": payment.transaction_id,
+
+#                 "program": (
+#                     payment.package.program.name
+#                     if payment.package else None
+#                 ),
+#                 "package_id": (
+#                     payment.package.id
+#                     if payment.package else None
+#                 ),
+#                 "package": (
+#                     payment.package.name
+#                     if payment.package else None
+#                 ),
+#                 "package_price": package_price,
+
+#                 "payment_type": payment.payment_type,
+#                 "payment_status": payment.status,
+#                 "payment_method": payment.method,
+#                 "created_at": payment.created_at,
+
+#                 "proof_file_url": proof_url,
+#             })
 
 #         return Response(
 #             {
 #                 "success": True,
-#                 "count": payments.count(),
-#                 "data": serializer.data
+#                 "count": len(response_data),
+#                 "data": response_data
 #             },
 #             status=status.HTTP_200_OK
 #         )
@@ -297,66 +442,92 @@ class PaymentListAPIView(APIView):
     """
     Get all payments with user, package, status
     + payment proof file (image/pdf)
+    + total_paid
+    + remaining_amount
     """
     permission_classes = [IsAdmin | IsSuperAdmin]
 
     def get(self, request):
-        payments = Payment.objects.select_related(
-            'user',
-            'user__student_profile',
-            'package',
-            'package__program',
-            'verified_by'
-        ).order_by('-created_at')   # ✅ Payment field
+
+        # 🔥 Get unique user + package combinations
+        unique_payments = (
+            Payment.objects
+            .values("user", "package")
+            .distinct()
+        )
 
         response_data = []
 
-        for payment in payments:
-            proof_url = None
+        for item in unique_payments:
+            user_id = item["user"]
+            package_id = item["package"]
 
-            if payment.proof_file:
+            # Get all payments for this user + package
+            payments_qs = Payment.objects.filter(
+                user_id=user_id,
+                package_id=package_id
+            ).select_related(
+                'user',
+                'user__student_profile',
+                'package',
+                'package__program'
+            ).order_by('-created_at')
+
+            latest_payment = payments_qs.first()
+
+            if not latest_payment:
+                continue
+
+            # ✅ Calculate total paid
+            total_paid = payments_qs.aggregate(
+                total=Sum("amount")
+            )["total"] or 0
+
+            package_price = latest_payment.package.price if latest_payment.package else 0
+            remaining_amount = max(package_price - total_paid, 0)
+
+            proof_url = None
+            if latest_payment.proof_file:
                 url = reverse(
                     "payment-report-image",
-                    kwargs={"payment_id": payment.id}
+                    kwargs={"payment_id": latest_payment.id}
                 )
                 proof_url = request.build_absolute_uri(url)
 
             response_data.append({
-                "payment_id": payment.id,
-                "user_id": payment.user.id,
+                "user_id": latest_payment.user.id,
                 "student_id": (
-                    payment.user.student_profile.id                                                                         
-                    if getattr(payment.user, "student_profile", None)
+                    latest_payment.user.student_profile.id
+                    if getattr(latest_payment.user, "student_profile", None)
                     else None
                 ),
+                "user_name": f"{latest_payment.user.first_name} {latest_payment.user.last_name}",
+                "email": latest_payment.user.email,
 
-                "user_name": f"{payment.user.first_name} {payment.user.last_name}",
-                "email": payment.user.email,
-                "amount": payment.amount,
-                "payment_date": payment.payment_date,
-                "transaction_id": payment.transaction_id,
+                # 🔥 Show TOTAL instead of individual payment
+                "total_paid": total_paid,
+                "remaining_amount": remaining_amount,
+                "package_price": package_price,
+                "program_id": (
+                    latest_payment.package.program.id
+                    if latest_payment.package and latest_payment.package.program
+                    else None
+                ),
                 "program": (
-                    payment.package.program.name
-                    if payment.package else None
+                    latest_payment.package.program.name
+                    if latest_payment.package else None
                 ),
-                "package_id": (
-                    payment.package.id  
-                    if payment.package else None
-                ),
-                "package": (
-                    payment.package.name
-                    if payment.package else None
-                ),
-                "package_price": (
-                    payment.package.price
-                    if payment.package else None
-                ),
+                "package_id": latest_payment.package.id if latest_payment.package else None,
+                "package": latest_payment.package.name if latest_payment.package else None,
 
-                "payment_status": payment.status,
-                "payment_method": payment.method,
-                "created_at": payment.created_at,
+                # Optional: show latest transaction info
+                "date": latest_payment.payment_date,
+                "transaction_id": latest_payment.transaction_id,
+                "payment_status": (
+                    "fully_paid" if remaining_amount == 0 else "partial_paid"
+                ),
+                "method": latest_payment.method,
 
-                # ✅ Payment proof (image/pdf)
                 "proof_file_url": proof_url,
             })
 
@@ -368,8 +539,6 @@ class PaymentListAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
-  
-  
         
 @method_decorator(xframe_options_exempt, name="dispatch")
 class PaymentProofFileView(APIView):
@@ -456,3 +625,138 @@ class PaymentLogListAPIView(APIView):
             "total_logs": logs.count(),
             "data": serializer.data
         })
+        
+class StudentPaymentListAPIView(APIView):
+    """
+    Fetch all payments of a student using student_id
+    """
+
+    def get(self, request, student_id):
+        # Get student profile
+        student = get_object_or_404(StudentProfile, id=student_id)
+
+        # Get related user
+        user = student.user
+
+        # Fetch all payments
+        payments = Payment.objects.filter(user=user).order_by("-created_at")
+
+        serializer = PaymentDetailSerializer(
+            payments,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(
+            {
+                "message": "Student payment list fetched successfully",
+                "student_id": student.id,
+                "user_id": user.id,
+                "total_payments": payments.count(),
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+        
+        
+class StudentPackagePaymentSummaryAPIView(APIView):
+    """
+    Get payment summary by student_id + package_id
+    """
+    permission_classes = [IsAdmin | IsSuperAdmin]
+
+    def get(self, request, student_id, package_id):
+
+        # Get student
+        student = get_object_or_404(StudentProfile, id=student_id)
+        user = student.user
+
+        # Get package
+        package = get_object_or_404(Package, id=package_id)
+
+        # Get all payments for this student + package
+        payments = Payment.objects.filter(
+            user=user,
+            package=package
+        )
+
+        if not payments.exists():
+            return Response(
+                {
+                    "success": False,
+                    "message": "No payment found for this student and package."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        total_paid = payments.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
+
+        package_price = package.price
+        remaining_amount = max(package_price - total_paid, 0)
+
+        # Latest payment status
+        latest_payment = payments.order_by("-created_at").first()
+
+        return Response(
+            {
+                "success": True,
+                "data": {
+                    "student_id": student.id,
+                    "student_name": f"{user.first_name} {user.last_name}",
+                    "package_id": package.id,
+                    "package_name": package.name,
+                    "package_price": package_price,
+                    "total_paid": total_paid,
+                    "remaining_amount": remaining_amount,
+                    "payment_status": latest_payment.status
+                }
+            },
+            status=status.HTTP_200_OK
+        )
+        
+class UpdatePaymentStatusAPIView(APIView):
+    """
+    Update payment status anytime
+    """
+    permission_classes = [IsAuthenticated]  # Add role permissions if needed
+
+    @transaction.atomic
+    def post(self, request, pk):
+
+        payment = get_object_or_404(Payment, id=pk)
+
+        new_status = request.data.get("status")
+
+        # ✅ Validate status
+        VALID_STATUSES = [
+            "fully_paid",
+            "partial_paid",
+            "verification_pending"
+        ]
+
+        if new_status not in VALID_STATUSES:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Status must be one of {VALID_STATUSES}"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ Update payment
+        payment.status = new_status
+        payment.verified_by = request.user
+        payment.save(update_fields=["status", "verified_by", "updated_at"])
+
+        return Response(
+            {
+                "success": True,
+                "message": "Payment status updated successfully",
+                "payment_id": payment.id,
+                "new_status": payment.status,
+                "verified_by": request.user.id
+            },
+            status=status.HTTP_200_OK
+        )

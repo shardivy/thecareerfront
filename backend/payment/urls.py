@@ -1,6 +1,6 @@
 from django.urls import path
 
-from payment.views import PaymentCreateAPIView, PaymentListAPIView, PaymentLogListAPIView, PaymentProofFileView, PaymentStatsAPIView, VerifyPaymentAPIView
+from payment.views import PaymentCreateAPIView, PaymentListAPIView, PaymentLogListAPIView, PaymentProofFileView, PaymentStatsAPIView, StudentPackagePaymentSummaryAPIView, StudentPaymentListAPIView, UpdatePaymentStatusAPIView, VerifyPaymentAPIView
 
 
 urlpatterns = [
@@ -17,8 +17,24 @@ urlpatterns = [
     
     path('payments-count/', PaymentStatsAPIView.as_view(), name='payment-count'),
     
-    path("payments/<int:payment_id>/logs/", PaymentLogListAPIView.as_view(), name="payment-logs"
+    path("payments/<int:payment_id>/logs/", PaymentLogListAPIView.as_view(), name="payment-logs"),
+    path(
+        "payments/student/<int:student_id>/",
+        StudentPaymentListAPIView.as_view(),
+        name="student-payment-list"
+    ),
+    path(
+    "student-payment-summary/<int:student_id>/<int:package_id>/",
+    StudentPackagePaymentSummaryAPIView.as_view(),
+    name="student-package-payment-summary"
 ),
+    path(
+    "payments/<int:pk>/update-status/",
+    UpdatePaymentStatusAPIView.as_view(),
+    name="update-payment-status",
+),
+
+
 
     
 ]

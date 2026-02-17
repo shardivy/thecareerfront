@@ -1,4 +1,6 @@
 from django.shortcuts import get_object_or_404, render
+from backend import settings
+from counselling_slot.services import get_counsellor_slots_by_date
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -7,6 +9,7 @@ from django.db import transaction
 from collections import defaultdict
 from datetime import timedelta
 from django.utils.timezone import now
+from datetime import datetime
 
 from accounts.models import User
 from django.db import IntegrityError
@@ -263,19 +266,31 @@ class SlotDeleteAPIView(APIView):
 
     @transaction.atomic
     def delete(self, request, slot_id):
+
         slot = get_object_or_404(Slot, id=slot_id)
 
-        slot.is_deleted = True   # ✅ soft delete
+        # 🚨 STRICT: If ANY booking exists, DO NOT DELETE
+        if Booking.objects.filter(slot=slot).exists():
+            return Response(
+                {
+                    "success": False,
+                    "message": "Slot cannot be deleted because it is already booked."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Soft delete only if no booking
+        slot.is_deleted = True
+        slot.is_available = False
         slot.save()
 
         return Response(
             {
-                "message": "Slot deleted successfully",
-                "slot_id": slot_id
+                "success": True,
+                "message": "Slot deleted successfully."
             },
             status=status.HTTP_200_OK
         )
-
         
         
 class UpdateCounsellorStatusAPIView(APIView):
@@ -734,6 +749,71 @@ class SessionDashboardCountAPIView(APIView):
 
             "completed_sessions": completed_sessions
         })
+        
+        
+class CounsellorSlotByDateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, date):
+
+        try:
+            selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data = get_counsellor_slots_by_date(selected_date)
+
+        return Response({
+            "success": True,
+            "date": selected_date,
+            "data": data
+        })    
+
+
+class SlotAvailabilityUpdateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def put(self, request, slot_id):
+
+        slot = get_object_or_404(Slot, id=slot_id, is_deleted=False)
+
+        is_available = request.data.get("is_available")
+
+        # Validate input
+        if is_available is None:
+            return Response(
+                {
+                    "success": False,
+                    "message": "is_available field is required."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not isinstance(is_available, bool):
+            return Response(
+                {
+                    "success": False,
+                    "message": "is_available must be true or false."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        slot.is_available = is_available
+        slot.save(update_fields=["is_available"])
+
+        return Response(
+            {
+                "success": True,
+                "message": "Slot availability updated successfully.",
+                "slot_id": slot.id,
+                "is_available": slot.is_available
+            },
+            status=status.HTTP_200_OK
+        )
 
 
 
