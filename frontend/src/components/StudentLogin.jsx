@@ -24,7 +24,7 @@ const StudentLogin = () => {
 
   const onFinish = (values) => {
     console.log("Login Values:", values);
-    navigate("/student/dashboard");
+    navigate("/student/student-profile");
   };
 
   return (

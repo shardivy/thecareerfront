@@ -6,6 +6,7 @@ import {
   verifyPaymentApi,
   updatePaymentApi,
   fetchStudentPaymentSummaryApi,
+  fetchStudentPaymentHistoryApi,
 } from "../adminApi/paymentApi";
 
 /* ================= SUBMIT PAYMENT ================= */
@@ -108,6 +109,21 @@ export const fetchStudentPaymentSummary = createAsyncThunk(
 );
 
 
+/* ================= FETCH STUDENT PAYMENT HISTORY ================= */
+export const fetchStudentPaymentHistory = createAsyncThunk(
+  "payment/fetchStudentHistory",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await fetchStudentPaymentHistoryApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch payment history"
+      );
+    }
+  }
+);
+
+
 /* ================= SLICE ================= */
 const paymentSlice = createSlice({
   name: "payment",
@@ -141,6 +157,11 @@ const paymentSlice = createSlice({
     summaryLoading: false,
     summaryError: null,
     summaryData: null,
+
+    /* ===== Student Payment History ===== */
+historyLoading: false,
+historyError: null,
+historyList: [],
 
   },
 
@@ -191,72 +212,79 @@ const paymentSlice = createSlice({
       .addCase(fetchPayments.pending, (state) => {
         state.listLoading = true;
       })
-      .addCase(fetchPayments.fulfilled, (state, action) => {
-        state.listLoading = false;
+  .addCase(fetchPayments.fulfilled, (state, action) => {
+  state.listLoading = false;
 
-        const payload = action.payload;
-        let paymentList = [];
+  const payload = action.payload;
+  let paymentList = [];
 
-        if (Array.isArray(payload)) {
-          paymentList = payload;
-        } else if (Array.isArray(payload?.data)) {
-          paymentList = payload.data;
-        }
+  if (Array.isArray(payload)) {
+    paymentList = payload;
+  } else if (Array.isArray(payload?.data)) {
+    paymentList = payload.data;
+  }
 
-        state.list = paymentList.map((payment, index) => {
-          let userName = payment.user_name || "";
-          if (userName.includes(" - ")) {
-            const parts = userName.split(" - ");
-            userName = parts[parts.length - 1].trim();
-          }
+  // ✅ Clear list first
+  state.list = [];
 
-          let formattedDate = "-";
-          const dateToUse = payment.payment_date || payment.created_at;
+  paymentList.forEach((payment) => {
+    let userName = payment.user_name || "";
+    if (userName.includes(" - ")) {
+      const parts = userName.split(" - ");
+      userName = parts[parts.length - 1].trim();
+    }
 
-          if (dateToUse) {
-            try {
-              formattedDate = new Date(dateToUse)
-                .toISOString()
-                .split("T")[0];
-            } catch {
-              formattedDate = "-";
-            }
-          }
+    let formattedDate = "-";
+    const dateToUse = payment.payment_date || payment.created_at;
 
-          return {
-            key: payment.payment_id || payment.id || `payment-${index}`,
-            id: payment.payment_id || payment.id,
-            user_id: payment.user_id,
-            student_id: payment.student_id,
+    if (dateToUse) {
+      try {
+        formattedDate = new Date(dateToUse)
+          .toISOString()
+          .split("T")[0];
+      } catch {
+        formattedDate = "-";
+      }
+    }
 
-            name: userName,
-            user_name: userName,
-            student_name: userName,
-            user_email: payment.email || "",
+    const formattedPayment = {
+      key: payment.payment_id || payment.id,
+      id: payment.payment_id || payment.id,
+      user_id: payment.user_id,
+      student_id: payment.student_id,
 
-            package_id: payment.package_id,
-            package_name: payment.package || "",
-            package_price: payment.package_price || 0,
+      name: userName,
+      user_name: userName,
+      student_name: userName,
+      user_email: payment.email || "",
 
+      package_id: payment.package_id,
+      package_name: payment.package || "",
+      package_price: payment.package_price || 0,
 
-            amount: payment.amount || 0,
+      amount: payment.amount || 0,
+      total_paid: payment.total_paid || 0,
 
-            payment_status:
-              payment.payment_status || payment.status || "pending",
-            status:
-              payment.payment_status || payment.status || "pending",
+      payment_status:
+        payment.payment_status || payment.status || "pending",
+      status:
+        payment.payment_status || payment.status || "pending",
 
-            payment_method:
-              payment.payment_method || payment.method || "",
+      payment_method:
+        payment.payment_method || payment.method || "",
 
-            payment_date: formattedDate,
-            transaction_id:
-              payment.transaction_id || payment.txn || "-",
+      payment_date: formattedDate,
+      transaction_id:
+        payment.transaction_id || payment.txn || "-",
 
-            proof_file_url: payment.proof_file_url || "",
-          };
-        });
-      })
+      proof_file_url: payment.proof_file_url || "",
+    };
+
+    // ✅ This pushes newest to top
+    state.list.unshift(formattedPayment);
+  });
+})
+
       .addCase(fetchPayments.rejected, (state, action) => {
         state.listLoading = false;
         state.listError = action.payload;
@@ -337,7 +365,23 @@ const paymentSlice = createSlice({
         state.summaryLoading = false;
         state.summaryError = action.payload || action.error.message;
         state.summaryData = null;
-      });
+      })
+
+      /* ================= STUDENT PAYMENT HISTORY ================= */
+.addCase(fetchStudentPaymentHistory.pending, (state) => {
+  state.historyLoading = true;
+  state.historyError = null;
+})
+.addCase(fetchStudentPaymentHistory.fulfilled, (state, action) => {
+  state.historyLoading = false;
+  state.historyList =
+    action.payload?.data || action.payload || [];
+})
+.addCase(fetchStudentPaymentHistory.rejected, (state, action) => {
+  state.historyLoading = false;
+  state.historyError = action.payload;
+});
+
 
   },
 });

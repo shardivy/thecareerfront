@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   Typography,
@@ -14,14 +14,14 @@ import {
   message,
   theme,
   Grid,
+  Spin,
 } from "antd";
 
-import {
-  UserOutlined,
-  CrownOutlined,
-} from "@ant-design/icons";
-
+import { UserOutlined, CrownOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+
+import { useDispatch, useSelector } from "react-redux";
+import { getProfile, updateProfile } from "../../../adminSlices/profileSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -31,32 +31,58 @@ const StudentProfile = () => {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
 
-  const [profile, setProfile] = useState({
-    name: "Shrutika Desai",
-    email: "shrutika@gmail.com",
-    phone: "+91 98765 43210",
-    program: "Engineering",
-    counselling_service: "End-to-End Counselling",
-    joined_on: "2023-01-15",
-    dob: "2002-03-12",
-    study_class: "10th",
-    current_academic_stage: "10th",
-    current_academic_year: "2024-2025",
-    school: "Delhi Public School",
-    city: "Mumbai",
-    preferred_counselling_mode: "online",
-    stream: "Engineering",
-    liked_subjects: ["Maths"],
-    disliked_subjects: [],
-    hobbies: ["Painting"],
-    profession: "",
-    organization_name: "",
-    education_level: "",
-    background: "Urban",
-    annual_income_range: "",
-    expectations_from_student: "",
-    package: "Premium",
-  });
+  const dispatch = useDispatch();
+  const { profile: storedProfile, loading } = useSelector((state) => state.profile);
+
+  const [profile, setProfile] = useState(null);
+
+  // ===== Load profile on mount =====
+  useEffect(() => {
+    dispatch(getProfile());
+  }, [dispatch]);
+
+  // ===== Update local state when API data is loaded =====
+useEffect(() => {
+  if (storedProfile) {
+    const formattedProfile = {
+      id: storedProfile.id,
+      student_id: storedProfile.student_id,
+      name: `${storedProfile.first_name || ""} ${storedProfile.last_name || ""}`,
+      email: storedProfile.email || "",
+      phone: storedProfile.phone || "",
+      program: storedProfile.program || "",
+      counselling_service: storedProfile.package || "",
+      joined_on: storedProfile.created_at ? dayjs(storedProfile.created_at).format("YYYY-MM-DD") : "",
+      dob: storedProfile.dob || "",
+
+      study_class: storedProfile.study_class || "",
+      current_academic_year: storedProfile.current_academic_year || "",
+      school: storedProfile.school_college || "",
+      city: storedProfile.city || "",
+      preferred_counselling_mode: storedProfile.preferred_counselling_mode || "",
+
+      stream: storedProfile.program || "",
+      liked_subjects: storedProfile.liked_subjects || [],
+      disliked_subjects: storedProfile.disliked_subjects || [],
+      hobbies: storedProfile.hobbies || [],
+
+      profession: storedProfile.profession || "",
+      organization_name: storedProfile.organization_name || "",
+      education_level: storedProfile.education_level || "",
+      background: storedProfile.background || "",
+      annual_income_range: storedProfile.annual_income_range || "",
+      expectations_from_student: storedProfile.expectations_from_student || "",
+      package: storedProfile.package || "",
+      payments: storedProfile.payments || [],
+    };
+
+    setProfile(formattedProfile);
+
+    // ✅ Store program & package in localStorage immediately
+    localStorage.setItem("selectedProgram", formattedProfile.program || "");
+    localStorage.setItem("selectedPackage", formattedProfile.package || "");
+  }
+}, [storedProfile]);
 
   const handleChange = (field, value) => {
     setProfile((prev) => ({
@@ -65,10 +91,34 @@ const StudentProfile = () => {
     }));
   };
 
-  const handleSave = () => {
-    console.log("Full Profile Data:", profile);
+const handleSave = async () => {
+  try {
+    await dispatch(updateProfile(profile)).unwrap();
     message.success("Profile updated successfully!");
-  };
+
+    // ✅ Save program and package in localStorage for Program page
+    localStorage.setItem("selectedProgram", profile.program || "");
+    localStorage.setItem("selectedPackage", profile.package || "");
+  } catch (error) {
+    message.error(error || "Failed to update profile");
+  }
+};
+
+
+  if (loading || !profile) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+        }}
+      >
+        <Spin size="large" />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -85,10 +135,7 @@ const StudentProfile = () => {
           justify={screens.xs ? "center" : "start"}
         >
           <Col>
-            <Avatar
-              size={screens.xs ? 60 : 80}
-              icon={<UserOutlined />}
-            />
+            <Avatar size={screens.xs ? 60 : 80} icon={<UserOutlined />} />
           </Col>
 
           <Col>
@@ -97,7 +144,7 @@ const StudentProfile = () => {
             </Title>
 
             <Tag color="gold" icon={<CrownOutlined />}>
-              {profile.package}
+              {profile.package || "Premium"}
             </Tag>
           </Col>
         </Row>
@@ -105,7 +152,6 @@ const StudentProfile = () => {
 
       {/* ================= FORM SECTION ================= */}
       <Card>
-
         {/* PERSONAL INFO */}
         <Title level={4}>Personal Information</Title>
         <Divider />
@@ -113,17 +159,25 @@ const StudentProfile = () => {
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={24} md={12}>
             <Text>Name</Text>
-            <Input value={profile.name} readOnly />
+            <Input
+              value={profile.name}
+              onChange={(e) => handleChange("name", e.target.value)}
+              disabled
+            />
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>Email</Text>
-            <Input value={profile.email} readOnly />
+            <Input value={profile.email} disabled />
           </Col>
 
           <Col xs={24} sm={24} md={12}>
-            <Text>Phone</Text>
-            <Input value={profile.phone} readOnly />
+            <Text>Mobile Number</Text>
+            <Input
+              value={profile.phone}
+              onChange={(e) => handleChange("phone", e.target.value)}
+              disabled
+            />
           </Col>
 
           <Col xs={24} sm={24} md={12}>
@@ -131,23 +185,32 @@ const StudentProfile = () => {
             <DatePicker
               style={{ width: "100%" }}
               value={profile.dob ? dayjs(profile.dob) : null}
-              readOnly
+              onChange={(date) =>
+                handleChange("dob", date ? date.format("YYYY-MM-DD") : "")
+              }
+              disabled
             />
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>Program</Text>
-            <Input value={profile.program} readOnly />
+            <Input value={profile.program} onChange={(e) => handleChange("program", e.target.value)} disabled />
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>Counselling Service</Text>
-            <Input value={profile.counselling_service} readOnly />
+            <Input
+              value={profile.counselling_service}
+              onChange={(e) =>
+                handleChange("counselling_service", e.target.value)
+              }
+              disabled
+            />
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>Joined On</Text>
-            <Input value={profile.joined_on} readOnly />
+            <Input value={profile.joined_on} disabled />
           </Col>
         </Row>
 
@@ -164,11 +227,11 @@ const StudentProfile = () => {
               onChange={(v) => handleChange("study_class", v)}
               mode="tags"
             >
-              <Option value="8th">8th</Option>
-              <Option value="9th">9th</Option>
-              <Option value="10th">10th</Option>
-              <Option value="11th">11th</Option>
-              <Option value="12th">12th</Option>
+              {["8th", "9th", "10th", "11th", "12th"].map((cls) => (
+                <Option key={cls} value={cls}>
+                  {cls}
+                </Option>
+              ))}
             </Select>
           </Col>
 
@@ -208,10 +271,11 @@ const StudentProfile = () => {
           style={{ width: "100%" }}
           onChange={(v) => handleChange("stream", v)}
         >
-          <Option value="Engineering">Engineering</Option>
-          <Option value="Medical">Medical</Option>
-          <Option value="Design">Design</Option>
-          <Option value="Commerce">Commerce</Option>
+          {["Engineering", "Medical", "Design", "Commerce"].map((stream) => (
+            <Option key={stream} value={stream}>
+              {stream}
+            </Option>
+          ))}
         </Select>
 
         {/* SUBJECT PREFERENCES */}
@@ -223,14 +287,15 @@ const StudentProfile = () => {
             <Text>Liked Subjects</Text>
             <Select
               mode="tags"
-              value={profile.liked_subjects}
+              value={profile.liked_subjects || []}
               style={{ width: "100%" }}
               onChange={(v) => handleChange("liked_subjects", v)}
             >
-              <Option value="Maths">Maths</Option>
-              <Option value="Physics">Physics</Option>
-              <Option value="Chemistry">Chemistry</Option>
-              <Option value="Biology">Biology</Option>
+              {["Maths", "Physics", "Chemistry", "Biology"].map((subj) => (
+                <Option key={subj} value={subj}>
+                  {subj}
+                </Option>
+              ))}
             </Select>
           </Col>
 
@@ -238,14 +303,15 @@ const StudentProfile = () => {
             <Text>Disliked Subjects</Text>
             <Select
               mode="tags"
-              value={profile.disliked_subjects}
+              value={profile.disliked_subjects || []}
               style={{ width: "100%" }}
               onChange={(v) => handleChange("disliked_subjects", v)}
             >
-              <Option value="Maths">Maths</Option>
-              <Option value="Physics">Physics</Option>
-              <Option value="Chemistry">Chemistry</Option>
-              <Option value="Biology">Biology</Option>
+              {["Maths", "Physics", "Chemistry", "Biology"].map((subj) => (
+                <Option key={subj} value={subj}>
+                  {subj}
+                </Option>
+              ))}
             </Select>
           </Col>
         </Row>
@@ -256,15 +322,15 @@ const StudentProfile = () => {
 
         <Select
           mode="tags"
-          value={profile.hobbies}
+          value={profile.hobbies || []}
           style={{ width: "100%" }}
           onChange={(v) => handleChange("hobbies", v)}
         >
-          <Option value="Painting">Painting</Option>
-          <Option value="Cricket">Cricket</Option>
-          <Option value="Music">Music</Option>
-          <Option value="Coding">Coding</Option>
-          <Option value="Dancing">Dancing</Option>
+          {["Painting", "Cricket", "Music", "Coding", "Dancing"].map((hobby) => (
+            <Option key={hobby} value={hobby}>
+              {hobby}
+            </Option>
+          ))}
         </Select>
 
         {/* PARENT DETAILS */}
@@ -307,9 +373,11 @@ const StudentProfile = () => {
               style={{ width: "100%" }}
               onChange={(v) => handleChange("background", v)}
             >
-              <Option value="Urban">Urban</Option>
-              <Option value="Rural">Rural</Option>
-              <Option value="Semi-Urban">Semi-Urban</Option>
+              {["Urban", "Rural", "Semi-Urban"].map((bg) => (
+                <Option key={bg} value={bg}>
+                  {bg}
+                </Option>
+              ))}
             </Select>
           </Col>
 
@@ -318,15 +386,13 @@ const StudentProfile = () => {
             <Select
               value={profile.annual_income_range}
               style={{ width: "100%" }}
-              onChange={(v) =>
-                handleChange("annual_income_range", v)
-              }
+              onChange={(v) => handleChange("annual_income_range", v)}
             >
-              <Option value="0-2 Lakhs">0 - 2 Lakhs</Option>
-              <Option value="2-5 Lakhs">2 - 5 Lakhs</Option>
-              <Option value="5-10 Lakhs">5 - 10 Lakhs</Option>
-              <Option value="10-20 Lakhs">10 - 20 Lakhs</Option>
-              <Option value="20+ Lakhs">20+ Lakhs</Option>
+              {["0-2 Lakhs", "2-5 Lakhs", "5-10 Lakhs", "10-20 Lakhs", "20+ Lakhs"].map((range) => (
+                <Option key={range} value={range}>
+                  {range}
+                </Option>
+              ))}
             </Select>
           </Col>
 

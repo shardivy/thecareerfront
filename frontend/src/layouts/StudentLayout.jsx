@@ -167,11 +167,21 @@ export default function StudentLayout() {
   ];
 
 
-  const handleLogout = () => {
-    localStorage.removeItem("studentToken");
-    localStorage.removeItem("username");
-    navigate("/", { replace: true });
-  };
+const handleLogout = () => {
+  // Remove authentication & user info
+  localStorage.removeItem("studentToken");
+  localStorage.removeItem("username");
+
+  // Remove program/package stored from profile
+  localStorage.removeItem("selectedProgram");
+  localStorage.removeItem("selectedPackage");
+
+  // If you want to be extra safe, you can also clear everything
+  // localStorage.clear(); // ⚠️ This clears all localStorage, including unrelated keys
+
+  navigate("/", { replace: true });
+};
+
 
   const MenuContent = (
     <Menu

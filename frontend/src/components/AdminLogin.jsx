@@ -50,7 +50,7 @@ const AdminLogin = () => {
           break;
 
         case "student":
-          navigate("/student/dashboard");
+          navigate("/student/student-profile");
           break;
 
         default:

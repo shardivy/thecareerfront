@@ -25,6 +25,7 @@ export const fetchPackagesByProgram = createAsyncThunk(
   async (programId, { rejectWithValue }) => {
     try {
       const response = await getPackagesByProgramApi(programId);
+            console.log("API response:", response);
       return response.data.packages; // ✅ FIX
     } catch {
       return rejectWithValue("Failed to fetch packages");
@@ -76,17 +77,31 @@ const packageSlice = createSlice({
       .addCase(fetchPackages.pending, (state) => {
         state.loading = true;
       })
+      // .addCase(fetchPackages.fulfilled, (state, action) => {
+      //   state.loading = false;
+      //   state.list = action.payload?.data || [];
+      // })
+
       .addCase(fetchPackages.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = action.payload?.data || [];
+
+        const packages = action.payload?.data || [];
+
+        // 🔥 Sort alphabetically by name
+        packages.sort((a, b) =>
+          a.name?.localeCompare(b.name, undefined, { sensitivity: "base" })
+        );
+
+        state.list = packages;
       })
+
       .addCase(fetchPackages.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
       /* ✅ FETCH BY PROGRAM */
-    .addCase(fetchPackagesByProgram.pending, (state) => {
+      .addCase(fetchPackagesByProgram.pending, (state) => {
         state.loading = true;
         state.list = [];
       })

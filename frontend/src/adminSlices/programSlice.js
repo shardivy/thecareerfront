@@ -73,9 +73,23 @@ const programSlice = createSlice({
     builder
       // FETCH PROGRAMS
       .addCase(fetchPrograms.pending, (state) => { state.loading = true; })
+      // .addCase(fetchPrograms.fulfilled, (state, action) => {
+      //   state.loading = false;
+      //   state.list = Array.isArray(action.payload?.data) ? action.payload.data : [];
+      // })
       .addCase(fetchPrograms.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = Array.isArray(action.payload?.data) ? action.payload.data : [];
+
+        const programs = Array.isArray(action.payload?.data)
+          ? action.payload.data
+          : [];
+
+        // 🔥 SORT ALPHABETICALLY BY NAME (A → Z)
+        programs.sort((a, b) =>
+          a.name?.localeCompare(b.name, undefined, { sensitivity: "base" })
+        );
+
+        state.list = programs;
       })
       .addCase(fetchPrograms.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
 

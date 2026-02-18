@@ -181,7 +181,7 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
       if (!res.error) {
         form.resetFields();
         setSlotsList([]);
-        onSuccess();
+        onSuccess(date);
         onCancel();
       }
     });

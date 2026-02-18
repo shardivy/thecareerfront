@@ -73,3 +73,10 @@ export const deleteUserApi = async (id) => {
   return response.data;
 };
 
+/* ---------- FETCH STUDENT JOURNEY ---------- */
+export const fetchStudentJourneyApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/lead-registeration/student/${studentId}/journey/`
+  );
+  return response.data;
+};

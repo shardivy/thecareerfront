@@ -30,23 +30,23 @@ const { Title, Text } = Typography;
 
 const ExamManagement = () => {
   const [statusModalVisible, setStatusModalVisible] = useState(false);
-  const [instructionsModalVisible, setInstructionsModalVisible] =
-    useState(false);
+  const [instructionsModalVisible, setInstructionsModalVisible] = useState(false);
 
-  // exam status state
-  const [examStatus, setExamStatus] = useState("not_started");
-  // not_started | in_progress | completed
-
+  const [examStatus, setExamStatus] = useState("not_started"); // not_started | in_progress | completed
   const { useToken } = theme;
 
+  // Callback to run after instructions are confirmed
+  const [onInstructionsConfirm, setOnInstructionsConfirm] = useState(null);
+
   const handleStartExam = () => {
-    window.open("https://external-exam-platform.com", "_blank");
-    setExamStatus("in_progress");
+    setOnInstructionsConfirm(() => () => {
+      window.open("https://external-exam-platform.com", "_blank");
+      setExamStatus("in_progress");
+    });
+    setInstructionsModalVisible(true);
   };
 
-  const handleMarkCompleted = () => {
-    setExamStatus("completed");
-  };
+  const handleMarkCompleted = () => setExamStatus("completed");
 
   const PageContent = () => {
     const { token } = useToken();
@@ -113,14 +113,8 @@ const ExamManagement = () => {
             <Row gutter={[20, 20]}>
               {[
                 { title: "Aptitude & Reasoning", meta: "30 questions • 20 minutes" },
-                {
-                  title: "Interest & Personality",
-                  meta: "40 questions • 25 minutes",
-                },
-                {
-                  title: "Subject Preference",
-                  meta: "20 questions • 10 minutes",
-                },
+                { title: "Interest & Personality", meta: "40 questions • 25 minutes" },
+                { title: "Subject Preference", meta: "20 questions • 10 minutes" },
                 { title: "Career Values", meta: "10 questions • 5 minutes" },
               ].map((section, index) => (
                 <Col xs={24} md={12} key={index}>
@@ -149,29 +143,26 @@ const ExamManagement = () => {
               }}
             >
               <Title level={5}>
-                <InfoCircleOutlined
-                  style={{ color: token.colorPrimary, marginRight: 6 }}
-                />
+                <InfoCircleOutlined style={{ color: token.colorPrimary, marginRight: 6 }} />
                 Before You Begin
               </Title>
 
-             <List
-  size="small"
-  dataSource={[
-    "Stable internet connection required",
-    "Find a quiet place without distractions",
-    "Have a pen and paper for rough work (optional)",
-  ]}
-  renderItem={(item) => (
-    <List.Item style={{ padding: "4px 0" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-        <CheckCircleOutlined style={{ color: token.colorSuccess }} />
-        <Text>{item}</Text>
-      </div>
-    </List.Item>
-  )}
-/>
-
+              <List
+                size="small"
+                dataSource={[
+                  "Stable internet connection required",
+                  "Find a quiet place without distractions",
+                  "Have a pen and paper for rough work (optional)",
+                ]}
+                renderItem={(item) => (
+                  <List.Item style={{ padding: "4px 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+                      <Text>{item}</Text>
+                    </div>
+                  </List.Item>
+                )}
+              />
             </Card>
 
             {/* PAYMENT STATUS */}
@@ -222,21 +213,9 @@ const ExamManagement = () => {
                   <List
                     size="small"
                     dataSource={[
-                      {
-                        icon: <ClockCircleOutlined />,
-                        label: "Duration",
-                        value: "60 Minutes",
-                      },
-                      {
-                        icon: <FileTextOutlined />,
-                        label: "Questions",
-                        value: "100 MCQs",
-                      },
-                      {
-                        icon: <SafetyOutlined />,
-                        label: "Marking",
-                        value: "No Negative Marking",
-                      },
+                      { icon: <ClockCircleOutlined />, label: "Duration", value: "60 Minutes" },
+                      { icon: <FileTextOutlined />, label: "Questions", value: "100 MCQs" },
+                      { icon: <SafetyOutlined />, label: "Marking", value: "No Negative Marking" },
                     ]}
                     renderItem={(item) => (
                       <List.Item>
@@ -353,6 +332,10 @@ const ExamManagement = () => {
       <InstructionsModal
         open={instructionsModalVisible}
         onClose={() => setInstructionsModalVisible(false)}
+        onConfirm={() => {
+          setInstructionsModalVisible(false);
+          if (onInstructionsConfirm) onInstructionsConfirm();
+        }}
       />
 
       <StatusTrackingModal

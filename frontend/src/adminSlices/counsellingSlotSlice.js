@@ -9,6 +9,24 @@ import {
     updateSlotAvailabilityApi,
 } from "../adminApi/counsellingSlotApi";
 
+
+const sortSlotsAsc = (slots) => {
+  if (!slots) return [];
+
+  const toMinutes = (timeStr) => {
+    const [time, modifier] = timeStr.split(" "); // ["03:00", "PM"]
+    let [hours, minutes] = time.split(":").map(Number);
+
+    if (modifier === "PM" && hours !== 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  return [...slots].sort((a, b) => toMinutes(a.start_time) - toMinutes(b.start_time));
+};
+
+
 /* ---------- FETCH BY DATE ---------- */
 export const fetchSlotsByDate = createAsyncThunk(
   "counsellingSlots/fetchByDate",
@@ -121,10 +139,14 @@ const counsellingSlotSlice = createSlice({
       .addCase(fetchSlotsByDate.pending, (state) => {
         state.loading = true;
       })
-      .addCase(fetchSlotsByDate.fulfilled, (state, action) => {
-        state.loading = false;
-        state.list = action.payload?.data || action.payload || [];
-      })
+     .addCase(fetchSlotsByDate.fulfilled, (state, action) => {
+  state.loading = false;
+  state.list = (action.payload?.data || action.payload || []).map(item => ({
+    ...item,
+    slots: sortSlotsAsc(item.slots),
+  }));
+})
+
       .addCase(fetchSlotsByDate.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -146,7 +168,7 @@ const counsellingSlotSlice = createSlice({
               counsellor_id: c.counsellor_id,
               counsellor_name: c.counsellor_name,
               is_active: c.is_active,
-              slots: c.slots,
+              slots: sortSlotsAsc(c.slots),
             });
           });
         });
@@ -217,37 +239,42 @@ const counsellingSlotSlice = createSlice({
           counsellor_id: c.counsellor_id,
           counsellor_name: c.counsellor_name,
           is_active: c.is_active,
-          slots: c.slots || [],
+          slots: sortSlotsAsc(c.slots),
         }));
       })
       .addCase(fetchSlotsForSelectedDate.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
-.addCase(updateSlotAvailability.fulfilled, (state, action) => {
-  const updatedSlot = action.payload; // API returns { slot_id, is_available }
 
-  // Merge availability instead of replacing the whole slot
+.addCase(updateSlotAvailability.fulfilled, (state, action) => {
+  const updatedSlot = action.payload; // { slot_id, is_available }
+
   state.list = state.list.map((item) => ({
     ...item,
-    slots: item.slots?.map((slot) =>
-      slot.slot_id === updatedSlot.slot_id
-        ? { ...slot, is_available: updatedSlot.is_available }
-        : slot
+    slots: sortSlotsAsc(
+      item.slots?.map((slot) =>
+        slot.slot_id === updatedSlot.slot_id
+          ? { ...slot, is_available: updatedSlot.is_available }
+          : slot
+      )
     ),
   }));
 
   state.counsellorWiseList = state.counsellorWiseList.map((item) => ({
     ...item,
-    slots: item.slots?.map((slot) =>
-      slot.slot_id === updatedSlot.slot_id
-        ? { ...slot, is_available: updatedSlot.is_available }
-        : slot
+    slots: sortSlotsAsc(
+      item.slots?.map((slot) =>
+        slot.slot_id === updatedSlot.slot_id
+          ? { ...slot, is_available: updatedSlot.is_available }
+          : slot
+      )
     ),
   }));
 
   state.loading = false;
-})
+});
+
 
 
   },

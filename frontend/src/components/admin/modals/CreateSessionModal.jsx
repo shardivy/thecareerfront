@@ -203,8 +203,8 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
           {/* ================= PRIMARY & SECONDARY COUNSELLOR ================= */}
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="Primary Counsellor" name="primaryCounsellor" rules={[{ required: true }]}>
-                <Select disabled={isView} loading={counsellorsLoading} labelInValue placeholder="Select Primary Counsellor">
+              <Form.Item label="Lead Counsellor" name="primaryCounsellor" rules={[{ required: true }]}>
+                <Select disabled={isView} loading={counsellorsLoading} labelInValue placeholder="Select Lead Counsellor">
                   {counsellors.map((c) => (
                     <Option key={c.id} value={c.id}>{c.first_name} {c.last_name}</Option>
                   ))}
@@ -212,8 +212,8 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Secondary Counsellor" name="secondaryCounsellor">
-                <Select disabled={isView} allowClear labelInValue>
+              <Form.Item label="Assistant Counsellor" name="secondaryCounsellor">
+                <Select disabled={isView} allowClear labelInValue placeholder="Select Assistant Counsellor">
                   {counsellors.map((c) => (
                     <Option key={c.id} value={c.id} label={`${c.first_name} ${c.last_name}`}>
                       {c.first_name} {c.last_name}

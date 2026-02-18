@@ -14,12 +14,13 @@ import {
   message,
   Grid,
   DatePicker,
+  Tag,
 } from "antd";
 import { UploadOutlined, FileImageOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import dayjs from "dayjs";
 import { useDispatch ,useSelector} from "react-redux";
-import { verifyPayment, updatePayment } from "../../../adminSlices/paymentSlice";
+import { verifyPayment, updatePayment ,fetchStudentPaymentHistory } from "../../../adminSlices/paymentSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -49,7 +50,9 @@ const PaymentProofModal = ({ open, onClose, data,  onSuccess  }) => {
 
 const {
   verifyLoading,
-  updateLoading
+  updateLoading,
+  historyLoading,
+  historyList,
 } = useSelector((state) => state.payment);
 
 
@@ -102,8 +105,9 @@ const {
       status: source.status || source.payment_status || "-",
       // Store original data for reference
       originalSource: source,
-      // Store user_id for student_profile
-      user_id: source.user_id || ""
+      // // Store user_id for student_profile
+      // user_id: source.user_id || ""
+        student_id: source.student_id || "",
     };
   };
 
@@ -131,12 +135,10 @@ const {
     return blobUrl;
   };
 
-  useEffect(() => {
-    if (open && data) {
-      console.log("🔄 Modal opened with data:", data);
-      console.log("📋 Safe data for form:", safeData);
-      
-      form.setFieldsValue({
+useEffect(() => {
+  if (open && data) {
+
+    form.setFieldsValue({
       name: safeData.name,
       package: safeData.package,
       paymentMethod: safeData.paymentMethod,
@@ -151,12 +153,17 @@ const {
     setFile(null);
     setPreviewUrl(originalProofUrl);
     setIsImage(isImageUrl(originalProofUrl));
+
+    // ✅ CALL PAYMENT HISTORY API (only in view mode)
+    if (mode === "view" && safeData.student_id) {
+      dispatch(fetchStudentPaymentHistory(safeData.student_id));
+    }
   }
 
   return () => {
     revokeBlobUrls();
   };
-  }, [open]);
+}, [open]);
 
   // Don't render anything if modal is not open
   if (!open) return null;
@@ -229,23 +236,13 @@ const handleUpdate = () => {
       message.error("Payment method is required");
       return;
     }
-    
 
-// Transaction ID (Only send if valid and not "-")
 // Transaction ID (OPTIONAL - for both UPI & Cash)
 if (values.txn && values.txn !== "-") {
   payload.append("transaction_id", values.txn);
   console.log("🆔 Transaction ID:", values.txn);
 }
 
-// ✅ If empty → do nothing
-// DO NOT show error
-// DO NOT return
-
-
-// 🚫 For cash → DO NOT append transaction_id at all
-
-    
     // REQUIRED: payment_date
     if (values.paymentDate) {
       payload.append("payment_date", values.paymentDate.format("YYYY-MM-DD"));
@@ -467,25 +464,20 @@ const handleRejectConfirm = () => {
         width: "100%",
       }}
     >
-      {/* LEFT SIDE - Approve / Reject */}
-      <div style={{ display: "flex", gap: 8 }}>
-        <Button
-          danger
-          onClick={handleRejectConfirm}
-          loading={verifyLoading}
-        >
-          Reject
-        </Button>
+    
+    {/* LEFT SIDE - Reject (Only for fully paid) */}
+<div style={{ display: "flex", gap: 8 }}>
+  {safeData.status === "fully_paid" && (
+    <Button
+      danger
+      onClick={handleRejectConfirm}
+      loading={verifyLoading}
+    >
+      Reject
+    </Button>
+  )}
+</div>
 
-        <Button
-          type="primary"
-          style={{ background: "#52c41a", borderColor: "#52c41a" }}
-          onClick={handleApproveConfirm}
-          loading={verifyLoading}
-        >
-          Approve
-        </Button>
-      </div>
 
       {/* RIGHT SIDE - Cancel / Update */}
       <div style={{ display: "flex", gap: 8 }}>
@@ -559,191 +551,404 @@ const handleRejectConfirm = () => {
             </Col>
           </Row>
         </Form>
-      ) : (
+        ) : (
+  <>
+    {/* ONLY THIS SHOULD EXIST IN VIEW MODE */}
+    <Row gutter={16}>
+      <Col xs={24} md={12}>
+        <Text style={labelStyle}>Student Name</Text>
+        <div style={valueBoxStyle}>{safeData.name}</div>
+      </Col>
+
+      <Col xs={24} md={12}>
+        <Text style={labelStyle}>Counselling Service</Text>
+        <div style={valueBoxStyle}>
+          {safeData.package && safeData.package !== "-"
+            ? safeData.package.charAt(0).toUpperCase() +
+              safeData.package.slice(1)
+            : "-"}
+        </div>
+      </Col>
+    </Row>
+  </>
+)}
+    {mode !== "view" && !isVerify && (
+
+  <>
+    {/* ================= RECEIPT ================= */}
+    <Divider />
+    <Title level={5} style={labelStyle}>
+      Payment Receipt / Proof
+    </Title>
+
+    <div
+      style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 20,
+        padding: 24,
+        borderRadius: 16,
+        border: `1px dashed ${token.colorBorder}`,
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 220
+      }}
+    >
+      {previewUrl ? (
         <>
-          {/* Student + Package */}
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Text style={labelStyle}>Student Name</Text>
-              <div style={valueBoxStyle}>{safeData.name}</div>
-            </Col>
-            <Col xs={24} md={12}>
-              <Text style={labelStyle}>Counselling Service</Text>
-              <div style={valueBoxStyle}>
-                {safeData.package && safeData.package !== "-"
-                  ? safeData.package.charAt(0).toUpperCase() + safeData.package.slice(1)
-                  : "-"}
-              </div>
-            </Col>
-          </Row>
-
-          {/* Method + Amount */}
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Text style={labelStyle}>Payment Method</Text>
-              <div style={valueBoxStyle}>{safeData.paymentMethod}</div>
-            </Col>
-            <Col xs={24} md={12}>
-              <Text style={labelStyle}>Amount</Text>
-              <div style={valueBoxStyle}>{safeData.amount}</div>
-            </Col>
-          </Row>
-
-          {/* Txn + Date */}
-          <Row gutter={16}>
-            <Col xs={24} md={12}>
-              <Text style={labelStyle}>Transaction ID</Text>
-              <div style={valueBoxStyle}>{safeData.txn}</div>
-            </Col>
-            <Col xs={24} md={12}>
-              <Text style={labelStyle}>Payment Date</Text>
-              <div style={valueBoxStyle}>
-                {safeData.paymentDate && safeData.paymentDate !== "-"
-                  ? dayjs(safeData.paymentDate).format("YYYY-MM-DD")
-                  : "-"}
-              </div>
-            </Col>
-          </Row>
-        </>
-      )}
-
-      {/* ================= RECEIPT ================= */}
-      <Divider />
-      <Title level={5} style={labelStyle}>
-        Payment Receipt / Proof
-      </Title>
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          gap: 20,
-          padding: 24,
-          borderRadius: 16,
-          border: `1px dashed ${token.colorBorder}`,
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: 220
-        }}
-      >
-        {previewUrl ? (
-          <>
-            {isImage || isImageUrl(previewUrl) ? (
-              <div style={{ textAlign: 'center' }}>
-                <img
-                  key={previewUrl} // Key forces re-render when URL changes
-                  src={previewUrl}
-                  alt="Payment Proof"
-                  style={{
-                    width: "100%",
-                    maxWidth: 360,
-                    maxHeight: 220,
-                    objectFit: "contain",
-                    borderRadius: 12,
-                    border: "1px solid #eee",
-                  }}
-                  onError={(e) => {
-                    console.error("Image load error:", previewUrl, e);
-                    message.error("Failed to load receipt image");
-                  }}
-                />
-                <div style={{ marginTop: 8, display: 'flex', gap: 8, justifyContent: 'center' }}>
-                  {file && (
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
-                    </Text>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div
+          {isImage || isImageUrl(previewUrl) ? (
+            <div style={{ textAlign: "center" }}>
+              <img
+                key={previewUrl}
+                src={previewUrl}
+                alt="Payment Proof"
                 style={{
                   width: "100%",
                   maxWidth: 360,
-                  height: 220,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                  alignItems: "center",
+                  maxHeight: 220,
+                  objectFit: "contain",
                   borderRadius: 12,
                   border: "1px solid #eee",
-                  backgroundColor: "#f5f5f5",
                 }}
-              >
-                <FileImageOutlined style={{ fontSize: 48, color: "#999", marginBottom: 16 }} />
-                <Text strong>PDF Receipt</Text>
-                {file && (
-                  <>
-                    <Text type="secondary" style={{ marginTop: 4, fontSize: '12px' }}>
-                      {file.name}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: '11px' }}>
-                      {(file.size / 1024).toFixed(2)} KB
-                    </Text>
-                  </>
-                )}
-                <Text type="secondary" style={{ marginTop: 8 }}>
-                  {previewUrl.startsWith('blob:') ? 'New upload' : 'View PDF'}
+                onError={(e) => {
+                  console.error("Image load error:", previewUrl, e);
+                  message.error("Failed to load receipt image");
+                }}
+              />
+              {file && (
+                <Text type="colortextSecondary" style={{ fontSize: 12, marginTop: 8 }}>
+                  Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
                 </Text>
-              </div>
-            )}
-          </>
-        ) : (
-          <Empty 
-            description={
-              <div>
-                <div>No receipt uploaded</div>
-                <Text type="secondary" style={{ fontSize: '12px', marginTop: '8px' }}>
-                  The payment has no proof image attached
-                </Text>
-              </div>
-            }
-          />
-        )}
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                maxWidth: 360,
+                height: 220,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+                borderRadius: 12,
+                border: "1px solid #eee",
+                backgroundColor: "#f5f5f5",
+              }}
+            >
+              <FileImageOutlined
+                style={{ fontSize: 48, color: "#999", marginBottom: 16 }}
+              />
+              <Text strong>PDF Receipt</Text>
 
-        {isEdit && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, minWidth: 150 }}>
-            <Upload {...uploadProps}>
-              <Button
-                type="primary"
-                icon={<UploadOutlined />}
-                block={isMobile}
+              {file && (
+                <>
+                  <Text type="colortextSecondary" style={{ fontSize: 12 }}>
+                    {file.name}
+                  </Text>
+                  <Text type="colortextSecondary" style={{ fontSize: 11 }}>
+                    {(file.size / 1024).toFixed(2)} KB
+                  </Text>
+                </>
+              )}
+
+              <Text type="colortextSecondary" style={{ marginTop: 8 }}>
+                {previewUrl.startsWith("blob:")
+                  ? "New upload"
+                  : "View PDF"}
+              </Text>
+            </div>
+          )}
+        </>
+      ) : (
+        <Empty
+          description={
+            <div>
+              <div>No receipt uploaded</div>
+              <Text
+                type="secondary"
+                style={{ fontSize: 12, marginTop: 8 }}
               >
-                {previewUrl && previewUrl !== originalProofUrl ? "Change File" : "Upload Receipt"}
-              </Button>
-            </Upload>
-            
-            {file && (
-              <Button
-                danger
-                onClick={handleRemoveFile}
-                block={isMobile}
-              >
-                Remove File
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+                The payment has no proof image attached
+              </Text>
+            </div>
+          }
+        />
+      )}
+    </div>
+  </>
+)}
 
       {/* ================= VERIFY ================= */}
-      {isVerify && (
-        <>
-          <Divider />
-          <Row justify="end" gutter={8}>
-            <Col>
-              <Button danger onClick={() => handleVerify("reject")}>
-                Reject
-              </Button>
-            </Col>
-            <Col>
-              <Button type="primary" onClick={() => handleVerify("approve")} loading={verifyLoading}>
-                Approve
-              </Button>
-            </Col>
-          </Row>
-        </>
+{isVerify && (
+  <>
+    <Divider />
+
+    <Form form={form} layout="vertical">
+      {/* Method + Amount */}
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <Form.Item label="Payment Method" name="paymentMethod">
+            <Select disabled>
+              <Option value="upi">UPI</Option>
+              <Option value="cash">Cash</Option>
+            </Select>
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <Form.Item label="Amount" name="amount">
+            <Input disabled />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {/* Txn + Date */}
+      <Row gutter={16}>
+        <Col xs={24} md={12}>
+          <Form.Item label="Transaction ID" name="txn">
+            <Input disabled />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <Form.Item label="Payment Date" name="paymentDate">
+            <DatePicker
+              style={{ width: "100%", height: 36 }}
+              format="YYYY-MM-DD"
+              disabled
+            />
+          </Form.Item>
+        </Col>
+      </Row>
+    </Form>
+
+    {/* ================= RECEIPT AT LAST ================= */}
+    <Divider />
+    <Title level={5} style={labelStyle}>
+      Payment Receipt / Proof
+    </Title>
+
+    <div
+      style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 20,
+        padding: 24,
+        borderRadius: 16,
+        border: `1px dashed ${token.colorBorder}`,
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 220,
+      }}
+    >
+      {previewUrl ? (
+        isImage || isImageUrl(previewUrl) ? (
+          <img
+            src={previewUrl}
+            alt="Payment Proof"
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              maxHeight: 220,
+              objectFit: "contain",
+              borderRadius: 12,
+              border: "1px solid #eee",
+            }}
+          />
+        ) : (
+          <a href={previewUrl} target="_blank" rel="noopener noreferrer">
+            View PDF
+          </a>
+        )
+      ) : (
+        <Empty description="No receipt uploaded" />
       )}
+    </div>
+
+    {/* Buttons */}
+    <Divider />
+    <Row justify="end" gutter={8}>
+      <Col>
+        <Button danger onClick={() => handleVerify("reject")}>
+          Reject
+        </Button>
+      </Col>
+      <Col>
+        <Button
+          type="primary"
+          onClick={() => handleVerify("approve")}
+          loading={verifyLoading}
+        >
+          Approve
+        </Button>
+      </Col>
+    </Row>
+  </>
+)}
+
+
+{/* ================= PAYMENT HISTORY ================= */}
+{mode === "view" && (
+  <>
+    <Divider />
+    <Title level={5} style={{ marginBottom: 16 }}>
+      Payment History
+    </Title>
+
+    {historyLoading ? (
+      <Text>Loading payment history...</Text>
+    ) : historyList?.length ? (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {historyList
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(b.created_at || 0) -
+              new Date(a.created_at || 0)
+          )
+          .map((payment, index) => {
+
+            const isImageFile =
+              payment.proof_file &&
+              payment.proof_file.match(/\.(jpeg|jpg|png|gif|webp|jfif)$/i);
+
+            const isPdfFile =
+              payment.proof_file &&
+              payment.proof_file.toLowerCase().includes(".pdf");
+
+            return (
+              <div
+                key={payment.id || index}
+                style={{
+                  padding: 20,
+                  borderRadius: 16,
+                  background: "#ffffff",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                  border: "1px solid #f0f0f0",
+                }}
+              >
+                {/* Top Row */}
+                <Row justify="space-between" align="middle">
+                  <Col>
+                    <Text type="colorTextSecondary">Amount</Text>
+                    <div
+                      style={{
+                        fontSize: 20,
+                        fontWeight: 600,
+                        color: "#1677ff",
+                      }}
+                    >
+                      ₹ {parseFloat(payment.amount).toLocaleString()}
+                    </div>
+                  </Col>
+
+                  <Col>
+                    <Tag
+                      color={
+                        payment.status === "fully_paid"
+                          ? "green"
+                          : payment.status === "partially_paid"
+                          ? "orange"
+                          : "red"
+                      }
+                    >
+                      {payment.status?.replace("_", " ").toUpperCase()}
+                    </Tag>
+                  </Col>
+                </Row>
+
+                <Divider style={{ margin: "12px 0" }} />
+
+                {/* Details */}
+                <Row gutter={[16, 12]}>
+                  <Col xs={24} md={8}>
+                    <Text type="colorTextSecondary">Method</Text>
+                    <div>{payment.method?.toUpperCase() || "-"}</div>
+                  </Col>
+
+                  <Col xs={24} md={8}>
+                    <Text type="colorTextSecondary">Date</Text>
+                    <div>
+                      {payment.created_at
+                        ? dayjs(payment.created_at).format("DD MMM YYYY, hh:mm A")
+                        : "-"}
+                    </div>
+                  </Col>
+
+                  <Col xs={24} md={8}>
+                    <Text type="colorTextSecondary">Transaction ID</Text>
+                    <div style={{ wordBreak: "break-all" }}>
+                      {payment.transaction_id || "-"}
+                    </div>
+                  </Col>
+                </Row>
+
+                {/* 🔥 PROOF FILE SECTION */}
+                {payment.proof_file && (
+                  <>
+                    <Divider style={{ margin: "16px 0" }} />
+                    <Text type="colorTextSecondary">Payment Proof</Text>
+
+                    <div style={{ marginTop: 8 }}>
+                      {isImageFile ? (
+                        <a
+                          href={payment.proof_file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <img
+                            src={payment.proof_file}
+                            alt="Proof"
+                            style={{
+                              width: 140,
+                              height: 100,
+                              objectFit: "cover",
+                              borderRadius: 8,
+                              border: "1px solid #eee",
+                              cursor: "pointer",
+                            }}
+                          />
+                        </a>
+                      ) : isPdfFile ? (
+                        <a
+                          href={payment.proof_file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "8px 12px",
+                            border: "1px solid #ddd",
+                            borderRadius: 8,
+                          }}
+                        >
+                          <FileImageOutlined />
+                          View PDF
+                        </a>
+                      ) : (
+                        <a
+                          href={payment.proof_file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View File
+                        </a>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+      </div>
+    ) : (
+      <Empty description="No payment history found" />
+    )}
+  </>
+)}
+
     </Modal>
   );
 };

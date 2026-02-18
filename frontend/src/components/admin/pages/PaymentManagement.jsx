@@ -104,10 +104,10 @@ const PaymentManagement = () => {
       ),
     },
     {
-      title: "Fully Pending",
-      value: `₹${stats?.pending ?? 0}`,
+      title: "Fully Payments",
+      value: `₹${stats?.fully_paid ?? 0}`,
       icon: (
-        <CloseCircleOutlined
+        <CheckCircleOutlined
           style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
         />
       ),
@@ -172,7 +172,7 @@ const PaymentManagement = () => {
       const packageName = p.package_name || p.package || "N/A";
 
       // ✅ Paid + Total
-      const paidAmount = Number(p.amount || 0);
+      const paidAmount = Number(p.total_paid || 0);
       const packagePrice = Number(p.package_price || 0);
 
       const status = toTitle(p.payment_status);

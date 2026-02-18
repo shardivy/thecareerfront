@@ -70,3 +70,12 @@ export const fetchStudentPaymentSummaryApi = async (
   );
   return response.data;
 };
+
+
+// ================= FETCH STUDENT PAYMENT HISTORY =================
+export const fetchStudentPaymentHistoryApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/payment/payments/student/${studentId}/`
+  );
+  return response.data;
+};

@@ -3,7 +3,8 @@ import {
   addUserApi,
   fetchStudentsApi,
   updateUserApi,
-  deleteUserApi
+  deleteUserApi,
+  fetchStudentJourneyApi 
 } from "../adminApi/userApi";
 
 /* ===================== THUNKS ===================== */
@@ -69,6 +70,23 @@ export const deleteUser = createAsyncThunk(
   }
 );
 
+
+/* ---------- FETCH STUDENT JOURNEY ---------- */
+export const fetchStudentJourney = createAsyncThunk(
+  "users/fetchStudentJourney",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      const data = await fetchStudentJourneyApi(studentId);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch journey"
+      );
+    }
+  }
+);
+
+
 /* ===================== SLICE ===================== */
 
 const userSlice = createSlice({
@@ -79,6 +97,8 @@ const userSlice = createSlice({
     error: null,
     success: false,
     successMessage: null,
+    journey: [],
+  journeyLoading: false,
   },
 
   reducers: {
@@ -146,6 +166,9 @@ const userSlice = createSlice({
             // PAYMENT FIELDS - IMPORTANT: Store all payment data DIRECTLY
             price: u.price || "",
             amount: u.amount || "",
+            total_paid_amount: u.total_paid_amount || "",
+
+            
             payment_type: u.payment_type || "",
             method: u.method || "",
             transaction_id: u.transaction_id || "",
@@ -177,6 +200,7 @@ const userSlice = createSlice({
               // ADD PAYMENT DETAILS TO PROFILE
               price: u.price || "",
               amount: u.amount || "",
+              total_paid_amount: u.total_paid_amount || "",
               payment_type: u.payment_type || "",
               method: u.method || "",
               transaction_id: u.transaction_id || "",
@@ -258,6 +282,7 @@ const userSlice = createSlice({
             payment_status: u.payment_status || "",
             // ADD PAYMENT DETAILS TO PROFILE
             amount: u.amount || "",
+            total_paid_amount: u.total_paid_amount || "",
             payment_type: u.payment_type || "",
             method: u.method || "",
             transaction_id: u.transaction_id || "",
@@ -342,7 +367,21 @@ const userSlice = createSlice({
         state.list = state.list.filter(
           (user) => user.id !== action.payload
         );
-      });
+      })
+
+
+      /* ---------- FETCH JOURNEY ---------- */
+.addCase(fetchStudentJourney.pending, (state) => {
+  state.journeyLoading = true;
+})
+.addCase(fetchStudentJourney.fulfilled, (state, action) => {
+  state.journeyLoading = false;
+  state.journey = action.payload?.data || action.payload || [];
+})
+.addCase(fetchStudentJourney.rejected, (state, action) => {
+  state.journeyLoading = false;
+  state.error = action.payload;
+});
   },
 });
 

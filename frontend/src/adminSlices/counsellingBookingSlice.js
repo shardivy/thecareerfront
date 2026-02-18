@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, } from "../adminApi/counsellingBookingApi";
+import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi} from "../adminApi/counsellingBookingApi";
 
 /* ================= THUNK ================= */
 export const bookCounsellingSlot = createAsyncThunk(
@@ -52,6 +52,21 @@ export const fetchCounsellingSessionCount = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to fetch session stats"
+      );
+    }
+  }
+);
+
+
+/* ================= DELETE ================= */
+export const deleteCounsellingBooking = createAsyncThunk(
+  "counsellingBooking/delete",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await deleteCounsellingBookingApi(id);
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Delete failed"
       );
     }
   }
@@ -133,7 +148,27 @@ const counsellingBookingSlice = createSlice({
 .addCase(fetchCounsellingSessionCount.rejected, (state, action) => {
   state.statsLoading = false;
   state.error = action.payload;
-});
+})
+
+/* ================= DELETE ================= */
+.addCase(deleteCounsellingBooking.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(deleteCounsellingBooking.fulfilled, (state, action) => {
+  state.loading = false;
+  state.success = true;
+
+  // Remove deleted booking from table instantly
+  const deletedId = action.meta.arg;
+  state.data = state.data.filter(item => item.id !== deletedId);
+})
+.addCase(deleteCounsellingBooking.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
+
+
 
 
   },

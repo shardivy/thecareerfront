@@ -33,3 +33,12 @@ export const getCounsellingSessionCountApi = async (period = "monthly") => {
   );
   return response.data;
 };
+
+
+// Delete a counselling booking
+export const deleteCounsellingBookingApi = async (id) => {
+  const response = await axiosInstance.delete(
+    `/counselling_slot/bookings/${id}/`
+  );
+  return response.data;
+};

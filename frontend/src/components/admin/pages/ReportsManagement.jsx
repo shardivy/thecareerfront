@@ -441,7 +441,7 @@ const ReportsManagement = () => {
         style={{ marginBottom: 16 }}
         justify={{ xs: "center", sm: "end" }}
       >
-        <Col xs={24} sm={12} md={4}>
+        {/* <Col xs={24} sm={12} md={4}>
           <Button
             block
             type="primary"
@@ -455,7 +455,7 @@ const ReportsManagement = () => {
               ? `Upload Selected (${selectedRowKeys.length})`
               : "Bulk Upload"}
           </Button>
-        </Col>
+        </Col> */}
 
         <Col xs={24} sm={12} md={4}>
           <Button

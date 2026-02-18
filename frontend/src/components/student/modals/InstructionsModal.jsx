@@ -22,7 +22,7 @@ import {
 const { Title, Text } = Typography;
 const { useToken } = theme;
 
-const InstructionsModal = ({ open, onClose }) => {
+const InstructionsModal = ({ open, onClose ,onConfirm }) => {
   const { token } = useToken();
 
   return (
@@ -35,15 +35,8 @@ const InstructionsModal = ({ open, onClose }) => {
         <Button key="close" onClick={onClose}>
           Close
         </Button>,
-        <Button
-          key="start"
-          type="primary"
-          onClick={() => {
-            console.log("Start Exam after reading instructions");
-            onClose();
-          }}
-        >
-         OK, I Understand
+       <Button key="start" type="primary" onClick={onConfirm}>
+          OK, I Understand
         </Button>,
       ]}
     >
