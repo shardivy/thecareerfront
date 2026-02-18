@@ -182,9 +182,9 @@ const counsellingSlotSlice = createSlice({
 
       /* DELETE */
       .addCase(deleteSlot.fulfilled, (state, action) => {
-        state.list = state.list.filter((s) => s.id !== action.payload);
+        state.list = state.list.filter((s) => s.slot_id !== action.payload);
         state.counsellorWiseList = state.counsellorWiseList.filter(
-          (s) => s.id !== action.payload
+          (s) => s.slot_id !== action.payload
         );
       })
 

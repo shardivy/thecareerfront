@@ -147,13 +147,31 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
 };
 
   /* ---------- DELETE SLOT ---------- */
-  const handleDeleteSlot = (slotId, index) => {
-    if (slotId) {
-      dispatch(deleteSlot(slotId));
-    } else {
-      setSlotsList((prev) => prev.filter((_, i) => i !== index));
-    }
-  };
+const handleDeleteSlot = (slotId, index) => {
+  const date = form.getFieldValue("date");
+  const counsellorId = form.getFieldValue("counsellor");
+
+  if (slotId) {
+    // Call delete API
+    dispatch(deleteSlot(slotId))
+      .then((res) => {
+        if (!res.error) {
+          // ✅ Refetch slots from API after deletion
+          if (date && counsellorId) {
+            dispatch(
+              fetchSlotsByDate({
+                date: dayjs(date).format("YYYY-MM-DD"),
+                counsellorId,
+              })
+            );
+          }
+        }
+      });
+  } else {
+    // For newly added (unsaved) slots, just remove from local state
+    setSlotsList((prev) => prev.filter((_, i) => i !== index));
+  }
+};
 
   /* ---------- CREATE SLOTS ---------- */
   const handleCreateSlots = (values) => {

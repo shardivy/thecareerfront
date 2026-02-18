@@ -42,3 +42,12 @@ export const deleteCounsellingBookingApi = async (id) => {
   );
   return response.data;
 };
+
+
+// Mark counselling booking as completed
+export const markCounsellingBookingCompletedApi = async (id) => {
+  const response = await axiosInstance.put(
+    `/counselling_slot/bookings/${id}/mark-completed/`
+  );
+  return response.data;
+};

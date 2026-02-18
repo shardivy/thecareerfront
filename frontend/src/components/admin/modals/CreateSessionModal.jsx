@@ -19,6 +19,7 @@ import dayjs from "dayjs";
 import {
   bookCounsellingSlot,
   updateCounsellingBooking,
+  markCounsellingBookingCompleted,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchStudents } from "../../../adminSlices/userSlice";
 import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
@@ -147,7 +148,28 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
     setFilter(mode === "view" ? "Booked" : "All");
   };
 
+// ================= MARK AS COMPLETED =================
+const handleMarkCompleted = () => {
+  if (!data?.id) return;
 
+  Modal.confirm({
+    title: "Mark Session as Completed",
+    content: "Are you sure you want to mark this session as completed?",
+    okText: "Yes",
+    cancelText: "No",
+    onOk: () => {
+      dispatch(markCounsellingBookingCompleted(data.id))
+        .unwrap()
+        .then(() => {
+          message.success("Session marked as completed");
+          resetModal();
+          onSave?.();
+          onClose();
+        })
+        .catch((err) => message.error(err));
+    },
+  });
+};
   // ================= UI =================
   return (
     <ConfigProvider>
@@ -160,16 +182,64 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
   onClose();
 }}
 
-        footer={
-          isView
-            ? [<Button key="close" onClick={onClose}>Close</Button>]
-            : [
-                <Button key="cancel" onClick={onClose}>Cancel</Button>,
-                <Button key="submit" type="primary" loading={bookingLoading} onClick={handleSubmit}>
-                  {mode === "edit" ? "Update" : "Confirm Booking"}
-                </Button>,
-              ]
-        }
+ footer={
+  isView ? (
+    <Button key="close" onClick={onClose}>
+      Close
+    </Button>
+  ) : mode === "edit" ? (
+    <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+      {/* Left side: Mark as Completed */}
+      <Button
+  key="mark"
+  type="primary" // must be primary to apply custom color properly
+  onClick={handleMarkCompleted}
+  disabled={data?.status === "completed"}
+  style={{
+    backgroundColor: "#349304", // Ant Design green
+    borderColor: "#52c41a",
+    color: "#fff",
+  }}
+>
+  Mark as Completed
+</Button>
+
+
+      {/* Right side: Cancel and Update */}
+      <div>
+        <Button key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
+          Cancel
+        </Button>
+        <Button
+          key="submit"
+          type="primary"
+          loading={bookingLoading}
+          onClick={handleSubmit}
+        >
+          Update
+        </Button>
+      </div>
+    </div>
+  ) : (
+    // Create mode
+    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <Button key="cancel" onClick={onClose}>
+        Cancel
+      </Button>
+      <Button
+        key="submit"
+        type="primary"
+        loading={bookingLoading}
+        onClick={handleSubmit}
+        style={{ marginLeft: 8 }}
+      >
+        Confirm Booking
+      </Button>
+    </div>
+  )
+}
+
+
       >
         <Form
           form={form}
