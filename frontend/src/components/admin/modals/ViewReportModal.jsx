@@ -22,6 +22,7 @@ import dayjs from "dayjs";
 import { useDispatch } from "react-redux";
 import {
   uploadReport,
+  updateReport,
   fetchCompletedExamReports,
 } from "../../../adminSlices/reportSlice";
 
@@ -41,7 +42,7 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
   const isEditMode = mode === "edit";
   const isViewMode = mode === "view";
   const isBulkMode = mode === "bulkUpload";
-  const isUploadMode = mode === "upload"; // This will be true for pending reports
+  const isUploadMode = mode === "upload";
 
   /* ---------------- LOG MODE WHEN MODAL OPENS ---------------- */
   useEffect(() => {
@@ -54,11 +55,6 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
       console.log("  - isViewMode:", isViewMode);
       console.log("  - isBulkMode:", isBulkMode);
       console.log("  - isUploadMode:", isUploadMode);
-      console.log("  - Modal Title:", 
-        isUploadMode ? "Upload Report" : 
-        isEditMode ? "Edit Report" : 
-        "Report Details"
-      );
     }
   }, [open, mode, data, isEditMode, isViewMode, isBulkMode, isUploadMode]);
 
@@ -137,93 +133,115 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
   };
 
   /* ---------------- UPLOAD / UPDATE ---------------- */
-  const handleSubmit = async () => {
-    console.log("🚀 Submit button clicked");
-    console.log("🎭 Current mode on submit:", mode);
-    console.log("📦 Uploaded file:", uploadedFile?.name || "None");
-    console.log("🔗 Preview URL exists:", !!previewUrl);
+/* ---------------- UPLOAD / UPDATE ---------------- */
+const handleSubmit = async () => {
+  console.log("🚀 Submit button clicked");
+  console.log("🎭 Current mode on submit:", mode);
+  console.log("📦 Uploaded file:", uploadedFile?.name || "None");
+  console.log("🔗 Preview URL exists:", !!previewUrl);
 
-    if (isUploadMode && !uploadedFile) {
-      console.log("⚠️ Upload mode requires file but none selected");
-      message.warning("Please select a PDF file");
-      return;
+  if (isUploadMode && !uploadedFile) {
+    console.log("⚠️ Upload mode requires file but none selected");
+    message.warning("Please select a PDF file");
+    return;
+  }
+
+  if (isEditMode && !uploadedFile && !previewUrl) {
+    console.log("⚠️ Edit mode requires file but none exists or selected");
+    message.warning("Please upload a file or keep the existing one");
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    
+    if (uploadedFile) {
+      // Case 1: New file is uploaded - send as binary
+      formData.append("file_path", uploadedFile);
+      console.log("➕ Added new file (binary):", uploadedFile.name);
+    } else if (isEditMode && data?.file_path) {
+      // Case 2: No new file, but we have existing file - fetch and send it
+      console.log("📥 Fetching existing file from:", data.file_path);
+      
+      try {
+        // Fetch the existing file
+        const response = await fetch(data.file_path);
+        const blob = await response.blob();
+        
+        // Create a File object from the blob
+        const fileName = data.file_path.split('/').pop() || "Report.pdf";
+        const existingFile = new File([blob], fileName, { type: "application/pdf" });
+        
+        // Append to formData
+        formData.append("file_path", existingFile);
+        console.log("➕ Added existing file (binary):", fileName, `size: ${existingFile.size} bytes`);
+      } catch (fetchError) {
+        console.error("❌ Failed to fetch existing file:", fetchError);
+        message.error("Failed to process existing file");
+        setLoading(false);
+        return;
+      }
     }
 
-    if (isEditMode && !uploadedFile && !previewUrl) {
-      console.log("⚠️ Edit mode requires file but none exists or selected");
-      message.warning("Please upload a file or keep the existing one");
-      return;
+    // Log FormData contents for debugging
+    console.log("📤 Final FormData contents:");
+    for (let pair of formData.entries()) {
+      if (pair[1] instanceof File) {
+        console.log(`  ${pair[0]}: File (binary) - ${pair[1].name}, size: ${pair[1].size} bytes`);
+      } else {
+        console.log(`  ${pair[0]}: ${pair[1]}`);
+      }
     }
 
-    try {
-      const values = form.getFieldsValue();
-      const formData = new FormData();
-      
-      console.log("📝 Form values:", values);
+    console.log("📤 Sending request...");
+    setLoading(true);
 
-      // For edit mode, send status and payment changes
-      if (isEditMode) {
-        console.log("✏️ Edit mode - adding status/payment data");
-        if (values.status) {
-          formData.append("status", values.status);
-          console.log("➕ Added status:", values.status);
-        }
-        if (values.paymentStatus) {
-          formData.append("payment_status", values.paymentStatus);
-          console.log("➕ Added payment_status:", values.paymentStatus);
-        }
-      } else {
-        console.log("⬆️ Upload mode - only file will be sent");
-      }
-      
-      // For upload mode, we only need the file
-      if (uploadedFile) {
-        formData.append("file_path", uploadedFile);
-        console.log("➕ Added file:", uploadedFile.name);
-      } else {
-        console.log("📄 No new file to upload");
-      }
-
-      console.log("📤 Sending form data...");
-      setLoading(true);
-
-      await dispatch(
+    // Choose the correct action based on mode
+    let response;
+    if (isUploadMode) {
+      // For upload mode, use uploadReport
+      console.log("📤 Using uploadReport API");
+      response = await dispatch(
         uploadReport({
           reportId: data.id,
           formData,
         })
       ).unwrap();
-
-      const successMessage = isUploadMode 
-        ? "Report uploaded successfully" 
-        : "Report updated successfully";
-      
-      console.log("✅ " + successMessage);
-      message.success(successMessage);
-
-      dispatch(fetchCompletedExamReports());
-      onCancel();
-    } catch (error) {
-      console.error("❌ Operation failed:", error);
-      message.error("Operation failed");
-    } finally {
-      setLoading(false);
+    } else if (isEditMode) {
+      // For edit mode, use updateReport
+      console.log("📤 Using updateReport API");
+      response = await dispatch(
+        updateReport({
+          reportId: data.id,
+          formData,
+        })
+      ).unwrap();
     }
-  };
 
+    const successMessage = isUploadMode 
+      ? "Report uploaded successfully" 
+      : "Report updated successfully";
+    
+    console.log("✅ " + successMessage, response);
+    message.success(successMessage);
+
+    // Refresh the reports list
+    dispatch(fetchCompletedExamReports());
+    
+    // Close the modal
+    onCancel();
+  } catch (error) {
+    console.error("❌ Operation failed:", error);
+    console.error("Error details:", error.response?.data || error.message);
+    message.error("Operation failed: " + (error.response?.data?.message || "Please try again"));
+  } finally {
+    setLoading(false);
+  }
+};
   /* ---------------- LOG WHEN MODE CHANGES ---------------- */
   useEffect(() => {
     console.log("🔄 Mode changed to:", mode);
-    console.log("📋 Current mode configuration:");
-    console.log("  Title:", 
-      isUploadMode ? "Upload Report" : 
-      isEditMode ? "Edit Report" : 
-      "Report Details"
-    );
-    console.log("  Submit button text:", isUploadMode ? "Upload" : "Update");
-    console.log("  Show status dropdown:", isEditMode);
-    console.log("  Show status readonly:", isUploadMode || isViewMode);
-  }, [mode, isEditMode, isViewMode, isUploadMode]);
+  }, [mode]);
 
   return (
     <Modal
@@ -257,6 +275,22 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
               </Form.Item>
             </Col>
 
+            {/* Display hidden IDs for debugging (optional) */}
+            {/* {process.env.NODE_ENV === 'development' && (
+              <>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Student ID (debug)" name="student_id">
+                    <Input readOnly value={data?.student_id} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Program ID (debug)" name="program_id">
+                    <Input readOnly value={data?.program_id} />
+                  </Form.Item>
+                </Col>
+              </>
+            )} */}
+
             {/* For upload mode: show status and payment status as readonly */}
             {isUploadMode && (
               <>
@@ -274,33 +308,8 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
               </>
             )}
 
-            {/* For edit mode: show editable dropdowns */}
-            {isEditMode && (
-              <>
-                <Col xs={24} md={12}>
-                  <Form.Item label="Status" name="status">
-                    <Select>
-                      <Option value="Unlocked">Unlocked</Option>
-                      <Option value="Locked">Locked</Option>
-                      <Option value="Pending Upload">Pending Upload</Option>
-                      <Option value="Review Verification Pending">
-                        Review Verification Pending
-                      </Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-
-                <Col xs={24} md={12}>
-                  <Form.Item label="Payment Status" name="paymentStatus">
-                    <Select>
-                      <Option value="Fully Paid">Fully Paid</Option>
-                      <Option value="Partial Paid">Partial Paid</Option>
-                      <Option value="Pending">Pending</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-              </>
-            )}
+            {/* For edit mode: NO status and payment status fields - just student and program names */}
+            {/* This section is intentionally left empty - no fields for edit mode */}
 
             {/* For view mode: show readonly inputs */}
             {isViewMode && (

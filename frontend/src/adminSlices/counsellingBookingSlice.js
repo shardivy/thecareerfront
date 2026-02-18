@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi} from "../adminApi/counsellingBookingApi";
+import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi,markCounsellingBookingCompletedApi  } from "../adminApi/counsellingBookingApi";
 
 /* ================= THUNK ================= */
 export const bookCounsellingSlot = createAsyncThunk(
@@ -72,6 +72,20 @@ export const deleteCounsellingBooking = createAsyncThunk(
   }
 );
 
+
+/* ================= MARK AS COMPLETED ================= */
+export const markCounsellingBookingCompleted = createAsyncThunk(
+  "counsellingBooking/markCompleted",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await markCounsellingBookingCompletedApi(id);
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to mark as completed"
+      );
+    }
+  }
+);
 
 /* ================= SLICE ================= */
 const counsellingBookingSlice = createSlice({
@@ -169,6 +183,25 @@ const counsellingBookingSlice = createSlice({
 })
 
 
+// Inside extraReducers
+.addCase(markCounsellingBookingCompleted.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(markCounsellingBookingCompleted.fulfilled, (state, action) => {
+  state.loading = false;
+  state.success = true;
+
+  // Update local state if needed (e.g., mark booking completed in table)
+  const completedId = action.meta.arg;
+  state.data = state.data.map(item =>
+    item.id === completedId ? { ...item, status: "completed" } : item
+  );
+})
+.addCase(markCounsellingBookingCompleted.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
 
 
   },
