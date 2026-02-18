@@ -12,9 +12,10 @@ services:
     depends_on:
       - db
       - redis
-    restart: always
     volumes:
-    - static_volume:/app/staticfiles
+      - static_volume:/app/staticfiles
+    restart: always
+    
 
   frontend:
     build: ./frontend
