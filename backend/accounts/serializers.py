@@ -7,6 +7,7 @@ from payment.models import Payment
 from program_package.models import PackageExam, UserProgramPackage
 from report.models import Report
 from django.urls import reverse
+from django.db.models import Sum
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -185,8 +186,10 @@ class StudentListSerializer(serializers.ModelSerializer):
     method = serializers.SerializerMethodField()
     transaction_id = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
+    total_paid_amount = serializers.SerializerMethodField()
     proof_file = serializers.SerializerMethodField()
-    is_report_locked = serializers.SerializerMethodField()
+    # is_report_locked = serializers.SerializerMethodField()
+    report_status = serializers.SerializerMethodField()
     exam_status = serializers.SerializerMethodField()
 
     class Meta:
@@ -211,8 +214,10 @@ class StudentListSerializer(serializers.ModelSerializer):
             "method",
             "transaction_id",
             "amount",
+            "total_paid_amount", 
             "proof_file",
-            "is_report_locked",
+            # "is_report_locked",
+            "report_status",
             "exam_status",
         ]
 
@@ -264,6 +269,14 @@ class StudentListSerializer(serializers.ModelSerializer):
         payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
         return payment.amount if payment else None
     
+    def get_total_paid_amount(self, obj):
+        total = (
+            Payment.objects
+            .filter(user=obj.user)
+            .aggregate(total=Sum("amount"))["total"]
+        )
+        return total or 0
+    
     def get_proof_file(self, obj):
         payment = (
             Payment.objects
@@ -288,11 +301,15 @@ class StudentListSerializer(serializers.ModelSerializer):
 
 
 
-    def get_is_report_locked(self, obj):
-        return Report.objects.filter(
-            user=obj.user,
-            report_status="locked"
-        ).exists()
+    # def get_is_report_locked(self, obj):
+    #     return Report.objects.filter(
+    #         user=obj.user,
+    #         report_status="locked"
+    #     ).exists()
+    
+    def get_report_status(self, obj):
+        report = Report.objects.filter(user=obj.user).order_by("-uploaded_at").first()
+        return report.report_status if report else "not_uploaded"       #locked, unlocked 
 
     def get_exam_status(self, obj):
         qs = UserExam.objects.filter(user=obj.user)

@@ -175,11 +175,11 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         package_amount = package.price
 
         # If fully paid → update all entries
-        if total_paid_after >= package_amount:
-            Payment.objects.filter(
-                user=user,
-                package=package
-            ).update(status="fully_paid")
+        # if total_paid_after >= package_amount:
+        #     Payment.objects.filter(
+        #         user=user,
+        #         package=package
+        #     ).update(status="fully_paid")
 
         return payment
     

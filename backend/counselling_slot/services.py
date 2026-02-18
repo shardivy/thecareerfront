@@ -15,7 +15,7 @@ def generate_slots_for_date(selected_date):
 
     for counsellor in counsellors:
         for start_time, end_time in FIXED_SLOTS:
-            Slot.objects.get_or_create(
+            slot, created = Slot.objects.get_or_create(
                 counsellor=counsellor.user,
                 date=selected_date,
                 start_time=start_time,
@@ -25,6 +25,9 @@ def generate_slots_for_date(selected_date):
                     "is_available": True
                 }
             )
+            # If slot exists but was soft deleted → DO NOT recreate
+            if not created and slot.is_deleted:
+                continue
 
 
 def get_counsellor_slots_by_date(selected_date):

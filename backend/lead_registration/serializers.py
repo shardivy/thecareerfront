@@ -292,8 +292,10 @@ class UserProgramPackageDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProgramPackage
         fields = "__all__"
+        
 class PaymentDetailSerializer(serializers.ModelSerializer):
     proof_file = serializers.SerializerMethodField()
+    payment_date = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
@@ -304,6 +306,7 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
             "method",
             "transaction_id",
             "status",
+            "payment_date", 
             "proof_file",
             "created_at"
         ]
@@ -313,6 +316,25 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
         if obj.proof_file and request:
             return request.build_absolute_uri(obj.proof_file.url)
         return None
+    
+    def get_payment_date(self, obj):
+        """
+        First payment → show created_at
+        Other payments → show date field
+        """
+        request = self.context.get("request")
+        payments = self.context.get("payments")
+
+        if not payments:
+            return obj.created_at
+
+        # Get first payment (latest because ordered by -created_at)
+        first_payment = payments.first()
+
+        if obj.id == first_payment.id:
+            return obj.created_at
+        else:
+            return obj.payment_date   # 👈 your Payment model date field
 
 
 # ============================ Student Registration form serializers below =========================

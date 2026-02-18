@@ -1,6 +1,6 @@
 from datetime import timezone
 from django.shortcuts import get_object_or_404, render
-from exam.service import ALLOWED_PROGRAMS, create_default_exams_for_all_packages
+from exam.service import create_default_exams_for_all_packages
 from report.models import Report
 from rest_framework.views import APIView
 from rest_framework.authentication import (TokenAuthentication)

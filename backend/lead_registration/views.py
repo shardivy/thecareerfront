@@ -3,6 +3,7 @@ import string
 from urllib import request
 from xml.parsers.expat import errors
 from django.shortcuts import get_object_or_404, render
+from counselling_slot.models import Booking
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -521,6 +522,24 @@ class AddUserAPIView(APIView):
                     package=serializer.validated_data["package"],
                     assigned_by=request.user.email
                 )
+                
+#++++++++++++++++++++++++++++++++ just for now and will later delete it ++++++++++++++++++++++++++++++++++++++++++
+
+                # 🔹 Create UserExam entries if program requires it
+                if program.name in ["8-12 Aptitude Test", "PG Counselling"]:
+                    # Get all exams linked to this package
+                    exams = Exam.objects.filter(exam_packages__package=upp.package).distinct()
+                    
+                    user_exam_objects = [
+                        UserExam(
+                            user=user,
+                            exam=exam,
+                            status="in_progress"
+                        )
+                        for exam in exams
+                    ]
+                    UserExam.objects.bulk_create(user_exam_objects)
+# ==========================================================================================================
 
                 # 🔹 Create payment (OPTIONAL)
                 payment = None
@@ -535,7 +554,7 @@ class AddUserAPIView(APIView):
                     if amount == package_price:
                         payment_status = "fully_paid"
                     else:
-                        payment_status = "partially_paid"
+                        payment_status = "partial_paid"
 
                     payment = Payment.objects.create(
                         user=user,
@@ -748,7 +767,7 @@ class AddUserAPIView(APIView):
                 if amount == package_price:
                     payment.status = "fully_paid"
                 else:
-                    payment.status = "partially_paid"
+                    payment.status = "partial_paid"
 
 
                 payment.save()
@@ -1659,277 +1678,294 @@ class VerifyParentOTPAPIView(APIView):
             status=200
         )
 
-# class UserJourneyAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         user = request.user
-
-#         response_data = {
-#             "registration": False,
-#             "counselling_service": False,
-#             "payment": "pending",
-#             "exam": False,
-#             "review": False,
-#             "report": "locked",
-#             "full_access": False,
-#             "current_step": 1
-#         }
-
-#         # ==========================================
-#         # 1️⃣ Registration (StudentProfile exists)
-#         # ==========================================
-#         student_profile = StudentProfile.objects.filter(user=user).first()
-
-#         if not student_profile:
-#             return Response(response_data)
-
-#         response_data["registration"] = True
-#         response_data["current_step"] = 2
-
-#         # ==========================================
-#         # 2️⃣ Counselling Service (UserProgramPackage)
-#         # ==========================================
-#         user_program = (
-#             UserProgramPackage.objects
-#             .select_related("program", "package")
-#             .filter(user=user)   # ✅ FIXED HERE
-#             .first()
-#         )
-
-#         if not user_program:
-#             return Response(response_data)
-
-#         response_data["counselling_service"] = True
-#         response_data["current_step"] = 3
-
-#         package = user_program.package
-
-#         # ==========================================
-#         # 3️⃣ Payment Status
-#         # ==========================================
-#         total_paid = (
-#             Payment.objects
-#             .filter(user=user)   # ⚠️ Adjust if needed
-#             .aggregate(total=Sum("amount"))["total"] or 0
-#         )
-
-#         if total_paid == 0:
-#             response_data["payment"] = "pending"
-#             return Response(response_data)
-
-#         if total_paid < package.price:
-#             response_data["payment"] = "partial_paid"
-#             return Response(response_data)
-#         else:
-#             response_data["payment"] = "fully_paid"
-#             response_data["current_step"] = 4
-
-#         # ==========================================
-#         # 4️⃣ Exam
-#         # ==========================================
-#         exam_completed = Exam.objects.filter(
-#             student=student_profile,
-#             is_completed=True
-#         ).exists()
-
-#         if not exam_completed:
-#             return Response(response_data)
-
-#         response_data["exam"] = True
-#         response_data["current_step"] = 5
-
-#         # ==========================================
-#         # 5️⃣ Review
-#         # ==========================================
-#         review_completed = Review.objects.filter(
-#             student=student_profile,
-#             is_completed=True
-#         ).exists()
-
-#         if not review_completed:
-#             return Response(response_data)
-
-#         response_data["review"] = True
-#         response_data["current_step"] = 6
-
-#         # ==========================================
-#         # 6️⃣ Report
-#         # ==========================================
-#         report_exists = Report.objects.filter(
-#             student=student_profile,
-#             is_generated=True
-#         ).exists()
-
-#         if report_exists:
-#             response_data["report"] = "unlocked"
-#             response_data["current_step"] = 7
-
-#         # ==========================================
-#         # 7️⃣ Full Access
-#         # ==========================================
-#         if (
-#             response_data["registration"]
-#             and response_data["counselling_service"]
-#             and response_data["payment"] == "fully_paid"
-#             and response_data["exam"]
-#             and response_data["review"]
-#             and response_data["report"] == "unlocked"
-#         ):
-#             response_data["full_access"] = True
-#             response_data["current_step"] = 8
-
-#         return Response(response_data)
-
 
 class UserJourneyAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, student_id):
-        """
-        Fetch the actual user journey using student ID.
-        """
-        student_profile = get_object_or_404(StudentProfile, id=student_id)
 
-        response_data = {
-            "progress": {
-                "registration": False,
-                "counselling_service": False,
-                "payment": "pending",
-                "exam": None,
-                "review": False,
-                "report": "locked",
-                "full_access": False,
-                "current_step": 1
-            },
-            "history": []
-        }
+        student = get_object_or_404(StudentProfile, id=student_id)
+        history = []
 
-        current_step = 1  # We'll increment this as we check actual data
+        # ================================
+        # 1️⃣ REGISTRATION
+        # ================================
+        registration_completed = True
 
-        # 1️⃣ Registration
-        if student_profile:
-            response_data["progress"]["registration"] = True
-            current_step = 2
-            response_data["history"].append({
-                "step": "Registration",
-                "status": "completed",
-                "date": student_profile.created_at.date() if hasattr(student_profile, "created_at") else None,
-                "details": f"Student {student_profile.user.email} registered"
-            })
+        history.append({
+            "step": "Registration",
+            "status": "completed",
+            "date": student.created_at,
+            "details": f"Student {student.user.email} registered"
+        })
 
-        # 2️⃣ Counselling Service
-        user_program = (
-            UserProgramPackage.objects
-            .select_related("program", "package")
-            .filter(user=student_profile.user)
+        # ================================
+        # 2️⃣ COUNSELLING SERVICE
+        # ================================
+
+        # Try getting from StudentProfile first
+        program = getattr(student, "program", None)
+        package = getattr(student, "package", None)
+
+        # If missing, derive from latest payment
+        last_payment = (
+            Payment.objects
+            .filter(user=student.user)
+            .select_related("package__program")
+            .order_by("-created_at")
             .first()
         )
 
-        if user_program:
-            response_data["progress"]["counselling_service"] = True
-            current_step = 3
-            response_data["history"].append({
+        if (not program or not package) and last_payment and last_payment.package:
+            package = last_payment.package
+            program = last_payment.package.program
+
+        counselling_selected = bool(program and package)
+
+        if counselling_selected:
+            history.append({
                 "step": "Counselling Service Selection",
                 "status": "completed",
-                "date": user_program.created_at.date() if hasattr(user_program, "created_at") else None,
-                "details": f"{user_program.package.name} selected for program {user_program.program.name}"
+                "date": student.updated_at,
+                "details": f"{package.name} selected for program {program.name}"
             })
-            package = user_program.package
-        else:
-            package = None  # No package selected
 
-        # 3️⃣ Payment Status
-        payments = Payment.objects.filter(user=student_profile.user)
+        # ================================
+        # 3️⃣ PAYMENT (Separate Records)
+        # ================================
+
+        payments = Payment.objects.filter(
+            user=student.user
+        ).order_by("created_at")
+
         total_paid = payments.aggregate(total=Sum("amount"))["total"] or 0
+        last_payment = payments.last()
 
-        if package:
-            if total_paid == 0:
-                payment_status = "pending"
-            elif total_paid < package.price:
-                payment_status = "partial_paid"
-            else:
-                payment_status = "fully_paid"
-        else:
+        package_price = (
+            last_payment.package.price
+            if last_payment and last_payment.package
+            else 0
+        )
+
+        # Determine overall payment status for progress
+        if total_paid == 0:
             payment_status = "pending"
+        elif total_paid < package_price:
+            payment_status = "partial_paid"
+        else:
+            payment_status = "fully_paid"
 
-        response_data["progress"]["payment"] = payment_status
-        if payment_status == "fully_paid":
+
+        # Add each payment separately in history
+        if payments.exists():
+            for payment in payments:
+                history.append({
+                    "step": "Payment",
+                    "status": payment.status,  # show actual record status
+                    "date": payment.created_at.date(),
+                    "details": f"₹{payment.amount:.2f} - ({payment.method}) "
+                })
+        else:
+            history.append({
+                "step": "Payment",
+                "status": "pending",
+                "date": None,
+                "details": "No payment made yet"
+            })
+
+
+
+        # ================================
+        # 4️⃣ EXAM + REPORT
+        # ================================
+
+        EXAM_PROGRAMS = ["pg counselling", "8-12 aptitude test"]
+
+        exam_status = "not_applicable"
+        report_status = "not_applicable"
+        exam_attempt = None
+
+        if program and program.name.lower().strip() in EXAM_PROGRAMS:
+
+            exam_attempt = (
+                student.user.userexam_set
+                .select_related("exam")
+                .order_by("-created_at")
+                .first()
+            )
+
+            # ---- EXAM ----
+            if exam_attempt:
+                exam_status = exam_attempt.status
+
+                history.append({
+                    "step": "Exam",
+                    "status": exam_status,
+                    "date": exam_attempt.created_at,
+                    "details": f"{exam_attempt.exam.name} exam status: {exam_status}"
+                })
+            else:
+                exam_status = "not_started"
+
+                history.append({
+                    "step": "Exam",
+                    "status": "not_started",
+                    "date": None,
+                    "details": "Exam not started"
+                })
+
+            # ---- REPORT ----
+            if exam_attempt:
+                report = (
+                    Report.objects
+                    .filter(user=student.user, exam=exam_attempt.exam)
+                    .order_by("-uploaded_at")
+                    .first()
+                )
+
+                if report:
+                    report_status = report.report_status
+
+                    history.append({
+                        "step": "Report",
+                        "status": report_status,
+                        "date": report.uploaded_at,
+                        "details": f"Report status: {report_status}"
+                    })
+                else:
+                    report_status = "locked"
+
+                    history.append({
+                        "step": "Report",
+                        "status": "locked",
+                        "date": None,
+                        "details": "Report not generated yet"
+                    })
+            else:
+                report_status = "locked"
+
+                history.append({
+                    "step": "Report",
+                    "status": "locked",
+                    "date": None,
+                    "details": "Report locked until exam is attempted"
+                })
+
+        else:
+            history.append({
+                "step": "Exam",
+                "status": "not_applicable",
+                "date": None,
+                "details": "Exam not applicable for this program"
+            })
+
+            history.append({
+                "step": "Report",
+                "status": "not_applicable",
+                "date": None,
+                "details": "Report not applicable for this program"
+            })
+
+        # ================================
+        # 5️⃣ SLOT BOOKING
+        # ================================
+        booking = Booking.objects.filter(student=student).first()
+
+        if booking:
+            slot_status = True
+            history.append({
+                "step": "Counselling Slot Booking",
+                "status": "completed",
+                "date": booking.created_at,
+                "details": "Slot booked"
+            })
+        else:
+            slot_status = False
+            history.append({
+                "step": "Counselling Slot Booking",
+                "status": "pending",
+                "date": None,
+                "details": "Slot not booked"
+            })
+
+        # ================================
+        # 6️⃣ REVIEW
+        # ================================
+        review_status = False  # update when review model exists
+
+        history.append({
+            "step": "Review",
+            "status": "completed" if review_status else "pending",
+            "date": None,
+            "details": "Review completed" if review_status else "Pending"
+        })
+
+        # ================================
+        # CURRENT STEP LOGIC
+        # ================================
+        current_step = 1
+
+        if registration_completed:
+            current_step = 2
+
+        if counselling_selected:
+            current_step = 3
+
+        if payment_status in ["partial_paid", "fully_paid"]:
             current_step = 4
 
-        # Payment history
-        for payment in payments:
-            response_data["history"].append({
-                "step": "Payment",
-                "status": "completed" if payment.amount >= (package.price if package else 0) else "partial",
-                "date": payment.created_at.date() if hasattr(payment, "created_at") else None,
-                "details": f"₹{payment.amount} paid ({payment.payment_type})"
-            })
+        if exam_status in ["in_progress", "submitted", "pending_approval", "completed"]:
+            current_step = 5
 
-        # 4️⃣ Exam (only for certain programs)
-        exam_applicable = user_program and user_program.program.name.lower() in ["pg-counselling", "8-12-aptitude-test"]
-        if exam_applicable:
-            exam = Exam.objects.filter(student=student_profile).first()
-            if exam and getattr(exam, "is_completed", False):
-                response_data["progress"]["exam"] = True
-                current_step = 5
-                exam_status = "completed"
-            else:
-                response_data["progress"]["exam"] = False
-                exam_status = "pending"
-
-            response_data["history"].append({
-                "step": "Exam",
-                "status": exam_status,
-                "date": exam.completed_at.date() if exam and hasattr(exam, "completed_at") else None,
-                "details": "Psychometric Test Completed" if exam_status == "completed" else "Pending"
-            })
-        else:
-            response_data["progress"]["exam"] = None  # Not applicable
-
-        # 5️⃣ Review
-        review = Review.objects.filter(user=student_profile.user, is_shared=True).first()
-        if review:
-            response_data["progress"]["review"] = True
+        if report_status in ["unlocked", "locked"]:
             current_step = 6
-            review_status = "completed"
-        else:
-            review_status = "pending"
 
-        response_data["history"].append({
-            "step": "Review",
-            "status": review_status,
-            "date": review.created_at.date() if review else None,
-            "details": "Review Completed" if review_status == "completed" else "Pending"
-        })
-
-        # 6️⃣ Report
-        report = Report.objects.filter(user=student_profile.user, report_status="generated").first()
-        if report:
-            response_data["progress"]["report"] = "unlocked"
+        if slot_status:
             current_step = 7
-        else:
-            response_data["progress"]["report"] = "locked"
 
-        response_data["history"].append({
-            "step": "Report",
-            "status": "generated" if report else "pending",
-            "date": report.uploaded_at.date() if report and hasattr(report, "uploaded_at") else None,
-            "details": "Career Report Generated" if report else "Pending"
-        })
-
-        # 7️⃣ Full Access
-        if (
-            response_data["progress"]["registration"]
-            and response_data["progress"]["counselling_service"]
-            and response_data["progress"]["payment"] == "fully_paid"
-            and (response_data["progress"]["exam"] in [True, None])
-            and response_data["progress"]["review"]
-            and response_data["progress"]["report"] == "unlocked"
-        ):
-            response_data["progress"]["full_access"] = True
+        if review_status:
             current_step = 8
 
-        response_data["progress"]["current_step"] = current_step
+        # ================================
+        # FINAL RESPONSE
+        # ================================
+        response_data = {
+            "progress": {
+                "registration": registration_completed,
+                "counselling_service": counselling_selected,
+                "payment": payment_status,
+                "exam": exam_status,
+                "report": report_status,
+                "counselling_slot_booking": slot_status,
+                "review": review_status,
+                "full_access": review_status,
+                "current_step": current_step
+            },
+            "payment_summary": {
+                "last_payment": {
+                    "payment_id": last_payment.id if last_payment else None,
+                    "amount": float(last_payment.amount) if last_payment else 0,
+                    "status": last_payment.status if last_payment else None,
+                    "payment_type": last_payment.payment_type if last_payment else None,
+                    "method": last_payment.method if last_payment else None,
+                    "transaction_id": last_payment.transaction_id if last_payment else None,
+                    "date": last_payment.created_at.date() if last_payment else None,
+                } if last_payment else None,
+                "total_amount_paid": float(total_paid),
+                "payments": [
+                    {
+                        "payment_id": p.id,
+                        "amount": float(p.amount),
+                        "status": p.status,
+                        "payment_type": p.payment_type,
+                        "method": p.method,
+                        "transaction_id": p.transaction_id,
+                        "date": p.created_at.date(),
+                    }
+                    for p in payments
+                ]
+            },
+            "history": history
+        }
 
         return Response(response_data)

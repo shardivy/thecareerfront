@@ -620,8 +620,19 @@ class ProfileUpdateAPIView(APIView):
     def get(self, request):
         user = request.user
 
-        return Response({
+        student_profile = None  # 🔹 Initialize
+
+        # If user is a student, try to get profile
+        if user.role and user.role.name.lower() == "student":
+            try:
+                student_profile = StudentProfile.objects.get(user=user)
+            except StudentProfile.DoesNotExist:
+                pass
+
+        # Base user info
+        response_data = {
             "id": user.id,
+            "student_id": student_profile.id if student_profile else None,
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
@@ -629,8 +640,51 @@ class ProfileUpdateAPIView(APIView):
             "role": user.role.name if user.role else None,
             "is_active": user.is_active,
             "created_at": user.created_at
-        })
+        }
 
+        # If student profile exists, include extended info
+        if student_profile:
+            response_data.update({
+                "study_class": student_profile.study_class,
+                "current_academic_stage": student_profile.current_academic_stage,
+                "current_academic_year": student_profile.current_academic_year,
+                "school_college": student_profile.school_college,
+                "city": student_profile.city,
+                "preferred_counselling_mode": student_profile.preferred_counselling_mode
+            })
+
+        # 🔹 Program & package
+        if user.role and user.role.name.lower() == "student":
+            upp = UserProgramPackage.objects.filter(user=user).first()
+            if upp:
+                response_data.update({
+                    "program_id": upp.program.id if upp.program else None,
+                    "program": upp.program.name if upp.program else None,
+                    "package_id": upp.package.id if upp.package else None,
+                    "package": upp.package.name if upp.package else None
+                })
+
+            # 🔹 Payments
+            payments = Payment.objects.filter(user=user)
+            payment_list = []
+            for payment in payments:
+                proof_url = request.build_absolute_uri(payment.proof_file.url) if payment.proof_file else None
+                payment_list.append({
+                    "payment_id": payment.id,
+                    "amount": payment.amount,
+                    "payment_type": payment.payment_type,
+                    "method": payment.method,
+                    "transaction_id": payment.transaction_id,
+                    "proof_file": proof_url,
+                    "status": payment.status,
+                    "created_at": payment.created_at
+                })
+            response_data["payments"] = payment_list
+
+        return Response(response_data)
+
+    
+    
     @transaction.atomic
     def put(self, request):
         user = request.user
