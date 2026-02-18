@@ -13,7 +13,7 @@ services:
       - db
       - redis
     volumes:
-      - static_volume:/app/staticfiles
+      - ./staticfiles:/app/staticfiles
     restart: always
     
 
@@ -55,4 +55,4 @@ services:
 
 volumes:
   staging_mysql_data:
-  static_volume:
+
