@@ -263,29 +263,55 @@ class SlotCreateAPIView(APIView):
         
         
 # API to delete a slot
+# class SlotDeleteAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     @transaction.atomic
+#     def delete(self, request, slot_id):
+#         slot = get_object_or_404(Slot, id=slot_id)
+
+#         # 🚨 Do not allow deleting if booked
+#         if Booking.objects.filter(slot=slot).exists():
+#             return Response(
+#                 {"success": False, "message": "Slot cannot be deleted because it is already booked."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ✅ Soft delete only
+#         slot.is_deleted = True
+#         slot.is_available = False
+#         slot.save(update_fields=["is_deleted", "is_available"])
+
+#         return Response(
+#             {"success": True, "message": "Slot deleted successfully."},
+#             status=status.HTTP_200_OK
+#         )
+
+# Add debugging to verify your delete method is being called
 class SlotDeleteAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def delete(self, request, slot_id):
+        print(f"Soft delete called for slot {slot_id}")  # Debug line
         slot = get_object_or_404(Slot, id=slot_id)
 
-        # 🚨 Do not allow deleting if booked
         if Booking.objects.filter(slot=slot).exists():
             return Response(
                 {"success": False, "message": "Slot cannot be deleted because it is already booked."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ Soft delete only
         slot.is_deleted = True
         slot.is_available = False
         slot.save(update_fields=["is_deleted", "is_available"])
+        
+        print(f"Slot {slot_id} soft deleted successfully")  # Debug line
 
         return Response(
             {"success": True, "message": "Slot deleted successfully."},
             status=status.HTTP_200_OK
-        )
+        )   
 
         
 class UpdateCounsellorStatusAPIView(APIView):
@@ -887,7 +913,7 @@ class CounsellorSlotByDateAPIView(APIView):
                     "slot_id": slot.id,
                     "start_time": start_time,
                     "end_time": end_time,
-                    "is_available": not is_booked,
+                    "is_available": slot.is_available if slot else False,
                     "status": "booked" if is_booked else "available"
                 })
 
