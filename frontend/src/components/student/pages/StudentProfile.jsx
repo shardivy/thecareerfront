@@ -38,6 +38,8 @@ const StudentProfile = () => {
 
   // ===== Load profile on mount =====
   useEffect(() => {
+
+      // window.location.reload();
     dispatch(getProfile());
   }, [dispatch]);
 
@@ -79,8 +81,11 @@ useEffect(() => {
     setProfile(formattedProfile);
 
     // ✅ Store program & package in localStorage immediately
+    localStorage.setItem("studentId", formattedProfile.student_id || "");
     localStorage.setItem("selectedProgram", formattedProfile.program || "");
     localStorage.setItem("selectedPackage", formattedProfile.package || "");
+  
+
   }
 }, [storedProfile]);
 

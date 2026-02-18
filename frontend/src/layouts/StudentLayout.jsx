@@ -44,6 +44,14 @@ export default function StudentLayout() {
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   const username = localStorage.getItem("username") || "Student";
+  const selectedProgram = localStorage.getItem("selectedProgram");
+const normalizedProgram = selectedProgram?.trim().toLowerCase();
+
+const showExamAndReport =
+  normalizedProgram === "pg counselling" ||
+  normalizedProgram === "8-12 aptitude test";
+
+
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -113,6 +121,9 @@ export default function StudentLayout() {
       },
       style: { marginBottom: 12 },
     },
+
+     ...(showExamAndReport
+    ? [
     {
       key: "/student/exam-management",
       icon: <CalendarFilled />,
@@ -133,6 +144,9 @@ export default function StudentLayout() {
       },
       style: { marginBottom: 12 },
     },
+
+     ]
+    : []),
     {
       key: "/student/slot-booking",
       icon: <ScheduleFilled />,

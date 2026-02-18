@@ -23,7 +23,19 @@ const { useBreakpoint } = Grid;
 
 const StudentDashboard = () => {
   const screens = useBreakpoint();
-  const navigate = useNavigate();   
+  const navigate = useNavigate();  
+  const selectedProgram = localStorage.getItem("selectedProgram");
+
+ const normalizedProgram = selectedProgram?.trim().toLowerCase();
+
+const allowedPrograms = [
+  "pg counselling",
+  "8-12 aptitude test",
+];
+
+const showExamAndReport = allowedPrograms.includes(normalizedProgram);
+
+ 
 
   // 🔥 Access theme tokens
   const { token } = theme.useToken();
@@ -46,10 +58,13 @@ const StudentDashboard = () => {
         };
 
       case 3:
+         if (showExamAndReport) {
         return {
           label: "Start Exam →",
           path: "/student/exam-management",
         };
+      }
+       break;
 
       case 4:
         return {
@@ -59,10 +74,13 @@ const StudentDashboard = () => {
 
        
       case 6:
+        if (showExamAndReport) {
         return {
           label: "View Report →",
           path: "/student/report-management",
         };
+         }
+      break;
 
       default:
         return {
@@ -86,7 +104,11 @@ const StudentDashboard = () => {
     >
       {/* ===================== PROGRESS STEPS ===================== */}
       <div style={{ overflowX: "auto", paddingBottom: 10 ,}}>
-        <JourneySteps currentStep={1} />
+       <JourneySteps 
+  currentStep={1} 
+  showExamAndReport={showExamAndReport}
+/>
+
       </div>
 
       {/* ===================== CHOOSE YOUR PATH ===================== */}

@@ -182,7 +182,7 @@ const userSlice = createSlice({
               : "N/A",
 
             examStatus: u.exam_status?.completed > 0 ? "Completed" : "Pending",
-            reportStatus: u.is_report_locked ? "Unlocked" : "Locked",
+              reportStatus: u.report_status === "unlocked" ? "Unlocked" : "Locked",
             sessions: u.exam_status
               ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
               : "0",
@@ -266,7 +266,7 @@ const userSlice = createSlice({
             : "N/A",
             
           examStatus: u.exam_status?.completed > 0 ? "Completed" : "Pending",
-          reportStatus: u.is_report_locked ? "Locked" : "Unlocked",
+          reportStatus: u.report_status ? "Locked" : "Unlocked",
           sessions: u.exam_status 
             ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
             : "0",

@@ -178,7 +178,7 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
       
       // For upload mode, we only need the file
       if (uploadedFile) {
-        formData.append("file", uploadedFile);
+        formData.append("file_path", uploadedFile);
         console.log("➕ Added file:", uploadedFile.name);
       } else {
         console.log("📄 No new file to upload");

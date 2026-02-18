@@ -48,19 +48,21 @@ const UserProfileModal = ({ open, onClose, user }) => {
   const progressData = journey?.progress || {};
   const historyData = journey?.history || [];
   const paymentSummary = journey?.payment_summary || {};
-const payments = paymentSummary.payments || [];
-
+  const payments = paymentSummary.payments || [];
+  const lastPaymentStatus = paymentSummary?.last_payment?.status || null;
 
   const currentStep = progressData.current_step || 1;
-  const isPartialPayment = progressData.payment === "partial";
-  const isFullyPaid = progressData.payment === "fully_paid";
-
+  const isPartialPayment = progressData.payment === "partial_paid";
 
   const displayName =
     (user.name && user.name.toString().trim()) ||
     `${(user.first_name || "").toString().trim()} ${(user.last_name || "")
       .toString()
       .trim()}`.trim();
+
+  const showExamReport =
+    user.program === "8-12 Aptitude Test" ||
+    user.program === "PG Counselling";
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -77,75 +79,69 @@ const payments = paymentSummary.payments || [];
           <Col xs={24} md={12}>
             <Title level={5}>Student Details</Title>
             <Descriptions bordered column={1}>
-              <Descriptions.Item label="Name">
-                {displayName}
-              </Descriptions.Item>
-              <Descriptions.Item label="Email">
-                {user.email}
-              </Descriptions.Item>
-              <Descriptions.Item label="Review">
-                {user.review || " - "}
-              </Descriptions.Item>
-              <Descriptions.Item label="Report Status">
-                <Tag
-                  color={
-                    progressData.report === "locked"
-                      ? "default"
-                      : "success"
-                  }
-                >
-                  {progressData.report || "N/A"}
-                </Tag>
-              </Descriptions.Item>
+              <Descriptions.Item label="Name">{displayName}</Descriptions.Item>
+              <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
+              <Descriptions.Item label="Review">{user.review || " - "}</Descriptions.Item>
+
+              {showExamReport && (
+                <Descriptions.Item label="Report Status">
+                  <Tag
+                    color={
+                      progressData.report === "locked" ? token.colorPrimary : token.colorSuccess
+                    }
+                  >
+                    {progressData.report || "N/A"}
+                  </Tag>
+                </Descriptions.Item>
+              )}
             </Descriptions>
           </Col>
 
           <Col xs={24} md={12}>
             <Title level={5}>Program Details</Title>
             <Descriptions bordered column={1}>
-              <Descriptions.Item label="Program">
-                {user.program}
-              </Descriptions.Item>
-              <Descriptions.Item label="Counselling Services">
-                {user.package}
-              </Descriptions.Item>
+              <Descriptions.Item label="Program">{user.program}</Descriptions.Item>
+              <Descriptions.Item label="Counselling Services">{user.package}</Descriptions.Item>
 
               <Descriptions.Item label="Payment Status">
                 <Tag
                   color={
-                    progressData.payment === "fully_paid"
-                      ? "success"
-                      : progressData.payment === "partial"
-                      ? "warning"
-                      : "processing"
+                    lastPaymentStatus === "fully_paid"
+                      ? token.colorSuccess
+                      : lastPaymentStatus === "partial_paid"
+                        ? token.colorWarning
+                        : "processing"
                   }
                 >
-                  {progressData.payment || "N/A"}
+                  {lastPaymentStatus
+                    ? lastPaymentStatus.replace("_", " ").toUpperCase()
+                    : "N/A"}
                 </Tag>
               </Descriptions.Item>
 
               <Descriptions.Item label="Amount Paid">
-                ₹ {user.total_paid_amount || 0} / ₹ {user.price || 0}
+                ₹ {paymentSummary.total_amount_paid || 0} / ₹ {user.price || 0}
                 {user.price > 0 && (
                   <>
                     <br />
                     <Text type="colorTextSecondary">
                       (Remaining: ₹{" "}
-                      {(user.price || 0) - (user.total_paid_amount || 0)})
+                      {(user.price || 0) -
+                        (paymentSummary.total_amount_paid || 0)})
                     </Text>
                   </>
                 )}
               </Descriptions.Item>
 
-              <Descriptions.Item label="Exam Status">
-                <Tag
-                  color={
-                    progressData.exam ? "success" : "warning"
-                  }
-                >
-                  {progressData.exam ? "Completed" : "Pending"}
-                </Tag>
-              </Descriptions.Item>
+              {showExamReport && (
+                <Descriptions.Item label="Exam Status">
+                  <Tag
+                    color={progressData.exam === "in_progress" ? token.colorPrimary : token.colorSuccess}
+                  >
+                    {progressData.exam === "in_progress" ? "In Progress" : "Completed"}
+                  </Tag>
+                </Descriptions.Item>
+              )}
             </Descriptions>
           </Col>
         </Row>
@@ -156,15 +152,13 @@ const payments = paymentSummary.payments || [];
         <Title level={5}>Journey Progress</Title>
 
         <div
-          className="progress-scroll"
-                style={{
+          style={{
             marginTop: 16,
             background: token.colorBgContainer,
             padding: 24,
             borderRadius: 16,
             border: `1px solid ${token.colorBorder}`,
             overflowX: "auto",
-            
           }}
         >
           <div
@@ -175,21 +169,42 @@ const payments = paymentSummary.payments || [];
             }}
           >
             {journeySteps.map((label, index) => {
+              if (!showExamReport && (label === "Exam" || label === "Report"))
+                return null;
+
               const stepNo = index + 1;
-              const isCompleted = stepNo < currentStep;
+              const isPaymentStep = stepNo === 3;
+              const isExamStep = label === "Exam";
+              const isReportStep = label === "Report";
               const isActive = stepNo === currentStep;
 
-              let progressWidth = "0%";
+              const isCompleted =
+                stepNo < currentStep &&
+                !(isPaymentStep && isPartialPayment) &&
+                !(isExamStep && progressData.exam === "in_progress") &&
+                !(isReportStep && progressData.report === "locked");
 
-              if (isCompleted) {
+              // Step color
+              let stepColor = token.colorBorder;
+              if (isPaymentStep && isPartialPayment) stepColor = token.colorWarning;
+              else if (isCompleted) stepColor = token.colorSuccess;
+              else if ((isExamStep && progressData.exam === "in_progress") ||
+                (isReportStep && progressData.report === "locked") ||
+                isActive) stepColor = token.colorPrimary;
+
+              // Connector width
+              let progressWidth = "0%";
+              if (
+                stepNo < currentStep ||
+                (isPaymentStep && isPartialPayment) ||
+                (isExamStep && progressData.exam === "in_progress") ||
+                (isReportStep && progressData.report === "locked") ||
+                isActive
+              ) {
                 progressWidth = "100%";
-              } else if (isActive) {
-                if (stepNo === 3 && isPartialPayment) {
-                  progressWidth = "50%";
-                } else {
-                  progressWidth = "100%";
-                }
               }
+
+
 
               return (
                 <div
@@ -216,11 +231,7 @@ const payments = paymentSummary.payments || [];
                       }}
                     >
                       <Tooltip
-                        title={
-                          stepNo === 3 && isPartialPayment
-                            ? "Partially Paid"
-                            : ""
-                        }
+                        title={isPaymentStep && isPartialPayment ? "Partial Paid" : ""}
                       >
                         <div
                           style={{
@@ -243,12 +254,8 @@ const payments = paymentSummary.payments || [];
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: isCompleted
-                        ? token.colorSuccess
-                        : isActive
-                        ? token.colorPrimary
-                        : token.colorBorder,
-                      color: isCompleted || isActive ? "#fff" : token.colorTextSecondary,
+                      backgroundColor: stepColor,
+                      color: stepColor === token.colorBorder ? token.colorTextSecondary : "#fff",
                       zIndex: 1,
                     }}
                   >
@@ -273,193 +280,173 @@ const payments = paymentSummary.payments || [];
 
         <Divider />
 
-     {/* ================= JOURNEY HISTORY ================= */}
-<Title level={5}>Journey History</Title>
+        {/* ================= JOURNEY HISTORY ================= */}
+        <Title level={5}>Journey History</Title>
 
-{journeyLoading ? (
-  <Spin />
-) : (
-  <div
-    style={{
-      marginTop: 20,
-      position: "relative",
-      paddingLeft: 30,
-      maxHeight: 360,
-      overflowY: "auto",
-    }}
-  >
-    {/* Vertical Line */}
-    <div
-      style={{
-        position: "absolute",
-        left: 15,
-        top: 0,
-        bottom: 0,
-        width: 3,
-        background: token.colorBorder,
-      }}
-    />
-
-    {/* 🔥 GROUP HISTORY BY STEP */}
-{/* 🔥 GROUP HISTORY BY STEP */}
-{Object.values(
-  historyData
-    // ✅ REMOVE PENDING STEPS FIRST
-    .filter((item) => {
-      const status = item.status?.toLowerCase();
-      return status && status !== "pending";
-    })
-    // ✅ THEN GROUP
-    .reduce((acc, item) => {
-      if (!acc[item.step]) {
-        acc[item.step] = {
-          ...item,
-          payments: [],
-        };
-      }
-
-      if (item.step === "Payment") {
-        acc[item.step].payments.push(item);
-      }
-
-      return acc;
-    }, {})
-).map((item, index) => {
-
-const status = item.status?.toLowerCase();
-
-  const isCompleted =
-    status === "completed" || status === "fully_paid";
-
-  const isPartial =
-    status === "partially_paid" ||
-    status === "partial_paid" ||
-    status === "partial";
-
-
-      return (
-        <div
-          key={index}
-          style={{
-            position: "relative",
-            marginBottom: 28,
-          }}
-        >
-          {/* Timeline Dot */}
+        {journeyLoading ? (
+          <Spin />
+        ) : (
           <div
             style={{
-              position: "absolute",
-              left: -2,
-              top: 5,
-              width: 30,
-              height: 30,
-              borderRadius: "50%",
-              background: isCompleted
-                ? token.colorSuccess
-                : isPartial
-                ? token.colorWarning
-                : token.colorBorder,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff",
-              fontWeight: 600,
-              zIndex: 1,
+              marginTop: 20,
+              position: "relative",
+              paddingLeft: 30,
+              maxHeight: 360,
+              overflowY: "auto",
             }}
           >
-            {isCompleted ? <CheckOutlined /> : index + 1}
-          </div>
+            <div
+              style={{
+                position: "absolute",
+                left: 15,
+                top: 0,
+                bottom: 0,
+                width: 3,
+                background: token.colorBorder,
+              }}
+            />
 
-          {/* Card */}
-          <div
-            style={{
-              marginLeft: 40,
-              padding: 18,
-              borderRadius: 14,
-              background: token.colorBgContainer,
-              border: `1px solid ${token.colorBorder}`,
-              boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
-            }}
-          >
-            <Row justify="space-between" align="middle">
-              <Col>
-                <Text strong>{item.step}</Text>
-              </Col>
+            {Object.values(
+              historyData
+                .filter((item) => {
+                  const status = item.status?.toLowerCase();
+                  if (!status || status === "pending") return false;
 
-              <Col>
-               <Tag
-  color={
-    isCompleted
-      ? "success"
-      : isPartial
-      ? "warning"
-      : "default"
-  }
->
-  {item.status?.replace("_", " ").toUpperCase()}
-</Tag>
+                  if (
+                    !showExamReport &&
+                    (item.step === "Exam" || item.step === "Report")
+                  )
+                    return false;
 
-              </Col>
-            </Row>
+                  return true;
+                })
+                .reduce((acc, item) => {
+                  if (!acc[item.step]) {
+                    acc[item.step] = { ...item, payments: [] };
+                  }
+                  if (item.step === "Payment") acc[item.step].payments.push(item);
+                  return acc;
+                }, {})
+            ).map((item, index) => {
+              let status =
+                item.step === "Payment"
+                  ? lastPaymentStatus?.toLowerCase()
+                  : item.status?.toLowerCase();
 
-            {/* 🔥 If Payment → Show All Payments */}
-            {item.step === "Payment" ? (
-              <div style={{ marginTop: 10 }}>
-                {item.payments.map((pay, i) => (
+              const isCompleted =
+                status === "completed" || status === "fully_paid";
+
+              const isPartial =
+                status === "partial_paid" ||
+                status === "partially_paid" ||
+                status === "partial";
+
+              return (
+                <div key={index} style={{ position: "relative", marginBottom: 28 }}>
                   <div
-                    key={i}
                     style={{
-                      padding: "8px 12px",
-                      marginTop: 6,
-                      borderRadius: 8,
-                      background: "#fafafa",
-                      border: `1px solid ${token.colorBorder}`,
-                      fontSize: 14,
+                      position: "absolute",
+                      left: -2,
+                      top: 5,
+                      width: 30,
+                      height: 30,
+                      borderRadius: "50%",
+                      background: isCompleted
+                        ? token.colorSuccess
+                        : isPartial
+                          ? token.colorWarning
+                          : token.colorBorder,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#fff",
+                      fontWeight: 600,
+                      zIndex: 1,
                     }}
                   >
-                    {pay.details}
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: token.colorTextSecondary,
-                        marginTop: 4,
-                      }}
-                    >
-                      {pay.date || "—"}
-                    </div>
+                    {isCompleted ? <CheckOutlined /> : index + 1}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 14,
-                    color: token.colorTextSecondary,
-                  }}
-                >
-                  {item.details}
-                </div>
 
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 12,
-                    color: token.colorTextSecondary,
-                  }}
-                >
-                  {item.date || "—"}
+                  <div
+                    style={{
+                      marginLeft: 40,
+                      padding: 18,
+                      borderRadius: 14,
+                      background: token.colorBgContainer,
+                      border: `1px solid ${token.colorBorder}`,
+                      boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
+                    }}
+                  >
+                    <Row justify="space-between" align="middle">
+                      <Col>
+                        <Text strong>{item.step}</Text>
+                      </Col>
+
+                      <Col>
+                        <Tag
+                          color={isCompleted ? "success" : isPartial ? "warning" : "default"}
+                        >
+                          {status?.replace("_", " ").toUpperCase()}
+                        </Tag>
+                      </Col>
+                    </Row>
+
+                    {item.step === "Payment" ? (
+                      <div style={{ marginTop: 10 }}>
+                        {payments.map((pay, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              padding: "8px 12px",
+                              marginTop: 6,
+                              borderRadius: 8,
+                              background: "#fafafa",
+                              border: `1px solid ${token.colorBorder}`,
+                              fontSize: 14,
+                            }}
+                          >
+                            ₹{pay.amount} - ({pay.method})
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: token.colorTextSecondary,
+                                marginTop: 4,
+                              }}
+                            >
+                              {pay.date || "—"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 14,
+                            color: token.colorTextSecondary,
+                          }}
+                        >
+                          {item.details}
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 12,
+                            color: token.colorTextSecondary,
+                          }}
+                        >
+                          {item.date || "—"}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </>
-            )}
+              );
+            })}
           </div>
-        </div>
-      );
-    })}
-  </div>
-)}
-
+        )}
       </Modal>
     </ConfigProvider>
   );

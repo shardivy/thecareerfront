@@ -142,12 +142,13 @@ const ReportsManagement = () => {
               : item.report_status === "locked"
                 ? "Locked"
                 : "Unknown",
-      paymentStatus:
-        item.payment_status === "paid"
-          ? "Fully Paid"
-          : item.payment_status === "partial"
-            ? "Partial Paid"
-            : "Pending",
+     paymentStatus:
+  item.payment_status === "fully_paid"
+    ? "Fully Paid"
+    : item.payment_status === "partial_paid"
+      ? "Partial Paid"
+      : "Pending",
+
       examStatus:
         item.exam_status === "completed"
           ? "Completed"

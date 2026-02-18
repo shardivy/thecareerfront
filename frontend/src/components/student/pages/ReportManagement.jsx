@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Card,
   Row,
@@ -19,6 +20,8 @@ import {
   StarOutlined,
 } from "@ant-design/icons";
 import SubmitReviewModal from "../modals/SubmitReviewModal";
+import { fetchCompletedExamReportsByStudent } from "../../../adminSlices/reportSlice";
+
 
 const { Title, Text } = Typography;
 
@@ -28,6 +31,20 @@ const ReportManagement = () => {
   const [rating, setRating] = useState(4);
   const [feedback, setFeedback] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const dispatch = useDispatch();
+
+   const { reports, loading, error } = useSelector(
+    (state) => state.reports
+  );
+
+
+useEffect(() => {
+  const studentId = localStorage.getItem("studentId");
+
+  if (studentId) {
+    dispatch(fetchCompletedExamReportsByStudent(studentId));
+  }
+}, [dispatch]);
 
   /* ---------------- HANDLERS ---------------- */
   const handleSubmitReview = () => {
@@ -169,23 +186,30 @@ const ReportManagement = () => {
 
       <Divider />
 
-      <Row gutter={[24, 24]}>
-        {/* 1️⃣ Unlocked */}
-        <Col xs={24} md={8}>
-          <ReportCard title="Career Assessment Report" locked={false} />
-        </Col>
+     <Row gutter={[24, 24]}>
+  {reports && reports.length > 0 ? (
+    reports.map((report) => (
+      <Col xs={24} md={8} key={report.id}>
+        <ReportCard
+          title={report.exam_name || "Career Assessment Report"}
+          locked={!report.is_unlocked}
+          reason={report.lock_reason}
+        />
+      </Col>
+    ))
+  ) : (
+    !loading && (
+      <Col span={24}>
+        <Alert
+          type="info"
+          message="No Reports Available"
+          showIcon
+        />
+      </Col>
+    )
+  )}
+</Row>
 
-        {/* 2️⃣ Locked – Payment Pending */}
-        <Col xs={24} md={8}>
-          <ReportCard title="Career Assessment Report" locked reason="payment" />
-        </Col>
-
-        {/* 3️⃣ Locked – Review Pending */}
-        <Col xs={24} md={8}>
-          <ReportCard title="Career Assessment Report" locked reason="review" />
-        </Col>
-
-        </Row>
 
       {/* ---------------- REVIEW MODAL ---------------- */}
       <SubmitReviewModal

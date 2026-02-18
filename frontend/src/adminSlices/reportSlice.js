@@ -3,6 +3,8 @@ import {
   getCompletedExamReportsApi,
   uploadReportApi,
   getReportStatusCountApi,
+  getCompletedExamReportsByStudentApi,
+  updateReportApi,
 } from "../adminApi/reportApi";
 
 /* ----------------- ASYNC THUNKS ----------------- */
@@ -39,6 +41,33 @@ export const uploadReport = createAsyncThunk(
   }
 );
 
+export const fetchCompletedExamReportsByStudent = createAsyncThunk(
+  "reports/fetchCompletedExamReportsByStudent",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await getCompletedExamReportsByStudentApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch student reports"
+      );
+    }
+  }
+);
+
+// UPDATE REPORT
+export const updateReport = createAsyncThunk(
+  "reports/updateReport",
+  async ({ reportId, formData }, { rejectWithValue }) => {
+    try {
+      return await updateReportApi(reportId, formData);
+    } catch (error) {
+      return rejectWithValue(error.response?.data || "Failed to update report");
+    }
+  }
+);
+
+
+
 /* ----------------- SLICE ----------------- */
 const reportSlice = createSlice({
   name: "reports",
@@ -74,6 +103,23 @@ const reportSlice = createSlice({
         state.error = action.payload;
       })
 
+      // FETCH COMPLETED EXAM REPORTS BY STUDENT
+.addCase(fetchCompletedExamReportsByStudent.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(fetchCompletedExamReportsByStudent.fulfilled, (state, action) => {
+  state.loading = false;
+  state.reports = Array.isArray(action.payload?.data)
+    ? action.payload.data
+    : [];
+})
+.addCase(fetchCompletedExamReportsByStudent.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
+
+
       // FETCH REPORT STATS
       .addCase(fetchReportStats.pending, (state) => {
         state.loading = true;
@@ -98,7 +144,20 @@ const reportSlice = createSlice({
       .addCase(uploadReport.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+
+      // UPDATE REPORT
+.addCase(updateReport.pending, (state) => {
+  state.loading = true;
+})
+.addCase(updateReport.fulfilled, (state) => {
+  state.loading = false;
+})
+.addCase(updateReport.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+});
+
   },
 });
 
