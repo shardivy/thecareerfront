@@ -44,6 +44,14 @@ export default function StudentLayout() {
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   const username = localStorage.getItem("username") || "Student";
+  const selectedProgram = localStorage.getItem("selectedProgram");
+const normalizedProgram = selectedProgram?.trim().toLowerCase();
+
+const showExamAndReport =
+  normalizedProgram === "pg counselling" ||
+  normalizedProgram === "8-12 aptitude test";
+
+
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -68,14 +76,15 @@ export default function StudentLayout() {
   /* ===================== BREADCRUMB ===================== */
   const breadcrumbNameMap = {
     "/student/dashboard": "Dashboard",
-    "/student/program": "Program & Packages",
+    "/student/program": "Program & Services",
     "/student/exam-management": "Exam Management",
     "/student/report-management": "Report Management",
     "/student/slot-booking": "Slot Booking",
     "/student/freecontent": "Free Content",
     "/student/content-library": "Content Library",
     "/student/student-profile": "Profile",
-    "/student/payments":"Payments"
+    "/student/payments":"Payments",
+    "/student/payment-page":"Payment",
   };
 
 
@@ -105,13 +114,16 @@ export default function StudentLayout() {
     {
       key: "/student/program",
       icon: <ReadFilled />,
-      label: "Program & Packages",
+      label: "Program & Services",
       onClick: () => {
         navigate("/student/program");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
+
+     ...(showExamAndReport
+    ? [
     {
       key: "/student/exam-management",
       icon: <CalendarFilled />,
@@ -132,6 +144,9 @@ export default function StudentLayout() {
       },
       style: { marginBottom: 12 },
     },
+
+     ]
+    : []),
     {
       key: "/student/slot-booking",
       icon: <ScheduleFilled />,
@@ -166,11 +181,21 @@ export default function StudentLayout() {
   ];
 
 
-  const handleLogout = () => {
-    localStorage.removeItem("studentToken");
-    localStorage.removeItem("username");
-    navigate("/", { replace: true });
-  };
+const handleLogout = () => {
+  // Remove authentication & user info
+  localStorage.removeItem("studentToken");
+  localStorage.removeItem("username");
+
+  // Remove program/package stored from profile
+  localStorage.removeItem("selectedProgram");
+  localStorage.removeItem("selectedPackage");
+
+  // If you want to be extra safe, you can also clear everything
+  // localStorage.clear(); // ⚠️ This clears all localStorage, including unrelated keys
+
+  navigate("/", { replace: true });
+};
+
 
   const MenuContent = (
     <Menu

@@ -17,13 +17,27 @@ export const addEnquiryApi = async (payload) => {
   return response.data;
 };
 
-// Convert enquiry to user
-export const convertEnquiryApi = async (id) => {
+// // Convert enquiry to user
+// export const convertEnquiryApi = async (id) => {
+//   const response = await axiosInstance.post(
+//     `/lead-registeration/leads/${id}/convert/`
+//   );
+//   return response.data;
+// };
+
+export const convertEnquiryApi = async (id, payload) => {
   const response = await axiosInstance.post(
-    `/lead-registeration/leads/${id}/convert/`
+    `/lead-registeration/leads/${id}/convert/`,
+    payload,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
   );
   return response.data;
 };
+
 
 // updateEnquiryApi.js
 export const updateEnquiryApi = async (payload) => {

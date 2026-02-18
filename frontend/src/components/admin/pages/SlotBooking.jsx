@@ -12,7 +12,7 @@ import {
   Input,
   Select,
   DatePicker,
-  Popconfirm,
+  Modal ,
 } from "antd";
 import {
   PlusOutlined,
@@ -30,7 +30,10 @@ import CreateSessionModal from "../modals/CreateSessionModal";
 import {
   fetchCounsellingBookings,
   fetchCounsellingSessionCount,
+  deleteCounsellingBooking,
 } from "../../../adminSlices/counsellingBookingSlice";
+import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
+
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -40,6 +43,11 @@ const SlotBooking = () => {
   const { data = [], loading, stats, statsLoading } = useSelector(
     (state) => state.counsellingBooking
   );
+
+  const { list: counsellorList = [] } = useSelector(
+  (state) => state.counsellors
+);
+
 
   const [searchText, setSearchText] = useState("");
   const [modeFilter, setModeFilter] = useState(null);
@@ -51,11 +59,15 @@ const SlotBooking = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [rescheduleData, setRescheduleData] = useState(null);
+  const [counsellorFilter, setCounsellorFilter] = useState(null);
+
+
 
   /* ================= FETCH BOOKINGS ================= */
   useEffect(() => {
     dispatch(fetchCounsellingBookings());
     dispatch(fetchCounsellingSessionCount(statsPeriod));
+     dispatch(fetchLeadCounsellors()); 
   }, [dispatch, statsPeriod]);
 
   /* ----------------- STATS DATA ----------------- */
@@ -95,12 +107,14 @@ const statsCards = [
         item.student?.last_name || ""
       }`,
       email: item.student?.email || "—",
-      counsellorDisplay: Array.isArray(item.counsellors)
-        ? item.counsellors.map((c) => ({
-            name: `${c.counsellor.first_name} ${c.counsellor.last_name}`,
-            type: c.role,
-          }))
-        : [],
+     counsellorDisplay: Array.isArray(item.counsellors)
+  ? item.counsellors.map((c) => ({
+      id: c.counsellor.id,   // ✅ ADD ID
+      name: `${c.counsellor.first_name} ${c.counsellor.last_name}`,
+      type: c.role,
+    }))
+  : [],
+
       time: item.slot
         ? `${item.slot.start_time} - ${item.slot.end_time}`
         : "—",
@@ -111,17 +125,64 @@ const statsCards = [
   }, [data]);
 
   /* ================= FILTER ================= */
-  const filteredData = dataSource
-    .filter((item) => {
-      const text = Object.values(item).join(" ").toLowerCase();
-      return (
-        text.includes(searchText.toLowerCase()) &&
-        (!modeFilter || item.mode === modeFilter) &&
-        (!statusFilter || item.status === statusFilter) &&
-        (!dateFilter || dayjs(item.date).isSame(dateFilter, "day"))
-      );
-    })
-    .sort((a, b) => dayjs(b.date).diff(dayjs(a.date)));
+  // const filteredData = dataSource
+  //   .filter((item) => {
+  //     const text = Object.values(item).join(" ").toLowerCase();
+  //     return (
+  //       text.includes(searchText.toLowerCase()) &&
+  //       (!modeFilter || item.mode === modeFilter) &&
+  //       (!statusFilter || item.status === statusFilter) &&
+  //       (!dateFilter || dayjs(item.date).isSame(dateFilter, "day"))
+  //     );
+  //   })
+  //   .sort((a, b) => dayjs(b.date).diff(dayjs(a.date)));
+
+const filteredData = dataSource
+  .filter((item) => {
+    const text = Object.values(item).join(" ").toLowerCase();
+    const modeMatch = !modeFilter || item.mode === modeFilter;
+    const statusMatch = !statusFilter || item.status === statusFilter;
+    const dateMatch = !dateFilter || dayjs(item.date).isSame(dateFilter, "day");
+  const counsellorMatch =
+  !counsellorFilter ||
+  item.counsellorDisplay.some(
+    (c) => c.id === counsellorFilter
+  );
+
+
+    return (
+      text.includes(searchText.toLowerCase()) &&
+      modeMatch &&
+      statusMatch &&
+      dateMatch &&
+      counsellorMatch
+    );
+  })
+  .sort((a, b) => dayjs(b.date).diff(dayjs(a.date)));
+
+
+  /* ================= DELETE HANDLER ================= */
+const handleDelete = (record) => {
+  Modal.confirm({
+    title: "Delete Booking?",
+    content: `Are you sure you want to delete session for ${record.studentName}?`,
+    okText: "Yes, Delete",
+    okType: "danger",
+    cancelText: "Cancel",
+    centered: true,
+
+    onOk: () => {
+      return dispatch(deleteCounsellingBooking(record.id))
+        .unwrap()
+        .then(() => {
+          // Optional: refetch (not required because we already filter in slice)
+          dispatch(fetchCounsellingBookings());
+        });
+    },
+  });
+};
+
+
 
   /* ================= TABLE COLUMNS ================= */
   const columns = [
@@ -153,7 +214,7 @@ const statsCards = [
             </div>
           ))
         ) : (
-          <Text type="secondary">—</Text>
+          <Text type="colorTextSsecondary">—</Text>
         ),
     },
     {
@@ -207,11 +268,15 @@ const statsCards = [
           >
             Edit
           </Button>
-          <Popconfirm title="Delete booking?">
-            <Button size="large" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
+         <Button
+  size="large"
+  danger
+  icon={<DeleteOutlined />}
+  onClick={() => handleDelete(record)}
+>
+  Delete
+</Button>
+
         </Space>
       ),
     },
@@ -301,6 +366,23 @@ const statsCards = [
               onChange={(e) => setSearchText(e.target.value)}
             />
           </Col>
+          <Col xs={12} md={4}>
+ <Select
+  placeholder="Select Counsellor"
+  allowClear
+  value={counsellorFilter}
+  onChange={setCounsellorFilter}
+  style={{ width: "100%" }}
+>
+  {counsellorList.map((c) => (
+    <Option key={c.id} value={c.id}>
+      {c.first_name} {c.last_name}
+    </Option>
+  ))}
+</Select>
+
+</Col>
+
           <Col xs={12} md={4}>
             <Select
               placeholder="Mode"

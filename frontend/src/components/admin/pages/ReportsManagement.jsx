@@ -30,6 +30,8 @@ import ViewReportModal from "../modals/ViewReportModal";
 import VerifyReviewModal from "../modals/VerifyReviewModal";
 import { fetchCompletedExamReports } from "../../../adminSlices/reportSlice";
 import { fetchReportStats } from "../../../adminSlices/reportSlice";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -82,6 +84,10 @@ const ReportsManagement = () => {
   const [paymentFilter, setPaymentFilter] = useState(null);
   const [examFilter, setExamFilter] = useState(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+
+
   /* ----------------- FETCH DATA ----------------- */
   useEffect(() => {
     dispatch(fetchCompletedExamReports());
@@ -130,24 +136,25 @@ const ReportsManagement = () => {
         item.report_status === "pending_uploaded"
           ? "Pending Upload"
           : item.report_status === "review_pending"
-          ? "Review Verification Pending"
-          : item.report_status === "unlocked"
-          ? "Unlocked"
-          : item.report_status === "locked"
-          ? "Locked"
-          : "Unknown",
-      paymentStatus:
-        item.payment_status === "paid"
-          ? "Fully Paid"
-          : item.payment_status === "partial"
-          ? "Partial Paid"
-          : "Pending",
+            ? "Review Verification Pending"
+            : item.report_status === "unlocked"
+              ? "Unlocked"
+              : item.report_status === "locked"
+                ? "Locked"
+                : "Unknown",
+     paymentStatus:
+  item.payment_status === "fully_paid"
+    ? "Fully Paid"
+    : item.payment_status === "partial_paid"
+      ? "Partial Paid"
+      : "Pending",
+
       examStatus:
         item.exam_status === "completed"
           ? "Completed"
           : item.exam_status === "pending"
-          ? "Pending"
-          : "Not Started",
+            ? "Pending"
+            : "Not Started",
       uploadedDate: item.uploaded_at
         ? new Date(item.uploaded_at).toISOString().split("T")[0]
         : "—",
@@ -205,19 +212,20 @@ const ReportsManagement = () => {
   /* ----------------- ROW SELECTION ----------------- */
   const rowSelection = showCheckboxes
     ? {
-        selectedRowKeys,
-        onChange: (keys) => setSelectedRowKeys(keys),
-        getCheckboxProps: (record) => ({
-          disabled: record.status !== "Pending Upload",
-        }),
-      }
+      selectedRowKeys,
+      onChange: (keys) => setSelectedRowKeys(keys),
+      getCheckboxProps: (record) => ({
+        disabled: record.status !== "Pending Upload",
+      }),
+    }
     : null;
 
   /* ----------------- TABLE COLUMNS ----------------- */
   const columns = [
     {
       title: "Sr. No",
-      render: (_, __, index) => index + 1,
+      render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
     },
     {
       title: "User Name",
@@ -347,10 +355,59 @@ const ReportsManagement = () => {
     },
   ];
 
+
+  const handleExportToExcel = () => {
+    // Prepare export data
+    const exportData =
+      filteredData.length > 0
+        ? filteredData.map((item, index) => ({
+          "Sr. No": index + 1,
+          "User Name": item.name,
+          Email: item.email,
+          Program: item.program,
+          "Report Status": item.status,
+          "Payment Status": item.paymentStatus,
+          "Exam Status": item.examStatus,
+          "Uploaded Date": item.uploadedDate,
+        }))
+        : [
+          {
+            "Sr. No": "",
+            "User Name": "No records found",
+            Email: "",
+            Program: "",
+            "Report Status": "",
+            "Payment Status": "",
+            "Exam Status": "",
+            "Uploaded Date": "",
+          },
+        ];
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reports");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const data = new Blob([excelBuffer], {
+      type:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+
+    saveAs(data, `Reports_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+    message.success("Excel file downloaded successfully!");
+  };
+
+
   return (
     <div style={{ padding: 16 }}>
       <Title level={3}>Report Management</Title>
-      
+
       {/* ----------------- STATS ----------------- */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         {statsCards.map((item, i) => (
@@ -376,7 +433,7 @@ const ReportsManagement = () => {
           </Col>
         ))}
       </Row>
-      
+
       <br /><br /><br />
 
       {/* ACTION BUTTONS */}
@@ -385,7 +442,7 @@ const ReportsManagement = () => {
         style={{ marginBottom: 16 }}
         justify={{ xs: "center", sm: "end" }}
       >
-        <Col xs={24} sm={12} md={4}>
+        {/* <Col xs={24} sm={12} md={4}>
           <Button
             block
             type="primary"
@@ -399,12 +456,17 @@ const ReportsManagement = () => {
               ? `Upload Selected (${selectedRowKeys.length})`
               : "Bulk Upload"}
           </Button>
-        </Col>
+        </Col> */}
 
         <Col xs={24} sm={12} md={4}>
-          <Button block icon={<DownOutlined />}>
+          <Button
+            block
+            icon={<DownOutlined />}
+            onClick={handleExportToExcel}
+          >
             Export to Excel
           </Button>
+
         </Col>
       </Row>
 
@@ -415,7 +477,7 @@ const ReportsManagement = () => {
             Report Records ({filteredData.length})
           </Title>
         </Col>
-        
+
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={8}>
             <Input
@@ -477,7 +539,17 @@ const ReportsManagement = () => {
           rowSelection={rowSelection}
           columns={columns}
           dataSource={filteredData}
-          pagination={{ pageSize: 5 }}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            showSizeChanger: true,
+            pageSizeOptions: [5, 10, 20, 50],
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+          }}
+
           scroll={{ x: "max-content" }}
         />
       </Card>

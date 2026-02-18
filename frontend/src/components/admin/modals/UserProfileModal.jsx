@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Modal,
   Typography,
@@ -9,65 +10,59 @@ import {
   Divider,
   ConfigProvider,
   theme,
+  Tooltip,
+  Spin,
 } from "antd";
 import { CheckOutlined } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
+import { fetchStudentJourney } from "../../../adminSlices/userSlice";
 
 const { Title, Text } = Typography;
 
-/* ---------------- JOURNEY CONFIG ---------------- */
+/* ---------------- JOURNEY STEPS ---------------- */
 const journeySteps = [
   "Registration",
-  "Package Selection",
+  "Counselling Service Selection",
   "Payment",
   "Exam",
   "Report",
-  "Counselling",
+  "Counselling Slot Booking",
+  "Review",
   "Full Access",
 ];
 
-const sessionHistory = [
-  {
-    id: 1,
-    title: "Initial Career Counselling",
-    date: "2026-01-05",
-    duration: "60 mins",
-    counselor: "Dr. Ramesh Gupta",
-    status: "Completed",
-  },
-  {
-    id: 2,
-    title: "Career Path Discussion",
-    date: "2026-01-08",
-    duration: "45 mins",
-    counselor: "Ms. Priya Menon",
-    status: "Completed",
-  },
-  {
-    id: 3,
-    title: "Report Review Session",
-    date: "2026-01-10",
-    duration: "60 mins",
-    counselor: "Dr. Ramesh Gupta",
-    status: "Completed",
-  },
-];
-
-
 const UserProfileModal = ({ open, onClose, user }) => {
   const { token } = theme.useToken();
+  const dispatch = useDispatch();
+  const { journey, journeyLoading } = useSelector((state) => state.users);
+
+  useEffect(() => {
+    if (open && user?.id) {
+      dispatch(fetchStudentJourney(user.id));
+    }
+  }, [open, user, dispatch]);
+
   if (!user) return null;
 
-  // Prefer explicit name; fall back to first_name + last_name
+  /* ================= API DATA ================= */
+  const progressData = journey?.progress || {};
+  const historyData = journey?.history || [];
+  const paymentSummary = journey?.payment_summary || {};
+  const payments = paymentSummary.payments || [];
+  const lastPaymentStatus = paymentSummary?.last_payment?.status || null;
+
+  const currentStep = progressData.current_step || 1;
+  const isPartialPayment = progressData.payment === "partial_paid";
+
   const displayName =
     (user.name && user.name.toString().trim()) ||
-    `${(user.first_name || "").toString().trim()} ${(user.last_name || "").toString().trim()}`.trim();
+    `${(user.first_name || "").toString().trim()} ${(user.last_name || "")
+      .toString()
+      .trim()}`.trim();
 
-  /* -------- MAP USER STATUS → CURRENT STEP -------- */
-  let currentStep = 1;
-  if (user.paymentStatus === "Fully Paid") currentStep = 3;
-  if (user.examStatus === "Completed") currentStep = 4;
-  if (user.reportStatus === "Unlocked") currentStep = 5;
+  const showExamReport =
+    user.program === "8-12 Aptitude Test" ||
+    user.program === "PG Counselling";
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -79,19 +74,26 @@ const UserProfileModal = ({ open, onClose, user }) => {
         centered
         title={<Title level={4} style={{ margin: 0 }}>User Profile</Title>}
       >
-        {/* ================== DETAILS ================== */}
+        {/* ================= DETAILS ================= */}
         <Row gutter={24}>
           <Col xs={24} md={12}>
             <Title level={5}>Student Details</Title>
             <Descriptions bordered column={1}>
               <Descriptions.Item label="Name">{displayName}</Descriptions.Item>
               <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
-              <Descriptions.Item label="Sessions">{user.sessions}</Descriptions.Item>
-              <Descriptions.Item label="Report Status">
-                <Tag color={user.reportStatus === "Unlocked" ? "success" : "default"}>
-                  {user.reportStatus}
-                </Tag>
-              </Descriptions.Item>
+              <Descriptions.Item label="Review">{user.review || " - "}</Descriptions.Item>
+
+              {showExamReport && (
+                <Descriptions.Item label="Report Status">
+                  <Tag
+                    color={
+                      progressData.report === "locked" ? token.colorPrimary : token.colorSuccess
+                    }
+                  >
+                    {progressData.report || "N/A"}
+                  </Tag>
+                </Descriptions.Item>
+              )}
             </Descriptions>
           </Col>
 
@@ -99,204 +101,352 @@ const UserProfileModal = ({ open, onClose, user }) => {
             <Title level={5}>Program Details</Title>
             <Descriptions bordered column={1}>
               <Descriptions.Item label="Program">{user.program}</Descriptions.Item>
-              <Descriptions.Item label="Package">{user.package}</Descriptions.Item>
+              <Descriptions.Item label="Counselling Services">{user.package}</Descriptions.Item>
+
               <Descriptions.Item label="Payment Status">
                 <Tag
                   color={
-                    user.paymentStatus === "Fully Paid"
-                      ? "success"
-                      : user.paymentStatus === "Partial Paid"
-                      ? "warning"
-                      : "processing"
+                    lastPaymentStatus === "fully_paid"
+                      ? token.colorSuccess
+                      : lastPaymentStatus === "partial_paid"
+                        ? token.colorWarning
+                        : "processing"
                   }
                 >
-                  {user.paymentStatus}
-                </Tag>
-                <Text style={{ marginLeft: 8 }}>{user.paymentAmount}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label="Exam Status">
-                <Tag color={user.examStatus === "Completed" ? "success" : "warning"}>
-                  {user.examStatus}
+                  {lastPaymentStatus
+                    ? lastPaymentStatus.replace("_", " ").toUpperCase()
+                    : "N/A"}
                 </Tag>
               </Descriptions.Item>
+
+              <Descriptions.Item label="Amount Paid">
+                ₹ {paymentSummary.total_amount_paid || 0} / ₹ {user.price || 0}
+                {user.price > 0 && (
+                  <>
+                    <br />
+                    <Text type="colorTextSecondary">
+                      (Remaining: ₹{" "}
+                      {(user.price || 0) -
+                        (paymentSummary.total_amount_paid || 0)})
+                    </Text>
+                  </>
+                )}
+              </Descriptions.Item>
+
+              {showExamReport && (
+                <Descriptions.Item label="Exam Status">
+                  <Tag
+                    color={progressData.exam === "in_progress" ? token.colorPrimary : token.colorSuccess}
+                  >
+                    {progressData.exam === "in_progress" ? "In Progress" : "Completed"}
+                  </Tag>
+                </Descriptions.Item>
+              )}
             </Descriptions>
           </Col>
         </Row>
 
         <Divider />
 
-        {/* ================== JOURNEY PROGRESS ================== */}
-        <Title level={5}>Your Journey Progress</Title>
+        {/* ================= JOURNEY PROGRESS ================= */}
+        <Title level={5}>Journey Progress</Title>
 
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            marginTop: 16,
             background: token.colorBgContainer,
             padding: 24,
             borderRadius: 16,
             border: `1px solid ${token.colorBorder}`,
-            marginTop: 16,
             overflowX: "auto",
           }}
         >
-          {journeySteps.map((label, index) => {
-            const stepNo = index + 1;
-            const isCompleted = stepNo < currentStep;
-            const isActive = stepNo === currentStep;
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              minWidth: journeySteps.length * 140,
+            }}
+          >
+            {journeySteps.map((label, index) => {
+              if (!showExamReport && (label === "Exam" || label === "Report"))
+                return null;
 
-            return (
-              <div
-                key={label}
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  flex: 1,
-                  minWidth: 120,
-                }}
-              >
-                {/* LINE */}
-                {index !== 0 && (
+              const stepNo = index + 1;
+              const isPaymentStep = stepNo === 3;
+              const isExamStep = label === "Exam";
+              const isReportStep = label === "Report";
+              const isActive = stepNo === currentStep;
+
+              const isCompleted =
+                stepNo < currentStep &&
+                !(isPaymentStep && isPartialPayment) &&
+                !(isExamStep && progressData.exam === "in_progress") &&
+                !(isReportStep && progressData.report === "locked");
+
+              // Step color
+              let stepColor = token.colorBorder;
+              if (isPaymentStep && isPartialPayment) stepColor = token.colorWarning;
+              else if (isCompleted) stepColor = token.colorSuccess;
+              else if ((isExamStep && progressData.exam === "in_progress") ||
+                (isReportStep && progressData.report === "locked") ||
+                isActive) stepColor = token.colorPrimary;
+
+              // Connector width
+              let progressWidth = "0%";
+              if (
+                stepNo < currentStep ||
+                (isPaymentStep && isPartialPayment) ||
+                (isExamStep && progressData.exam === "in_progress") ||
+                (isReportStep && progressData.report === "locked") ||
+                isActive
+              ) {
+                progressWidth = "100%";
+              }
+
+
+
+              return (
+                <div
+                  key={label}
+                  style={{
+                    position: "relative",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    width: 140,
+                    flexShrink: 0,
+                    minHeight: 100,
+                  }}
+                >
+                  {index !== 0 && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 20,
+                        left: "-70px",
+                        width: "140px",
+                        height: 4,
+                        background: token.colorBorder,
+                      }}
+                    >
+                      <Tooltip
+                        title={isPaymentStep && isPartialPayment ? "Partial Paid" : ""}
+                      >
+                        <div
+                          style={{
+                            height: "100%",
+                            background: token.colorPrimary,
+                            width: progressWidth,
+                            transition: "width 0.3s ease",
+                          }}
+                        />
+                      </Tooltip>
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: stepColor,
+                      color: stepColor === token.colorBorder ? token.colorTextSecondary : "#fff",
+                      zIndex: 1,
+                    }}
+                  >
+                    {isCompleted ? <CheckOutlined /> : stepNo}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 10,
+                      fontSize: 13,
+                      textAlign: "center",
+                      maxWidth: 120,
+                    }}
+                  >
+                    {label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <Divider />
+
+        {/* ================= JOURNEY HISTORY ================= */}
+        <Title level={5}>Journey History</Title>
+
+        {journeyLoading ? (
+          <Spin />
+        ) : (
+          <div
+            style={{
+              marginTop: 20,
+              position: "relative",
+              paddingLeft: 30,
+              maxHeight: 360,
+              overflowY: "auto",
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                left: 15,
+                top: 0,
+                bottom: 0,
+                width: 3,
+                background: token.colorBorder,
+              }}
+            />
+
+            {Object.values(
+              historyData
+                .filter((item) => {
+                  const status = item.status?.toLowerCase();
+                  if (!status || status === "pending") return false;
+
+                  if (
+                    !showExamReport &&
+                    (item.step === "Exam" || item.step === "Report")
+                  )
+                    return false;
+
+                  return true;
+                })
+                .reduce((acc, item) => {
+                  if (!acc[item.step]) {
+                    acc[item.step] = { ...item, payments: [] };
+                  }
+                  if (item.step === "Payment") acc[item.step].payments.push(item);
+                  return acc;
+                }, {})
+            ).map((item, index) => {
+              let status =
+                item.step === "Payment"
+                  ? lastPaymentStatus?.toLowerCase()
+                  : item.status?.toLowerCase();
+
+              const isCompleted =
+                status === "completed" || status === "fully_paid";
+
+              const isPartial =
+                status === "partial_paid" ||
+                status === "partially_paid" ||
+                status === "partial";
+
+              return (
+                <div key={index} style={{ position: "relative", marginBottom: 28 }}>
                   <div
                     style={{
                       position: "absolute",
-                      top: 18,
-                      left: "-50%",
-                      width: "100%",
-                      height: 3,
-                      background:
-                        isCompleted || isActive
-                          ? token.colorPrimary
+                      left: -2,
+                      top: 5,
+                      width: 30,
+                      height: 30,
+                      borderRadius: "50%",
+                      background: isCompleted
+                        ? token.colorSuccess
+                        : isPartial
+                          ? token.colorWarning
                           : token.colorBorder,
-                      zIndex: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#fff",
+                      fontWeight: 600,
+                      zIndex: 1,
                     }}
-                  />
-                )}
+                  >
+                    {isCompleted ? <CheckOutlined /> : index + 1}
+                  </div>
 
-                {/* CIRCLE */}
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: "50%",
-                    fontWeight: 600,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    zIndex: 1,
-                    backgroundColor: isCompleted
-                      ? token.colorSuccess
-                      : isActive
-                      ? token.colorPrimary
-                      : token.colorBorder,
-                    color:
-                      isCompleted || isActive
-                        ? token.colorTextPrimary
-                        : token.colorTextSecondary,
-                  }}
-                >
-                  {isCompleted ? <CheckOutlined /> : stepNo}
+                  <div
+                    style={{
+                      marginLeft: 40,
+                      padding: 18,
+                      borderRadius: 14,
+                      background: token.colorBgContainer,
+                      border: `1px solid ${token.colorBorder}`,
+                      boxShadow: "0 4px 10px rgba(0,0,0,0.04)",
+                    }}
+                  >
+                    <Row justify="space-between" align="middle">
+                      <Col>
+                        <Text strong>{item.step}</Text>
+                      </Col>
+
+                      <Col>
+                        <Tag
+                          color={isCompleted ? "success" : isPartial ? "warning" : "default"}
+                        >
+                          {status?.replace("_", " ").toUpperCase()}
+                        </Tag>
+                      </Col>
+                    </Row>
+
+                    {item.step === "Payment" ? (
+                      <div style={{ marginTop: 10 }}>
+                        {payments.map((pay, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              padding: "8px 12px",
+                              marginTop: 6,
+                              borderRadius: 8,
+                              background: "#fafafa",
+                              border: `1px solid ${token.colorBorder}`,
+                              fontSize: 14,
+                            }}
+                          >
+                            ₹{pay.amount} - ({pay.method})
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: token.colorTextSecondary,
+                                marginTop: 4,
+                              }}
+                            >
+                              {pay.date || "—"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <>
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 14,
+                            color: token.colorTextSecondary,
+                          }}
+                        >
+                          {item.details}
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 8,
+                            fontSize: 12,
+                            color: token.colorTextSecondary,
+                          }}
+                        >
+                          {item.date || "—"}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-
-                {/* LABEL */}
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 14,
-                    textAlign: "center",
-                    whiteSpace: "nowrap",
-                    color: token.colorTextSecondary,
-                  }}
-                >
-                  {label}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-<Divider />
-
-{/* ================== SESSION HISTORY ================== */}
-<Title level={5}>Session History</Title>
-
-<div
-  style={{
-    marginTop: 16,
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  }}
->
-  {sessionHistory.map((session, index) => (
-    <div
-      key={session.id}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 20,
-        padding: 20,
-        borderRadius: 16,
-        background: token.colorBgContainer,
-        border: `1px solid ${token.colorBorder}`,
-      }}
-    >
-      {/* NUMBER CIRCLE */}
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: "50%",
-          background: token.colorPrimary,
-          color: token.colorTextPrimary,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 18,
-          fontWeight: 600,
-          flexShrink: 0,
-        }}
-      >
-        {index + 1}
-      </div>
-
-      {/* SESSION INFO */}
-      <div style={{ flex: 1 }}>
-        <Text style={{ fontSize: 16, fontWeight: 600 }}>
-          {session.title}
-        </Text>
-
-        <div
-          style={{
-            marginTop: 4,
-            color: token.colorTextSecondary,
-            fontSize: 14,
-          }}
-        >
-          {session.date} • {session.duration} • {session.counselor}
-        </div>
-
-        <Tag
-          style={{
-            marginTop: 8,
-            borderRadius: 20,
-            padding: "4px 12px",
-            background: "#ECFDF5",
-            color: token.colorSuccess,
-            border: `1px solid ${token.colorSuccess}`,
-          }}
-        >
-          {session.status}
-        </Tag>
-      </div>
-    </div>
-  ))}
-</div>
-
-
+              );
+            })}
+          </div>
+        )}
       </Modal>
     </ConfigProvider>
   );

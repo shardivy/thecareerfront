@@ -102,7 +102,7 @@ const AdminLayout = () => {
     "/admin/dashboard": "Dashboard",
     "/admin/enquiry-leads": "Enquiry & Leads",
     "/admin/users": "Users",
-    "/admin/programs": "Programs",
+    "/admin/programs": "Programs & Services",
     "/admin/exams": "Exams",
     "/admin/reportsmanagement": "Report Management",
     "/admin/paymentmanagement": "Payment Management",
@@ -172,7 +172,7 @@ const AdminLayout = () => {
   (role === "admin" || role === "superadmin") && {
       key: "/admin/programs",
       icon: <BookFilled />,
-      label: "Program & Packages",
+      label: "Program & Services",
       onClick: () => {
         navigate("/admin/programs");
         setDrawerVisible(false);

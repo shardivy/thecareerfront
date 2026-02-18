@@ -3,7 +3,8 @@ import {
   addUserApi,
   fetchStudentsApi,
   updateUserApi,
-  deleteUserApi
+  deleteUserApi,
+  fetchStudentJourneyApi 
 } from "../adminApi/userApi";
 
 /* ===================== THUNKS ===================== */
@@ -69,6 +70,23 @@ export const deleteUser = createAsyncThunk(
   }
 );
 
+
+/* ---------- FETCH STUDENT JOURNEY ---------- */
+export const fetchStudentJourney = createAsyncThunk(
+  "users/fetchStudentJourney",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      const data = await fetchStudentJourneyApi(studentId);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch journey"
+      );
+    }
+  }
+);
+
+
 /* ===================== SLICE ===================== */
 
 const userSlice = createSlice({
@@ -79,6 +97,8 @@ const userSlice = createSlice({
     error: null,
     success: false,
     successMessage: null,
+    journey: [],
+  journeyLoading: false,
   },
 
   reducers: {
@@ -144,7 +164,11 @@ const userSlice = createSlice({
             package: u.package_name || u.package?.name || "N/A",
 
             // PAYMENT FIELDS - IMPORTANT: Store all payment data DIRECTLY
+            price: u.price || "",
             amount: u.amount || "",
+            total_paid_amount: u.total_paid_amount || "",
+
+            
             payment_type: u.payment_type || "",
             method: u.method || "",
             transaction_id: u.transaction_id || "",
@@ -158,7 +182,7 @@ const userSlice = createSlice({
               : "N/A",
 
             examStatus: u.exam_status?.completed > 0 ? "Completed" : "Pending",
-            reportStatus: u.is_report_locked ? "Unlocked" : "Locked",
+              reportStatus: u.report_status === "unlocked" ? "Unlocked" : "Locked",
             sessions: u.exam_status
               ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
               : "0",
@@ -174,7 +198,9 @@ const userSlice = createSlice({
               package_name: u.package_name || "",
               payment_status: u.payment_status || "",
               // ADD PAYMENT DETAILS TO PROFILE
+              price: u.price || "",
               amount: u.amount || "",
+              total_paid_amount: u.total_paid_amount || "",
               payment_type: u.payment_type || "",
               method: u.method || "",
               transaction_id: u.transaction_id || "",
@@ -240,7 +266,7 @@ const userSlice = createSlice({
             : "N/A",
             
           examStatus: u.exam_status?.completed > 0 ? "Completed" : "Pending",
-          reportStatus: u.is_report_locked ? "Locked" : "Unlocked",
+          reportStatus: u.report_status ? "Locked" : "Unlocked",
           sessions: u.exam_status 
             ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
             : "0",
@@ -256,6 +282,7 @@ const userSlice = createSlice({
             payment_status: u.payment_status || "",
             // ADD PAYMENT DETAILS TO PROFILE
             amount: u.amount || "",
+            total_paid_amount: u.total_paid_amount || "",
             payment_type: u.payment_type || "",
             method: u.method || "",
             transaction_id: u.transaction_id || "",
@@ -340,7 +367,21 @@ const userSlice = createSlice({
         state.list = state.list.filter(
           (user) => user.id !== action.payload
         );
-      });
+      })
+
+
+      /* ---------- FETCH JOURNEY ---------- */
+.addCase(fetchStudentJourney.pending, (state) => {
+  state.journeyLoading = true;
+})
+.addCase(fetchStudentJourney.fulfilled, (state, action) => {
+  state.journeyLoading = false;
+  state.journey = action.payload?.data || action.payload || [];
+})
+.addCase(fetchStudentJourney.rejected, (state, action) => {
+  state.journeyLoading = false;
+  state.error = action.payload;
+});
   },
 });
 

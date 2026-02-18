@@ -74,40 +74,45 @@ const Enquiry = () => {
   const [sourceFilter, setSourceFilter] = useState(null);
   const [dateFilter, setDateFilter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const [pageSize, setPageSize] = useState(5);
+
 
   // 🔥 NEW STATES (FOR CONVERT)
   const [modalMode, setModalMode] = useState("add"); // add | convert
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
 
   // ---------------- FILTER LOGIC ----------------
-  const filteredEnquiries = enquiriesData.filter((enquiry) => {
-    const matchesSearch =
-      enquiry.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.program.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.source.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.email.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.phone.includes(searchText);
+const filteredEnquiries = enquiriesData.filter((enquiry) => {
+  const search = searchText.toLowerCase();
 
-    const matchesStatus = statusFilter
-      ? enquiry.status.toLowerCase() === statusFilter.toLowerCase()
-      : true;
+  const matchesSearch =
+    (enquiry.name?.toLowerCase() || "").includes(search) ||
+    (enquiry.program?.toLowerCase() || "").includes(search) ||
+    (enquiry.source?.toLowerCase() || "").includes(search) ||
+    (enquiry.email?.toLowerCase() || "").includes(search) ||
+    (enquiry.phone || "").includes(searchText);
 
-    const matchesSource = sourceFilter
-      ? enquiry.source.toLowerCase() === sourceFilter.toLowerCase()
-      : true;
+  const matchesStatus = statusFilter
+    ? enquiry.status?.toLowerCase() === statusFilter.toLowerCase()
+    : true;
 
-    const matchesDate = dateFilter && enquiry.date !== "N/A"
+  const matchesSource = sourceFilter
+    ? enquiry.source?.toLowerCase() === sourceFilter.toLowerCase()
+    : true;
+
+  const matchesDate =
+    dateFilter && enquiry.date !== "N/A"
       ? dayjs(enquiry.date).isSame(dateFilter, "day")
       : !dateFilter;
 
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesSource &&
-      matchesDate
-    );
-  });
+  return (
+    matchesSearch &&
+    matchesStatus &&
+    matchesSource &&
+    matchesDate
+  );
+});
+ 
 
   // ---------------- TABLE COLUMNS ----------------
   const columns = [
@@ -115,7 +120,6 @@ const Enquiry = () => {
     title: "Sr. No",
     key: "srno",
     render: (_, __, index) => (currentPage - 1) * pageSize + index + 1, // Page-aware serial number
-    responsive: ["xs", "sm", "md", "lg", "xl"],
   },
 {
   title: "User Name",
@@ -277,8 +281,7 @@ const Enquiry = () => {
       allowClear
       style={{ width: "100%" }}
     >
-      <Option value="New">New</Option>
-      <Option value="Contacted">Contacted</Option>
+      <Option value="enquiry">Enquiry</Option>
       <Option value="Converted">Converted</Option>
     </Select>
   </Col>
@@ -313,20 +316,28 @@ const Enquiry = () => {
 
 
         {/* Table */}
-        <Table
-          style={{ marginTop: 16 }}
-          columns={columns}
-          dataSource={filteredEnquiries}
-          pagination={{ 
-            pageSize: pageSize,
-            current: currentPage,
-            onChange: (page) => setCurrentPage(page),
-          }}
-          rowClassName={() => "enquiry-row"}
-          scroll={{ x: "max-content" }}
-          loading={loading}
-          locale={{ emptyText: error ? `Error: ${error}` : "No enquiries found" }}
-        />
+       <Table
+  style={{ marginTop: 16 }}
+  columns={columns}
+  dataSource={filteredEnquiries}
+  pagination={{
+    current: currentPage,
+    pageSize: pageSize,
+    showSizeChanger: true,
+    pageSizeOptions: [5, 10, 20, 50],
+    onChange: (page, size) => {
+      setCurrentPage(page);
+      setPageSize(size);
+    },
+  }}
+  rowClassName={() => "enquiry-row"}
+  scroll={{ x: "max-content" }}
+  loading={loading}
+  locale={{
+    emptyText: error ? `Error: ${error}` : "No enquiries found",
+  }}
+/>
+
       </Card>
 
       {/* Hover Effect (UNCHANGED) */}
@@ -342,7 +353,8 @@ const Enquiry = () => {
   onCancel={() => setOpenAddModal(false)}
   mode={modalMode}
   enquiryData={selectedEnquiry}
-  readonly={modalMode === "convert"} // READONLY WHEN CONVERTING
+  readonly={modalMode === "convert"} 
+  
 />
 
     </div>

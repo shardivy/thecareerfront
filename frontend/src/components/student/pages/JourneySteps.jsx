@@ -14,14 +14,13 @@ const Journeysteps = ({ currentStep = 1 }) => {
       path: "/register",
     },
     {
-      title: "Package Selection",
-      tooltip: "Choose your preferred career package",
+      title: "Counselling Service Selection",
+      tooltip: "Choose your preferred career counselling services",
       path: "/student/program",
     },
     {
       title: "Payment",
       tooltip: "Complete payment to proceed",
-      // path: "/student/payment",
     },
     {
       title: "Exam",
@@ -29,7 +28,7 @@ const Journeysteps = ({ currentStep = 1 }) => {
       path: "/student/exam-management",
     },
     {
-      title: "Counselling",
+      title: "Counselling Slot Booking",
       tooltip: "Attend expert counselling session",
       path: "/student/slot-booking",
     },
@@ -65,16 +64,19 @@ const Journeysteps = ({ currentStep = 1 }) => {
       <Steps
         current={currentStep}
         labelPlacement="vertical"
-        items={stepsConfig.map((step) => ({
+        items={stepsConfig.map((step, index) => ({
           title: (
             <Tooltip title={step.tooltip} placement="top">
               <span
                 style={{
                   color: "#0F172A",
-                  cursor: "pointer",
+                  cursor: index < currentStep ? "pointer" : "not-allowed",
                   fontWeight: 500,
+                  opacity: index < currentStep ? 1 : 0.5,
                 }}
-                onClick={() => navigate(step.path)}
+                onClick={() => {
+                  if (index < currentStep && step.path) navigate(step.path);
+                }}
               >
                 {step.title}
               </span>
@@ -87,7 +89,6 @@ const Journeysteps = ({ currentStep = 1 }) => {
 };
 
 export default Journeysteps;
-
 
 
 // import React from "react";

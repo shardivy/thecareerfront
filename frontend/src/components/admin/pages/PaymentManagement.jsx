@@ -42,7 +42,9 @@ const PaymentManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const dispatch = useDispatch();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+   const dispatch = useDispatch();
 
   const { stats, statsLoading, list, listLoading } = useSelector(
     (state) => state.payment
@@ -102,10 +104,10 @@ const PaymentManagement = () => {
       ),
     },
     {
-      title: "Fully Pending",
-      value: `₹${stats?.pending ?? 0}`,
+      title: "Fully Payments",
+      value: `₹${stats?.fully_paid ?? 0}`,
       icon: (
-        <CloseCircleOutlined
+        <CheckCircleOutlined
           style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
         />
       ),
@@ -117,7 +119,7 @@ const PaymentManagement = () => {
     "Fully Paid": "success",
     "Partial Paid": "warning",
     "Verification Pending": "processing",
-    Pending: "error",
+   
   };
 
   /* ---------------- UTILITY FUNCTIONS ---------------- */
@@ -162,15 +164,15 @@ const PaymentManagement = () => {
   };
 
   /* ---------------- API -> TABLE DATA ---------------- */
-const apiPaymentRecords = Array.isArray(list)
-  ? list.map((p, idx) => {
+  const apiPaymentRecords = Array.isArray(list)
+    ? list.map((p, idx) => {
       console.log(`📋 Processing payment ${idx} for table:`, p);
-      
+
       const cleanName = extractName(p.user_name);
       const packageName = p.package_name || p.package || "N/A";
 
       // ✅ Paid + Total
-      const paidAmount = Number(p.amount || 0);
+      const paidAmount = Number(p.total_paid || 0);
       const packagePrice = Number(p.package_price || 0);
 
       const status = toTitle(p.payment_status);
@@ -196,7 +198,7 @@ const apiPaymentRecords = Array.isArray(list)
         originalData: p
       };
     })
-  : [];
+    : [];
 
   /* ---------------- FILTER LOGIC ---------------- */
   const filteredData = apiPaymentRecords.filter((item) => {
@@ -228,44 +230,45 @@ const apiPaymentRecords = Array.isArray(list)
   };
 
   const truncateAfterFive = (text = "") => {
-  if (!text) return "-";
-  return text.length > 5 ? `${text.slice(0, 5)}...` : text;
-};
+    if (!text) return "-";
+    return text.length > 5 ? `${text.slice(0, 5)}...` : text;
+  };
 
   /* ---------------- TABLE COLUMNS ---------------- */
   const columns = [
     {
       title: "Sr. No.",
-      render: (_, __, index) => index + 1,
+     render: (_, __, index) =>
+    (currentPage - 1) * pageSize + index + 1,
       width: 50,
     },
-    { 
-      title: "User Name", 
+    {
+      title: "User Name",
       dataIndex: "name",
       render: (name) => name || "N/A"
     },
-    { 
-      title: "Package", 
+    {
+      title: "Counselling Services",
       dataIndex: "package",
       render: (pkg) => pkg || "N/A"
     },
-{
-  title: "Amount",
-  render: (_, record) => {
-    const paid = record.paidAmount || 0;
-    const total = record.packagePrice || 0;
+    {
+      title: "Amount",
+      render: (_, record) => {
+        const paid = record.paidAmount || 0;
+        const total = record.packagePrice || 0;
 
-    return (
-      <span>
-        ₹{paid.toLocaleString("en-IN")}
-        <Text type="colorTextSecondary">
-          {" "}
-          / ₹{total.toLocaleString("en-IN")}
-        </Text>
-      </span>
-    );
-  },
-},
+        return (
+          <span>
+            ₹{paid.toLocaleString("en-IN")}
+            <Text type="colorTextSecondary">
+              {" "}
+              / ₹{total.toLocaleString("en-IN")}
+            </Text>
+          </span>
+        );
+      },
+    },
 
 
     {
@@ -293,7 +296,7 @@ const apiPaymentRecords = Array.isArray(list)
         if (date === "-") {
           return "-";
         }
-        
+
         // Parse the date string
         let displayDate = date;
         try {
@@ -307,7 +310,7 @@ const apiPaymentRecords = Array.isArray(list)
         } catch (e) {
           console.error("❌ Error formatting display date:", date, e);
         }
-        
+
         return (
           <Space>
             <CalendarOutlined />
@@ -316,11 +319,11 @@ const apiPaymentRecords = Array.isArray(list)
         );
       },
     },
-{
-  title: "Transaction ID",
-  dataIndex: "txn",
-  render: (txn) => truncateAfterFive(txn),
-},
+    {
+      title: "Transaction ID",
+      dataIndex: "txn",
+      render: (txn) => truncateAfterFive(txn),
+    },
     {
       title: "Action",
       render: (_, record) => {
@@ -456,7 +459,17 @@ const apiPaymentRecords = Array.isArray(list)
             loading={listLoading}
             columns={columns}
             dataSource={filteredData}
-            pagination={{ pageSize: 5 }}
+           pagination={{
+  current: currentPage,
+  pageSize: pageSize,
+  showSizeChanger: true,
+  pageSizeOptions: [5, 10, 20, 50],
+  onChange: (page, size) => {
+    setCurrentPage(page);
+    setPageSize(size);
+  },
+}}
+
             scroll={{ x: 1000 }}
             locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}
           />

@@ -38,6 +38,7 @@ import ForgotPassword from "./components/admin/pages/ForgotPassword";
 import ResetPassword from "./components/admin/pages/ResetPassword";
 import ExamList from "./components/admin/pages/ExamList";
 import LeadList from "./components/counsellor/pages/LeadList";
+import PaymentPage from "./components/student/pages/PaymentPage";
 
 
 
@@ -73,6 +74,7 @@ const App = () => {
           <Route path="content-library" element={<ContentLibrary />} />
           <Route path="student-profile" element={<StudentProfile />} />
           <Route path="payments" element={<StudentPayments />} />
+          <Route path="payment-page" element={<PaymentPage />} />
         </Route>
 
 

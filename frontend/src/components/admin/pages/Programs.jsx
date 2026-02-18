@@ -63,6 +63,9 @@ const Programs = () => {
   const [editingProgram, setEditingProgram] = useState(null);
   const [editingPackage, setEditingPackage] = useState(null);
   const [viewMode, setViewMode] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+
 
   /* ---------- CONFIRM MODAL STATE ---------- */
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -126,7 +129,7 @@ const Programs = () => {
       tabKey: "programs",
     },
     {
-      title: "Total Packages",
+      title: "Total Counselling Services",
       value: stats?.total_packages || 0,
       icon: <BookOutlined />,
       tabKey: "packages",
@@ -146,7 +149,9 @@ const Programs = () => {
   /* ---------- PROGRAM COLUMNS ---------- */
 
   const programColumns = [
-    { title: "Sr. No", render: (_, __, i) => i + 1 },
+    { title: "Sr. No", render: (_, __, index) =>
+    (currentPage - 1) * pageSize + index + 1,
+},
     {
       title: "Program Name",
       dataIndex: "name",
@@ -218,9 +223,11 @@ const Programs = () => {
   /* ---------- PACKAGE COLUMNS ---------- */
 
   const packageColumns = [
-    { title: "Sr. No", render: (_, __, i) => i + 1 },
+    { title: "Sr. No", render: (_, __, index) =>
+    (currentPage - 1) * pageSize + index + 1,
+},
 {
-  title: "Package Name",
+  title: "Counselling Service Name",
   dataIndex: "name",
   render: (text) => {
     if (!text) return "-";
@@ -358,7 +365,7 @@ const Programs = () => {
 
   return (
     <div style={{ padding: screens.md ? 24 : 12 }}>
-      <Title level={3}>Programs & Packages</Title>
+      <Title level={3}>Programs & Counselling Services</Title>
 
       {/* STATS */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
@@ -399,7 +406,7 @@ const Programs = () => {
       onChange={setActiveTab}
       items={[
         { key: "programs", label: "Programs" },
-        { key: "packages", label: "Packages" },
+        { key: "packages", label: "Counselling Services" },
       ]}
     />
   </Col>
@@ -415,7 +422,7 @@ const Programs = () => {
         setModalVisible(true);
       }}
     >
-      Create {activeTab === "packages" ? "Package" : "Program"}
+      Create {activeTab === "packages" ? "Counselling Service" : "Program"}
     </Button>
   </Col>
 </Row>
@@ -427,7 +434,7 @@ const Programs = () => {
       <Col>
   <Title level={5} style={{ margin: 10 }}>
     {activeTab === "packages"
-      ? `Package Records (${filteredData.length})`
+      ? `Counselling Service Records (${filteredData.length})`
       : `Program Records (${filteredData.length})`}
   </Title>
 </Col>
@@ -443,18 +450,27 @@ const Programs = () => {
             width: screens.md ? 400 : "100%",
           }}
         />
+<Table
+  rowKey="id"
+  scroll={{ x: "max-content" }}
+  columns={
+    activeTab === "packages"
+      ? packageColumns
+      : programColumns
+  }
+  dataSource={filteredData}
+  pagination={{
+    current: currentPage,
+    pageSize: pageSize,
+    showSizeChanger: true,
+    pageSizeOptions: [5, 10, 20, 50],
+    onChange: (page, size) => {
+      setCurrentPage(page);
+      setPageSize(size);
+    },
+  }}
+/>
 
-        <Table
-          rowKey="id"
-          scroll={{ x: "max-content" }}
-          columns={
-            activeTab === "packages"
-              ? packageColumns
-              : programColumns
-          }
-          dataSource={filteredData}
-          pagination={{ pageSize: 5 }}
-        />
       </Card>
 
       {/* CONFIRM MODAL */}

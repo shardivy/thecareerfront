@@ -58,6 +58,8 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
   const dispatch = useDispatch();
 
   const liveValues = Form.useWatch([], form);
+  const selectedPaymentType = Form.useWatch("payment_type", form);
+
 
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -75,24 +77,55 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
   const isView = modalMode === "view";
   const isEdit = modalMode === "edit";
 
-  const [classOptions] = useState(["8", "9", "10", "11", "12"]);
+const [classOptions] = useState([
+  "8",
+  "9",
+  "10",
+  "11",
+  "12",
+  "Engineering",
+  "Medical",
+  "Law",
+  "Design",
+  "Commerce",
+  "Arts",
+  "BBA",
+  "Others",
+]);
+
 
   const selectedPackage = packages.find((p) => p.id === liveValues?.package);
   const totalPackageAmount = selectedPackage?.amount || selectedPackage?.price || selectedPackage?.total_amount || "";
 
+  useEffect(() => {
+    if (selectedPaymentType === "online") {
+      form.setFieldsValue({
+        method: "upi",
+      });
+    }
+
+    if (selectedPaymentType === "offline") {
+      form.setFieldsValue({
+        method: "cash",
+        transaction_id: undefined, // clear transaction id
+      });
+    }
+  }, [selectedPaymentType, form]);
+
+
   /* ================= UTILITY FUNCTIONS ================= */
-  
+
   // Extract name from "PE26 - Ravika" format
   const extractName = (fullName) => {
     if (!fullName) return "";
-    
+
     // Check if it contains " - " pattern
     if (fullName.includes(" - ")) {
       const parts = fullName.split(" - ");
       // Return the last part (the actual name)
       return parts[parts.length - 1].trim();
     }
-    
+
     // If no pattern found, return as is
     return fullName.trim();
   };
@@ -112,10 +145,10 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
       console.log("- proof_file:", user.proof_file);
       console.log("- program_id:", user.program_id);
       console.log("- package_id:", user.package_id);
-      
+
       // Check if the user object has the payment fields
       console.log("All user keys:", Object.keys(user));
-      
+
       // Check profile object too
       if (user.profile) {
         console.log("Profile object:", user.profile);
@@ -148,11 +181,11 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
     if (user) {
       console.log("📝 Prefilling form with user data...");
-      
+
       // Extract name from "PE26 - Ravika" format
       const extractedFirstName = extractName(user.first_name);
       const extractedLastName = user.last_name || ""; // Last name usually doesn't have prefix
-      
+
       // Extract payment data from multiple possible locations
       const paymentData = {
         amount: user.amount || user.profile?.amount || "",
@@ -161,7 +194,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
         transaction_id: user.transaction_id || user.profile?.transaction_id || "",
         proof_file: user.proof_file || user.profile?.proof_file || ""
       };
-      
+
       console.log("💰 Extracted payment data:", paymentData);
       console.log("👤 Name extracted:", {
         original: user.first_name,
@@ -232,7 +265,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
   /* ================= SUBMIT ================= */
   const handleSubmit = (values) => {
     const formData = new FormData();
-    
+
     console.log("🚀 Submitting form with values:", values);
     console.log("📁 Uploaded file:", uploadedFile);
     console.log("📋 File list:", fileList);
@@ -240,7 +273,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
     // Extract and clean first name (in case user entered prefix)
     const cleanedFirstName = values.first_name.trim();
     const cleanedLastName = values.last_name.trim();
-    
+
     console.log("👤 Names to submit:", {
       first_name: cleanedFirstName,
       last_name: cleanedLastName
@@ -264,7 +297,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
     // ✅ FILE — Check both uploadedFile and fileList
     let fileToUpload = null;
-    
+
     if (uploadedFile) {
       // Use the file stored in state
       fileToUpload = uploadedFile;
@@ -274,7 +307,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
       fileToUpload = fileList[0].originFileObj;
       console.log("📤 Using file from fileList:", fileList[0].originFileObj.name);
     }
-    
+
     if (fileToUpload) {
       console.log("📎 Appending file to FormData:", fileToUpload.name);
       formData.append("proof_file", fileToUpload);
@@ -324,7 +357,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
   const handleFileChange = ({ fileList: newFileList }) => {
     console.log("📁 File change:", newFileList);
     setFileList(newFileList);
-    
+
     if (newFileList.length > 0) {
       const file = newFileList[0];
       if (file.originFileObj) {
@@ -367,7 +400,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
             <Row gutter={16}>
               <Col xs={24} md={12}>
                 <Form.Item name="first_name" label="First Name" rules={isView ? [] : nameRules}>
-                  <Input disabled={isView} placeholder="Enter first name (e.g., Ravika)" />
+                  <Input disabled={isView} placeholder="Enter first name" />
                 </Form.Item>
               </Col>
 
@@ -426,12 +459,12 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
               <Col span={12}>
                 <Form.Item
-                  label="Package"
+                  label="Counselling Services"
                   name="package"
-                  rules={isView ? [] : [{ required: true, message: "Please select package" }]}
+                  rules={isView ? [] : [{ required: true, message: "Please select counselling service" }]}
                 >
                   <Select
-                    placeholder={packagesLoading ? "Loading..." : "Select package"}
+                    placeholder={packagesLoading ? "Loading..." : "Select service"}
                     loading={packagesLoading}
                     allowClear
                     disabled={isView}
@@ -446,9 +479,37 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
               </Col>
 
               <Col xs={24} md={12}>
-                <Form.Item name="amount" label="Amount" rules={isView ? [] : amountRules}>
-                  <Input disabled={isView} />
+                <Form.Item
+                  name="amount"
+                  label="Amount"
+                  rules={[
+                    { required: true, message: "Please enter amount" },
+                    {
+                      validator: (_, value) => {
+                        if (!value) return Promise.resolve();
+
+                        const numericValue = Number(value);
+
+                        if (isNaN(numericValue)) {
+                          return Promise.reject("Amount must be a number");
+                        }
+
+                        if (numericValue < 500) {
+                          return Promise.reject("Minimum amount should be ₹500");
+                        }
+
+                        if (totalPackageAmount && numericValue > totalPackageAmount) {
+                          return Promise.reject(`Amount cannot exceed ₹${totalPackageAmount}`);
+                        }
+
+                        return Promise.resolve();
+                      },
+                    },
+                  ]}
+                >
+                  <Input type="number" min={0} disabled={isView} />
                 </Form.Item>
+
               </Col>
             </Row>
 
@@ -471,11 +532,17 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                 </Form.Item>
               </Col>
 
-              <Col xs={24}>
-                <Form.Item name="transaction_id" label="Transaction ID">
-                  <Input disabled={isView} />
-                </Form.Item>
-              </Col>
+              {selectedPaymentType === "online" && (
+                <Col xs={24}>
+                  <Form.Item
+                    name="transaction_id"
+                    label="Transaction ID"
+                  >
+                    <Input disabled={isView} />
+                  </Form.Item>
+                </Col>
+              )}
+
             </Row>
 
             <Form.Item label="Upload Receipt" name="receipt">
@@ -524,14 +591,14 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                 <p><b>Email:</b> {form.getFieldValue('email')}</p>
                 <p><b>Mobile:</b> {form.getFieldValue('phone')}</p>
                 <p><b>Class:</b> {form.getFieldValue('study_class') || 'Not selected'}</p>
-                
+
                 <p><b>Program:</b> {
                   programs.find(p => p.id === form.getFieldValue('program'))?.name || 'Not selected'
                 }</p>
-                <p><b>Package:</b> {
+                <p><b>Counselling Services:</b> {
                   packages.find(p => p.id === form.getFieldValue('package'))?.name || 'Not selected'
                 }</p>
-                
+
                 <p><b>Amount:</b> ₹{form.getFieldValue('amount') || '0'} / ₹{totalPackageAmount}</p>
 
                 <Divider />
@@ -548,9 +615,9 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                     <Image
                       src={previewUrl}
                       alt="Receipt"
-                      style={{ 
-                        width: "100%", 
-                        maxHeight: 300, 
+                      style={{
+                        width: "100%",
+                        maxHeight: 300,
                         objectFit: 'contain',
                         border: '1px solid #d9d9d9',
                         borderRadius: 8

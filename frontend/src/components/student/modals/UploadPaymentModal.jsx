@@ -12,7 +12,7 @@ import {
   message,
   Empty,
 } from "antd";
-import { FacebookFilled, UploadOutlined } from "@ant-design/icons";
+import { UploadOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import dayjs from "dayjs";
 
@@ -44,7 +44,7 @@ const UploadPaymentModal = ({ open, onClose, onSuccess }) => {
     submitError,
     summaryLoading,
     summaryData,
-      summaryError, 
+    summaryError,
   } = useSelector((state) => state.payment);
 
   const [fileList, setFileList] = useState([]);
@@ -68,18 +68,11 @@ const UploadPaymentModal = ({ open, onClose, onSuccess }) => {
   }, [fileList]);
 
   useEffect(() => {
-  if (summaryError) {
-    message.error(summaryError);
-  }
-}, [summaryError]);
+    if (summaryError) {
+      message.error(summaryError);
+    }
+  }, [summaryError]);
 
-useEffect(() => {
-  if (summaryData?.remaining_amount !== undefined) {
-    form.setFieldsValue({
-      amount: summaryData.remaining_amount,
-    });
-  }
-}, [summaryData, form]);
 
   /* ================= SUBMIT ================= */
   const handleSubmit = (values) => {
@@ -197,25 +190,18 @@ useEffect(() => {
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
-              label="Select Student"
+              label="Student Name"
               name="student_profile"
-              rules={[{ required: true, message: "Please select student" }]}
+              rules={[{ required: true, message: "Please enter student" }]}
             >
-              <Select
-                placeholder="Select student"
-                loading={studentsLoading}
-                showSearch
-                optionFilterProp="children"
-                onChange={handleStudentChange}
-              >
-                {students.map((student) => (
-                  <Option key={student.id} value={student.id}>
-                    {student.first_name} {student.last_name}
-                    <div style={{ fontSize: 12 }}>{student.email}</div>
-                  </Option>
-                ))}
-              </Select>
+              <Input
+                placeholder="Enter student name "
+                onChange={(e) =>
+                  handleStudentChange(e.target.value)
+                }
+              />
             </Form.Item>
+
           </Col>
 
           <Col span={12}>
@@ -239,17 +225,23 @@ useEffect(() => {
           </Col>
         </Row>
 
-    <Row>
-  <Col span={24}>
-    <Form.Item label="Amount Due" name="amount">
-      <Input disabled />
-    </Form.Item>
-  </Col>
-</Row>
-
+        <Row>
+          <Col span={24}>
+            <Form.Item label="Remaining Amount">
+              <Input
+                value={
+                  summaryLoading
+                    ? "Loading..."
+                    : summaryData?.remaining_amount ?? "-"
+                }
+                disabled
+              />
+            </Form.Item>
+          </Col>
+        </Row>
 
         <Row gutter={16}>
-          {/* <Col span={12}>
+          <Col span={12}>
             <Form.Item
               label="Amount Paid"
               name="amount"
@@ -257,35 +249,20 @@ useEffect(() => {
             >
               <Input placeholder="₹ Amount" />
             </Form.Item>
-          </Col> */}
+          </Col>
 
-         <Col span={12}>
-  <Form.Item
-    name="payment_type"
-    label="Payment Type"
-    rules={[{ required: true, message: "Please select payment type" }]}
-  >
-    <Select
-      onChange={(value) => {
-        if (value === "online") {
-          form.setFieldsValue({
-            method: "upi",
-            transactionId: undefined,
-          });
-        } else if (value === "offline") {
-          form.setFieldsValue({
-            method: "cash",
-            transactionId: undefined,
-          });
-        }
-      }}
-    >
-      <Option value="online">Online</Option>
-      <Option value="offline">Offline</Option>
-    </Select>
-  </Form.Item>
-</Col>
-
+          <Col span={12}>
+            <Form.Item
+              name="payment_type"
+              label="Payment Type"
+              rules={[{ required: true }]}
+            >
+              <Select>
+                <Option value="online">Online</Option>
+                <Option value="offline">Offline</Option>
+              </Select>
+            </Form.Item>
+          </Col>
 
           <Col span={12}>
             <Form.Item shouldUpdate>
@@ -313,35 +290,15 @@ useEffect(() => {
           </Col>
 
           <Col span={12}>
-<Form.Item shouldUpdate>
-  {({ getFieldValue }) =>
-    getFieldValue("method") === "upi" ? (
-      <Form.Item
-        label="Transaction ID"
-        name="transactionId"
-        validateTrigger="onChange"
-        rules={[
-          {
-            required: false,
-            
-          },
-          {
-            pattern: /^[0-9]{12,16}$/,
-            message:
-              "Transaction ID must be 12-16 digits only",
-          },
-        ]}
-      >
-        <Input
-          placeholder="Enter 12-16 digit UPI Transaction ID"
-          maxLength={16}
-        />
-      </Form.Item>
-    ) : null
-  }
-</Form.Item>
-
-
+            <Form.Item shouldUpdate>
+              {({ getFieldValue }) =>
+                getFieldValue("method") === "upi" ? (
+                  <Form.Item label="Transaction ID" name="transactionId">
+                    <Input />
+                  </Form.Item>
+                ) : null
+              }
+            </Form.Item>
           </Col>
         </Row>
 
