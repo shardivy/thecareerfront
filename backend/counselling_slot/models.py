@@ -23,7 +23,7 @@ class Slot(models.Model):
     date = models.DateField()
     start_time = models.CharField(max_length=150, blank=True, null=True)
     end_time = models.CharField(max_length=150, null=True, blank=True)
-    mode = models.CharField(max_length=20, choices=MODE_CHOICES)
+    mode = models.CharField(max_length=20, choices=MODE_CHOICES, null=True, blank=True)
     # duration_minutes = models.PositiveIntegerField()
     is_available = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
@@ -34,6 +34,16 @@ class Slot(models.Model):
     class Meta:
         db_table = "slots"
         unique_together = ("counsellor", "date", "start_time", "end_time")
+        
+    def delete(self, using=None, keep_parents=False):
+        """Override delete to only soft delete"""
+        self.is_deleted = True
+        self.is_available = False
+        self.save(update_fields=["is_deleted", "is_available"])
+
+    def hard_delete(self):
+        """Actually delete from database if needed"""
+        super().delete()
 
 
     

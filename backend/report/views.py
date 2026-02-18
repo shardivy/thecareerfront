@@ -301,10 +301,9 @@ class UploadReportAPIView(APIView):
 
     def handle_upload(self, request, report_id):
         report = get_object_or_404(Report, id=report_id)
+        user = report.user
 
         file_path = request.FILES.get("file_path")
-        student_id = request.data.get("student_id")
-        program_id = request.data.get("program_id")
 
         if not file_path:
             return Response(
@@ -312,15 +311,7 @@ class UploadReportAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Optional: update student & program if provided
-        if student_id:
-            report.student_id = student_id
-
-        if program_id:
-            report.program_id = program_id
-
-        user = report.user
-
+        # 🔎 Get latest payment
         latest_payment = (
             Payment.objects
             .filter(user=user)
@@ -328,25 +319,30 @@ class UploadReportAPIView(APIView):
             .first()
         )
 
+        # ✅ Default locked
         report_status = "locked"
 
+        # ✅ Unlock only if fully paid
         if latest_payment and latest_payment.status == "fully_paid":
             report_status = "unlocked"
 
+        # Save file
         report.file_path = file_path
         report.uploaded_by = request.user
         report.uploaded_at = timezone.now()
         report.report_status = report_status
         report.save()
 
-        return Response({
-            "message": "Report uploaded successfully",
-            "report_id": report.id,
-            "student_id": report.student_id,
-            "program_id": report.program_id,
-            "report_status": report.report_status,
-        })
-
+        return Response(
+            {
+                "message": "Report uploaded successfully",
+                "report_id": report.id,
+                "uploaded_at": report.uploaded_at,
+                "report_status": report.report_status,
+                "payment_status": latest_payment.status if latest_payment else None
+            },
+            status=status.HTTP_200_OK
+        )
 
     # POST → Upload
     def post(self, request, report_id):

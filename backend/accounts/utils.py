@@ -91,7 +91,7 @@ Career Counselling Team
     
     
 ROLE_PREFIX = {
-    "super_admin": "SUP",
+    "superadmin": "SUP",
     "admin": "ADM",
     "student": "STU",
     "parent": "PAR",
@@ -102,17 +102,20 @@ ROLE_PREFIX = {
 def generate_role_id(role_name, model, field_name):
     prefix = ROLE_PREFIX.get(role_name)
 
+    if not prefix:
+        raise ValueError(f"Invalid role_name: {role_name}")
+
     last_obj = model.objects.filter(
         **{f"{field_name}__startswith": prefix}
     ).order_by('-id').first()
 
-    if last_obj:
+    if last_obj and getattr(last_obj, field_name):
         last_number = int(getattr(last_obj, field_name).split('_')[1])
         next_number = last_number + 1
     else:
         next_number = 1
 
-    return f"{prefix}_{str(next_number).zfill(4)}"
+    return f"{prefix}_{next_number:04d}"
 
 
 def generate_otp():
