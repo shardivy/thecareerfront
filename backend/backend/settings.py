@@ -145,6 +145,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'counselling_db',
+        # 'NAME': 'career',
         'USER': 'root',
         'PASSWORD': 'NewPassword',
         'HOST': '127.0.0.1',
