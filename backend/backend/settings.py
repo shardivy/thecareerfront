@@ -50,6 +50,11 @@ CSRF_TRUSTED_ORIGINS = os.environ.get(
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+
 
 # Application definition
 
@@ -112,6 +117,22 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
+
+
+# CELERY_BROKER_URL = 'redis://redis:6379/0'
+# CELERY_ACCEPT_CONTENT = ['json']
+# CELERY_TASK_SERIALIZER = 'json'
+
+# =========================
+# CELERY CONFIGURATION
+# =========================
+
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
 
 
 # Database

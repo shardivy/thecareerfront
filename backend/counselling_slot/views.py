@@ -1,4 +1,8 @@
 from django.shortcuts import get_object_or_404, render
+from backend import settings
+from counselling_slot.tasks import send_booking_cancel_notification
+from django.db.transaction import on_commit
+from counselling_slot.services import get_counsellor_slots_by_date
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -7,6 +11,7 @@ from django.db import transaction
 from collections import defaultdict
 from datetime import timedelta
 from django.utils.timezone import now
+from datetime import datetime
 
 from accounts.models import User
 from django.db import IntegrityError
@@ -265,18 +270,23 @@ class SlotDeleteAPIView(APIView):
     def delete(self, request, slot_id):
         slot = get_object_or_404(Slot, id=slot_id)
 
-        slot.is_deleted = True   # ✅ soft delete
-        slot.save()
+        # 🚨 Do not allow deleting if booked
+        if Booking.objects.filter(slot=slot).exists():
+            return Response(
+                {"success": False, "message": "Slot cannot be deleted because it is already booked."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ Soft delete only
+        slot.is_deleted = True
+        slot.is_available = False
+        slot.save(update_fields=["is_deleted", "is_available"])
 
         return Response(
-            {
-                "message": "Slot deleted successfully",
-                "slot_id": slot_id
-            },
+            {"success": True, "message": "Slot deleted successfully."},
             status=status.HTTP_200_OK
         )
 
-        
         
 class UpdateCounsellorStatusAPIView(APIView):
     """
@@ -528,7 +538,8 @@ class DateWiseSlotListAPIView(APIView):
 
        
 class BookingCreateAPIView(APIView):
-    permission_classes = [IsAdmin | IsSuperAdmin | IsCounsellor]
+    # permission_classes = [IsAdmin | IsSuperAdmin | IsCounsellor]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = BookingCreateSerializer(data=request.data)
@@ -678,7 +689,51 @@ class BookingCreateAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
-        
+    
+    def delete(self, request, booking_id):
+
+        try:
+            booking = Booking.objects.select_related(
+                "student", "slot"
+            ).prefetch_related(
+                "bookingcounsellor_set__counsellor__user"
+            ).get(id=booking_id)
+
+        except Booking.DoesNotExist:
+            return Response(
+                {"message": "Booking not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Collect before delete
+        student_email = booking.student.user.email
+
+        counsellor_emails = [
+            bc.counsellor.user.email
+            for bc in booking.bookingcounsellor_set.all()
+        ]
+
+        slot_details = {
+            "date": str(booking.slot.date),
+            "start_time": str(booking.slot.start_time),
+            "end_time": str(booking.slot.end_time),
+            "mode": booking.slot.mode,
+        }
+
+        booking.delete()
+
+        # Trigger celery after commit
+        on_commit(lambda: send_booking_cancel_notification.delay(
+            student_email,
+            counsellor_emails,
+            slot_details
+        ))
+
+        return Response(
+            {"message": "Booking deleted successfully"},
+            status=status.HTTP_200_OK
+        )
+            
 class SessionDashboardCountAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -734,6 +789,200 @@ class SessionDashboardCountAPIView(APIView):
 
             "completed_sessions": completed_sessions
         })
+   
+FIXED_SLOTS = [
+    ("10:30 AM", "12:30 PM"),
+    ("12:30 PM", "02:30 PM"),
+    ("03:00 PM", "05:00 PM"),
+    ("05:00 PM", "07:00 PM"),
+]     
+        
+class CounsellorSlotByDateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    # def get(self, request, date):
+
+    #     try:
+    #         selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+    #     except ValueError:
+    #         return Response(
+    #             {"error": "Invalid date format. Use YYYY-MM-DD"},
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     data = get_counsellor_slots_by_date(selected_date)
+
+    #     return Response({
+    #         "success": True,
+    #         "date": selected_date,
+    #         "data": data
+    #     })  
+    
+
+    """
+    Fetch slots for a given date.
+    Also creates missing slots in Slot table for each counsellor.
+    """
+
+    def get(self, request, date):
+        try:
+            selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"message": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        counsellors = Counsellor.objects.all()
+        response_data = []
+
+        for counsellor in counsellors:
+            slots_map = {}
+
+            for start_time, end_time in FIXED_SLOTS:
+                # Check if slot exists at all (include deleted)
+                slot_qs = Slot.objects.filter(
+                    counsellor=counsellor.user,
+                    start_time=start_time,
+                    end_time=end_time,
+                    date=selected_date,
+                ).order_by('id')
+
+                slot = slot_qs.filter(is_deleted=False).first()
+
+                if not slot:
+                    # Check if it ever existed (including deleted)
+                    ever_existed = slot_qs.exists()
+
+                    if not ever_existed:
+                        slot = Slot.objects.create(
+                            counsellor=counsellor.user,
+                            start_time=start_time,
+                            end_time=end_time,
+                            date=selected_date
+                        )
+                    else:
+                        # It was deleted — do NOT recreate
+                        slot = None
+
+
+                slots_map[(start_time, end_time)] = slot
+
+            counsellor_slots = []
+            for start_time, end_time in FIXED_SLOTS:
+                slot = slots_map.get((start_time, end_time))
+                if not slot:
+                    # Skip deleted slots
+                    continue
+
+                is_booked = Booking.objects.filter(
+                    slot__counsellor=counsellor.user,
+                    date=selected_date,
+                    slot__start_time=start_time,
+                    slot__end_time=end_time,
+                    status__in=["booked", "confirmed"]
+                ).exists()
+
+                counsellor_slots.append({
+                    "slot_id": slot.id,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "is_available": not is_booked,
+                    "status": "booked" if is_booked else "available"
+                })
+
+            response_data.append({
+                "counsellor_id": counsellor.id,
+                "counsellor_name": f"{counsellor.user.first_name} {counsellor.user.last_name}".strip()
+                if hasattr(counsellor, "user") else counsellor.name,
+                "is_active": counsellor.is_active,
+                "slots": counsellor_slots
+            })
+
+        return Response({
+            "message": "Slots fetched successfully",
+            "date": selected_date,
+            "data": response_data
+        })
+
+
+
+class SlotAvailabilityUpdateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def put(self, request, slot_id):
+
+        slot = get_object_or_404(Slot, id=slot_id, is_deleted=False)
+
+        is_available = request.data.get("is_available")
+
+        # Validate input
+        if is_available is None:
+            return Response(
+                {
+                    "success": False,
+                    "message": "is_available field is required."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not isinstance(is_available, bool):
+            return Response(
+                {
+                    "success": False,
+                    "message": "is_available must be true or false."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        slot.is_available = is_available
+        slot.save(update_fields=["is_available"])
+
+        return Response(
+            {
+                "success": True,
+                "message": "Slot availability updated successfully.",
+                "slot_id": slot.id,
+                "is_available": slot.is_available
+            },
+            status=status.HTTP_200_OK
+        )
+        
+        
+class BookingMarkCompletedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, booking_id):
+        booking = get_object_or_404(Booking, id=booking_id)
+
+        # Optional validation
+        if booking.status == "cancelled":
+            return Response(
+                {"message": "Cancelled booking cannot be marked as completed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if booking.status == "completed":
+            return Response(
+                {"message": "Booking is already completed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ Update status
+        booking.status = "completed"
+        booking.save()
+
+        return Response(
+            {
+                "message": "Booking marked as completed successfully",
+                "booking_id": booking.id,
+                "status": booking.status,
+                "updated_at": booking.updated_at
+            },
+            status=status.HTTP_200_OK
+        )
+
 
 
 

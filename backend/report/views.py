@@ -2,6 +2,7 @@ from django.shortcuts import render
 
 from django.http import FileResponse
 from django.urls import reverse
+from lead_registration.models import StudentProfile
 from rest_framework.permissions import AllowAny
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.utils.decorators import method_decorator
@@ -96,6 +97,7 @@ class CompletedExamReportAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+
         reports = (
             Report.objects
             .select_related('user', 'exam')
@@ -107,6 +109,13 @@ class CompletedExamReportAPIView(APIView):
         for report in reports:
             user = report.user
 
+            # Student Profile
+            student_profile = (
+                StudentProfile.objects
+                .filter(user=user)
+                .first()
+            )
+
             # Program
             user_program = (
                 UserProgramPackage.objects
@@ -115,20 +124,22 @@ class CompletedExamReportAPIView(APIView):
                 .first()
             )
 
-            # Exam status (from UserExam)
+            # Exam status
             user_exam = (
                 UserExam.objects
                 .filter(user=user, exam=report.exam)
                 .first()
             )
 
-            # Payment
+            # Latest Payment
             payment = (
                 Payment.objects
                 .filter(user=user)
                 .order_by('-created_at')
                 .first()
             )
+
+            # File URL
             file_url = None
             if report.file_path:
                 pdf_url = reverse(
@@ -138,8 +149,10 @@ class CompletedExamReportAPIView(APIView):
                 file_url = request.build_absolute_uri(pdf_url)
 
             response_data.append({
-                "id": report.id if report else None,
+                "id": report.id,
                 "user_id": user.id,
+                "student_id": student_profile.id if student_profile else None,
+
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "email": user.email,
@@ -152,14 +165,106 @@ class CompletedExamReportAPIView(APIView):
                 "exam": report.exam.name,
                 "exam_status": user_exam.status if user_exam else None,
 
-                "report_status": report.report_status if report else None,
+                "report_status": report.report_status,
                 "file_path": file_url,
-                "uploaded_at": report.uploaded_at if report else None,
+                "uploaded_at": report.uploaded_at,
 
                 "payment_status": payment.status if payment else None,
             })
 
         serializer = CompletedExamReportSerializer(response_data, many=True)
+
+        return Response({
+            "count": len(serializer.data),
+            "data": serializer.data
+        })
+        
+        
+class CompletedExamReportStudentIDAPIView(APIView):
+    """
+    Fetch ALL reports OR reports for a specific student.
+    """
+        
+    def get(self, request, student_id):
+
+        # 1️⃣ Get student profile
+        student_profile = get_object_or_404(
+            StudentProfile,
+            id=student_id
+        )
+
+        user = student_profile.user
+
+        # 2️⃣ Get reports only for this user
+        reports = (
+            Report.objects
+            .filter(user=user)
+            .select_related('user', 'exam')
+            .order_by('-uploaded_at')
+        )
+
+        response_data = []
+
+        for report in reports:
+
+            # Program
+            user_program = (
+                UserProgramPackage.objects
+                .filter(user=user)
+                .select_related('program')
+                .first()
+            )
+
+            # Exam status
+            user_exam = (
+                UserExam.objects
+                .filter(user=user, exam=report.exam)
+                .first()
+            )
+
+            # Latest Payment
+            payment = (
+                Payment.objects
+                .filter(user=user)
+                .order_by('-created_at')
+                .first()
+            )
+
+            # File URL
+            file_url = None
+            if report.file_path:
+                pdf_url = reverse(
+                    "report-pdf",
+                    kwargs={"report_id": report.id}
+                )
+                file_url = request.build_absolute_uri(pdf_url)
+
+            response_data.append({
+                "id": report.id,
+                "user_id": user.id,
+                "student_id": student_profile.id,  # ✅ From URL
+
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "phone": getattr(user, "phone", None),
+
+                "program_id": user_program.program.id if user_program else None,
+                "program": user_program.program.name if user_program else None,
+
+                "exam_id": report.exam.id,
+                "exam": report.exam.name,
+                "exam_status": user_exam.status if user_exam else None,
+
+                "report_status": report.report_status,
+                "file_path": file_url,
+                "uploaded_at": report.uploaded_at,
+
+                "payment_status": payment.status if payment else None,
+            })
+
+        serializer = CompletedExamReportSerializer(response_data, many=True)
+
         return Response({
             "count": len(serializer.data),
             "data": serializer.data
@@ -188,38 +293,70 @@ class ReportPDFView(APIView):
         
 class UploadReportAPIView(APIView):
     """
-    Upload or replace a report file for an existing Report entry.
+    Upload or replace a report file.
+    If latest payment is fully_paid → report unlocked
+    If partial_paid or no payment → report locked
     """
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, report_id):
+    def handle_upload(self, request, report_id):
         report = get_object_or_404(Report, id=report_id)
 
-        file = request.FILES.get("file")
+        file_path = request.FILES.get("file_path")
+        student_id = request.data.get("student_id")
+        program_id = request.data.get("program_id")
 
-        if not file:
+        if not file_path:
             return Response(
                 {"message": "Report file is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ Upload / replace file
-        report.file_path = file
+        # Optional: update student & program if provided
+        if student_id:
+            report.student_id = student_id
+
+        if program_id:
+            report.program_id = program_id
+
+        user = report.user
+
+        latest_payment = (
+            Payment.objects
+            .filter(user=user)
+            .order_by('-created_at')
+            .first()
+        )
+
+        report_status = "locked"
+
+        if latest_payment and latest_payment.status == "fully_paid":
+            report_status = "unlocked"
+
+        report.file_path = file_path
         report.uploaded_by = request.user
         report.uploaded_at = timezone.now()
-        report.report_status = "locked"   # or 'unlocked' based on logic
-
+        report.report_status = report_status
         report.save()
 
-        return Response(
-            {
-                "message": "Report uploaded successfully",
-                "report_id": report.id,
-                "uploaded_at": report.uploaded_at,
-                "report_status": report.report_status
-            },
-            status=status.HTTP_200_OK
-        )
+        return Response({
+            "message": "Report uploaded successfully",
+            "report_id": report.id,
+            "student_id": report.student_id,
+            "program_id": report.program_id,
+            "report_status": report.report_status,
+        })
+
+
+    # POST → Upload
+    def post(self, request, report_id):
+        return self.handle_upload(request, report_id)
+
+    # PUT → Replace
+    def put(self, request, report_id):
+        return self.handle_upload(request, report_id)
+    
+    
         
 class CompletedExamReportExportExcelAPIView(APIView):
     permission_classes = [IsAuthenticated]

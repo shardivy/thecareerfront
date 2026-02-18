@@ -1,6 +1,6 @@
 from django.urls import path
 
-from counselling_slot.views import AddCounsellorAPIView, BookingCreateAPIView, CounsellorListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SessionDashboardCountAPIView, SlotCreateAPIView, SlotDeleteAPIView, UpdateCounsellorStatusAPIView
+from counselling_slot.views import AddCounsellorAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CounsellorListAPIView, CounsellorSlotByDateAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, UpdateCounsellorStatusAPIView
 
 
 urlpatterns = [
@@ -35,6 +35,21 @@ urlpatterns = [
     "session-count/",
     SessionDashboardCountAPIView.as_view(),
     name="session-dashboard-count"
+),
+    
+     path(
+        "counsellor-slots/<str:date>/",
+        CounsellorSlotByDateAPIView.as_view(),
+        name="counsellor-slots-by-date"
+    ),
+     path("slots/<int:slot_id>/availability/", 
+     SlotAvailabilityUpdateAPIView.as_view(), 
+     name="update-slot-availability"),
+     
+    path(
+    "bookings/<int:booking_id>/mark-completed/",
+    BookingMarkCompletedAPIView.as_view(),
+    name="booking-mark-completed"
 )
 
 

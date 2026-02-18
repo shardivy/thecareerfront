@@ -3,6 +3,7 @@ import string
 from urllib import request
 from xml.parsers.expat import errors
 from django.shortcuts import get_object_or_404, render
+from counselling_slot.models import Booking
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -13,17 +14,18 @@ from django.db import IntegrityError, transaction
 from django.contrib.auth.hashers import make_password
 import logging
 from accounts.constants import PROGRAM_PREFIX_MAP
+from django.db.models import Sum
 
 from accounts.models import Role, User
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from accounts.services.whatsapp_service import send_whatsapp_message, send_whatsapp_otp
 from accounts.utils import generate_otp, generate_password, generate_role_id, send_credentials_email, send_otp_email
-from exam.models import UserExam
+from exam.models import Exam, UserExam
 from lead_registration.models import Hobby, Lead, ParentProfile, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from lead_registration.serializers import AddUserSerializer, HobbySerializer, LeadSerializer, ParentDetailSerializer, PaymentDetailSerializer, StreamSerializer, StudentAcademicHistorySerializer, StudentHobbySerializer, StudentProfileDetailSerializer, StudentRegistrationSerializer, StudentStreamSerializer, StudentSubjectPreferenceSerializer, SubjectSerializer, UserDetailSerializer, UserProgramPackageDetailSerializer, UserProgramPackageResponseSerializer
 from payment.models import Payment, PaymentLog
-from program_package.models import UserProgramPackage
-from report.models import Report
+from program_package.models import Program, UserProgramPackage
+from report.models import Report, Review
 
 
 logger = logging.getLogger('lead_registration')
@@ -460,8 +462,17 @@ class AddUserAPIView(APIView):
             with transaction.atomic():
 
                 # 🔹 Role & password
+                # student_role = Role.objects.get(name="student")
+                # password = generate_password()
+                
                 student_role = Role.objects.get(name="student")
-                password = generate_password()
+
+                # 🔹 Check if password provided in request
+                password = serializer.validated_data.get("password")
+
+                if not password:
+                    password = generate_password()
+
 
                 # 🔹 Create user
                 # 🔹 Program-based prefix logic
@@ -511,13 +522,40 @@ class AddUserAPIView(APIView):
                     package=serializer.validated_data["package"],
                     assigned_by=request.user.email
                 )
+                
+#++++++++++++++++++++++++++++++++ just for now and will later delete it ++++++++++++++++++++++++++++++++++++++++++
+
+                # 🔹 Create UserExam entries if program requires it
+                if program.name in ["8-12 Aptitude Test", "PG Counselling"]:
+                    # Get all exams linked to this package
+                    exams = Exam.objects.filter(exam_packages__package=upp.package).distinct()
+                    
+                    user_exam_objects = [
+                        UserExam(
+                            user=user,
+                            exam=exam,
+                            status="in_progress"
+                        )
+                        for exam in exams
+                    ]
+                    UserExam.objects.bulk_create(user_exam_objects)
+# ==========================================================================================================
 
                 # 🔹 Create payment (OPTIONAL)
                 payment = None
                 amount = serializer.validated_data.get("amount")
                 proof_file = serializer.validated_data.get("proof_file")
 
-                if amount is not None or proof_file:
+                if amount is not None:
+
+                    package_price = serializer.validated_data["package"].price
+
+                    # 🔹 Determine payment status
+                    if amount == package_price:
+                        payment_status = "fully_paid"
+                    else:
+                        payment_status = "partial_paid"
+
                     payment = Payment.objects.create(
                         user=user,
                         package=serializer.validated_data["package"],
@@ -526,8 +564,9 @@ class AddUserAPIView(APIView):
                         method=serializer.validated_data.get("method"),
                         transaction_id=serializer.validated_data.get("transaction_id"),
                         proof_file=proof_file,
-                        status="verification_pending"
+                        status=payment_status
                     )
+
 
                 # 🔹 Send credentials email
                 try:
@@ -699,10 +738,40 @@ class AddUserAPIView(APIView):
             # 🔹 Fetch latest payment
             payment = Payment.objects.filter(user=user).order_by("-created_at").first()
 
-            if payment and proof_file:
-                payment.proof_file = proof_file
-                payment.status = "verification_pending"
+            # if payment and proof_file:
+            #     payment.proof_file = proof_file
+            #     payment.status = "verification_pending"
+            #     payment.save()
+            
+            amount = serializer.validated_data.get("amount")
+
+            if amount is not None:
+
+                package_price = payment.package.price
+
+                if amount < 500:
+                    return Response(
+                        {"message": "Amount must be at least ₹500"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if amount > package_price:
+                    return Response(
+                        {"message": f"Amount cannot exceed ₹{package_price}"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                payment.amount = amount
+
+                # 🔹 Auto update status
+                if amount == package_price:
+                    payment.status = "fully_paid"
+                else:
+                    payment.status = "partial_paid"
+
+
                 payment.save()
+
             payment_data = None
 
             if payment:
@@ -1003,7 +1072,6 @@ class ConvertLeadAPIView(APIView):
         try:
             with transaction.atomic():
 
-                # 🔹 Role & password
                 student_role = Role.objects.get(name="student")
                 password = generate_password()
 
@@ -1015,7 +1083,7 @@ class ConvertLeadAPIView(APIView):
                 if prefix and not first_name.startswith(prefix):
                     first_name = f"{prefix} - {first_name}"
 
-                # 🔹 Create user
+                # 🔹 Create User
                 user = User.objects.create(
                     first_name=first_name,
                     last_name=serializer.validated_data["last_name"],
@@ -1027,8 +1095,8 @@ class ConvertLeadAPIView(APIView):
                 user.set_password(password)
                 user.save()
 
-                # 🔹 Create student profile
-                StudentProfile.objects.create(
+                # 🔹 Create Student Profile (FIXED)
+                student_profile = StudentProfile.objects.create(
                     user=user,
                     study_class=serializer.validated_data.get("study_class"),
                     current_academic_stage=serializer.validated_data.get("current_academic_stage"),
@@ -1040,7 +1108,7 @@ class ConvertLeadAPIView(APIView):
                     ),
                 )
 
-                # 🔹 Assign program & package
+                # 🔹 Assign Program & Package
                 upp = UserProgramPackage.objects.create(
                     user=user,
                     program=serializer.validated_data["program"],
@@ -1048,51 +1116,59 @@ class ConvertLeadAPIView(APIView):
                     assigned_by="lead-conversion"
                 )
 
-                # 🔹 Payment (optional)
+                # 🔹 Payment (CLEAN LOGIC)
                 payment = None
-                if serializer.validated_data.get("amount") or serializer.validated_data.get("proof_file"):
+                amount = serializer.validated_data.get("amount")
+
+                if amount:
+                    package = serializer.validated_data["package"]
+                    package_price = package.price
+
+                    # Decide status
+                    if amount >= package_price:
+                        paymnet_status = "fully_paid"
+                    else:
+                        paymnet_status = "partial_paid"
+                        
+                    transaction_id = serializer.validated_data.get("transaction_id")
+
+                    # Convert blank → None (extra safety)
+                    if not transaction_id:
+                        transaction_id = None
+
                     payment = Payment.objects.create(
                         user=user,
-                        package=serializer.validated_data["package"],
-                        amount=serializer.validated_data.get("amount"),
+                        package=package,
+                        amount=amount,
                         payment_type=serializer.validated_data.get("payment_type"),
                         method=serializer.validated_data.get("method"),
-                        transaction_id=serializer.validated_data.get("transaction_id"),
+                        transaction_id=transaction_id,
                         proof_file=serializer.validated_data.get("proof_file"),
-                        status="verification_pending"
+                        status=paymnet_status   # ✅ override default
                     )
 
-                # 🔹 Update lead
+
+                    # upp.save(update_fields=["payment_status"])
+
+                # 🔹 Update Lead
                 lead.status = "converted"
                 lead.save(update_fields=["status"])
 
-                # 🔹 Email
+                # 🔹 Send Email
                 send_credentials_email(user.email, password)
-
-                # 🔹 WhatsApp (non-blocking)
-                if lead.phone:
-                    try:
-                        send_whatsapp_message(
-                            phone=lead.phone,
-                            email=lead.email,
-                            password=password
-                        )
-                    except Exception as e:
-                        print("WhatsApp error:", e)
 
                 return Response(
                     {
                         "message": "Lead converted successfully",
                         "data": {
                             "user": UserDetailSerializer(user).data,
-                            "student_profile": StudentProfileDetailSerializer(StudentProfile).data,
+                            "student_profile": StudentProfileDetailSerializer(student_profile).data,
                             "program_package": UserProgramPackageDetailSerializer(upp).data,
                             "payment": (
                                 PaymentDetailSerializer(
                                     payment,
                                     context={"request": request}
-                                ).data
-                                if payment else None
+                                ).data if payment else None
                             )
                         }
                     },
@@ -1602,3 +1678,294 @@ class VerifyParentOTPAPIView(APIView):
             status=200
         )
 
+
+class UserJourneyAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+
+        student = get_object_or_404(StudentProfile, id=student_id)
+        history = []
+
+        # ================================
+        # 1️⃣ REGISTRATION
+        # ================================
+        registration_completed = True
+
+        history.append({
+            "step": "Registration",
+            "status": "completed",
+            "date": student.created_at,
+            "details": f"Student {student.user.email} registered"
+        })
+
+        # ================================
+        # 2️⃣ COUNSELLING SERVICE
+        # ================================
+
+        # Try getting from StudentProfile first
+        program = getattr(student, "program", None)
+        package = getattr(student, "package", None)
+
+        # If missing, derive from latest payment
+        last_payment = (
+            Payment.objects
+            .filter(user=student.user)
+            .select_related("package__program")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if (not program or not package) and last_payment and last_payment.package:
+            package = last_payment.package
+            program = last_payment.package.program
+
+        counselling_selected = bool(program and package)
+
+        if counselling_selected:
+            history.append({
+                "step": "Counselling Service Selection",
+                "status": "completed",
+                "date": student.updated_at,
+                "details": f"{package.name} selected for program {program.name}"
+            })
+
+        # ================================
+        # 3️⃣ PAYMENT (Separate Records)
+        # ================================
+
+        payments = Payment.objects.filter(
+            user=student.user
+        ).order_by("created_at")
+
+        total_paid = payments.aggregate(total=Sum("amount"))["total"] or 0
+        last_payment = payments.last()
+
+        package_price = (
+            last_payment.package.price
+            if last_payment and last_payment.package
+            else 0
+        )
+
+        # Determine overall payment status for progress
+        if total_paid == 0:
+            payment_status = "pending"
+        elif total_paid < package_price:
+            payment_status = "partial_paid"
+        else:
+            payment_status = "fully_paid"
+
+
+        # Add each payment separately in history
+        if payments.exists():
+            for payment in payments:
+                history.append({
+                    "step": "Payment",
+                    "status": payment.status,  # show actual record status
+                    "date": payment.created_at.date(),
+                    "details": f"₹{payment.amount:.2f} - ({payment.method}) "
+                })
+        else:
+            history.append({
+                "step": "Payment",
+                "status": "pending",
+                "date": None,
+                "details": "No payment made yet"
+            })
+
+
+
+        # ================================
+        # 4️⃣ EXAM + REPORT
+        # ================================
+
+        EXAM_PROGRAMS = ["pg counselling", "8-12 aptitude test"]
+
+        exam_status = "not_applicable"
+        report_status = "not_applicable"
+        exam_attempt = None
+
+        if program and program.name.lower().strip() in EXAM_PROGRAMS:
+
+            exam_attempt = (
+                student.user.userexam_set
+                .select_related("exam")
+                .order_by("-created_at")
+                .first()
+            )
+
+            # ---- EXAM ----
+            if exam_attempt:
+                exam_status = exam_attempt.status
+
+                history.append({
+                    "step": "Exam",
+                    "status": exam_status,
+                    "date": exam_attempt.created_at,
+                    "details": f"{exam_attempt.exam.name} exam status: {exam_status}"
+                })
+            else:
+                exam_status = "not_started"
+
+                history.append({
+                    "step": "Exam",
+                    "status": "not_started",
+                    "date": None,
+                    "details": "Exam not started"
+                })
+
+            # ---- REPORT ----
+            if exam_attempt:
+                report = (
+                    Report.objects
+                    .filter(user=student.user, exam=exam_attempt.exam)
+                    .order_by("-uploaded_at")
+                    .first()
+                )
+
+                if report:
+                    report_status = report.report_status
+
+                    history.append({
+                        "step": "Report",
+                        "status": report_status,
+                        "date": report.uploaded_at,
+                        "details": f"Report status: {report_status}"
+                    })
+                else:
+                    report_status = "locked"
+
+                    history.append({
+                        "step": "Report",
+                        "status": "locked",
+                        "date": None,
+                        "details": "Report not generated yet"
+                    })
+            else:
+                report_status = "locked"
+
+                history.append({
+                    "step": "Report",
+                    "status": "locked",
+                    "date": None,
+                    "details": "Report locked until exam is attempted"
+                })
+
+        else:
+            history.append({
+                "step": "Exam",
+                "status": "not_applicable",
+                "date": None,
+                "details": "Exam not applicable for this program"
+            })
+
+            history.append({
+                "step": "Report",
+                "status": "not_applicable",
+                "date": None,
+                "details": "Report not applicable for this program"
+            })
+
+        # ================================
+        # 5️⃣ SLOT BOOKING
+        # ================================
+        booking = Booking.objects.filter(student=student).first()
+
+        if booking:
+            slot_status = True
+            history.append({
+                "step": "Counselling Slot Booking",
+                "status": "completed",
+                "date": booking.created_at,
+                "details": "Slot booked"
+            })
+        else:
+            slot_status = False
+            history.append({
+                "step": "Counselling Slot Booking",
+                "status": "pending",
+                "date": None,
+                "details": "Slot not booked"
+            })
+
+        # ================================
+        # 6️⃣ REVIEW
+        # ================================
+        review_status = False  # update when review model exists
+
+        history.append({
+            "step": "Review",
+            "status": "completed" if review_status else "pending",
+            "date": None,
+            "details": "Review completed" if review_status else "Pending"
+        })
+
+        # ================================
+        # CURRENT STEP LOGIC
+        # ================================
+        current_step = 1
+
+        if registration_completed:
+            current_step = 2
+
+        if counselling_selected:
+            current_step = 3
+
+        if payment_status in ["partial_paid", "fully_paid"]:
+            current_step = 4
+
+        if exam_status in ["in_progress", "submitted", "pending_approval", "completed"]:
+            current_step = 5
+
+        if report_status in ["unlocked", "locked"]:
+            current_step = 6
+
+        if slot_status:
+            current_step = 7
+
+        if review_status:
+            current_step = 8
+
+        # ================================
+        # FINAL RESPONSE
+        # ================================
+        response_data = {
+            "progress": {
+                "registration": registration_completed,
+                "counselling_service": counselling_selected,
+                "payment": payment_status,
+                "exam": exam_status,
+                "report": report_status,
+                "counselling_slot_booking": slot_status,
+                "review": review_status,
+                "full_access": review_status,
+                "current_step": current_step
+            },
+            "payment_summary": {
+                "last_payment": {
+                    "payment_id": last_payment.id if last_payment else None,
+                    "amount": float(last_payment.amount) if last_payment else 0,
+                    "status": last_payment.status if last_payment else None,
+                    "payment_type": last_payment.payment_type if last_payment else None,
+                    "method": last_payment.method if last_payment else None,
+                    "transaction_id": last_payment.transaction_id if last_payment else None,
+                    "date": last_payment.created_at.date() if last_payment else None,
+                } if last_payment else None,
+                "total_amount_paid": float(total_paid),
+                "payments": [
+                    {
+                        "payment_id": p.id,
+                        "amount": float(p.amount),
+                        "status": p.status,
+                        "payment_type": p.payment_type,
+                        "method": p.method,
+                        "transaction_id": p.transaction_id,
+                        "date": p.created_at.date(),
+                    }
+                    for p in payments
+                ]
+            },
+            "history": history
+        }
+
+        return Response(response_data)

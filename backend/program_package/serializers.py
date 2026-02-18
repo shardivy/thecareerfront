@@ -128,7 +128,19 @@ class PackageListSerializer(serializers.ModelSerializer):
             for feature in obj.packagefeature_set.all()
         ]
         
-class PackageMiniSerializer(serializers.ModelSerializer):
+# Serializer for features inside a package
+class PackageFeatureMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PackageFeature
+        fields = ("id", "description")
+
+
+# Serializer for packages including features
+class PackageWithFeaturesSerializer(serializers.ModelSerializer):
+    features = serializers.SerializerMethodField()
+    program = serializers.SerializerMethodField()
+    active_users = serializers.SerializerMethodField()  # optional if you want to include count
+
     class Meta:
         model = Package
         fields = (
@@ -137,10 +149,27 @@ class PackageMiniSerializer(serializers.ModelSerializer):
             "price",
             "description",
             "is_active",
-            "created_at",
+            "program",
+            "active_users",
+            "features",
         )
 
+    def get_features(self, obj):
+        features = PackageFeature.objects.filter(
+            package=obj,
+            is_enabled=True
+        )
+        return PackageFeatureMiniSerializer(features, many=True).data
 
+    def get_program(self, obj):
+        return {"id": obj.program.id, "name": obj.program.name}
+
+    def get_active_users(self, obj):
+        # Replace with your actual logic for active users count
+        return obj.users.filter(is_active=True).count() if hasattr(obj, 'users') else 0
+
+
+# Serializer for Program including packages with features
 class ProgramWithPackagesSerializer(serializers.ModelSerializer):
     packages = serializers.SerializerMethodField()
 
@@ -161,5 +190,4 @@ class ProgramWithPackagesSerializer(serializers.ModelSerializer):
             program=obj,
             is_active=True
         )
-
-        return PackageMiniSerializer(packages, many=True).data
+        return PackageWithFeaturesSerializer(packages, many=True).data

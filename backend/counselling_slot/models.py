@@ -25,7 +25,7 @@ class Slot(models.Model):
     end_time = models.CharField(max_length=150, null=True, blank=True)
     mode = models.CharField(max_length=20, choices=MODE_CHOICES)
     # duration_minutes = models.PositiveIntegerField()
-    is_available = models.BooleanField(default=False)
+    is_available = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)

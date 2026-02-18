@@ -15,7 +15,7 @@ class Lead(models.Model):
 
     STATUS_CHOICES = (
         ('enquiry', 'Enquiry'),
-        ('registered', 'Registered'),
+        # ('registered', 'Registered'),
         ('converted', 'Converted'),
     )
 

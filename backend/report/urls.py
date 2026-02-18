@@ -1,11 +1,12 @@
 from django.urls import path
 
-from report.views import CompletedExamReportAPIView, CompletedExamReportExportExcelAPIView, CompletedExamReportExportPDFAPIView, ReportPDFView, ReportStatusCountAPIView, UploadReportAPIView
+from report.views import CompletedExamReportAPIView, CompletedExamReportExportExcelAPIView, CompletedExamReportExportPDFAPIView, CompletedExamReportStudentIDAPIView, ReportPDFView, ReportStatusCountAPIView, UploadReportAPIView
 
 
 
 urlpatterns = [
     path('reports/completed-exams/', CompletedExamReportAPIView.as_view()),
+    path('reports/completed-exams/<int:student_id>/', CompletedExamReportStudentIDAPIView.as_view()),
     path('upload/<int:report_id>/', UploadReportAPIView.as_view()),
     path('reports/status-count/', ReportStatusCountAPIView.as_view()),
     path("report/pdf/<int:report_id>/", ReportPDFView.as_view(), name="report-pdf"),
