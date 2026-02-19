@@ -35,15 +35,22 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
   const [slotsList, setSlotsList] = useState([]);
   const [slotError, setSlotError] = useState("");
 
+  const resetModalState = () => {form.resetFields();
+  setSlotsList([]);
+  setSlotError("");
+};
+
+
   const dispatch = useDispatch();
 
   const { list: counsellors, loading } = useSelector(
     (state) => state.counsellors
   );
 
-  const { list: fetchedSlots } = useSelector(
-    (state) => state.counsellingSlots
-  );
+const { modalSlots: fetchedSlots } = useSelector(
+  (state) => state.counsellingSlots
+);
+
 
   /* ---------- FETCH COUNSELLORS ---------- */
   useEffect(() => {
@@ -113,14 +120,12 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
   
 
   /* ---------- ADD SLOT ---------- */
- const addSlot = () => {
+const addSlot = () => {
   const start = form.getFieldValue("start_time");
   const end = form.getFieldValue("end_time");
-  const date = form.getFieldValue("date");
-  const counsellorId = form.getFieldValue("counsellor");
 
-  if (!start || !end || !date || !counsellorId) {
-    setSlotError("Please select date, counsellor, start and end time");
+  if (!start || !end) {
+    setSlotError("Please select start and end time");
     return;
   }
 
@@ -130,21 +135,16 @@ const CreateSlotModal = ({ open, onCancel, onSuccess }) => {
   }
 
   const newSlot = {
-    start_time: start.format("hh:mm A"),
-    end_time: end.format("hh:mm A"),
+    start_time: start,
+    end_time: end,
   };
 
-  // Call API immediately
-  dispatch(
-    createSlots({ date: dayjs(date).format("YYYY-MM-DD"), counsellorId, payload: { counsellor_id: counsellorId, date: dayjs(date).format("YYYY-MM-DD"), slots: [newSlot] } })
-  ).then((res) => {
-    if (!res.error) {
-      setSlotsList((prev) => [...prev, { ...newSlot, start_time: start, end_time: end }]);
-      form.setFieldsValue({ start_time: null, end_time: null });
-      setSlotError("");
-    }
-  });
+  setSlotsList((prev) => [...prev, newSlot]);
+
+  form.setFieldsValue({ start_time: null, end_time: null });
+  setSlotError("");
 };
+
 
   /* ---------- DELETE SLOT ---------- */
 const handleDeleteSlot = (slotId, index) => {
@@ -249,8 +249,11 @@ const getDisabledTime = (isStart) => (selectedValue) => {
   };
 };
 
-
-
+useEffect(() => {
+  if (open) {
+    resetModalState();
+  }
+}, [open]);
 
   /* ---------- UI ---------- */
   return (
@@ -258,7 +261,10 @@ const getDisabledTime = (isStart) => (selectedValue) => {
       open={open}
       title="Create Counselling Slot"
       footer={null}
-      onCancel={onCancel}
+      onCancel={() => {
+    resetModalState();
+    onCancel();
+  }}
       destroyOnClose
       width={600}
     >

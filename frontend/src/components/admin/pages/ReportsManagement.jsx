@@ -116,11 +116,11 @@ const ReportsManagement = () => {
       value: stats?.pending_uploaded || 0,
       icon: <UploadOutlined style={{ color: adminTheme.token.colorWarning }} />,
     },
-    {
-      title: "Review Pending",
-      value: stats?.review_pending || 0,
-      icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
-    },
+    // {
+    //   title: "Review Pending",
+    //   value: stats?.review_pending || 0,
+    //   icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
+    // },
   ];
 
   /* ----------------- MAP API → UI DATA ----------------- */
@@ -132,6 +132,7 @@ const ReportsManagement = () => {
       name: `${item.first_name ?? ""} ${item.last_name ?? ""}`.trim(),
       email: item.email,
       program: item.program ?? "—",
+      package:item.package ?? "—" ,
       status:
         item.report_status === "pending_uploaded"
           ? "Pending Upload"
@@ -238,10 +239,19 @@ const ReportsManagement = () => {
         </>
       ),
     },
-    {
-      title: "Program",
-      dataIndex: "program",
-    },
+      {
+  title: "Program / Counselling Service",
+  width: 250,
+  render: (_, record) => (
+    <div>
+      <Text strong>{record.program || "N/A"}</Text>
+      <br />
+      <Text type="colorTextSecondary" >
+        {record.package || "-"}
+      </Text>
+    </div>
+  ),
+},
     {
       title: "Report Status",
       dataIndex: "status",
@@ -490,7 +500,7 @@ const ReportsManagement = () => {
 
           <Col xs={24} sm={12} md={5}>
             <Select
-              placeholder="Status"
+              placeholder="Report Status"
               allowClear
               style={{ width: "100%" }}
               onChange={setStatusFilter}
@@ -498,9 +508,9 @@ const ReportsManagement = () => {
               <Option value="Unlocked">Unlocked</Option>
               <Option value="Locked">Locked</Option>
               <Option value="Pending Upload">Pending Upload</Option>
-              <Option value="Review Verification Pending">
+              {/* <Option value="Review Verification Pending">
                 Review Verification Pending
-              </Option>
+              </Option> */}
             </Select>
           </Col>
 

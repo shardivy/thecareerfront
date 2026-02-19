@@ -234,7 +234,7 @@ const AdminLayout = () => {
   (role === "admin" || role === "superadmin") && {
       key: "slot-booking",
       icon: <CalendarFilled />,
-      label: "Slot Booking",
+      label: "Slot Management",
       children: [
         {
           key: "/admin/createslot",
@@ -568,7 +568,7 @@ const AdminLayout = () => {
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
 
               {/* 🔔 NOTIFICATIONS */}
-              <Dropdown
+              {/* <Dropdown
                 trigger={["click"]}
                 dropdownRender={() => <NotificationDropdown notifications={notifications} setNotifications={setNotifications} />}
               >
@@ -577,7 +577,19 @@ const AdminLayout = () => {
                     <BellOutlined style={{ fontSize: 20, cursor: "pointer" }} />
                   </Badge>
                 </span>
-              </Dropdown>
+              </Dropdown> */}
+
+               <span>
+    <Badge count={unreadCount} size="small">
+      <BellOutlined
+        style={{
+          fontSize: 20,
+          cursor: "default",
+          opacity: 0.6,   // optional: show disabled look
+        }}
+      />
+    </Badge>
+  </span>
 
               {/* 👤 USER */}
               <Dropdown menu={userMenu} trigger={["click"]}>

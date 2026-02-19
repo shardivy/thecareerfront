@@ -356,58 +356,67 @@ const handleDelete = (record) => {
 
       {/* ================= FILTERS ================= */}
       <Card>
-        <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-          <Col xs={24} md={10}>
-            <Input
-              prefix={<SearchOutlined />}
-              placeholder="Search"
-              allowClear
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </Col>
-          <Col xs={12} md={4}>
- <Select
-  placeholder="Select Counsellor"
-  allowClear
-  value={counsellorFilter}
-  onChange={setCounsellorFilter}
-  style={{ width: "100%" }}
->
-  {counsellorList.map((c) => (
-    <Option key={c.id} value={c.id}>
-      {c.first_name} {c.last_name}
-    </Option>
-  ))}
-</Select>
+       <Row gutter={[12, 12]} align="middle" style={{ marginBottom: 12 }}>
 
-</Col>
+  <Col xs={24} md={8}>
+    <Input
+      prefix={<SearchOutlined />}
+      placeholder="Search"
+      allowClear
+      value={searchText}
+      onChange={(e) => setSearchText(e.target.value)}
+    />
+  </Col>
 
-          <Col xs={12} md={4}>
-            <Select
-              placeholder="Mode"
-              allowClear
-              onChange={setModeFilter}
-              style={{ width: "100%" }}
-            >
-              <Option value="Online">Online</Option>
-              <Option value="Offline">Offline</Option>
-            </Select>
-          </Col>
-          <Col xs={12} md={4}>
-            <Select
-              placeholder="Status"
-              allowClear
-              onChange={setStatusFilter}
-              style={{ width: "100%" }}
-            >
-              <Option value="booked">Booked</Option>
-            </Select>
-          </Col>
-          <Col xs={24} md={6}>
-            <DatePicker style={{ width: "100%" }} onChange={setDateFilter} />
-          </Col>
-        </Row>
+  <Col xs={12} md={4}>
+    <Select
+      placeholder="Select Counsellor"
+      allowClear
+      value={counsellorFilter}
+      onChange={setCounsellorFilter}
+      style={{ width: "100%" }}
+    >
+      {counsellorList.map((c) => (
+        <Option key={c.id} value={c.id}>
+          {c.first_name} {c.last_name}
+        </Option>
+      ))}
+    </Select>
+  </Col>
+
+  <Col xs={12} md={4}>
+    <Select
+      placeholder="Mode"
+      allowClear
+      onChange={setModeFilter}
+      style={{ width: "100%" }}
+    >
+      <Option value="Online">Online</Option>
+      <Option value="Offline">Offline</Option>
+    </Select>
+  </Col>
+
+  <Col xs={12} md={4}>
+    <Select
+      placeholder="Status"
+      allowClear
+      onChange={setStatusFilter}
+      style={{ width: "100%" }}
+    >
+      <Option value="booked">Booked</Option>
+      <Option value="completed">Completed</Option> {/* ✅ Added */}
+    </Select>
+  </Col>
+
+  <Col xs={12} md={4}>
+    <DatePicker
+      style={{ width: "100%" }}
+      onChange={setDateFilter}
+    />
+  </Col>
+
+</Row>
+
 
         {/* ================= TABLE ================= */}
         <Table

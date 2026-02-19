@@ -169,6 +169,7 @@ const ExamManagements = () => {
     userName: `${item.first_name} ${item.last_name}`,
     email: item.email,
     program: item.program || "-",
+      package: item.package || "-",
     status:
       item.status === "completed"
         ? "Completed"
@@ -235,7 +236,21 @@ const ExamManagements = () => {
         </Space>
       ),
     },
-    { title: "Program", dataIndex: "program" },
+    // { title: "Program", dataIndex: "program" },
+    {
+  title: "Program / Counselling Service",
+  width: 250,
+  render: (_, record) => (
+    <div>
+      <Text strong>{record.program || "N/A"}</Text>
+      <br />
+      <Text type="colorTextSecondary" >
+        {record.package || "-"}
+      </Text>
+    </div>
+  ),
+},
+
     { title: "Exam Status", dataIndex: "status", render: renderStatus },
     { title: "Exam Completion Date", dataIndex: "completedDate" },
     {
@@ -340,7 +355,7 @@ const ExamManagements = () => {
 
           <Col xs={24} md={6}>
             <Select
-              placeholder="Filter by Status"
+              placeholder="Filter by exam status"
               allowClear
               style={{ width: "100%" }}
               onChange={setStatusFilter}

@@ -70,17 +70,31 @@ const CreateSlot = () => {
 const disableCreatedDates = (current) => {
   if (!current) return false;
 
-  const formatted = current.format("YYYY-MM-DD");
-
   const today = dayjs();
-  const maxDate = today.add(15, "day"); // 15 days from today
 
-  return (
-    current.isBefore(today.startOf("day")) || // disable past dates
-    current.isAfter(maxDate.endOf("day")) || // disable dates after 15 days
-    createdDates.includes(formatted) // disable already created dates
-  );
+  // ❌ Only disable past dates
+  return current.isBefore(today.startOf("day"));
 };
+
+const isSlotTimePassed = (slotStartTime, slotDate) => {
+  if (!slotStartTime || !slotDate) return false;
+
+  const today = dayjs().format("YYYY-MM-DD");
+
+  // Only check for today's date
+  if (slotDate !== today) return false;
+
+  const now = dayjs();
+
+  // Combine slot date + start time
+  const slotDateTime = dayjs(
+    `${slotDate} ${slotStartTime}`,
+    "YYYY-MM-DD hh:mm A"
+  );
+
+  return now.isAfter(slotDateTime);
+};
+
 
   /* ---------- STATUS TOGGLE ---------- */
   const handleStatusToggle = (checked, item) => {
@@ -260,13 +274,22 @@ const disableCreatedDates = (current) => {
   {item.slots?.length ? (
     item.slots.map((slot) => {
       const isBooked = slot.status === "booked";
-      const isButtonDisabled =
-        !item.is_active ||
-        !slot.is_available ||
-        isBooked;
+ const isTimePassed = isSlotTimePassed(
+  slot.start_time,
+  item.date
+);
 
-      const isEyeDisabled =
-        !item.is_active || isBooked;
+const isButtonDisabled =
+  !item.is_active ||
+  !slot.is_available ||
+  isBooked ||
+  isTimePassed;   // ✅ NEW CONDITION
+
+
+const isEyeDisabled =
+  !item.is_active || isBooked || isTimePassed;
+
+
 
       return (
         <Space key={slot.slot_id} size="small">
@@ -282,7 +305,7 @@ const disableCreatedDates = (current) => {
           </Button>
 
           {/* Only show eye icon if counsellor is active */}
-          {item.is_active && !isBooked && (
+        {item.is_active && !isBooked && !isTimePassed && (
             slot.is_available ? (
               <EyeOutlined
                 style={{
@@ -325,7 +348,8 @@ const disableCreatedDates = (current) => {
           )}
 
           {/* Only show delete icon if counsellor is active and slot is available and not booked */}
-          {item.is_active && slot.is_available && !isBooked && (
+      {item.is_active && slot.is_available && !isBooked && !isTimePassed && (
+
             <CloseOutlined
               style={{
                 fontSize: 16,

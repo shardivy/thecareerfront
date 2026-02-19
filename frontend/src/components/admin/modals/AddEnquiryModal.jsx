@@ -147,9 +147,22 @@ useEffect(() => {
 
 
   /* Reset method when payment type changes */
-  useEffect(() => {
-    form.setFieldsValue({ method: undefined ,transaction_id: undefined});
-  }, [paymentType, form]);
+ useEffect(() => {
+  if (!paymentType) return;
+
+  if (paymentType === "offline") {
+    form.setFieldsValue({
+      method: "cash",
+      transaction_id: undefined,
+    });
+  }
+
+  if (paymentType === "online") {
+    form.setFieldsValue({
+      method: "upi",
+    });
+  }
+}, [paymentType, form]);
 
   useEffect(() => {
   if (paymentMethod !== "upi") {
@@ -227,6 +240,11 @@ useEffect(() => {
       setPreviewUrl(null);
     }
   };
+
+  const disableFutureDates = (current) => {
+  return current && current > dayjs().endOf("day");
+};
+
 
   return (
     <Modal
@@ -367,6 +385,7 @@ useEffect(() => {
                     style={{ width: "100%" }}
                     format="YYYY-MM-DD"
                     disabled={isConvert}
+                    disabledDate={disableFutureDates}
                   />
                 </Form.Item>
               </Col>

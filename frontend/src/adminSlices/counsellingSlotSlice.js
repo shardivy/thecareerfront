@@ -122,6 +122,7 @@ const counsellingSlotSlice = createSlice({
   initialState: {
     list: [],
     counsellorWiseList: [],
+      modalSlots: [], 
     loading: false,
     error: null,
   },
@@ -139,13 +140,15 @@ const counsellingSlotSlice = createSlice({
       .addCase(fetchSlotsByDate.pending, (state) => {
         state.loading = true;
       })
-     .addCase(fetchSlotsByDate.fulfilled, (state, action) => {
+.addCase(fetchSlotsByDate.fulfilled, (state, action) => {
   state.loading = false;
-  state.list = (action.payload?.data || action.payload || []).map(item => ({
-    ...item,
-    slots: sortSlotsAsc(item.slots),
-  }));
+
+  const slots = action.payload?.data || action.payload || [];
+
+ state.modalSlots = sortSlotsAsc(slots);
+
 })
+
 
       .addCase(fetchSlotsByDate.rejected, (state, action) => {
         state.loading = false;

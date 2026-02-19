@@ -20,7 +20,7 @@ import { fetchStudentJourney } from "../../../adminSlices/userSlice";
 const { Title, Text } = Typography;
 
 /* ---------------- JOURNEY STEPS ---------------- */
-const journeySteps = [
+const baseJourneySteps = [
   "Registration",
   "Counselling Service Selection",
   "Payment",
@@ -31,10 +31,32 @@ const journeySteps = [
   "Full Access",
 ];
 
+
+
+const journeySteps =
+  // user?.program?.toLowerCase() === "engineering"
+  [
+    "Registration",
+    "Counselling Service Selection",
+    "Payment",
+    "Exam",
+    "Report",
+    "Partial Report",
+    "Counselling Slot Booking",
+    "Full Report",
+    "Review",
+    "Full Access",
+  ]
+baseJourneySteps;
+
+
+
 const UserProfileModal = ({ open, onClose, user }) => {
   const { token } = theme.useToken();
   const dispatch = useDispatch();
   const { journey, journeyLoading } = useSelector((state) => state.users);
+
+
 
   useEffect(() => {
     if (open && user?.id) {
@@ -43,6 +65,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
   }, [open, user, dispatch]);
 
   if (!user) return null;
+
 
   /* ================= API DATA ================= */
   const progressData = journey?.progress || {};
@@ -62,7 +85,8 @@ const UserProfileModal = ({ open, onClose, user }) => {
 
   const showExamReport =
     user.program === "8-12 Aptitude Test" ||
-    user.program === "PG Counselling";
+    user.program === "PG Counselling" ||
+    user.program === "Engineering";
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -169,11 +193,21 @@ const UserProfileModal = ({ open, onClose, user }) => {
             }}
           >
             {journeySteps.map((label, index) => {
-              if (!showExamReport && (label === "Exam" || label === "Report"))
+              const isPartialReportStep = label === "Partial Report";
+              const isFullReportStep = label === "Full Report";
+              if (
+                (!showExamReport && (label === "Exam" || label === "Report")) ||
+                (user.program !== "Engineering" &&
+                  (label === "Partial Report" || label === "Full Report"))
+              ) {
                 return null;
+              }
+
+
 
               const stepNo = index + 1;
-              const isPaymentStep = stepNo === 3;
+              // const isPaymentStep = stepNo === 3;
+              const isPaymentStep = label === "Payment";
               const isExamStep = label === "Exam";
               const isReportStep = label === "Report";
               const isActive = stepNo === currentStep;
@@ -182,7 +216,10 @@ const UserProfileModal = ({ open, onClose, user }) => {
                 stepNo < currentStep &&
                 !(isPaymentStep && isPartialPayment) &&
                 !(isExamStep && progressData.exam === "in_progress") &&
-                !(isReportStep && progressData.report === "locked");
+                !(isReportStep && progressData.report === "locked") &&
+                !(isPartialReportStep && progressData.partial_report === "locked") &&
+                !(isFullReportStep && progressData.full_report === "locked");
+
 
               // Step color
               let stepColor = token.colorBorder;
@@ -191,6 +228,13 @@ const UserProfileModal = ({ open, onClose, user }) => {
               else if ((isExamStep && progressData.exam === "in_progress") ||
                 (isReportStep && progressData.report === "locked") ||
                 isActive) stepColor = token.colorPrimary;
+              else if (
+                (isPartialReportStep && progressData.partial_report === "locked") ||
+                (isFullReportStep && progressData.full_report === "locked")
+              ) {
+                stepColor = token.colorPrimary;
+              }
+
 
               // Connector width
               let progressWidth = "0%";
@@ -310,16 +354,23 @@ const UserProfileModal = ({ open, onClose, user }) => {
               historyData
                 .filter((item) => {
                   const status = item.status?.toLowerCase();
-                  if (!status || status === "pending") return false;
 
+                  if (!status || status === "pending") return false;
+                  if (item.step === "Exam" && progressData.exam === "not_applicable") {
+                    return false;
+                  }
+                  if (item.step === "Report" && progressData.report === "not_applicable") {
+                    return false;
+                  }
                   if (
                     !showExamReport &&
                     (item.step === "Exam" || item.step === "Report")
-                  )
+                  ) {
                     return false;
-
+                  }
                   return true;
                 })
+
                 .reduce((acc, item) => {
                   if (!acc[item.step]) {
                     acc[item.step] = { ...item, payments: [] };

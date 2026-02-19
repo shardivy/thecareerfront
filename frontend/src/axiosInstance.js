@@ -1,9 +1,9 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  // baseURL: "http://192.168.0.110:8000/api",
+  baseURL: "http://192.168.4.38:8000/api",
 
-  baseURL: "https://staging.abhinavcareerscope.com/api",
+  // baseURL: "https://staging.abhinavcareerscope.com/api",
 
 
 });
@@ -14,7 +14,7 @@ const publicEndpoints = [
   "/login/",
   "/reset-password/",
   "/verify-otp/",
-];
+]; 
 
 // ================= REQUEST INTERCEPTOR =================
 axiosInstance.interceptors.request.use(

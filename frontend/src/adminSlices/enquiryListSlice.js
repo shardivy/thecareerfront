@@ -28,7 +28,15 @@ export const fetchEnquiries = createAsyncThunk(
         date: item.date ? dayjs(item.date).format("YYYY-MM-DD") : "N/A",
       }));
 
-      return transformedData;
+    const sortedData = transformedData.sort((a, b) => {
+  if (a.date === "N/A") return 1;
+  if (b.date === "N/A") return -1;
+
+  return dayjs(b.date).valueOf() - dayjs(a.date).valueOf();
+});
+
+return sortedData;
+
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message ||

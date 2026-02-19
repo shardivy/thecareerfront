@@ -18,6 +18,9 @@ import adminTheme from "../../../theme/adminTheme";
 import { EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import AddEnquiryModal from "../modals/AddEnquiryModal";
 import { fetchEnquiries } from "../../../adminSlices/enquiryListSlice";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -114,6 +117,52 @@ const filteredEnquiries = enquiriesData.filter((enquiry) => {
 });
  
 
+const handleExport = () => {
+  if (!filteredEnquiries.length) return;
+
+  const exportData = filteredEnquiries.map((item, index) => ({
+    "Sr. No": index + 1,
+    "User Name": item.name,
+    "Email": item.email,
+    "Mobile Number": item.phone,
+    "Program of Interest": item.program,
+    "Source": item.source,
+    "Date": item.date,
+    "Status": item.status,
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData, { origin: "A3" });
+
+  // 🔥 Add Download Date at Top
+XLSX.utils.sheet_add_aoa(
+  worksheet,
+  [
+    [`Exported On: ${dayjs().format("YYYY-MM-DD hh:mm A")}`],
+       [`Total Records: ${filteredEnquiries.length}`],
+    [], // empty row
+  ],
+  { origin: "A1" }
+);
+
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Enquiry & Leads");
+
+  const excelBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array",
+  });
+
+  const fileData = new Blob([excelBuffer], {
+    type:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+  });
+
+  saveAs(fileData, `Enquiry & Leads.xlsx`);
+};
+
+
+
   // ---------------- TABLE COLUMNS ----------------
   const columns = [
      {
@@ -122,7 +171,7 @@ const filteredEnquiries = enquiriesData.filter((enquiry) => {
     render: (_, __, index) => (currentPage - 1) * pageSize + index + 1, // Page-aware serial number
   },
 {
-  title: "User Name",
+  title: "Name / Email",
   dataIndex: "name",
   key: "name",
   render: (text, record) => (
@@ -229,23 +278,35 @@ const filteredEnquiries = enquiriesData.filter((enquiry) => {
           </Space>
         </Col>
 
-        <Col>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            style={{
-              borderRadius: adminTheme.token.borderRadius,
-              backgroundColor: adminTheme.token.colorPrimary,
-            }}
-            onClick={() => {
-              setModalMode("add");
-              setSelectedEnquiry(null);
-              setOpenAddModal(true);
-            }}
-          >
-            Add Enquiry
-          </Button>
-        </Col>
+      <Col>
+  <Space>
+    <Button
+      onClick={handleExport}
+      style={{
+        borderRadius: adminTheme.token.borderRadius,
+      }}
+    >
+      Export to Excel
+    </Button>
+
+    <Button
+      type="primary"
+      icon={<PlusOutlined />}
+      style={{
+        borderRadius: adminTheme.token.borderRadius,
+        backgroundColor: adminTheme.token.colorPrimary,
+      }}
+      onClick={() => {
+        setModalMode("add");
+        setSelectedEnquiry(null);
+        setOpenAddModal(true);
+      }}
+    >
+      Add Enquiry
+    </Button>
+  </Space>
+</Col>
+
       </Row>
 
       {/* Filters */}
