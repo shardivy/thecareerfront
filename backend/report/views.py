@@ -160,6 +160,9 @@ class CompletedExamReportAPIView(APIView):
 
                 "program_id": user_program.program.id if user_program else None,
                 "program": user_program.program.name if user_program else None,
+                
+                "package_id": user_program.package.id if user_program else None,
+                "package": user_program.package.name if user_program else None,
 
                 "exam_id": report.exam.id,
                 "exam": report.exam.name,

@@ -5,6 +5,7 @@ from exam.models import UserExam
 from lead_registration.models import StudentProfile
 from payment.models import Payment
 from program_package.models import PackageExam, UserProgramPackage
+from counselling_slot.models import Booking
 from report.models import Report
 from django.urls import reverse
 from django.db.models import Sum
@@ -175,6 +176,7 @@ class StudentListSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source="user.last_name")
     email = serializers.EmailField(source="user.email")
     phone = serializers.CharField(source="user.phone")
+    preferred_counselling_mode = serializers.SerializerMethodField()
     program_id = serializers.SerializerMethodField()
     program_name = serializers.SerializerMethodField()
     package_id = serializers.SerializerMethodField()
@@ -191,6 +193,8 @@ class StudentListSerializer(serializers.ModelSerializer):
     # is_report_locked = serializers.SerializerMethodField()
     report_status = serializers.SerializerMethodField()
     exam_status = serializers.SerializerMethodField()
+    slot_status = serializers.SerializerMethodField()
+    full_access = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
@@ -200,6 +204,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             "last_name",
             "email",
             "phone",
+            "preferred_counselling_mode",
             "study_class",
             "current_academic_stage",
             "city",
@@ -219,7 +224,12 @@ class StudentListSerializer(serializers.ModelSerializer):
             # "is_report_locked",
             "report_status",
             "exam_status",
+            "slot_status",
+            "full_access",
         ]
+        
+    def get_preferred_counselling_mode(self, obj):
+        return obj.preferred_counselling_mode if obj.preferred_counselling_mode else "Not Specified"
 
     def get_student_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}"
@@ -298,20 +308,57 @@ class StudentListSerializer(serializers.ModelSerializer):
             kwargs={"payment_id": payment.id}
         )
         return request.build_absolute_uri(url)
-
-
-
-    # def get_is_report_locked(self, obj):
-    #     return Report.objects.filter(
-    #         user=obj.user,
-    #         report_status="locked"
-    #     ).exists()
+    
+    # def get_report_status(self, obj):
+    #     report = Report.objects.filter(user=obj.user).order_by("-uploaded_at").first()
+    #     return report.report_status if report else "not_uploaded"       #locked, unlocked 
     
     def get_report_status(self, obj):
-        report = Report.objects.filter(user=obj.user).order_by("-uploaded_at").first()
-        return report.report_status if report else "not_uploaded"       #locked, unlocked 
+        # Get latest selected program
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
 
+        allowed_programs = ["8-12 Aptitude Test", "PG Counselling"]
+
+        # ❌ If no program OR not allowed → not applicable
+        if not upp or not upp.program or upp.program.name not in allowed_programs:
+            return "not_applicable"
+
+        # ✅ If allowed program → return actual report status
+        report = (
+            Report.objects
+            .filter(user=obj.user)
+            .order_by("-uploaded_at")
+            .first()
+        )
+
+        return report.report_status if report else "not_uploaded"
+
+
+    # def get_exam_status(self, obj):
+    #     qs = UserExam.objects.filter(user=obj.user)
+
+    #     return {
+    #         "completed": qs.filter(status="completed").count(),
+    #         "in_progress": qs.filter(status="in_progress").count(),
+    #         "pending_approval": qs.filter(status="pending_approval").count(),
+    #         "not_started": qs.filter(status="not_started").count(),
+    #     }
     def get_exam_status(self, obj):
+        # Get latest selected program
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+
+        allowed_programs = ["8-12 Aptitude Test", "PG Counselling"]
+
+        # ❌ If no program OR not allowed → return structured "not_applicable"
+        if not upp or not upp.program or upp.program.name not in allowed_programs:
+            return {
+                "completed": "not_applicable",
+                "in_progress": "not_applicable",
+                "pending_approval": "not_applicable",
+                "not_started": "not_applicable",
+            }
+
+        # ✅ If allowed program → return actual counts
         qs = UserExam.objects.filter(user=obj.user)
 
         return {
@@ -320,3 +367,55 @@ class StudentListSerializer(serializers.ModelSerializer):
             "pending_approval": qs.filter(status="pending_approval").count(),
             "not_started": qs.filter(status="not_started").count(),
         }
+        
+    def get_slot_status(self, obj):
+        booking = (
+            Booking.objects
+            .filter(student=obj)
+            .order_by("-created_at")
+            .first()
+        )
+
+        return booking.status if booking else "not_booked"
+    
+    
+    def get_full_access(self, obj):
+        # Check booking
+        booking = Booking.objects.filter(student=obj).exists()
+
+        # Check review (currently hardcoded False like journey API)
+        review_status = False  # update when review model exists
+
+        # Step priority (same as journey current_step logic)
+        if review_status:
+            return "Review"
+
+        if booking:
+            return "Counselling Slot Booking"
+
+        # Check report
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        allowed_programs = ["8-12 Aptitude Test", "PG Counselling"]
+
+        if upp and upp.program and upp.program.name in allowed_programs:
+            report = Report.objects.filter(user=obj.user).order_by("-uploaded_at").first()
+            if report:
+                return "Report"
+
+            exam = UserExam.objects.filter(user=obj.user).exists()
+            if exam:
+                return "Exam"
+
+        # Payment
+        payment = Payment.objects.filter(user=obj.user).exists()
+        if payment:
+            return "Payment"
+
+        # Counselling service
+        if upp:
+            return "Counselling Service Selection"
+
+        return "Registration"
+
+            
+            

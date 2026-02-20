@@ -606,6 +606,7 @@ class AddUserAPIView(APIView):
                             "first_name": user.first_name,
                             "last_name": user.last_name,
                             "study_class": serializer.validated_data.get("study_class"),
+                            "preferred_counselling_mode": serializer.validated_data.get("preferred_counselling_mode"),
                             "email": user.email,
                             "phone": user.phone,
                             "program": response_data["program"],
@@ -714,6 +715,9 @@ class AddUserAPIView(APIView):
                 )
                 profile.school_college = serializer.validated_data.get(
                     "school_college", profile.school_college
+                )
+                profile.preferred_counselling_mode = serializer.validated_data.get(
+                    "preferred_counselling_mode", profile.preferred_counselling_mode
                 )
                 profile.city = serializer.validated_data.get("city", profile.city)
                 profile.save()
@@ -1115,6 +1119,24 @@ class ConvertLeadAPIView(APIView):
                     package=serializer.validated_data["package"],
                     assigned_by="lead-conversion"
                 )
+                
+                # 🔹 Create UserExam entries if program requires it
+                if program.name in ["8-12 Aptitude Test", "PG Counselling"]:
+                    exams = Exam.objects.filter(
+                        exam_packages__package=upp.package
+                    ).distinct()
+
+                    user_exam_objects = [
+                        UserExam(
+                            user=user,
+                            exam=exam,
+                            status="in_progress"
+                        )
+                        for exam in exams
+                    ]
+
+                    UserExam.objects.bulk_create(user_exam_objects)
+
 
                 # 🔹 Payment (CLEAN LOGIC)
                 payment = None
@@ -1775,21 +1797,112 @@ class UserJourneyAPIView(APIView):
 
 
 
+        # # ================================
+        # # 4️⃣ EXAM + REPORT
+        # # ================================
+
+        # # EXAM_PROGRAMS = ["PG Counselling", "8-12 Aptitude Test"]
+        # EXAM_PROGRAMS = ["pg counselling", "8-12 aptitude test"]
+
+        # exam_status = "not_applicable"
+        # report_status = "not_applicable"
+        # exam_attempt = None
+
+        # if program and program.name.lower().strip() in EXAM_PROGRAMS:
+
+        #     exam_attempt = (
+        #         student.user.userexam_set
+        #         .select_related("exam")
+        #         .order_by("-created_at")
+        #         .first()
+        #     )
+
+        #     # ---- EXAM ----
+        #     if exam_attempt:
+        #         exam_status = exam_attempt.status
+
+        #         history.append({
+        #             "step": "Exam",
+        #             "status": exam_status,
+        #             "date": exam_attempt.created_at,
+        #             "details": f"{exam_attempt.exam.name} exam status: {exam_status}"
+        #         })
+        #     else:
+        #         exam_status = "not_started"
+
+        #         history.append({
+        #             "step": "Exam",
+        #             "status": "not_started",
+        #             "date": None,
+        #             "details": "Exam not started"
+        #         })
+
+        #     # ---- REPORT ----
+        #     if exam_attempt:
+        #         report = (
+        #             Report.objects
+        #             .filter(user=student.user, exam=exam_attempt.exam)
+        #             .order_by("-uploaded_at")
+        #             .first()
+        #         )
+
+        #         if report:
+        #             report_status = report.report_status
+
+        #             history.append({
+        #                 "step": "Report",
+        #                 "status": report_status,
+        #                 "date": report.uploaded_at,
+        #                 "details": f"Report status: {report_status}"
+        #             })
+        #         else:
+        #             report_status = "locked"
+
+        #             history.append({
+        #                 "step": "Report",
+        #                 "status": "locked",
+        #                 "date": None,
+        #                 "details": "Report not generated yet"
+        #             })
+        #     else:
+        #         report_status = "locked"
+
+        #         history.append({
+        #             "step": "Report",
+        #             "status": "locked",
+        #             "date": None,
+        #             "details": "Report locked until exam is attempted"
+        #         })
+
+        # else:
+        #     history.append({
+        #         "step": "Exam",
+        #         "status": "not_applicable",
+        #         "date": None,
+        #         "details": "Exam not applicable for this program"
+        #     })
+
+        #     history.append({
+        #         "step": "Report",
+        #         "status": "not_applicable",
+        #         "date": None,
+        #         "details": "Report not applicable for this program"
+        #     })
+        
         # ================================
-        # 4️⃣ EXAM + REPORT
+        # 4️⃣ EXAM + REPORT (MATCH SERIALIZER LOGIC)
         # ================================
 
-        EXAM_PROGRAMS = ["pg counselling", "8-12 aptitude test"]
+        allowed_programs = ["8-12 Aptitude Test", "PG Counselling"]
 
         exam_status = "not_applicable"
         report_status = "not_applicable"
-        exam_attempt = None
 
-        if program and program.name.lower().strip() in EXAM_PROGRAMS:
+        if program and program.name in allowed_programs:
 
             exam_attempt = (
-                student.user.userexam_set
-                .select_related("exam")
+                UserExam.objects
+                .filter(user=student.user)
                 .order_by("-created_at")
                 .first()
             )
@@ -1818,7 +1931,7 @@ class UserJourneyAPIView(APIView):
             if exam_attempt:
                 report = (
                     Report.objects
-                    .filter(user=student.user, exam=exam_attempt.exam)
+                    .filter(user=student.user)
                     .order_by("-uploaded_at")
                     .first()
                 )
@@ -1833,24 +1946,14 @@ class UserJourneyAPIView(APIView):
                         "details": f"Report status: {report_status}"
                     })
                 else:
-                    report_status = "locked"
+                    report_status = "not_uploaded"
 
                     history.append({
                         "step": "Report",
-                        "status": "locked",
+                        "status": "not_uploaded",
                         "date": None,
-                        "details": "Report not generated yet"
+                        "details": "Report not uploaded"
                     })
-            else:
-                report_status = "locked"
-
-                history.append({
-                    "step": "Report",
-                    "status": "locked",
-                    "date": None,
-                    "details": "Report locked until exam is attempted"
-                })
-
         else:
             history.append({
                 "step": "Exam",

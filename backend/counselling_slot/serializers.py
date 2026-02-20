@@ -64,10 +64,11 @@ class StudentMiniSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source="user.first_name", read_only=True)
     last_name = serializers.CharField(source="user.last_name", read_only=True)
     email = serializers.EmailField(source="user.email", read_only=True)
+    preferred_counselling_mode = serializers.CharField(read_only=True)
 
     class Meta:
         model = StudentProfile
-        fields = ["id", "first_name", "last_name", "email"]
+        fields = ["id", "first_name", "last_name", "email", "preferred_counselling_mode"]
 
 class CounsellorMiniSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id", read_only=True)
@@ -142,27 +143,68 @@ class BookingCreateSerializer(serializers.Serializer):
 
     counsellors_data = BookingCounsellorInputSerializer(many=True)
 
+    # def validate(self, data):
+    #     # exactly one lead
+    #     lead_count = sum(
+    #         1 for c in data["counsellors_data"] if c["role"] == "lead"
+    #     )
+    #     if lead_count != 1:
+    #         raise serializers.ValidationError(
+    #             "Exactly one lead counsellor is required."
+    #         )
+
+    #     # prevent double booking
+    #     for slot in data["slots"]:
+    #         if Booking.objects.filter(slot=slot, date=data["date"]).exists():
+    #             raise serializers.ValidationError(
+    #                 f"Slot {slot.id} already booked for this date"
+    #             )
+
+    #     return data
+
     def validate(self, data):
-        # exactly one lead
+        student = data["student_id"]
+        booking_id = self.context.get("booking_id")
+
+        # ✅ 1. Exactly one lead counsellor
         lead_count = sum(
             1 for c in data["counsellors_data"] if c["role"] == "lead"
         )
         if lead_count != 1:
             raise serializers.ValidationError(
-                "Exactly one lead counsellor is required."
+                {"counsellors_data": "Exactly one lead counsellor is required."}
             )
 
-        # prevent double booking
+        # ✅ 2. Exclude current booking during update
+        existing_booking = Booking.objects.filter(
+            student=student,
+            status__in=["booked", "completed"]
+        )
+
+        if booking_id:
+            existing_booking = existing_booking.exclude(id=booking_id)
+
+        if existing_booking.exists():
+            raise serializers.ValidationError(
+                {"error": "Student already has a booked or completed session."}
+            )
+
+        # ✅ 3. Prevent slot being already booked by someone else
         for slot in data["slots"]:
-            if Booking.objects.filter(slot=slot, date=data["date"]).exists():
+            slot_query = Booking.objects.filter(
+                slot=slot,
+                status__in=["booked", "completed"]
+            )
+
+            if booking_id:
+                slot_query = slot_query.exclude(id=booking_id)
+
+            if slot_query.exists():
                 raise serializers.ValidationError(
-                    f"Slot {slot.id} already booked for this date"
+                    {"error": f"Slot {slot.id} is already booked or completed."}
                 )
 
         return data
-
-
-
 
 
 

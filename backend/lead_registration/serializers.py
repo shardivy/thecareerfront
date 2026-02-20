@@ -25,7 +25,8 @@ class LeadPackageSerializer(serializers.ModelSerializer):
 class LeadSerializer(serializers.ModelSerializer):
     program_detail = ProgramSerializer(source='program', read_only=True)
     package_detail = serializers.SerializerMethodField()
-    
+    preferred_counselling_mode = serializers.SerializerMethodField() 
+       
     class Meta:
         model = Lead
         fields = (
@@ -34,6 +35,7 @@ class LeadSerializer(serializers.ModelSerializer):
             'last_name',
             'phone',
             'email',
+            'preferred_counselling_mode',
             'program',
             'program_detail',
             'package_detail',
@@ -42,6 +44,20 @@ class LeadSerializer(serializers.ModelSerializer):
             'date',
         )
         read_only_fields = ('status',) 
+        
+    def get_preferred_counselling_mode(self, obj):
+        try:
+            user = User.objects.filter(email=obj.email).first()
+            if not user:
+                return None
+
+            profile = getattr(user, "student_profile", None)
+            if not profile:
+                return None
+
+            return profile.preferred_counselling_mode
+        except Exception:
+            return None
         
     def get_package_detail(self, obj):
         try:

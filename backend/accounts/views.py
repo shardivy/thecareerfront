@@ -22,7 +22,7 @@ from program_package.models import UserProgramPackage
 from counselling_slot.models import Booking, Counsellor
 
 from .models import PasswordResetOTP, Permission, Role, RolePermission, User
-from .utils import  generate_otp, generate_role_id, send_otp_email, send_password_reset_email
+from .utils import  generate_otp, generate_password, generate_role_id, send_credentials_email, send_otp_email, send_password_reset_email
 
 
 class RoleListCreateAPIView(APIView):
@@ -140,6 +140,116 @@ class RolePermissionListAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
+# class AdminStaffRegisterAPIView(APIView):
+#     permission_classes = [AllowAny]
+
+#     @transaction.atomic
+#     def post(self, request):
+#         data = request.data
+
+#         email = data.get("email")
+#         password = data.get("password")
+#         role_name = data.get("role")
+
+#         first_name = data.get("first_name")
+#         last_name = data.get("last_name")
+#         phone = data.get("phone")
+
+#         # Counsellor specific
+#         specialization = data.get("specialization")
+
+#         # -----------------------------
+#         # 1. BASIC VALIDATION
+#         # -----------------------------
+#         if not email or not password or not role_name:
+#             return Response(
+#                 {"error": "Email, password and role are required"},
+#                 status=400
+#             )
+
+#         # -----------------------------
+#         # 2. ROLE WHITELIST
+#         # -----------------------------
+#         allowed_roles = ["super_admin", "admin", "counsellor"]
+
+#         if role_name not in allowed_roles:
+#             return Response(
+#                 {"error": "You are not allowed to register with this role"},
+#                 status=403
+#             )
+
+#         # -----------------------------
+#         # 3. DUPLICATE CHECK
+#         # -----------------------------
+#         if User.objects.filter(email=email).exists():
+#             return Response(
+#                 {"error": "Email already registered"},
+#                 status=400
+#             )
+
+#         if phone and User.objects.filter(phone=phone).exists():
+#             return Response(
+#                 {"error": "Phone already registered"},
+#                 status=400
+#             )
+
+#         # -----------------------------
+#         # 4. ROLE FETCH
+#         # -----------------------------
+#         role = Role.objects.filter(name=role_name).first()
+#         if not role:
+#             return Response(
+#                 {"error": "Role not configured"},
+#                 status=500
+#             )
+
+#         # -----------------------------
+#         # 5. CREATE USER
+#         # -----------------------------
+#         user = User.objects.create_user(
+#             email=email,
+#             password=password,
+#             role=role,
+#             first_name=first_name,
+#             last_name=last_name,
+#             phone=phone,
+#             is_staff=True,
+#             is_active=True
+#         )
+
+#         # -----------------------------
+#         # 6. GENERATE ROLE BASED ID
+#         # -----------------------------
+#         user.public_id = generate_role_id(
+#             role_name,
+#             User,
+#             "public_id"
+#         )
+#         user.save()
+
+#         # -----------------------------
+#         # 7. CREATE COUNSELLOR PROFILE
+#         # -----------------------------
+#         if role_name == "counsellor":
+
+#             Counsellor.objects.create(
+#                 user=user,
+#                 specialization=specialization,
+#                 is_active=True
+#             )
+
+#         return Response(
+#             {
+#                 "message": "User registered successfully",
+#                 "user": {
+#                     "email": user.email,
+#                     "role": role_name,
+#                     "user_id": user.public_id
+#                 }
+#             },
+#             status=201
+#         )
+
 class AdminStaffRegisterAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -148,22 +258,20 @@ class AdminStaffRegisterAPIView(APIView):
         data = request.data
 
         email = data.get("email")
-        password = data.get("password")
+        password = data.get("password")  # optional
         role_name = data.get("role")
 
         first_name = data.get("first_name")
         last_name = data.get("last_name")
         phone = data.get("phone")
-
-        # Counsellor specific
         specialization = data.get("specialization")
 
         # -----------------------------
         # 1. BASIC VALIDATION
         # -----------------------------
-        if not email or not password or not role_name:
+        if not email or not role_name:
             return Response(
-                {"error": "Email, password and role are required"},
+                {"error": "Email and role are required"},
                 status=400
             )
 
@@ -204,7 +312,13 @@ class AdminStaffRegisterAPIView(APIView):
             )
 
         # -----------------------------
-        # 5. CREATE USER
+        # 5. AUTO GENERATE PASSWORD IF NOT PROVIDED
+        # -----------------------------
+        if not password:
+            password = generate_password()
+
+        # -----------------------------
+        # 6. CREATE USER
         # -----------------------------
         user = User.objects.create_user(
             email=email,
@@ -218,7 +332,7 @@ class AdminStaffRegisterAPIView(APIView):
         )
 
         # -----------------------------
-        # 6. GENERATE ROLE BASED ID
+        # 7. GENERATE ROLE BASED ID
         # -----------------------------
         user.public_id = generate_role_id(
             role_name,
@@ -228,15 +342,19 @@ class AdminStaffRegisterAPIView(APIView):
         user.save()
 
         # -----------------------------
-        # 7. CREATE COUNSELLOR PROFILE
+        # 8. CREATE COUNSELLOR PROFILE
         # -----------------------------
         if role_name == "counsellor":
-
             Counsellor.objects.create(
                 user=user,
                 specialization=specialization,
                 is_active=True
             )
+
+        # -----------------------------
+        # 9. ALWAYS SEND EMAIL
+        # -----------------------------
+        send_credentials_email(email, password)
 
         return Response(
             {
@@ -250,156 +368,6 @@ class AdminStaffRegisterAPIView(APIView):
             status=201
         )
 
-# class LoginAPIView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def post(self, request):
-#         email = request.data.get('email')
-#         password = request.data.get('password')
-
-#         if not email or not password:
-#             return Response(
-#                 {"error": "Email and password are required"},
-#                 status=400
-#             )
-
-#         # 🔥 IMPORTANT FIX
-#         user = authenticate(username=email, password=password)
-
-#         if not user:
-#             return Response({"error": "Invalid credentials"}, status=401)
-
-#         if not user.is_active:
-#             return Response(
-#                 {"error": "Account is inactive"},
-#                 status=403
-#             )
-
-#         refresh = RefreshToken.for_user(user)
-
-#         return Response({
-#             "access": str(refresh.access_token),
-#             "refresh": str(refresh),
-#             "user": {
-#                 "id": user.id,
-#                 "email": user.email,
-#                 "role": user.role.name
-#             }
-#         })
-
-
-
-# class LoginAPIView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def post(self, request):
-#         email = request.data.get("email")
-#         password = request.data.get("password")
-#         requested_role = request.data.get("role")  # OPTIONAL
-
-#         # -----------------------------
-#         # 1. BASIC VALIDATION
-#         # -----------------------------
-#         if not email or not password:
-#             return Response(
-#                 {"error": "Email and password are required"},
-#                 status=400
-#             )
-
-#         # -----------------------------
-#         # 2. AUTHENTICATION
-#         # -----------------------------
-#         user = authenticate(username=email, password=password)
-
-#         if not user:
-#             return Response({"error": "Invalid credentials"}, status=401)
-
-#         if not user.is_active:
-#             return Response({"error": "Account is inactive"}, status=403)
-
-#         if not user.role:
-#             return Response(
-#                 {"error": "User role not assigned. Contact admin."},
-#                 status=403
-#             )
-
-#         actual_role = user.role.name
-
-#         # -----------------------------
-#         # 3. ROLE VALIDATION RULES
-#         # -----------------------------
-#         admin_roles = ["super_admin", "admin", "lead_counsellor", "counsellor", ]
-
-#         if actual_role in admin_roles:
-#             # 🔒 Admin-side login MUST send role
-#             if not requested_role:
-#                 return Response(
-#                     {"error": "Role is required for admin login"},
-#                     status=400
-#                 )
-
-#             if requested_role != actual_role:
-#                 return Response(
-#                     {"error": "Role mismatch. Access denied."},
-#                     status=403
-#                 )
-
-#         # 🔓 Student / Parent → role auto-detected
-#         elif actual_role in ["student", "parent"]:
-#             pass  # no role check needed
-
-#         else:
-#             return Response(
-#                 {"error": "Invalid user role"},
-#                 status=403
-#             )
-
-#         # -----------------------------
-#         # 4. ROLE-SPECIFIC USER ID
-#         # -----------------------------
-#         response_user_id = None
-
-#         if actual_role in ["super_admin", "admin", "counsellor"]:
-#             if not user.public_id:
-#                 user.public_id = generate_role_id(
-#                     actual_role,
-#                     User,
-#                     "public_id"
-#                 )
-#                 user.save()
-#             response_user_id = user.public_id
-
-#         elif actual_role == "student":
-#             if not hasattr(user, "studentprofile"):
-#                 return Response(
-#                     {"error": "Student profile not found"},
-#                     status=404
-#                 )
-#             response_user_id = user.studentprofile.id
-
-#         elif actual_role == "parent":
-#             if not hasattr(user, "parentprofile"):
-#                 return Response(
-#                     {"error": "Parent profile not found"},
-#                     status=404
-#                 )
-#             response_user_id = user.parentprofile.id
-
-#         # -----------------------------
-#         # 5. TOKEN GENERATION
-#         # -----------------------------
-#         refresh = RefreshToken.for_user(user)
-
-#         return Response({
-#             "access": str(refresh.access_token),
-#             "refresh": str(refresh),
-#             "user": {
-#                 "email": user.email,
-#                 "role": actual_role,
-#                 "user_id": response_user_id
-#             },
-#             "message": "Login Successfully.",
-#         }, status=status.HTTP_200_OK)
 
 # class LoginAPIView(APIView):
 #     permission_classes = [AllowAny]

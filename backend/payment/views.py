@@ -17,7 +17,7 @@ from rest_framework.permissions import AllowAny
 import mimetypes
 import os
 
-from django.db.models import Sum
+from django.db.models import Q, Count, Sum
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from rest_framework.permissions import IsAuthenticated
 
@@ -241,7 +241,8 @@ class VerifyPaymentAPIView(APIView):
         • Permanently deletes the payment record
     """
 
-    permission_classes = [IsAdmin | IsSuperAdmin]
+    # permission_classes = [IsAdmin | IsSuperAdmin]
+    permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def post(self, request, payment_id):
@@ -520,7 +521,8 @@ class PaymentListAPIView(APIView):
     + remaining_amount
     + last_payment_amount
     """
-    permission_classes = [IsAdmin | IsSuperAdmin]
+    # permission_classes = [IsAdmin | IsSuperAdmin]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
 
@@ -607,6 +609,7 @@ class PaymentListAPIView(APIView):
 
                 # Latest transaction details
                 "payment_id": latest_payment.id,
+                "created_at": latest_payment.created_at,
                 "payment_date": latest_payment.payment_date,
                 "transaction_id": latest_payment.transaction_id,
                 "payment_status": payment_status,
@@ -655,39 +658,152 @@ class PaymentProofFileView(APIView):
 
 
 
+# class PaymentStatsAPIView(APIView):
+#     """
+#     API to fetch payment amount statistics
+#     """
+#     # permission_classes = [IsAdmin | IsSuperAdmin]
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         payments = Payment.objects.aggregate(
+#             total_collected=Sum(
+#                 'amount',
+#                 filter=models.Q(status__in=['fully_paid', 'partial_paid'])
+#             ),
+#             pending_verification=Sum(
+#                 'amount',
+#                 filter=models.Q(status='verification_pending')
+#             ),
+#             partial_paid=Sum(
+#                 'amount',
+#                 filter=models.Q(status='partial_paid')
+#             ),
+#             fully_paid=Sum(
+#                 'amount',
+#                 filter=models.Q(status='fully_paid')
+#             )
+#         )
+
+#         # Replace None with 0
+#         data = {key: value or 0 for key, value in payments.items()}
+
+#         return Response({
+#             "success": True,
+#             "data": data
+#         })
+
 class PaymentStatsAPIView(APIView):
-    """
-    API to fetch payment amount statistics
-    """
-    permission_classes = [IsAdmin | IsSuperAdmin]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        payments = Payment.objects.aggregate(
-            total_collected=Sum(
+
+        # 🔹 FULLY PAID USERS
+        fully_paid_user_ids = Payment.objects.filter(
+            status='fully_paid'
+        ).values_list('user_id', flat=True).distinct()
+
+        # ==============================
+        # 🔹 TOTAL EXPECTED COLLECTION
+        # ==============================
+
+        # Unique user-package combinations
+        user_packages = Payment.objects.values(
+            'user_id', 'package_id', 'package__price'
+        ).distinct()
+
+        total_users = user_packages.count()
+
+        total_expected = sum(
+            item['package__price'] for item in user_packages
+        ) if user_packages else 0
+
+        # ==============================
+        # 🔹 TOTAL COLLECTED
+        # ==============================
+
+        total_collected = Payment.objects.aggregate(
+            collected=Sum(
                 'amount',
-                filter=models.Q(status__in=['fully_paid', 'partial_paid'])
-            ),
-            pending_verification=Sum(
-                'amount',
-                filter=models.Q(status='verification_pending')
-            ),
-            partial_paid=Sum(
-                'amount',
-                filter=models.Q(status='partial_paid')
-            ),
-            fully_paid=Sum(
-                'amount',
-                filter=models.Q(status='fully_paid')
+                filter=Q(status__in=['fully_paid', 'partial_paid'])
             )
+        )['collected'] or 0
+
+        # ==============================
+        # 🔹 PARTIAL PAID
+        # ==============================
+
+        partial_queryset = Payment.objects.filter(
+            status='partial_paid'
+        ).exclude(
+            user_id__in=fully_paid_user_ids
         )
 
-        # Replace None with 0
-        data = {key: value or 0 for key, value in payments.items()}
+        partial_data = partial_queryset.aggregate(
+            total_amount=Sum('amount'),
+            total_payments=Count('id'),
+            total_users=Count('user', distinct=True)
+        )
+
+        # ==============================
+        # 🔹 FULLY PAID
+        # ==============================
+
+        fully_queryset = Payment.objects.filter(status='fully_paid')
+
+        fully_data = fully_queryset.aggregate(
+            total_amount=Sum('amount'),
+            total_payments=Count('id'),
+            total_users=Count('user', distinct=True)
+        )
+
+        # ==============================
+        # 🔹 VERIFICATION PENDING
+        # ==============================
+
+        pending_queryset = Payment.objects.filter(status='verification_pending')
+
+        pending_data = pending_queryset.aggregate(
+            total_amount=Sum('amount'),
+            total_payments=Count('id'),
+            total_users=Count('user', distinct=True)
+        )
+
+        # ==============================
+        # 🔹 FINAL RESPONSE
+        # ==============================
 
         return Response({
             "success": True,
-            "data": data
+            "data": {
+
+                "total_expected_collection": {
+                    "total_users": total_users,
+                    "expected_amount": total_expected
+                },
+
+                "total_collected": total_collected,
+
+                "partial_paid": {
+                    "total_users": partial_data['total_users'] or 0,
+                    "total_payments": partial_data['total_payments'] or 0,
+                    "total_amount": partial_data['total_amount'] or 0
+                },
+
+                "fully_paid": {
+                    "total_users": fully_data['total_users'] or 0,
+                    "total_payments": fully_data['total_payments'] or 0,
+                    "total_amount": fully_data['total_amount'] or 0
+                },
+
+                "verification_pending": {
+                    "total_users": pending_data['total_users'] or 0,
+                    "total_payments": pending_data['total_payments'] or 0,
+                    "total_amount": pending_data['total_amount'] or 0
+                }
+            }
         })
+
         
 class PaymentLogListAPIView(APIView):
     """
