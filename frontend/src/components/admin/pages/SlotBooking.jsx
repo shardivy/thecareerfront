@@ -40,6 +40,7 @@ const { Option } = Select;
 
 const SlotBooking = () => {
   const dispatch = useDispatch();
+
   const { data = [], loading, stats, statsLoading } = useSelector(
     (state) => state.counsellingBooking
   );
@@ -53,6 +54,8 @@ const SlotBooking = () => {
   const [modeFilter, setModeFilter] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
   const [dateFilter, setDateFilter] = useState(null);
+  const [pageSize, setPageSize] = useState(5);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [statsPeriod, setStatsPeriod] = useState("today"); // default period
 
@@ -193,11 +196,13 @@ const handleDelete = (record) => {
 
   /* ================= TABLE COLUMNS ================= */
   const columns = [
-    {
-      title: "Sr.",
-      width: 60,
-      render: (_, __, i) => i + 1,
-    },
+   {
+  title: "Sr.",
+  width: 60,
+  render: (_, __, index) => {
+    return (currentPage - 1) * pageSize + index + 1;
+  },
+},
     {
       title: "User Name",
       width: 200,
@@ -445,15 +450,24 @@ const handleDelete = (record) => {
 
 
         {/* ================= TABLE ================= */}
-        <Table
-          columns={columns}
-          dataSource={filteredData}
-          loading={loading}
-          rowKey="key"
-          size="small"
-          scroll={{ x: 1000 }}
-          pagination={{ pageSize: 5 }}
-        />
+       <Table
+  columns={columns}
+  dataSource={filteredData}
+  loading={loading}
+  rowKey="key"
+  size="small"
+  scroll={{ x: 1000 }}
+  pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            showSizeChanger: true,
+            pageSizeOptions: [5, 10, 20, 50],
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+          }}
+/>
       </Card>
 
       <CreateSessionModal
