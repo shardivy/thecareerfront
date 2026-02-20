@@ -870,34 +870,34 @@ class CounsellorSlotByDateAPIView(APIView):
 
             counsellor_user_id = counsellor.user_id
 
-            # ✅ Ensure FIXED slots exist (but do not recreate deleted ones)
-            for start_time, end_time in FIXED_SLOTS:
-                slot_qs = Slot.objects.filter(
-                    counsellor_id=counsellor_user_id,
-                    date=selected_date,
-                    start_time=start_time,
-                    end_time=end_time,
-                )
-
-                active_slot = slot_qs.filter(is_deleted=False).first()
-
-                if not active_slot and not slot_qs.exists():
-                    Slot.objects.create(
-                        counsellor_id=counsellor_user_id,
-                        date=selected_date,
-                        start_time=start_time,
-                        end_time=end_time,
-                        is_available=True
-                    )
-
-            # ✅ NOW FETCH ALL SLOTS (fixed + manual)
+            # 🔹 Fetch all slots (fixed + manual)
             slots = Slot.objects.filter(
                 counsellor_id=counsellor_user_id,
                 date=selected_date,
                 is_deleted=False
             ).order_by("start_time")
 
-            # ✅ Booking map
+            # 🔹 If no slots exist → create fixed slots
+            if not slots.exists():
+                fixed_slot_objects = [
+                    Slot(
+                        counsellor_id=counsellor_user_id,
+                        date=selected_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        is_available=True
+                    )
+                    for start_time, end_time in FIXED_SLOTS
+                ]
+                Slot.objects.bulk_create(fixed_slot_objects)
+
+                slots = Slot.objects.filter(
+                    counsellor_id=counsellor_user_id,
+                    date=selected_date,
+                    is_deleted=False
+                ).order_by("start_time")
+
+            # 🔹 Booking status map
             booking_status_map = {
                 b["slot_id"]: b["status"]
                 for b in Booking.objects.filter(
@@ -930,7 +930,6 @@ class CounsellorSlotByDateAPIView(APIView):
             "date": selected_date,
             "data": response_data
         })
-
 
 
 
