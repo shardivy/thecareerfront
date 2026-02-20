@@ -122,6 +122,7 @@ const UserList = () => {
       "Email": user.email,
       "Program": user.program,
       "Counselling Service": user.package,
+      "Preferred Counselling Mode": user.preferred_counselling_mode,
       "Payment Status": user.paymentStatus,
       "Payment Amount": user.total_paid_amount,
       "Exam Status": user.examStatus,
@@ -175,6 +176,7 @@ const UserList = () => {
     {
       title: "Name / Email",
       key: "name",
+      width: 160,
       render: (_, record) => (
         <div>
           <Text strong>{`${record.first_name || ""} ${record.last_name || ""}`}</Text>
@@ -185,7 +187,8 @@ const UserList = () => {
     },
 
     {
-      title: "Program / Counselling Services ",
+      title: "Program / Counselling Service ",
+      width: 180,
       key: "program",
       render: (_, record) => (
         <div>
@@ -194,6 +197,27 @@ const UserList = () => {
           <Text type="colorTextSecondary">{record.package}</Text>
         </div>
       ),
+    },
+    {
+      title: "Preferred Counselling Mode",
+      dataIndex: "preferred_counselling_mode",
+      width: 150,
+      render: (mode) => {
+        if (!mode || mode === "Not Specified")
+          return <Tag>Not Specified</Tag>;
+
+        const formatted =
+          mode.charAt(0).toUpperCase() + mode.slice(1);
+
+        const color =
+          mode === "online"
+            ? "blue"
+            : mode === "offline"
+              ? "green"
+              : "default";
+
+        return <Tag color={color}>{formatted}</Tag>;
+      },
     },
     {
       title: "Payment Status",
@@ -218,42 +242,89 @@ const UserList = () => {
       title: "Exam Status",
       dataIndex: "examStatus",
       key: "examStatus",
-      render: (status) => (
-      <Tag
-  icon={
-    status === "Completed" ? (
-      <CheckCircleOutlined />
-    ) : status === "Not Applicable" ? (
-      <CloseCircleOutlined />
-    ) : (
-      <ClockCircleOutlined />
-    )
-  }
-  color={
-    status === "Completed"
-      ? "success"
-      : status === "Not Applicable"
-      ? "error"
-      : "warning"
-  }
->
-  {status}
-</Tag>
+      render: (status) => {
+        const formattedStatus =
+          status === "Not Applicable"
+            ? (
+              <>
+                Not <br />
+                Applicable
+              </>
+            )
+            : status;
 
-      ),
+        return (
+          <Tag
+            icon={
+              status === "Completed" ? (
+                <CheckCircleOutlined />
+              ) : status === "Not Applicable" ? (
+                <CloseCircleOutlined />
+              ) : (
+                <ClockCircleOutlined />
+              )
+            }
+            color={
+              status === "Completed"
+                ? "success"
+                : status === "Not Applicable"
+                  ? "error"
+                  : "warning"
+            }
+            style={{ textAlign: "center", lineHeight: "16px" }}
+          >
+            {formattedStatus}
+          </Tag>
+        );
+      },
     },
     {
       title: "Report",
       dataIndex: "reportStatus",
       key: "report",
-      render: (status) => (
-        <Tag
-          icon={status === "Unlocked" ? <UnlockOutlined /> : <LockOutlined />}
-          color={status === "Unlocked" ? "success" : "default"}
-        >
-          {status}
-        </Tag>
-      ),
+      render: (status) => {
+        let color = "default";
+        let icon = <LockOutlined />;
+        let formattedStatus = status;
+
+        if (status === "Unlocked") {
+          color = "success";
+          icon = <UnlockOutlined />;
+        }
+        else if (status === "Not Applicable") {
+          color = "error";
+          icon = <CloseCircleOutlined />;
+        }
+        else if (status === "Pending Uploaded") {
+          color = "warning";
+          icon = <ClockCircleOutlined />;
+        }
+
+        // 👇 Break into multiple lines if it has space
+        if (status.includes(" ")) {
+          formattedStatus = status.split(" ").map((word, index) => (
+            <React.Fragment key={index}>
+              {word}
+              {index !== status.split(" ").length - 1 && <br />}
+            </React.Fragment>
+          ));
+        }
+
+        return (
+          <Tag
+            icon={icon}
+            color={color}
+            style={{
+              textAlign: "center",
+              whiteSpace: "normal",
+              lineHeight: "16px",
+              padding: "4px 8px",
+            }}
+          >
+            {formattedStatus}
+          </Tag>
+        );
+      },
     },
     // {
     //   title: "Review",
@@ -280,20 +351,35 @@ const UserList = () => {
       title: "Journey Status",
       dataIndex: "journeyStatus",
       key: "journeyStatus",
-     render: (status) => {
-  let color = "default";
+      render: (status) => {
+        let color = "default";
 
-  if (status === "Full Access") color = "success";
-  else if (status === "Counselling Slot Booking") color = "processing";
-  else if (status === "Exam") color = "warning";
-  else if (status === "Payment") color = "#722ed1";
+        if (status === "Full Access") color = "success";
+        else if (status === "Counselling Slot Booking") color = "processing";
+        else if (status === "Exam") color = "warning";
+        else if (status === "Payment") color = "#722ed1";
 
+        // Split second word to next line only for Counselling Slot Booking
+        const formattedStatus =
+          status === "Counselling Slot Booking"
+            ? (
+              <>
+                Counselling <br />
+                Slot Booking
+              </>
+            )
+            : status;
 
-  return <Tag color={color}>{status || "—"}</Tag>;
-},
-
+        return (
+          <Tag
+            color={color}
+            style={{ textAlign: "center", lineHeight: "16px" }}
+          >
+            {formattedStatus || "—"}
+          </Tag>
+        );
+      },
     },
-
     {
       title: "Actions",
       key: "actions",
@@ -393,80 +479,80 @@ const UserList = () => {
         }}
       >
         {/* FILTERS */}
-  <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-  {/* Search */}
-  <Col xs={24} sm={24} md={8}>
-    <Input
-      placeholder="Search user or program..."
-      prefix={<SearchOutlined />}
-      value={searchText}
-      onChange={(e) => setSearchText(e.target.value)}
-      allowClear
-    />
-  </Col>
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          {/* Search */}
+          <Col xs={24} sm={24} md={8}>
+            <Input
+              placeholder="Search user or program..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+            />
+          </Col>
 
-  {/* Payment Status */}
-  <Col xs={12} sm={12} md={4}>
-    <Select
-      placeholder="Payment Status"
-      value={paymentFilter}
-      onChange={setPaymentFilter}
-      allowClear
-      style={{ width: "100%" }}
-    >
-      <Option value="Fully Paid">Fully Paid</Option>
-      <Option value="Partial Paid">Partial Paid</Option>
-      <Option value="Verification Pending">Verification Pending</Option>
-    </Select>
-  </Col>
+          {/* Payment Status */}
+          <Col xs={12} sm={12} md={4}>
+            <Select
+              placeholder="Payment Status"
+              value={paymentFilter}
+              onChange={setPaymentFilter}
+              allowClear
+              style={{ width: "100%" }}
+            >
+              <Option value="Fully Paid">Fully Paid</Option>
+              <Option value="Partial Paid">Partial Paid</Option>
+              <Option value="Verification Pending">Verification Pending</Option>
+            </Select>
+          </Col>
 
-  {/* Exam Status */}
-  <Col xs={12} sm={12} md={4}>
-    <Select
-      placeholder="Exam Status"
-      value={examFilter}
-      onChange={setExamFilter}
-      allowClear
-      style={{ width: "100%" }}
-    >
-      <Option value="Completed">Completed</Option>
-      <Option value="Pending">Pending</Option>
-    </Select>
-  </Col>
+          {/* Exam Status */}
+          <Col xs={12} sm={12} md={4}>
+            <Select
+              placeholder="Exam Status"
+              value={examFilter}
+              onChange={setExamFilter}
+              allowClear
+              style={{ width: "100%" }}
+            >
+              <Option value="Completed">Completed</Option>
+              <Option value="Pending">Pending</Option>
+            </Select>
+          </Col>
 
-  {/* Slot Status */}
-  <Col xs={12} sm={12} md={4}>
-    <Select
-      placeholder="Slot Status"
-      value={slotFilter}
-      onChange={setSlotFilter}
-      allowClear
-      style={{ width: "100%" }}
-    >
-      <Option value="Booked">Booked</Option>
-      <Option value="Completed">Completed</Option>
-      <Option value="Not Booked">Not Booked</Option>
-    </Select>
-  </Col>
+          {/* Slot Status */}
+          <Col xs={12} sm={12} md={4}>
+            <Select
+              placeholder="Slot Status"
+              value={slotFilter}
+              onChange={setSlotFilter}
+              allowClear
+              style={{ width: "100%" }}
+            >
+              <Option value="Booked">Booked</Option>
+              <Option value="Completed">Completed</Option>
+              <Option value="Not Booked">Not Booked</Option>
+            </Select>
+          </Col>
 
-  {/* Journey Status */}
-<Col xs={12} sm={12} md={4}>
-  <Select
-    placeholder="Journey Status"
-    value={journeyFilter}
-    onChange={setJourneyFilter}
-    allowClear
-    style={{ width: "100%" }}
-  >
-    <Option value="Exam">Exam</Option>
-    <Option value="Counselling Slot Booking">
-      Counselling Slot Booking
-    </Option>
-    <Option value="Full Access">Full Access</Option>
-  </Select>
-</Col>
+          {/* Journey Status */}
+          <Col xs={12} sm={12} md={4}>
+            <Select
+              placeholder="Journey Status"
+              value={journeyFilter}
+              onChange={setJourneyFilter}
+              allowClear
+              style={{ width: "100%" }}
+            >
+              <Option value="Exam">Exam</Option>
+              <Option value="Counselling Slot Booking">
+                Counselling Slot Booking
+              </Option>
+              <Option value="Full Access">Full Access</Option>
+            </Select>
+          </Col>
 
-</Row>
+        </Row>
 
 
         {/* TABLE */}

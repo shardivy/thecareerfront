@@ -192,15 +192,29 @@ const ExamManagements = () => {
   }));
 
   /* ================= FILTER ================= */
-  const filteredData = mappedData.filter((item) => {
+const filteredData = mappedData
+  .filter((item) => {
     const search = searchText.toLowerCase();
     const matchesSearch =
       item.userName.toLowerCase().includes(search) ||
       item.program.toLowerCase().includes(search);
+
     const matchesStatus = statusFilter
       ? item.status === statusFilter
       : true;
+
     return matchesSearch && matchesStatus;
+  })
+  .sort((a, b) => {
+    // Move "In Progress" to top only
+    if (a.status === "In Progress" && b.status !== "In Progress")
+      return -1;
+
+    if (a.status !== "In Progress" && b.status === "In Progress")
+      return 1;
+
+    // Keep original order for others
+    return 0;
   });
 
   /* ================= STATUS TAG ================= */

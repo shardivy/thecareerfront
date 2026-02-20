@@ -41,12 +41,12 @@ const AdminLogin = () => {
         case "admin":
         case "superadmin":
         case "employee":
-          navigate("/admin/dashboard");
+          navigate("/s-admin/dashboard");
           break;
 
         case "lead_counsellor":
         case "counsellor":
-          navigate("/admin/dashboard");
+          navigate("/s-admin/dashboard");
           break;
 
         case "student":

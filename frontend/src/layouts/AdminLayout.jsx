@@ -98,23 +98,23 @@ const AdminLayout = () => {
 
   /* ===================== BREADCRUMB ===================== */
   const breadcrumbNameMap = {
-    "/admin/profile": "Profile",
-    "/admin/dashboard": "Dashboard",
-    "/admin/enquiry-leads": "Enquiry & Leads",
-    "/admin/users": "Users",
-    "/admin/programs": "Programs & Services",
-    "/admin/exams": "Exams",
-    "/admin/reportsmanagement": "Report Management",
-    "/admin/paymentmanagement": "Payment Management",
-    "/admin/slotbooking": "Slot Booking Management",
-    "/admin/createslot": "Create Slot ",
-    "/admin/followupManagement": "Follow Up Management",
-    "/admin/contentManagement": "Content Management",
-    "/admin/examManagements": "User Request List",
-    "/admin/examlist": "Exam List",
-    "/admin/employeeList": "Employee List",
-    "/admin/notificationManagement": "Notification Management",
-    "/admin/settings": "Settings",
+    "/s-admin/profile": "Profile",
+    "/s-admin/dashboard": "Dashboard",
+    "/s-admin/enquiry-leads": "Enquiry & Leads",
+    "/s-admin/users": "Users",
+    "/s-admin/programs": "Programs & Services",
+    "/s-admin/exams": "Exams",
+    "/s-admin/reportsmanagement": "Report Management",
+    "/s-admin/paymentmanagement": "Payment Management",
+    "/s-admin/slotbooking": "Slot Booking Management",
+    "/s-admin/createslot": "Create Slot ",
+    "/s-admin/followupManagement": "Follow Up Management",
+    "/s-admin/contentManagement": "Content Management",
+    "/s-admin/examManagements": "User Request List",
+    "/s-admin/examlist": "Exam List",
+    "/s-admin/employeeList": "Employee List",
+    "/s-admin/notificationManagement": "Notification Management",
+    "/s-admin/settings": "Settings",
 
 
     // "/admin/leadlist": "Lead List",
@@ -130,62 +130,62 @@ const AdminLayout = () => {
   });
 
   const breadcrumbItems = [
-    { key: "/admin/dashboard", title: ".." },
+    { key: "/s-admin/dashboard", title: ".." },
     ...extraBreadcrumbItems.slice(1),
   ];
 
   /* ===================== MENU ITEMS ===================== */
   const menuItems = [
     {
-      key: "/admin/dashboard",
+      key: "/s-admin/dashboard",
       icon: <DashboardFilled />,
       label: "Dashboard",
       onClick: () => {
-        navigate("/admin/dashboard");
+        navigate("/s-admin/dashboard");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12, marginTop: 24 },
     },
     /* ================= ADMIN / SUPERADMIN ONLY ================= */
   (role === "admin" || role === "superadmin") && {
-      key: "/admin/enquiry-leads",
+      key: "/s-admin/enquiry-leads",
       icon: <FileTextFilled />,
       label: "Enquiry & Leads",
       onClick: () => {
-        navigate("/admin/enquiry-leads");
+        navigate("/s-admin/enquiry-leads");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
 
  (role === "admin" || role === "superadmin" || role === "lead_counsellor" || role === "counsellor" ) && {
-      key: "/admin/users",
+      key: "/s-admin/users",
       icon: <TeamOutlined />,
       label: "Users",
       onClick: () => {
-        navigate("/admin/users");
+        navigate("/s-admin/users");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
 
   (role === "admin" || role === "superadmin") && {
-      key: "/admin/programs",
+      key: "/s-admin/programs",
       icon: <BookFilled />,
       label: "Program & Services",
       onClick: () => {
-        navigate("/admin/programs");
+        navigate("/s-admin/programs");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
 
   (role === "admin" || role === "superadmin") && {
-      key: "/admin/paymentmanagement",
+      key: "/s-admin/paymentmanagement",
       icon: <CreditCardFilled />,
       label: "Payments",
       onClick: () => {
-        navigate("/admin/paymentmanagement");
+        navigate("/s-admin/paymentmanagement");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
@@ -197,21 +197,21 @@ const AdminLayout = () => {
       label: "Exam Management",
       children: [
         {
-          key: "/admin/examlist",
+          key: "/s-admin/examlist",
           icon: <UnorderedListOutlined />,
           label: "Exam List",
           onClick: () => {
-            navigate("/admin/examlist");
+            navigate("/s-admin/examlist");
             setDrawerVisible(false);
           },
         },
 
     (role === "admin" || role === "superadmin") && {
-          key: "/admin/examManagements",
+          key: "/s-admin/examManagements",
           icon: <SolutionOutlined />,
           label: "User Request List",
           onClick: () => {
-            navigate("/admin/examManagements");
+            navigate("/s-admin/examManagements");
             setDrawerVisible(false);
           },
         },
@@ -221,11 +221,11 @@ const AdminLayout = () => {
 
 
   (role === "admin" || role === "superadmin") && {
-      key: "/admin/reportsmanagement",
+      key: "/s-admin/reportsmanagement",
       icon: <FileTextFilled />,
       label: "Report Management",
       onClick: () => {
-        navigate("/admin/reportsmanagement");
+        navigate("/s-admin/reportsmanagement");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
@@ -237,59 +237,59 @@ const AdminLayout = () => {
       label: "Slot Management",
       children: [
         {
-          key: "/admin/createslot",
+          key: "/s-admin/createslot",
           icon: <PlusCircleFilled />,
           label: "Create Slot",
           onClick: () => {
-            navigate("/admin/createslot");
+            navigate("/s-admin/createslot");
             setDrawerVisible(false);
           },
         },
         {
-          key: "/admin/slotbooking",
+          key: "/s-admin/slotbooking",
           icon: <ClockCircleFilled />,
           label: "Slot Booking",
           onClick: () => {
-            navigate("/admin/slotbooking");
+            navigate("/s-admin/slotbooking");
             setDrawerVisible(false);
           },
         },
       ],
     },
 
-  (role === "admin" || role === "superadmin") &&
-    {
-      key: "/admin/followupManagement",
-      icon: <PhoneFilled />,
-      label: "Follow-Up Management",
-      onClick: () => {
-        navigate("/admin/followupManagement");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
+  // (role === "admin" || role === "superadmin") &&
+  //   {
+  //     key: "/admin/followupManagement",
+  //     icon: <PhoneFilled />,
+  //     label: "Follow-Up Management",
+  //     onClick: () => {
+  //       navigate("/admin/followupManagement");
+  //       setDrawerVisible(false);
+  //     },
+  //     style: { marginBottom: 12 },
+  //   },
 
-    (role === "admin" || role === "superadmin") && {
-      key: "/admin/content-management",
-      icon: <BookFilled />,
-      label: "Content Management",
-      onClick: () => {
-        navigate("/admin/contentManagement");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
+  //   (role === "admin" || role === "superadmin") && {
+  //     key: "/admin/content-management",
+  //     icon: <BookFilled />,
+  //     label: "Content Management",
+  //     onClick: () => {
+  //       navigate("/admin/contentManagement");
+  //       setDrawerVisible(false);
+  //     },
+  //     style: { marginBottom: 12 },
+  //   },
 
-  (role === "admin" || role === "superadmin") &&{
-      key: "/admin/notificationManagement",
-      icon: <NotificationFilled />,
-      label: "Notification Management",
-      onClick: () => {
-        navigate("/admin/notificationManagement");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
+  // (role === "admin" || role === "superadmin") &&{
+  //     key: "/admin/notificationManagement",
+  //     icon: <NotificationFilled />,
+  //     label: "Notification Management",
+  //     onClick: () => {
+  //       navigate("/admin/notificationManagement");
+  //       setDrawerVisible(false);
+  //     },
+  //     style: { marginBottom: 12 },
+  //   },
 
       (role === "admin" || role === "superadmin") && {
       key: "employee-management",
@@ -297,11 +297,11 @@ const AdminLayout = () => {
       label: "Employee Management",
       children: [
         {
-          key: "/admin/employeeList",
+          key: "/s-admin/employeeList",
           icon: <UnorderedListOutlined />,
           label: "Employee List",
           onClick: () => {
-            navigate("/admin/employeeList");
+            navigate("/s-admin/employeeList");
             setDrawerVisible(false);
           },
         },
@@ -371,7 +371,7 @@ const AdminLayout = () => {
         key: "profile",
         icon: <UserOutlined />,
         label: "Profile",
-        onClick: () => navigate("/admin/profile"),
+        onClick: () => navigate("/s-admin/profile"),
       },
     ],
   };

@@ -270,29 +270,39 @@ historyList: [],
   });
 
   // ✅ SORT AFTER MAP
-  formattedList.sort((a, b) => {
-    const normalize = (val) =>
-      val?.toString().toLowerCase().replace(/_/g, " ");
+formattedList.sort((a, b) => {
+  const normalize = (val) =>
+    val?.toString().toLowerCase().replace(/_/g, " ");
 
-    const isAPartial = normalize(a.status) === "partial paid";
-    const isBPartial = normalize(b.status) === "partial paid";
+  const statusA = normalize(a.status);
+  const statusB = normalize(b.status);
 
-    // 1️⃣ Partial Paid first
-    if (isAPartial && !isBPartial) return -1;
-    if (!isAPartial && isBPartial) return 1;
+  const isAVerification = statusA === "verification pending";
+  const isBVerification = statusB === "verification pending";
 
-    // 2️⃣ If both partial → oldest first
-    if (isAPartial && isBPartial) {
-      if (!a.payment_date) return 1;
-      if (!b.payment_date) return -1;
-      return a.payment_date - b.payment_date;
-    }
+  const isAPartial = statusA === "partial paid";
+  const isBPartial = statusB === "partial paid";
 
-    // 3️⃣ Others → newest first
+  // 1️⃣ Verification Pending first
+  if (isAVerification && !isBVerification) return -1;
+  if (!isAVerification && isBVerification) return 1;
+
+  // 2️⃣ Partial Paid second
+  if (isAPartial && !isBPartial) return -1;
+  if (!isAPartial && isBPartial) return 1;
+
+  // 3️⃣ If both verification or both partial → oldest first
+  if ((isAVerification && isBVerification) || (isAPartial && isBPartial)) {
     if (!a.payment_date) return 1;
     if (!b.payment_date) return -1;
-    return b.payment_date - a.payment_date;
-  });
+    return a.payment_date - b.payment_date;
+  }
+
+  // 4️⃣ Others → newest first (keep your logic)
+  if (!a.payment_date) return 1;
+  if (!b.payment_date) return -1;
+  return b.payment_date - a.payment_date;
+});
 
   state.list = formattedList;
 })

@@ -163,6 +163,8 @@ const userSlice = createSlice({
             program: u.program_name || u.program?.name || "N/A",
             package: u.package_name || u.package?.name || "N/A",
 
+            preferred_counselling_mode: u.preferred_counselling_mode || "",
+
             // PAYMENT FIELDS - IMPORTANT: Store all payment data DIRECTLY
             price: u.price || "",
             amount: u.amount || "",

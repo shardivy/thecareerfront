@@ -44,7 +44,7 @@ const PaymentManagement = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
-   const dispatch = useDispatch();
+  const dispatch = useDispatch();
 
   const { stats, statsLoading, list, listLoading } = useSelector(
     (state) => state.payment
@@ -73,40 +73,40 @@ const PaymentManagement = () => {
     setSelectedPayment(record);
     setIsModalOpen(true);
   };
-const statsCards = [
-  {
-    title: "Expected Total Collection",
-    amount: stats?.total_expected_collection?.expected_amount ?? 0,
-    users: stats?.total_expected_collection?.total_users ?? 0,
-    icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#722ed1" }} />,
-  },
-  {
-    title: "Total Collected",
-    amount: stats?.total_collected ?? 0,
-    users:
-      (stats?.partial_paid?.total_users ?? 0) +
-      (stats?.fully_paid?.total_users ?? 0),
-    icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#52c41a" }} />,
-  },
-  {
-    title: "Partial Payments",
-    amount: stats?.partial_paid?.total_amount ?? 0,
-    users: stats?.partial_paid?.total_users ?? 0,
-    icon: <PayCircleOutlined style={{ fontSize: 28, color: "#faad14" }} />,
-  },
-  {
-    title: "Fully Paid",
-    amount: stats?.fully_paid?.total_amount ?? 0,
-    users: stats?.fully_paid?.total_users ?? 0,
-    icon: <CheckCircleOutlined style={{ fontSize: 28, color: "#13c2c2" }} />,
-  },
-  {
-    title: "Pending Verification",
-    amount: stats?.verification_pending?.total_amount ?? 0,
-    users: stats?.verification_pending?.total_users ?? 0,
-    icon: <FileTextOutlined style={{ fontSize: 28, color: "#fa541c" }} />,
-  },
-];
+  const statsCards = [
+    {
+      title: "Expected Total Collection",
+      amount: stats?.total_expected_collection?.expected_amount ?? 0,
+      users: stats?.total_expected_collection?.total_users ?? 0,
+      icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#722ed1" }} />,
+    },
+    {
+      title: "Total Collected",
+      amount: stats?.total_collected ?? 0,
+      users:
+        (stats?.partial_paid?.total_users ?? 0) +
+        (stats?.fully_paid?.total_users ?? 0),
+      icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#52c41a" }} />,
+    },
+    {
+      title: "Partial Payments",
+      amount: stats?.partial_paid?.total_amount ?? 0,
+      users: stats?.partial_paid?.total_users ?? 0,
+      icon: <PayCircleOutlined style={{ fontSize: 28, color: "#faad14" }} />,
+    },
+    {
+      title: "Fully Paid",
+      amount: stats?.fully_paid?.total_amount ?? 0,
+      users: stats?.fully_paid?.total_users ?? 0,
+      icon: <CheckCircleOutlined style={{ fontSize: 28, color: "#13c2c2" }} />,
+    },
+    {
+      title: "Pending Verification",
+      amount: stats?.verification_pending?.total_amount ?? 0,
+      users: stats?.verification_pending?.total_users ?? 0,
+      icon: <FileTextOutlined style={{ fontSize: 28, color: "#fa541c" }} />,
+    },
+  ];
 
 
   /* ---------------- STATUS COLORS ---------------- */
@@ -114,7 +114,7 @@ const statsCards = [
     "Fully Paid": "success",
     "Partial Paid": "warning",
     "Verification Pending": "processing",
-   
+
   };
 
   /* ---------------- UTILITY FUNCTIONS ---------------- */
@@ -237,41 +237,41 @@ const statsCards = [
   const columns = [
     {
       title: "Sr. No.",
-     render: (_, __, index) =>
-    (currentPage - 1) * pageSize + index + 1,
+      render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
       width: 50,
     },
-{
-  title: "Name / Email",
-  render: (_, record) => (
-    <div>
-      <Text strong>{record.name || "N/A"}</Text>
-      <br />
-      <Text
-        type="colorTextSecondary"
-       >
-        {record.email || "-"}
-      </Text>
-    </div>
-  ),
-  width:290,
-},
+    {
+      title: "Name / Email",
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.name || "N/A"}</Text>
+          <br />
+          <Text
+            type="colorTextSecondary"
+          >
+            {record.email || "-"}
+          </Text>
+        </div>
+      ),
+      width: 290,
+    },
 
-{
-  title: "Counselling Services",
-  width: 220,
-  render: (_, record) => (
-    <div>
-      <Text strong>{record.program || "N/A"}</Text>
-      <br />
-      <Text
-        type="colortextSecondary"
-       >
-        {record.package || "-"}
-      </Text>
-    </div>
-  ),
-},
+    {
+      title: "Program / Counselling Service",
+      width: 220,
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.program || "N/A"}</Text>
+          <br />
+          <Text
+            type="colortextSecondary"
+          >
+            {record.package || "-"}
+          </Text>
+        </div>
+      ),
+    },
 
     {
       title: "Amount",
@@ -404,28 +404,28 @@ const statsCards = [
       <div style={{ padding: 16 }}>
         <Title level={3}>Payment Management</Title>
 
-<Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-  {statsCards.map((stat, i) => (
-    <Col xs={24} sm={12} md={6} key={i}>
-      <Card
-        loading={statsLoading}
-        bodyStyle={{ padding: "18px 12px", textAlign: "center" }}
-      >
-        <Text type="colorTextSecondary" style={{ fontSize: 13 }}>
-          {stat.title}
-        </Text>
+        <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+          {statsCards.map((stat, i) => (
+            <Col xs={24} sm={12} md={6} key={i}>
+              <Card
+                loading={statsLoading}
+                bodyStyle={{ padding: "18px 12px", textAlign: "center" }}
+              >
+                <Text type="colorTextSecondary" style={{ fontSize: 13 }}>
+                  {stat.title}
+                </Text>
 
-        <Title level={3} style={{ margin: "6px 0" }}>
-          ₹ {stat.amount.toLocaleString()}
-        </Title>
+                <Title level={3} style={{ margin: "6px 0" }}>
+                  ₹ {stat.amount.toLocaleString()}
+                </Title>
 
-        <Text type="colorTextSecondary" style={{ fontSize: 12 }}>
-          {stat.users} Users
-        </Text>
-      </Card>
-    </Col>
-  ))}
-</Row>
+                <Text type="colorTextSecondary" style={{ fontSize: 12 }}>
+                  {stat.users} Users
+                </Text>
+              </Card>
+            </Col>
+          ))}
+        </Row>
 
 
 
@@ -488,16 +488,16 @@ const statsCards = [
             loading={listLoading}
             columns={columns}
             dataSource={filteredData}
-           pagination={{
-  current: currentPage,
-  pageSize: pageSize,
-  showSizeChanger: true,
-  pageSizeOptions: [5, 10, 20, 50],
-  onChange: (page, size) => {
-    setCurrentPage(page);
-    setPageSize(size);
-  },
-}}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: [5, 10, 20, 50],
+              onChange: (page, size) => {
+                setCurrentPage(page);
+                setPageSize(size);
+              },
+            }}
 
             scroll={{ x: 1050 }}
             locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}

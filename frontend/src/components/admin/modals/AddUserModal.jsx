@@ -77,21 +77,21 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
   const isView = modalMode === "view";
   const isEdit = modalMode === "edit";
 
-const [classOptions] = useState([
-  "8",
-  "9",
-  "10",
-  "11",
-  "12",
-  "Engineering",
-  "Medical",
-  "Law",
-  "Design",
-  "Commerce",
-  "Arts",
-  "BBA",
-  "Others",
-]);
+  const [classOptions] = useState([
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "Engineering",
+    "Medical",
+    "Law",
+    "Design",
+    "Commerce",
+    "Arts",
+    "BBA",
+    "Others",
+  ]);
 
 
   const selectedPackage = packages.find((p) => p.id === liveValues?.package);
@@ -130,37 +130,37 @@ const [classOptions] = useState([
     return fullName.trim();
   };
 
-  /* ================= DEBUG USER PROP ================= */
-  useEffect(() => {
-    if (open && user) {
-      console.log("🔍 DEBUG - User prop received in modal:");
-      console.log("Full user object:", user);
-      console.log("Original first_name:", user.first_name);
-      console.log("Extracted first name:", extractName(user.first_name));
-      console.log("Payment fields check:");
-      console.log("- amount:", user.amount);
-      console.log("- payment_type:", user.payment_type);
-      console.log("- method:", user.method);
-      console.log("- transaction_id:", user.transaction_id);
-      console.log("- proof_file:", user.proof_file);
-      console.log("- program_id:", user.program_id);
-      console.log("- package_id:", user.package_id);
+  // /* ================= DEBUG USER PROP ================= */
+  // useEffect(() => {
+  //   if (open && user) {
+  //     console.log("🔍 DEBUG - User prop received in modal:");
+  //     console.log("Full user object:", user);
+  //     console.log("Original first_name:", user.first_name);
+  //     console.log("Extracted first name:", extractName(user.first_name));
+  //     console.log("Payment fields check:");
+  //     console.log("- amount:", user.amount);
+  //     console.log("- payment_type:", user.payment_type);
+  //     console.log("- method:", user.method);
+  //     console.log("- transaction_id:", user.transaction_id);
+  //     console.log("- proof_file:", user.proof_file);
+  //     console.log("- program_id:", user.program_id);
+  //     console.log("- package_id:", user.package_id);
 
-      // Check if the user object has the payment fields
-      console.log("All user keys:", Object.keys(user));
+  //     // Check if the user object has the payment fields
+  //     console.log("All user keys:", Object.keys(user));
 
-      // Check profile object too
-      if (user.profile) {
-        console.log("Profile object:", user.profile);
-        console.log("Profile payment fields:");
-        console.log("- profile.amount:", user.profile.amount);
-        console.log("- profile.payment_type:", user.profile.payment_type);
-        console.log("- profile.method:", user.profile.method);
-        console.log("- profile.transaction_id:", user.profile.transaction_id);
-        console.log("- profile.proof_file:", user.profile.proof_file);
-      }
-    }
-  }, [open, user]);
+  //     // Check profile object too
+  //     if (user.profile) {
+  //       console.log("Profile object:", user.profile);
+  //       console.log("Profile payment fields:");
+  //       console.log("- profile.amount:", user.profile.amount);
+  //       console.log("- profile.payment_type:", user.profile.payment_type);
+  //       console.log("- profile.method:", user.profile.method);
+  //       console.log("- profile.transaction_id:", user.profile.transaction_id);
+  //       console.log("- profile.proof_file:", user.profile.proof_file);
+  //     }
+  //   }
+  // }, [open, user]);
 
   /* ================= FETCH DATA ================= */
   useEffect(() => {
@@ -209,6 +209,7 @@ const [classOptions] = useState([
         email: user.email || "",
         phone: user.phone || "",
         study_class: user.study_class || undefined,
+        preferred_counselling_mode: user.preferred_counselling_mode || undefined,
         amount: paymentData.amount,
         payment_type: paymentData.payment_type || undefined,
         method: paymentData.method || undefined,
@@ -287,6 +288,7 @@ const [classOptions] = useState([
     formData.append("study_class", values.study_class);
     formData.append("program", values.program);
     formData.append("package", values.package);
+    formData.append("preferred_counselling_mode", values.preferred_counselling_mode);
     formData.append("amount", values.amount);
     formData.append("payment_type", values.payment_type);
     formData.append("method", values.method);
@@ -435,6 +437,7 @@ const [classOptions] = useState([
                 </Form.Item>
               </Col>
 
+
               <Col span={12}>
                 <Form.Item
                   label="Program"
@@ -474,6 +477,19 @@ const [classOptions] = useState([
                         {p.name}
                       </Option>
                     ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  name="preferred_counselling_mode"
+                  label="Preferred Counselling Mode"
+                  required
+                >
+                  <Select disabled={isView} placeholder="Select mode">
+                    <Option value="online">Online</Option>
+                    <Option value="offline">Offline</Option>
                   </Select>
                 </Form.Item>
               </Col>

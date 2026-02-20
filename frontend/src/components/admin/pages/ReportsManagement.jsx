@@ -164,25 +164,49 @@ const ReportsManagement = () => {
   }, [rawReports]);
 
   /* ----------------- FILTER DATA ----------------- */
-  const filteredData = useMemo(() => {
-    const search = searchText.toLowerCase();
+const filteredData = useMemo(() => {
+  const search = searchText.toLowerCase();
 
-    return mappedReports.filter((item) => {
-      const matchesSearch = Object.values(item)
-        .join(" ")
-        .toLowerCase()
-        .includes(search);
+  const filtered = mappedReports.filter((item) => {
+    const matchesSearch = Object.values(item)
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
 
-      const matchesStatus = statusFilter ? item.status === statusFilter : true;
-      const matchesPayment = paymentFilter
-        ? item.paymentStatus === paymentFilter
-        : true;
-      const matchesExam = examFilter ? item.examStatus === examFilter : true;
+    const matchesStatus = statusFilter ? item.status === statusFilter : true;
+    const matchesPayment = paymentFilter
+      ? item.paymentStatus === paymentFilter
+      : true;
+    const matchesExam = examFilter ? item.examStatus === examFilter : true;
 
-      return matchesSearch && matchesStatus && matchesPayment && matchesExam;
-    });
-  }, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
+    return matchesSearch && matchesStatus && matchesPayment && matchesExam;
+  });
 
+  /* ----------------- CUSTOM SORTING ----------------- */
+  const statusPriority = {
+    "Pending Upload": 1,
+    "Locked": 2,
+    "Unlocked": 3,
+  };
+
+  return filtered.sort((a, b) => {
+    const priorityDiff =
+      (statusPriority[a.status] || 99) -
+      (statusPriority[b.status] || 99);
+
+    if (priorityDiff !== 0) return priorityDiff;
+
+    // ✅ If same status AND status is Pending Upload or Locked
+    if (
+      a.status === "Pending Upload" ||
+      a.status === "Locked"
+    ) {
+      return new Date(a.uploadedDate) - new Date(b.uploadedDate);
+    }
+
+    return 0;
+  });
+}, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
   /* ----------------- BULK UPLOAD ----------------- */
   const handleBulkUpload = () => {
     if (!showCheckboxes) {
