@@ -19,7 +19,6 @@ class Payment(models.Model):
         ("fully_paid", "Fully Paid"),
         ("partial_paid", "Partial Paid"),
         ("verification_pending", "Verification Pending"),
-        # ("pending", "Pending")
     )
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)

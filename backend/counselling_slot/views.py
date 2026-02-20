@@ -618,7 +618,11 @@ class BookingCreateAPIView(APIView):
         )
         
     def put(self, request, booking_id):
-        serializer = BookingCreateSerializer(data=request.data)
+        # serializer = BookingCreateSerializer(data=request.data)
+        serializer = BookingCreateSerializer(
+            data=request.data,
+            context={"booking_id": booking_id}
+        )
         serializer.is_valid(raise_exception=True)
 
         student = serializer.validated_data["student_id"]
@@ -859,77 +863,74 @@ class CounsellorSlotByDateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        counsellors = Counsellor.objects.all()
+        counsellors = Counsellor.objects.select_related("user").all()
         response_data = []
 
         for counsellor in counsellors:
-            slots_map = {}
 
+            counsellor_user_id = counsellor.user_id
+
+            # ✅ Ensure FIXED slots exist (but do not recreate deleted ones)
             for start_time, end_time in FIXED_SLOTS:
-                # Check if slot exists at all (include deleted)
                 slot_qs = Slot.objects.filter(
-                    counsellor=counsellor.user,
+                    counsellor_id=counsellor_user_id,
+                    date=selected_date,
                     start_time=start_time,
                     end_time=end_time,
-                    date=selected_date,
-                ).order_by('id')
+                )
 
-                slot = slot_qs.filter(is_deleted=False).first()
+                active_slot = slot_qs.filter(is_deleted=False).first()
 
-                if not slot:
-                    # Check if it ever existed (including deleted)
-                    ever_existed = slot_qs.exists()
+                if not active_slot and not slot_qs.exists():
+                    Slot.objects.create(
+                        counsellor_id=counsellor_user_id,
+                        date=selected_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        is_available=True
+                    )
 
-                    if not ever_existed:
-                        slot = Slot.objects.create(
-                            counsellor=counsellor.user,
-                            start_time=start_time,
-                            end_time=end_time,
-                            date=selected_date
-                        )
-                    else:
-                        # It was deleted — do NOT recreate
-                        slot = None
+            # ✅ NOW FETCH ALL SLOTS (fixed + manual)
+            slots = Slot.objects.filter(
+                counsellor_id=counsellor_user_id,
+                date=selected_date,
+                is_deleted=False
+            ).order_by("start_time")
 
+            # ✅ Booking map
+            booking_status_map = {
+                b["slot_id"]: b["status"]
+                for b in Booking.objects.filter(
+                    slot__in=slots
+                ).values("slot_id", "status")
+            }
 
-                slots_map[(start_time, end_time)] = slot
-
-            counsellor_slots = []
-            for start_time, end_time in FIXED_SLOTS:
-                slot = slots_map.get((start_time, end_time))
-                if not slot:
-                    # Skip deleted slots
-                    continue
-
-                is_booked = Booking.objects.filter(
-                    slot__counsellor=counsellor.user,
-                    date=selected_date,
-                    slot__start_time=start_time,
-                    slot__end_time=end_time,
-                    status__in=["booked", "confirmed"]
-                ).exists()
-
-                counsellor_slots.append({
+            counsellor_slots = [
+                {
                     "slot_id": slot.id,
-                    "start_time": start_time,
-                    "end_time": end_time,
-                    "is_available": slot.is_available if slot else False,
-                    "status": "booked" if is_booked else "available"
-                })
+                    "start_time": slot.start_time,
+                    "end_time": slot.end_time,
+                    "mode": slot.mode,
+                    "is_available": slot.is_available,
+                    "status": booking_status_map.get(slot.id, "available")
+                }
+                for slot in slots
+            ]
 
             response_data.append({
                 "counsellor_id": counsellor.id,
-                "counsellor_name": f"{counsellor.user.first_name} {counsellor.user.last_name}".strip()
-                if hasattr(counsellor, "user") else counsellor.name,
+                "counsellor_name": f"{counsellor.user.first_name} {counsellor.user.last_name}".strip(),
                 "is_active": counsellor.is_active,
+                "total_slots": len(counsellor_slots),
                 "slots": counsellor_slots
             })
 
         return Response({
-            "message": "Slots fetched successfully",
+            "message": "All slots fetched successfully",
             "date": selected_date,
             "data": response_data
         })
+
 
 
 

@@ -11,6 +11,8 @@ class CompletedExamReportSerializer(serializers.Serializer):
 
     program_id = serializers.IntegerField(allow_null=True)
     program = serializers.CharField()
+    package_id = serializers.IntegerField(allow_null=True)
+    package = serializers.CharField()
     exam_status = serializers.CharField()
     report_status = serializers.CharField(allow_null=True)
     file_path = serializers.CharField(allow_null=True)

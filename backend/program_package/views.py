@@ -9,7 +9,7 @@ from rest_framework.permissions import  IsAuthenticated
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from program_package.models import Package, PackageFeature, Program, UserProgramPackage
 from program_package.serializers import PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer, ProgramWithPackagesSerializer
-from django.db.models import Count
+from django.db.models import Count, Sum
 
 
 class ProgramListAPIView(APIView):
@@ -257,9 +257,26 @@ class PackageListAPIView(APIView):
 class DashboardCountAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    # def get(self, request):
+    #     total_programs = Program.objects.count()
+    #     total_packages = Package.objects.count()
+    #     total_enrolled_students = (
+    #         UserProgramPackage.objects
+    #         .values("user")
+    #         .distinct()
+    #         .count()
+    #     )
+
+    #     return Response({
+    #         "total_programs": total_programs,
+    #         "total_packages": total_packages,
+    #         "total_enrolled_students": total_enrolled_students
+    #     })
+    
     def get(self, request):
         total_programs = Program.objects.count()
         total_packages = Package.objects.count()
+
         total_enrolled_students = (
             UserProgramPackage.objects
             .values("user")
@@ -267,10 +284,18 @@ class DashboardCountAPIView(APIView):
             .count()
         )
 
+        # ✅ Total Revenue (Sum of purchased package prices)
+        total_revenue = (
+            UserProgramPackage.objects
+            .aggregate(total=Sum("package__price"))
+            .get("total") or 0
+        )
+
         return Response({
             "total_programs": total_programs,
             "total_packages": total_packages,
-            "total_enrolled_students": total_enrolled_students
+            "total_enrolled_students": total_enrolled_students,
+            "total_revenue": total_revenue
         })
  
 # Fetch packages for a specific program        
