@@ -44,7 +44,7 @@ const PaymentManagement = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
-   const dispatch = useDispatch();
+  const dispatch = useDispatch();
 
   const { stats, statsLoading, list, listLoading } = useSelector(
     (state) => state.payment
@@ -73,53 +73,48 @@ const PaymentManagement = () => {
     setSelectedPayment(record);
     setIsModalOpen(true);
   };
-
-  /* ---------------- STATS ---------------- */
   const statsCards = [
     {
-      title: "Total Collected",
-      value: `₹${stats?.total_collected ?? 0}`,
-      icon: (
-        <DollarCircleOutlined
-          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-        />
-      ),
+      title: "Expected Total Collection",
+      amount: stats?.total_expected_collection?.expected_amount ?? 0,
+      users: stats?.total_expected_collection?.total_users ?? 0,
+      icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#722ed1" }} />,
     },
     {
-      title: "Pending Verification",
-      value: `₹${stats?.pending_verification ?? 0}`,
-      icon: (
-        <FileTextOutlined
-          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-        />
-      ),
+      title: "Total Collected",
+      amount: stats?.total_collected ?? 0,
+      users:
+        (stats?.partial_paid?.total_users ?? 0) +
+        (stats?.fully_paid?.total_users ?? 0),
+      icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#52c41a" }} />,
     },
     {
       title: "Partial Payments",
-      value: `₹${stats?.partial_paid ?? 0}`,
-      icon: (
-        <PayCircleOutlined
-          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-        />
-      ),
+      amount: stats?.partial_paid?.total_amount ?? 0,
+      users: stats?.partial_paid?.total_users ?? 0,
+      icon: <PayCircleOutlined style={{ fontSize: 28, color: "#faad14" }} />,
     },
     {
-      title: "Fully Payments",
-      value: `₹${stats?.fully_paid ?? 0}`,
-      icon: (
-        <CheckCircleOutlined
-          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-        />
-      ),
+      title: "Fully Paid",
+      amount: stats?.fully_paid?.total_amount ?? 0,
+      users: stats?.fully_paid?.total_users ?? 0,
+      icon: <CheckCircleOutlined style={{ fontSize: 28, color: "#13c2c2" }} />,
+    },
+    {
+      title: "Pending Verification",
+      amount: stats?.verification_pending?.total_amount ?? 0,
+      users: stats?.verification_pending?.total_users ?? 0,
+      icon: <FileTextOutlined style={{ fontSize: 28, color: "#fa541c" }} />,
     },
   ];
+
 
   /* ---------------- STATUS COLORS ---------------- */
   const statusColorMap = {
     "Fully Paid": "success",
     "Partial Paid": "warning",
     "Verification Pending": "processing",
-   
+
   };
 
   /* ---------------- UTILITY FUNCTIONS ---------------- */
@@ -168,8 +163,10 @@ const PaymentManagement = () => {
     ? list.map((p, idx) => {
       console.log(`📋 Processing payment ${idx} for table:`, p);
 
-      const cleanName = extractName(p.user_name);
+      // const cleanName = extractName(p.user_name);
       const packageName = p.package_name || p.package || "N/A";
+      const programName = p.program_name || p.program || "N/A";
+
 
       // ✅ Paid + Total
       const paidAmount = Number(p.total_paid || 0);
@@ -183,7 +180,9 @@ const PaymentManagement = () => {
       return {
         key: p.payment_id || p.id || `payment-${idx}`,
         id: p.payment_id || p.id,
-        name: cleanName,
+        name: p.user_name || "N/A",   // ✅ Keep full name with PE26
+        email: p.email || "-",
+        program: programName,
         package: packageName,
 
         // ✅ Store both separately (better than merging string)
@@ -238,20 +237,42 @@ const PaymentManagement = () => {
   const columns = [
     {
       title: "Sr. No.",
-     render: (_, __, index) =>
-    (currentPage - 1) * pageSize + index + 1,
+      render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
       width: 50,
     },
     {
-      title: "User Name",
-      dataIndex: "name",
-      render: (name) => name || "N/A"
+      title: "Name / Email",
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.name || "N/A"}</Text>
+          <br />
+          <Text
+            type="colorTextSecondary"
+          >
+            {record.email || "-"}
+          </Text>
+        </div>
+      ),
+      width: 290,
     },
+
     {
-      title: "Counselling Services",
-      dataIndex: "package",
-      render: (pkg) => pkg || "N/A"
+      title: "Program / Counselling Service",
+      width: 220,
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.program || "N/A"}</Text>
+          <br />
+          <Text
+            type="colortextSecondary"
+          >
+            {record.package || "-"}
+          </Text>
+        </div>
+      ),
     },
+
     {
       title: "Amount",
       render: (_, record) => {
@@ -291,7 +312,7 @@ const PaymentManagement = () => {
     {
       title: "Payment Date",
       dataIndex: "date",
-      width: 150,
+      width: 300,
       render: (date) => {
         if (date === "-") {
           return "-";
@@ -383,22 +404,30 @@ const PaymentManagement = () => {
       <div style={{ padding: 16 }}>
         <Title level={3}>Payment Management</Title>
 
-        {/* ---------------- STATS ---------------- */}
         <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
           {statsCards.map((stat, i) => (
             <Col xs={24} sm={12} md={6} key={i}>
-              <Card loading={statsLoading} style={{ textAlign: "center" }}>
-                <Space direction="vertical" align="center" size={6}>
-                  <Text strong>{stat.title}</Text>
-                  {stat.icon}
-                  <Title level={4} style={{ margin: 0 }}>
-                    {stat.value}
-                  </Title>
-                </Space>
+              <Card
+                loading={statsLoading}
+                bodyStyle={{ padding: "18px 12px", textAlign: "center" }}
+              >
+                <Text type="colorTextSecondary" style={{ fontSize: 13 }}>
+                  {stat.title}
+                </Text>
+
+                <Title level={3} style={{ margin: "6px 0" }}>
+                  ₹ {stat.amount.toLocaleString()}
+                </Title>
+
+                <Text type="colorTextSecondary" style={{ fontSize: 12 }}>
+                  {stat.users} Users
+                </Text>
               </Card>
             </Col>
           ))}
         </Row>
+
+
 
         {/* ---------------- TABLE ---------------- */}
         <Card>
@@ -459,18 +488,18 @@ const PaymentManagement = () => {
             loading={listLoading}
             columns={columns}
             dataSource={filteredData}
-           pagination={{
-  current: currentPage,
-  pageSize: pageSize,
-  showSizeChanger: true,
-  pageSizeOptions: [5, 10, 20, 50],
-  onChange: (page, size) => {
-    setCurrentPage(page);
-    setPageSize(size);
-  },
-}}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: [5, 10, 20, 50],
+              onChange: (page, size) => {
+                setCurrentPage(page);
+                setPageSize(size);
+              },
+            }}
 
-            scroll={{ x: 1000 }}
+            scroll={{ x: 1050 }}
             locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}
           />
         </Card>

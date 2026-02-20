@@ -20,7 +20,7 @@ import { fetchStudentJourney } from "../../../adminSlices/userSlice";
 const { Title, Text } = Typography;
 
 /* ---------------- JOURNEY STEPS ---------------- */
-const journeySteps = [
+const baseJourneySteps = [
   "Registration",
   "Counselling Service Selection",
   "Payment",
@@ -31,10 +31,32 @@ const journeySteps = [
   "Full Access",
 ];
 
+
+
+const journeySteps =
+  // user?.program?.toLowerCase() === "engineering"
+  [
+    "Registration",
+    "Counselling Service Selection",
+    "Payment",
+    "Exam",
+    "Report",
+    "Partial Report",
+    "Counselling Slot Booking",
+    "Full Report",
+    "Review",
+    "Full Access",
+  ]
+baseJourneySteps;
+
+
+
 const UserProfileModal = ({ open, onClose, user }) => {
   const { token } = theme.useToken();
   const dispatch = useDispatch();
   const { journey, journeyLoading } = useSelector((state) => state.users);
+
+
 
   useEffect(() => {
     if (open && user?.id) {
@@ -43,6 +65,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
   }, [open, user, dispatch]);
 
   if (!user) return null;
+
 
   /* ================= API DATA ================= */
   const progressData = journey?.progress || {};
@@ -62,7 +85,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
 
   const showExamReport =
     user.program === "8-12 Aptitude Test" ||
-    user.program === "PG Counselling";
+    user.program === "PG Counselling"
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -81,19 +104,8 @@ const UserProfileModal = ({ open, onClose, user }) => {
             <Descriptions bordered column={1}>
               <Descriptions.Item label="Name">{displayName}</Descriptions.Item>
               <Descriptions.Item label="Email">{user.email}</Descriptions.Item>
-              <Descriptions.Item label="Review">{user.review || " - "}</Descriptions.Item>
+              {/* <Descriptions.Item label="Review">{user.review || " - "}</Descriptions.Item> */}
 
-              {showExamReport && (
-                <Descriptions.Item label="Report Status">
-                  <Tag
-                    color={
-                      progressData.report === "locked" ? token.colorPrimary : token.colorSuccess
-                    }
-                  >
-                    {progressData.report || "N/A"}
-                  </Tag>
-                </Descriptions.Item>
-              )}
             </Descriptions>
           </Col>
 
@@ -102,6 +114,26 @@ const UserProfileModal = ({ open, onClose, user }) => {
             <Descriptions bordered column={1}>
               <Descriptions.Item label="Program">{user.program}</Descriptions.Item>
               <Descriptions.Item label="Counselling Services">{user.package}</Descriptions.Item>
+              <Descriptions.Item label="Preferred Counselling Mode">
+                {user.preferred_counselling_mode &&
+                  user.preferred_counselling_mode !== "Not Specified" ? (
+                  <Tag
+                    color={
+                      user.preferred_counselling_mode.toLowerCase() === "online"
+                        ? "blue"
+                        : user.preferred_counselling_mode.toLowerCase() === "offline"
+                          ? "green"
+                          : "default"
+                    }
+                  >
+                    {user.preferred_counselling_mode
+                      .replace("_", " ")
+                      .toUpperCase()}
+                  </Tag>
+                ) : (
+                  <Tag>Not Specified</Tag>
+                )}
+              </Descriptions.Item>
 
               <Descriptions.Item label="Payment Status">
                 <Tag
@@ -142,6 +174,18 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   </Tag>
                 </Descriptions.Item>
               )}
+
+              {showExamReport && (
+                <Descriptions.Item label="Report Status">
+                  <Tag
+                    color={
+                      progressData.report === "locked" ? token.colorPrimary : token.colorSuccess
+                    }
+                  >
+                    {progressData.report || "N/A"}
+                  </Tag>
+                </Descriptions.Item>
+              )}
             </Descriptions>
           </Col>
         </Row>
@@ -169,20 +213,40 @@ const UserProfileModal = ({ open, onClose, user }) => {
             }}
           >
             {journeySteps.map((label, index) => {
-              if (!showExamReport && (label === "Exam" || label === "Report"))
+              const isPartialReportStep = label === "Partial Report";
+              const isFullReportStep = label === "Full Report";
+              // Hide Exam & Report for programs other than Aptitude & PG
+              if (!showExamReport && (label === "Exam" || label === "Report")) {
                 return null;
+              }
+
+              // Only Engineering should see Partial & Full Report
+              if (
+                user.program !== "Engineering" &&
+                (label === "Partial Report" || label === "Full Report")
+              ) {
+                return null;
+              }
+
+
 
               const stepNo = index + 1;
-              const isPaymentStep = stepNo === 3;
+              // const isPaymentStep = stepNo === 3;
+              const isPaymentStep = label === "Payment";
               const isExamStep = label === "Exam";
               const isReportStep = label === "Report";
               const isActive = stepNo === currentStep;
 
-              const isCompleted =
-                stepNo < currentStep &&
-                !(isPaymentStep && isPartialPayment) &&
-                !(isExamStep && progressData.exam === "in_progress") &&
-                !(isReportStep && progressData.report === "locked");
+             const isCompleted =
+  (label === "Registration" && progressData.registration) ||
+  (label === "Counselling Service Selection" && progressData.counselling_service) ||
+  (label === "Payment" && progressData.payment === "fully_paid") ||
+  (label === "Exam" && progressData.exam === "completed") ||
+  (label === "Report" && progressData.report === "unlocked") ||
+  (label === "Counselling Slot Booking" && progressData.counselling_slot_booking) ||
+  (label === "Review" && progressData.review) ||
+  (label === "Full Access" && progressData.full_access);
+
 
               // Step color
               let stepColor = token.colorBorder;
@@ -191,6 +255,13 @@ const UserProfileModal = ({ open, onClose, user }) => {
               else if ((isExamStep && progressData.exam === "in_progress") ||
                 (isReportStep && progressData.report === "locked") ||
                 isActive) stepColor = token.colorPrimary;
+              else if (
+                (isPartialReportStep && progressData.partial_report === "locked") ||
+                (isFullReportStep && progressData.full_report === "locked")
+              ) {
+                stepColor = token.colorPrimary;
+              }
+
 
               // Connector width
               let progressWidth = "0%";
@@ -310,16 +381,23 @@ const UserProfileModal = ({ open, onClose, user }) => {
               historyData
                 .filter((item) => {
                   const status = item.status?.toLowerCase();
-                  if (!status || status === "pending") return false;
 
+                  if (!status || status === "pending") return false;
+                  if (item.step === "Exam" && progressData.exam === "not_applicable") {
+                    return false;
+                  }
+                  if (item.step === "Report" && progressData.report === "not_applicable") {
+                    return false;
+                  }
                   if (
                     !showExamReport &&
                     (item.step === "Exam" || item.step === "Report")
-                  )
+                  ) {
                     return false;
-
+                  }
                   return true;
                 })
+
                 .reduce((acc, item) => {
                   if (!acc[item.step]) {
                     acc[item.step] = { ...item, payments: [] };

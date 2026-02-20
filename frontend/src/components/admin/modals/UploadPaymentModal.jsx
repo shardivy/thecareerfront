@@ -163,6 +163,11 @@ useEffect(() => {
     }
   };
 
+const disableFutureDates = (current) => {
+  return current && current > dayjs().endOf("day");
+};
+
+
   return (
     <Modal
       open={open}
@@ -350,7 +355,7 @@ useEffect(() => {
           name="paymentDate"
           rules={[{ required: true }]}
         >
-          <DatePicker style={{ width: "100%" }} />
+          <DatePicker style={{ width: "100%" }} disabledDate={disableFutureDates}  />
         </Form.Item>
 
         <Form.Item label="Upload Receipt">

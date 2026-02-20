@@ -44,7 +44,7 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
   const counsellors = useSelector((state) => state.counsellors.list ?? []);
   const counsellorsLoading = useSelector((state) => state.counsellors.loading);
 
-  const slotsByDate = useSelector((state) => state.counsellingSlots.list ?? []);
+const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? []);
   const slotsLoading = useSelector((state) => state.counsellingSlots.loading);
 
   const bookingLoading = useSelector((state) => state.counsellingBooking.loading);
@@ -135,8 +135,16 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
           onSave?.();
           onClose();
         })
-        .catch((err) => message.error(err));
+        .catch((err) => {
+    // err could be string or object { message: "..." }
+    const errorMsg =
+      typeof err === "string" ? err :
+      err?.message ? err.message :
+      "Booking failed";
+
+    message.error(errorMsg);
     });
+      });
   };
 
     /* ================= RESET FUNCTION ================= */
@@ -170,6 +178,24 @@ const handleMarkCompleted = () => {
     },
   });
 };
+
+const isSlotExpired = (slot) => {
+  if (!selectedDate) return false;
+
+  const today = dayjs().format("YYYY-MM-DD");
+  const selected = dayjs(selectedDate).format("YYYY-MM-DD");
+
+  // Only check time if selected date is today
+  if (today !== selected) return false;
+
+  const slotStart = dayjs(
+    `${selected} ${slot.start_time}`,
+    "YYYY-MM-DD hh:mm A"
+  );
+
+  return dayjs().isAfter(slotStart);
+};
+
   // ================= UI =================
   return (
     <ConfigProvider>
@@ -241,31 +267,79 @@ const handleMarkCompleted = () => {
 
 
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onValuesChange={(changed) => {
-            if (changed.primaryCounsellor) setPrimaryCounsellorId(changed.primaryCounsellor.value);
-            if (changed.date) setSelectedDate(changed.date);
-          }}
-        >
+       <Form
+  form={form}
+  layout="vertical"
+  onValuesChange={(changed, allValues) => {
+    // When student changes
+  if (changed.student) {
+    const selectedStudent = students.find(
+      (s) => s.id === changed.student
+    );
+
+    const backendMode = selectedStudent?.preferred_counselling_mode;
+
+    if (
+      backendMode &&
+      backendMode !== "Not Specified"
+    ) {
+      // Convert "online" -> "Online"
+      const formattedMode =
+        backendMode.charAt(0).toUpperCase() +
+        backendMode.slice(1).toLowerCase();
+
+      form.setFieldsValue({
+        mode: formattedMode,
+      });
+    }
+  }
+
+  if (changed.primaryCounsellor)
+    setPrimaryCounsellorId(changed.primaryCounsellor.value);
+
+  if (changed.date)
+    setSelectedDate(changed.date);
+}}
+>
           {/* ================= STUDENT & MODE ================= */}
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="Student" name="student" rules={[{ required: true }]}>
-                <Select disabled={isView} loading={studentsLoading} showSearch>
-                  {students.map((s) => (
-                    <Option key={s.id} value={s.id}>{s.first_name} {s.last_name}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
+             <Form.Item
+  label="Student"
+  name="student"
+  rules={[{ required: true }]}
+>
+  <Select
+    disabled={isView}
+    loading={studentsLoading}
+    showSearch
+    optionFilterProp="label"
+  >
+    {students.map((s) => (
+      <Option
+        key={s.id}
+        value={s.id}
+        label={`${s.first_name} ${s.last_name} (${s.email})`}
+      >
+        <div>
+          <div strong>
+            {s.first_name} {s.last_name}
+          </div>
+          <div>
+            {s.email}
+          </div>
+        </div>
+      </Option>
+    ))}
+  </Select>
+</Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="Mode" name="mode" rules={[{ required: true }]}>
-                <Select disabled={isView}>
-                  <Option value="Online">Online</Option>
-                  <Option value="Offline">Offline</Option>
-                </Select>
+               <Select disabled>
+  <Option value="Online">Online</Option>
+  <Option value="Offline">Offline</Option>
+</Select>
               </Form.Item>
             </Col>
           </Row>
@@ -310,7 +384,7 @@ const handleMarkCompleted = () => {
                   <Col key={slot.id}>
                     <Button
                       type={selectedSlot?.id === slot.id && slot.status === "available" ? "primary" : "default"}
-                      disabled={slot.status === "booked"}
+                   disabled={slot.status === "booked" || isSlotExpired(slot)}
                       onClick={() => {
                         if (slot.status === "available") setSelectedSlot(slot);
                       }}

@@ -116,11 +116,11 @@ const ReportsManagement = () => {
       value: stats?.pending_uploaded || 0,
       icon: <UploadOutlined style={{ color: adminTheme.token.colorWarning }} />,
     },
-    {
-      title: "Review Pending",
-      value: stats?.review_pending || 0,
-      icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
-    },
+    // {
+    //   title: "Review Pending",
+    //   value: stats?.review_pending || 0,
+    //   icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
+    // },
   ];
 
   /* ----------------- MAP API → UI DATA ----------------- */
@@ -132,6 +132,7 @@ const ReportsManagement = () => {
       name: `${item.first_name ?? ""} ${item.last_name ?? ""}`.trim(),
       email: item.email,
       program: item.program ?? "—",
+      package:item.package ?? "—" ,
       status:
         item.report_status === "pending_uploaded"
           ? "Pending Upload"
@@ -163,25 +164,49 @@ const ReportsManagement = () => {
   }, [rawReports]);
 
   /* ----------------- FILTER DATA ----------------- */
-  const filteredData = useMemo(() => {
-    const search = searchText.toLowerCase();
+const filteredData = useMemo(() => {
+  const search = searchText.toLowerCase();
 
-    return mappedReports.filter((item) => {
-      const matchesSearch = Object.values(item)
-        .join(" ")
-        .toLowerCase()
-        .includes(search);
+  const filtered = mappedReports.filter((item) => {
+    const matchesSearch = Object.values(item)
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
 
-      const matchesStatus = statusFilter ? item.status === statusFilter : true;
-      const matchesPayment = paymentFilter
-        ? item.paymentStatus === paymentFilter
-        : true;
-      const matchesExam = examFilter ? item.examStatus === examFilter : true;
+    const matchesStatus = statusFilter ? item.status === statusFilter : true;
+    const matchesPayment = paymentFilter
+      ? item.paymentStatus === paymentFilter
+      : true;
+    const matchesExam = examFilter ? item.examStatus === examFilter : true;
 
-      return matchesSearch && matchesStatus && matchesPayment && matchesExam;
-    });
-  }, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
+    return matchesSearch && matchesStatus && matchesPayment && matchesExam;
+  });
 
+  /* ----------------- CUSTOM SORTING ----------------- */
+  const statusPriority = {
+    "Pending Upload": 1,
+    "Locked": 2,
+    "Unlocked": 3,
+  };
+
+  return filtered.sort((a, b) => {
+    const priorityDiff =
+      (statusPriority[a.status] || 99) -
+      (statusPriority[b.status] || 99);
+
+    if (priorityDiff !== 0) return priorityDiff;
+
+    // ✅ If same status AND status is Pending Upload or Locked
+    if (
+      a.status === "Pending Upload" ||
+      a.status === "Locked"
+    ) {
+      return new Date(a.uploadedDate) - new Date(b.uploadedDate);
+    }
+
+    return 0;
+  });
+}, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
   /* ----------------- BULK UPLOAD ----------------- */
   const handleBulkUpload = () => {
     if (!showCheckboxes) {
@@ -238,10 +263,19 @@ const ReportsManagement = () => {
         </>
       ),
     },
-    {
-      title: "Program",
-      dataIndex: "program",
-    },
+      {
+  title: "Program / Counselling Service",
+  width: 250,
+  render: (_, record) => (
+    <div>
+      <Text strong>{record.program || "N/A"}</Text>
+      <br />
+      <Text type="colorTextSecondary" >
+        {record.package || "-"}
+      </Text>
+    </div>
+  ),
+},
     {
       title: "Report Status",
       dataIndex: "status",
@@ -490,7 +524,7 @@ const ReportsManagement = () => {
 
           <Col xs={24} sm={12} md={5}>
             <Select
-              placeholder="Status"
+              placeholder="Report Status"
               allowClear
               style={{ width: "100%" }}
               onChange={setStatusFilter}
@@ -498,9 +532,9 @@ const ReportsManagement = () => {
               <Option value="Unlocked">Unlocked</Option>
               <Option value="Locked">Locked</Option>
               <Option value="Pending Upload">Pending Upload</Option>
-              <Option value="Review Verification Pending">
+              {/* <Option value="Review Verification Pending">
                 Review Verification Pending
-              </Option>
+              </Option> */}
             </Select>
           </Col>
 

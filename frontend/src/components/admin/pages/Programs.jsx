@@ -140,8 +140,8 @@ const [pageSize, setPageSize] = useState(5);
       icon: <TeamOutlined />,
     },
     {
-      title: "Revenue (Monthly)",
-      value: `₹${stats?.revenue || 0}`,
+      title: "Revenue",
+      value: `₹${stats?.total_revenue || 0}`,
       icon: <DollarOutlined />,
     },
   ];

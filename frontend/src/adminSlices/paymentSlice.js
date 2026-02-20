@@ -212,7 +212,7 @@ historyList: [],
       .addCase(fetchPayments.pending, (state) => {
         state.listLoading = true;
       })
-  .addCase(fetchPayments.fulfilled, (state, action) => {
+.addCase(fetchPayments.fulfilled, (state, action) => {
   state.listLoading = false;
 
   const payload = action.payload;
@@ -224,40 +224,28 @@ historyList: [],
     paymentList = payload.data;
   }
 
-  // ✅ Clear list first
-  state.list = [];
+  const formattedList = paymentList.map((payment) => {
+   
 
-  paymentList.forEach((payment) => {
-    let userName = payment.user_name || "";
-    if (userName.includes(" - ")) {
-      const parts = userName.split(" - ");
-      userName = parts[parts.length - 1].trim();
-    }
+    const formattedDate =
+      payment.payment_date || payment.created_at
+        ? new Date(payment.payment_date || payment.created_at)
+        : null;
 
-    let formattedDate = "-";
-    const dateToUse = payment.payment_date || payment.created_at;
-
-    if (dateToUse) {
-      try {
-        formattedDate = new Date(dateToUse)
-          .toISOString()
-          .split("T")[0];
-      } catch {
-        formattedDate = "-";
-      }
-    }
-
-    const formattedPayment = {
+    return {
       key: payment.payment_id || payment.id,
       id: payment.payment_id || payment.id,
       user_id: payment.user_id,
       student_id: payment.student_id,
 
-      name: userName,
-      user_name: userName,
-      student_name: userName,
-      user_email: payment.email || "",
+       name: payment.user_name || "", 
+      user_name: payment.user_name || "",
+  student_name: payment.user_name || "",
+ email: payment.email || "",
+ 
 
+     program_id:payment.program_id,
+     program_name:payment.program || "",
       package_id: payment.package_id,
       package_name: payment.package || "",
       package_price: payment.package_price || 0,
@@ -279,11 +267,46 @@ historyList: [],
 
       proof_file_url: payment.proof_file_url || "",
     };
-
-    // ✅ This pushes newest to top
-    state.list.unshift(formattedPayment);
   });
+
+  // ✅ SORT AFTER MAP
+formattedList.sort((a, b) => {
+  const normalize = (val) =>
+    val?.toString().toLowerCase().replace(/_/g, " ");
+
+  const statusA = normalize(a.status);
+  const statusB = normalize(b.status);
+
+  const isAVerification = statusA === "verification pending";
+  const isBVerification = statusB === "verification pending";
+
+  const isAPartial = statusA === "partial paid";
+  const isBPartial = statusB === "partial paid";
+
+  // 1️⃣ Verification Pending first
+  if (isAVerification && !isBVerification) return -1;
+  if (!isAVerification && isBVerification) return 1;
+
+  // 2️⃣ Partial Paid second
+  if (isAPartial && !isBPartial) return -1;
+  if (!isAPartial && isBPartial) return 1;
+
+  // 3️⃣ If both verification or both partial → oldest first
+  if ((isAVerification && isBVerification) || (isAPartial && isBPartial)) {
+    if (!a.payment_date) return 1;
+    if (!b.payment_date) return -1;
+    return a.payment_date - b.payment_date;
+  }
+
+  // 4️⃣ Others → newest first (keep your logic)
+  if (!a.payment_date) return 1;
+  if (!b.payment_date) return -1;
+  return b.payment_date - a.payment_date;
+});
+
+  state.list = formattedList;
 })
+
 
       .addCase(fetchPayments.rejected, (state, action) => {
         state.listLoading = false;

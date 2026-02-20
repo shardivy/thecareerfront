@@ -57,22 +57,22 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
     (state) => state.packages
   );
 
-const { loading: addLoading, success: addSuccess, message: addMessage } =
-  useSelector((state) => state.addEnquiry);
+  const { loading: addLoading, success: addSuccess, message: addMessage } =
+    useSelector((state) => state.addEnquiry);
 
-const { loading: convertLoading, success: convertSuccess, message: convertMessage } =
-  useSelector((state) => state.convertEnquiry);
+  const { loading: convertLoading, success: convertSuccess, message: convertMessage } =
+    useSelector((state) => state.convertEnquiry);
 
-const { loading: updateLoading, success: updateSuccess, message: updateMessage } =
-  useSelector((state) => state.updateEnquiry);
+  const { loading: updateLoading, success: updateSuccess, message: updateMessage } =
+    useSelector((state) => state.updateEnquiry);
 
-const selectedPackage = packages.find(
-  (p) => p.id === liveValues?.package
-);
+  const selectedPackage = packages.find(
+    (p) => p.id === liveValues?.package
+  );
 
-const totalPackageAmount = selectedPackage
-  ? Number(selectedPackage.price)
-  : 0;
+  const totalPackageAmount = selectedPackage
+    ? Number(selectedPackage.price)
+    : 0;
 
 
   const isConvert = mode === "convert";
@@ -114,48 +114,61 @@ const totalPackageAmount = selectedPackage
   }, [open, enquiryData, programs, dispatch, form, mode]);
 
   /* ================= SUCCESS HANDLING ================= */
-useEffect(() => {
-  if (addSuccess || convertSuccess || updateSuccess) {
-    const successMsg =
-      addMessage || convertMessage || updateMessage || "Operation successful";
+  useEffect(() => {
+    if (addSuccess || convertSuccess || updateSuccess) {
+      const successMsg =
+        addMessage || convertMessage || updateMessage || "Operation successful";
 
-    message.success(successMsg);
+      message.success(successMsg);
 
-    dispatch(fetchEnquiries());
+      dispatch(fetchEnquiries());
 
-    form.resetFields();
-    setFileList([]);
-    setPreviewUrl(null);
+      form.resetFields();
+      setFileList([]);
+      setPreviewUrl(null);
 
-    dispatch(clearAddEnquiryState());
-    dispatch(clearConvertState());
-    dispatch(clearUpdateState());
+      dispatch(clearAddEnquiryState());
+      dispatch(clearConvertState());
+      dispatch(clearUpdateState());
 
-    onCancel();
-  }
-}, [
-  addSuccess,
-  convertSuccess,
-  updateSuccess,
-  addMessage,
-  convertMessage,
-  updateMessage,
-  dispatch,
-  form,
-  onCancel,
-]);
+      onCancel();
+    }
+  }, [
+    addSuccess,
+    convertSuccess,
+    updateSuccess,
+    addMessage,
+    convertMessage,
+    updateMessage,
+    dispatch,
+    form,
+    onCancel,
+  ]);
 
 
   /* Reset method when payment type changes */
   useEffect(() => {
-    form.setFieldsValue({ method: undefined ,transaction_id: undefined});
+    if (!paymentType) return;
+
+    if (paymentType === "offline") {
+      form.setFieldsValue({
+        method: "cash",
+        transaction_id: undefined,
+      });
+    }
+
+    if (paymentType === "online") {
+      form.setFieldsValue({
+        method: "upi",
+      });
+    }
   }, [paymentType, form]);
 
   useEffect(() => {
-  if (paymentMethod !== "upi") {
-    form.setFieldsValue({ transaction_id: undefined });
-  }
-}, [paymentMethod, form]);
+    if (paymentMethod !== "upi") {
+      form.setFieldsValue({ transaction_id: undefined });
+    }
+  }, [paymentMethod, form]);
 
 
   /* ================= RESET WHEN ADD MODE ================= */
@@ -176,6 +189,7 @@ useEffect(() => {
       formData.append("study_class", values.study_class);
       formData.append("program", values.program);
       formData.append("package", values.package);
+         formData.append("preferred_counselling_mode", values.preferred_counselling_mode);
       formData.append("amount", values.amount);
       formData.append("payment_type", values.payment_type);
       formData.append("method", values.method);
@@ -227,6 +241,11 @@ useEffect(() => {
       setPreviewUrl(null);
     }
   };
+
+  const disableFutureDates = (current) => {
+    return current && current > dayjs().endOf("day");
+  };
+
 
   return (
     <Modal
@@ -305,7 +324,7 @@ useEffect(() => {
                   ]}
 
                 >
-                  <Input   maxlength={10} disabled={isConvert} />
+                  <Input maxlength={10} disabled={isConvert} />
                 </Form.Item>
               </Col>
 
@@ -367,6 +386,7 @@ useEffect(() => {
                     style={{ width: "100%" }}
                     format="YYYY-MM-DD"
                     disabled={isConvert}
+                    disabledDate={disableFutureDates}
                   />
                 </Form.Item>
               </Col>
@@ -390,6 +410,15 @@ useEffect(() => {
                         <Option value="10">10</Option>
                         <Option value="11">11</Option>
                         <Option value="12">12</Option>
+                        <Option value="Engineering">Engineering</Option>
+                        <Option value="Medical">Medical</Option>
+                        <Option value="Law">Law</Option>
+                        <Option value="Design">Design</Option>
+                        <Option value="Commerce">Commerce</Option>
+                        <Option value="Arts">Arts</Option>
+                        <Option value="BBA">BBA</Option>
+                        <Option value="Others">Others</Option>
+
                       </Select>
                     </Form.Item>
                   </Col>
@@ -410,42 +439,59 @@ useEffect(() => {
                     </Form.Item>
                   </Col>
 
+      {isConvert && (
+  <Col xs={24} sm={12}>
+    <Form.Item
+      name="preferred_counselling_mode"
+      label="Preferred Counselling Mode"
+      rules={[
+        { required: true, message: "Please select counselling mode" },
+      ]}
+    >
+      <Select placeholder="Select Mode">
+        <Option value="online">Online</Option>
+        <Option value="offline">Offline</Option>
+      </Select>
+    </Form.Item>
+  </Col>
+)}
+
                   <Col xs={24} sm={12}>
-                   <Form.Item
-  name="amount"
-  label="Amount"
-  dependencies={["package"]}
-  rules={[
-    { required: true, message: "Please enter amount" },
-    {
-      validator: (_, value) => {
-        const numericValue = Number(value);
+                    <Form.Item
+                      name="amount"
+                      label="Amount"
+                      dependencies={["package"]}
+                      rules={[
+                        { required: true, message: "Please enter amount" },
+                        {
+                          validator: (_, value) => {
+                            const numericValue = Number(value);
 
-        if (!value) {
-          return Promise.resolve();
-        }
+                            if (!value) {
+                              return Promise.resolve();
+                            }
 
-        if (isNaN(numericValue)) {
-          return Promise.reject("Amount must be a number");
-        }
+                            if (isNaN(numericValue)) {
+                              return Promise.reject("Amount must be a number");
+                            }
 
-        if (numericValue < 500) {
-          return Promise.reject("Minimum amount should be ₹500");
-        }
+                            if (numericValue < 500) {
+                              return Promise.reject("Minimum amount should be ₹500");
+                            }
 
-        if (numericValue > totalPackageAmount) {
-          return Promise.reject(
-            `Amount cannot exceed ₹${totalPackageAmount}`
-          );
-        }
+                            if (numericValue > totalPackageAmount) {
+                              return Promise.reject(
+                                `Amount cannot exceed ₹${totalPackageAmount}`
+                              );
+                            }
 
-        return Promise.resolve();
-      },
-    },
-  ]}
->
-  <Input type="number" min={0} />
-</Form.Item>
+                            return Promise.resolve();
+                          },
+                        },
+                      ]}
+                    >
+                      <Input type="number" min={0} />
+                    </Form.Item>
 
                   </Col>
 
@@ -479,19 +525,17 @@ useEffect(() => {
                     </Form.Item>
                   </Col>
 
-   {paymentMethod === "upi" && (
-  <Col xs={24} sm={12}>
-    <Form.Item
-      name="transaction_id"
-      label="Transaction ID"
-      rules={[
-        { required: true, message: "Please enter transaction ID" },
-      ]}
-    >
-      <Input />
-    </Form.Item>
-  </Col>
-)}
+                  {paymentMethod === "upi" && (
+                    <Col xs={24} sm={12}>
+                      <Form.Item
+                        name="transaction_id"
+                        label="Transaction ID"
+                       
+                      >
+                        <Input />
+                      </Form.Item>
+                    </Col>
+                  )}
 
 
 

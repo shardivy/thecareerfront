@@ -118,10 +118,11 @@ const statsCards = [
       time: item.slot
         ? `${item.slot.start_time} - ${item.slot.end_time}`
         : "—",
-      modeLabel: item.slot?.mode
-        ? item.slot.mode.charAt(0).toUpperCase() + item.slot.mode.slice(1)
-        : "—",
-    }));
+       modeLabel: item.student?.preferred_counselling_mode
+      ? item.student.preferred_counselling_mode.charAt(0).toUpperCase() +
+        item.student.preferred_counselling_mode.slice(1)
+      : "—",
+  }));
   }, [data]);
 
   /* ================= FILTER ================= */
@@ -142,13 +143,12 @@ const filteredData = dataSource
     const text = Object.values(item).join(" ").toLowerCase();
     const modeMatch = !modeFilter || item.mode === modeFilter;
     const statusMatch = !statusFilter || item.status === statusFilter;
-    const dateMatch = !dateFilter || dayjs(item.date).isSame(dateFilter, "day");
-  const counsellorMatch =
-  !counsellorFilter ||
-  item.counsellorDisplay.some(
-    (c) => c.id === counsellorFilter
-  );
+    const dateMatch =
+      !dateFilter || dayjs(item.date).isSame(dateFilter, "day");
 
+    const counsellorMatch =
+      !counsellorFilter ||
+      item.counsellorDisplay.some((c) => c.id === counsellorFilter);
 
     return (
       text.includes(searchText.toLowerCase()) &&
@@ -158,9 +158,16 @@ const filteredData = dataSource
       counsellorMatch
     );
   })
-  .sort((a, b) => dayjs(b.date).diff(dayjs(a.date)));
+  .sort((a, b) => {
+    // Booked first
+    if (a.status === "booked" && b.status !== "booked") return -1;
+    if (a.status !== "booked" && b.status === "booked") return 1;
 
+    // Oldest first
+    return dayjs(a.date).diff(dayjs(b.date));
+  });
 
+  
   /* ================= DELETE HANDLER ================= */
 const handleDelete = (record) => {
   Modal.confirm({
@@ -234,52 +241,71 @@ const handleDelete = (record) => {
       width: 100,
       render: (m) => <Tag>{m}</Tag>,
     },
-    {
-      title: "Status",
-      dataIndex: "status",
-      width: 110,
-      render: (s) => <Tag>{s}</Tag>,
-    },
-    {
-      title: "Actions",
-      width: 140,
-      render: (_, record) => (
-        <Space size="small">
-          <Button
-            size="large"
-            icon={<EyeOutlined />}
-            onClick={() => {
-              setRescheduleData(record);
-              setModalMode("view");
-              setIsModalOpen(true);
-            }}
-          >
-            View
-          </Button>
-          <Button
-            size="large"
-            icon={<EditOutlined />}
-            type="primary"
-            onClick={() => {
-              setRescheduleData(record);
-              setModalMode("edit");
-              setIsModalOpen(true);
-            }}
-          >
-            Edit
-          </Button>
-         <Button
-  size="large"
-  danger
-  icon={<DeleteOutlined />}
-  onClick={() => handleDelete(record)}
->
-  Delete
-</Button>
+ {
+  title: "Status",
+  dataIndex: "status",
+  width: 110,
+  render: (status) => {
+    const formatted =
+      status?.charAt(0).toUpperCase() + status?.slice(1);
 
-        </Space>
-      ),
-    },
+    const color =
+      status === "booked"
+        ? "blue"
+        : status === "completed"
+        ? "green"
+        : "default";
+
+    return <Tag color={color}>{formatted}</Tag>;
+  },
+},
+   {
+  title: "Actions",
+  width: 140,
+  render: (_, record) => (
+    <Space size="small">
+      <Button
+        size="large"
+        icon={<EyeOutlined />}
+        onClick={() => {
+          setRescheduleData(record);
+          setModalMode("view");
+          setIsModalOpen(true);
+        }}
+      >
+        View
+      </Button>
+
+      {/* Only show Edit if status is not completed */}
+      {record.status !== "completed" && (
+        <Button
+          size="large"
+          icon={<EditOutlined />}
+          type="primary"
+          onClick={() => {
+            setRescheduleData(record);
+            setModalMode("edit");
+            setIsModalOpen(true);
+          }}
+        >
+          Edit
+        </Button>
+      )}
+
+      {/* Only show Delete if status is not completed */}
+      {record.status !== "completed" && (
+        <Button
+          size="large"
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() => handleDelete(record)}
+        >
+          Delete
+        </Button>
+      )}
+    </Space>
+  ),
+},
   ];
 
   return (
@@ -356,58 +382,67 @@ const handleDelete = (record) => {
 
       {/* ================= FILTERS ================= */}
       <Card>
-        <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-          <Col xs={24} md={10}>
-            <Input
-              prefix={<SearchOutlined />}
-              placeholder="Search"
-              allowClear
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </Col>
-          <Col xs={12} md={4}>
- <Select
-  placeholder="Select Counsellor"
-  allowClear
-  value={counsellorFilter}
-  onChange={setCounsellorFilter}
-  style={{ width: "100%" }}
->
-  {counsellorList.map((c) => (
-    <Option key={c.id} value={c.id}>
-      {c.first_name} {c.last_name}
-    </Option>
-  ))}
-</Select>
+       <Row gutter={[12, 12]} align="middle" style={{ marginBottom: 12 }}>
 
-</Col>
+  <Col xs={24} md={8}>
+    <Input
+      prefix={<SearchOutlined />}
+      placeholder="Search"
+      allowClear
+      value={searchText}
+      onChange={(e) => setSearchText(e.target.value)}
+    />
+  </Col>
 
-          <Col xs={12} md={4}>
-            <Select
-              placeholder="Mode"
-              allowClear
-              onChange={setModeFilter}
-              style={{ width: "100%" }}
-            >
-              <Option value="Online">Online</Option>
-              <Option value="Offline">Offline</Option>
-            </Select>
-          </Col>
-          <Col xs={12} md={4}>
-            <Select
-              placeholder="Status"
-              allowClear
-              onChange={setStatusFilter}
-              style={{ width: "100%" }}
-            >
-              <Option value="booked">Booked</Option>
-            </Select>
-          </Col>
-          <Col xs={24} md={6}>
-            <DatePicker style={{ width: "100%" }} onChange={setDateFilter} />
-          </Col>
-        </Row>
+  <Col xs={12} md={4}>
+    <Select
+      placeholder="Select Counsellor"
+      allowClear
+      value={counsellorFilter}
+      onChange={setCounsellorFilter}
+      style={{ width: "100%" }}
+    >
+      {counsellorList.map((c) => (
+        <Option key={c.id} value={c.id}>
+          {c.first_name} {c.last_name}
+        </Option>
+      ))}
+    </Select>
+  </Col>
+
+  <Col xs={12} md={4}>
+    <Select
+      placeholder="Mode"
+      allowClear
+      onChange={setModeFilter}
+      style={{ width: "100%" }}
+    >
+      <Option value="Online">Online</Option>
+      <Option value="Offline">Offline</Option>
+    </Select>
+  </Col>
+
+  <Col xs={12} md={4}>
+    <Select
+      placeholder="Status"
+      allowClear
+      onChange={setStatusFilter}
+      style={{ width: "100%" }}
+    >
+      <Option value="booked">Booked</Option>
+      <Option value="completed">Completed</Option> {/* ✅ Added */}
+    </Select>
+  </Col>
+
+  <Col xs={12} md={4}>
+    <DatePicker
+      style={{ width: "100%" }}
+      onChange={setDateFilter}
+    />
+  </Col>
+
+</Row>
+
 
         {/* ================= TABLE ================= */}
         <Table

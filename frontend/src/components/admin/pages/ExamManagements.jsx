@@ -169,6 +169,7 @@ const ExamManagements = () => {
     userName: `${item.first_name} ${item.last_name}`,
     email: item.email,
     program: item.program || "-",
+      package: item.package || "-",
     status:
       item.status === "completed"
         ? "Completed"
@@ -191,15 +192,29 @@ const ExamManagements = () => {
   }));
 
   /* ================= FILTER ================= */
-  const filteredData = mappedData.filter((item) => {
+const filteredData = mappedData
+  .filter((item) => {
     const search = searchText.toLowerCase();
     const matchesSearch =
       item.userName.toLowerCase().includes(search) ||
       item.program.toLowerCase().includes(search);
+
     const matchesStatus = statusFilter
       ? item.status === statusFilter
       : true;
+
     return matchesSearch && matchesStatus;
+  })
+  .sort((a, b) => {
+    // Move "In Progress" to top only
+    if (a.status === "In Progress" && b.status !== "In Progress")
+      return -1;
+
+    if (a.status !== "In Progress" && b.status === "In Progress")
+      return 1;
+
+    // Keep original order for others
+    return 0;
   });
 
   /* ================= STATUS TAG ================= */
@@ -235,7 +250,21 @@ const ExamManagements = () => {
         </Space>
       ),
     },
-    { title: "Program", dataIndex: "program" },
+    // { title: "Program", dataIndex: "program" },
+    {
+  title: "Program / Counselling Service",
+  width: 250,
+  render: (_, record) => (
+    <div>
+      <Text strong>{record.program || "N/A"}</Text>
+      <br />
+      <Text type="colorTextSecondary" >
+        {record.package || "-"}
+      </Text>
+    </div>
+  ),
+},
+
     { title: "Exam Status", dataIndex: "status", render: renderStatus },
     { title: "Exam Completion Date", dataIndex: "completedDate" },
     {
@@ -340,7 +369,7 @@ const ExamManagements = () => {
 
           <Col xs={24} md={6}>
             <Select
-              placeholder="Filter by Status"
+              placeholder="Filter by exam status"
               allowClear
               style={{ width: "100%" }}
               onChange={setStatusFilter}

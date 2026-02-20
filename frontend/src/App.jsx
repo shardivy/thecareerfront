@@ -79,7 +79,7 @@ const App = () => {
 
 
            {/* ===================== ADMIN ROUTES ===================== */}
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/s-admin" element={<AdminLayout />}>
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="enquiry-leads" element={<Enquiry />} />
           <Route path="users" element={<UserList />} />

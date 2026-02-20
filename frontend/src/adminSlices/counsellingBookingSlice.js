@@ -8,9 +8,12 @@ export const bookCounsellingSlot = createAsyncThunk(
     try {
       return await bookCounsellingSlotApi(payload);
     } catch (error) {
-      return rejectWithValue(
-        error?.response?.data?.message || "Slot booking failed"
-      );
+      // Extract first error from backend response
+      const backendError =
+        error?.response?.data?.error?.[0] || 
+        error?.response?.data?.message || 
+        "Slot booking failed";
+      return rejectWithValue(backendError);
     }
   }
 );

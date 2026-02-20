@@ -4,7 +4,7 @@ import {
   fetchStudentsApi,
   updateUserApi,
   deleteUserApi,
-  fetchStudentJourneyApi 
+  fetchStudentJourneyApi
 } from "../adminApi/userApi";
 
 /* ===================== THUNKS ===================== */
@@ -98,7 +98,7 @@ const userSlice = createSlice({
     success: false,
     successMessage: null,
     journey: [],
-  journeyLoading: false,
+    journeyLoading: false,
   },
 
   reducers: {
@@ -127,7 +127,7 @@ const userSlice = createSlice({
       })
       .addCase(fetchStudents.fulfilled, (state, action) => {
         state.loading = false;
-        
+
         if (!action.payload) {
           console.error("⚠️ No payload received from fetchStudents");
           return;
@@ -143,7 +143,7 @@ const userSlice = createSlice({
             transaction_id: u.transaction_id,
             proof_file: u.proof_file
           });
-          
+
           const userObj = {
             key: u.id,
             id: u.id,
@@ -163,29 +163,76 @@ const userSlice = createSlice({
             program: u.program_name || u.program?.name || "N/A",
             package: u.package_name || u.package?.name || "N/A",
 
+            preferred_counselling_mode: u.preferred_counselling_mode || "",
+
             // PAYMENT FIELDS - IMPORTANT: Store all payment data DIRECTLY
             price: u.price || "",
             amount: u.amount || "",
             total_paid_amount: u.total_paid_amount || "",
 
-            
+
             payment_type: u.payment_type || "",
             method: u.method || "",
             transaction_id: u.transaction_id || "",
             proof_file: u.proof_file || "",
-            
+
             paymentStatus: u.payment_status
               ? u.payment_status
-                  .split("_")
-                  .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                  .join(" ")
+                .split("_")
+                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ")
               : "N/A",
 
-            examStatus: u.exam_status?.completed > 0 ? "Completed" : "Pending",
-              reportStatus: u.report_status === "unlocked" ? "Unlocked" : "Locked",
+            examStatus: (() => {
+              const exam = u.exam_status;
+
+              if (!exam) return "Not Applicable";
+
+              // If all values are "not_applicable"
+              const values = Object.values(exam);
+              if (values.every(v => v === "not_applicable")) {
+                return "Not Applicable";
+              }
+
+              if (Number(exam.completed) > 0) return "Completed";
+              if (Number(exam.in_progress) > 0) return "In Progress";
+              if (Number(exam.pending_approval) > 0) return "Pending Approval";
+              if (Number(exam.not_started) > 0) return "Not Started";
+
+              return "Not Started";
+            })(),
+
+            reportStatus: (() => {
+              const status = u.report_status;
+
+              if (!status) return "Locked";
+
+              if (status === "not_applicable") return "Not Applicable";
+
+              return status
+                .split("_")
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ");
+            })(),
+
             sessions: u.exam_status
               ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
               : "0",
+
+              slotStatus: u.slot_status
+  ? u.slot_status
+      .split("_")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  : "Not Booked",
+
+journeyStatus: u.full_access
+  ? u.full_access
+      .split("_")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  : "Payment",
+
 
             // Include all payment fields in profile for easy access
             profile: {
@@ -207,14 +254,14 @@ const userSlice = createSlice({
               proof_file: u.proof_file || "",
             },
           };
-          
+
           console.log("✅ Created user object:", userObj);
           return userObj;
         });
 
         console.log("📊 Mapped users with payment data:", mappedUsers);
         // 🔥 Ensure newest users appear at the top
-        state.list = mappedUsers.reverse(); 
+        state.list = mappedUsers.reverse();
       })
       .addCase(fetchStudents.rejected, (state, action) => {
         state.loading = false;
@@ -258,19 +305,66 @@ const userSlice = createSlice({
           method: u.method || "",
           transaction_id: u.transaction_id || "",
           proof_file: u.proof_file || "",
-          
-          paymentStatus: u.payment_status 
-            ? u.payment_status.split('_').map(word => 
-                word.charAt(0).toUpperCase() + word.slice(1)
-              ).join(' ')
+
+          paymentStatus: u.payment_status
+            ? u.payment_status.split('_').map(word =>
+              word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ')
             : "N/A",
-            
-          examStatus: u.exam_status?.completed > 0 ? "Completed" : "Pending",
-          reportStatus: u.report_status ? "Locked" : "Unlocked",
-          sessions: u.exam_status 
+
+          examStatus: (() => {
+            const exam = u.exam_status;
+
+            if (!exam) return "Not Applicable";
+
+            // If all values are "not_applicable"
+            const values = Object.values(exam);
+            if (values.every(v => v === "not_applicable")) {
+              return "Not Applicable";
+            }
+
+            if (Number(exam.completed) > 0) return "Completed";
+            if (Number(exam.in_progress) > 0) return "In Progress";
+            if (Number(exam.pending_approval) > 0) return "Pending Approval";
+            if (Number(exam.not_started) > 0) return "Not Started";
+
+            return "Not Started";
+          })(),
+
+          reportStatus: (() => {
+            const status = u.report_status;
+
+            if (!status) return "Locked";
+
+            if (status === "not_applicable") return "Not Applicable";
+
+            return status
+              .split("_")
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+          })(),
+
+          sessions: u.exam_status
             ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
             : "0",
-            
+
+            // SLOT STATUS
+slotStatus: u.slot_status
+  ? u.slot_status
+      .split("_")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  : "Not Booked",
+
+// JOURNEY STATUS
+journeyStatus: u.full_access
+  ? u.full_access
+      .split("_")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  : "Payment",
+
+
           profile: {
             email: u.email || "",
             phone: u.phone || "",
@@ -304,7 +398,7 @@ const userSlice = createSlice({
       .addCase(updateUser.fulfilled, (state, action) => {
         const payload = action.payload || {};
         console.log("🔄 Update payload received:", payload);
-        
+
         if (!payload.id) {
           console.log("⚠️ No ID in update payload, skipping");
           return;
@@ -336,7 +430,7 @@ const userSlice = createSlice({
             package_id: payload.package_id ?? payload.package?.id ?? existing.package_id,
             program: payload.program_name ?? payload.program?.name ?? existing.program,
             package: payload.package_name ?? payload.package?.name ?? existing.package,
-            
+
             // Also update profile object
             profile: {
               ...existing.profile,
@@ -371,17 +465,17 @@ const userSlice = createSlice({
 
 
       /* ---------- FETCH JOURNEY ---------- */
-.addCase(fetchStudentJourney.pending, (state) => {
-  state.journeyLoading = true;
-})
-.addCase(fetchStudentJourney.fulfilled, (state, action) => {
-  state.journeyLoading = false;
-  state.journey = action.payload?.data || action.payload || [];
-})
-.addCase(fetchStudentJourney.rejected, (state, action) => {
-  state.journeyLoading = false;
-  state.error = action.payload;
-});
+      .addCase(fetchStudentJourney.pending, (state) => {
+        state.journeyLoading = true;
+      })
+      .addCase(fetchStudentJourney.fulfilled, (state, action) => {
+        state.journeyLoading = false;
+        state.journey = action.payload?.data || action.payload || [];
+      })
+      .addCase(fetchStudentJourney.rejected, (state, action) => {
+        state.journeyLoading = false;
+        state.error = action.payload;
+      });
   },
 });
 
