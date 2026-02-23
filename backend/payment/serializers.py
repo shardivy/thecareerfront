@@ -385,3 +385,58 @@ class PaymentLogSerializer(serializers.ModelSerializer):
                 "email": obj.changed_by.email
             }
         return None
+    
+# ========================================= Student API =================================
+
+class PackageDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Package
+        fields = "__all__"
+        
+class StudentPaymentSerializer(serializers.ModelSerializer):
+    package = PackageDetailSerializer()
+    # verified_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "amount",
+            "payment_type",
+            "method",
+            "status",
+            "payment_date",
+            "transaction_id",
+            "proof_file",
+            "created_at",
+            "package",
+            # "verified_by_name"
+        ]
+
+    # def get_verified_by_name(self, obj):
+    #     if obj.verified_by:
+    #         return f"{obj.verified_by.first_name} {obj.verified_by.last_name}"
+    #     return None
+    
+class StudentPaymentDetailSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    email = serializers.EmailField(source="user.email")
+    phone = serializers.CharField(source="user.phone")
+
+    payments = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentProfile
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "payments"
+        ]
+
+    def get_payments(self, obj):
+        payments = Payment.objects.filter(user=obj.user).select_related("package", "verified_by")
+        return StudentPaymentSerializer(payments, many=True).data
