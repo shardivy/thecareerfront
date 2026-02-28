@@ -39,10 +39,10 @@ const AddEmployeeModal = ({
     <Modal
       title={
         mode === "view"
-          ? "View Employee"
+          ? "View User"
           : editingEmployee
-          ? "Edit Employee"
-          : "Add Employee"
+          ? "Edit User"
+          : "Add User"
       }
       open={open}
       onCancel={onCancel}
@@ -102,7 +102,7 @@ const AddEmployeeModal = ({
               htmlType="submit"
               style={{ marginLeft: 8 }}
             >
-              {editingEmployee ? "Update Employee" : "Add Employee"}
+              {editingEmployee ? "Update User" : "Add User"}
             </Button>
           )}
         </Form.Item>

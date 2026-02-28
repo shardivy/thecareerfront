@@ -75,7 +75,7 @@ const PaymentManagement = () => {
   };
   const statsCards = [
     {
-      title: "Expected Total Collection",
+      title: "Expected Revenue",
       amount: stats?.total_expected_collection?.expected_amount ?? 0,
       users: stats?.total_expected_collection?.total_users ?? 0,
       icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#722ed1" }} />,
@@ -274,7 +274,8 @@ const PaymentManagement = () => {
     },
 
     {
-      title: "Amount",
+      title: "Fees Paid",
+      width: 150,
       render: (_, record) => {
         const paid = record.paidAmount || 0;
         const total = record.packagePrice || 0;

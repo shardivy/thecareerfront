@@ -264,29 +264,65 @@ const handleDelete = (record) => {
     return <Tag color={color}>{formatted}</Tag>;
   },
 },
-   {
-  title: "Actions",
-  width: 140,
-  render: (_, record) => (
-    <Space size="small">
-      <Button
-        size="large"
-        icon={<EyeOutlined />}
-        onClick={() => {
-          setRescheduleData(record);
-          setModalMode("view");
-          setIsModalOpen(true);
-        }}
-      >
-        View
-      </Button>
 
-      {/* Only show Edit if status is not completed */}
-      {record.status !== "completed" && (
+{
+  title: "Actions",
+  width: 160,
+  render: (_, record) => {
+    // 🔵 If NOT BOOKED → Show only Book Session
+  if (record.status === "not_booked") {
+  return (
+    <Button
+      type="primary"
+      size="large"
+      icon={<PlusOutlined />}
+      onClick={() => {
+        setModalMode("edit");   // ✅ CHANGE HERE
+        setRescheduleData(record);
+        setIsModalOpen(true);
+      }}
+    >
+      Book Session
+    </Button>
+  );
+}
+
+    // 🟢 If COMPLETED → Only View
+    if (record.status === "completed") {
+      return (
         <Button
           size="large"
-          icon={<EditOutlined />}
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setRescheduleData(record);
+            setModalMode("view");
+            setIsModalOpen(true);
+          }}
+        >
+          View
+        </Button>
+      );
+    }
+
+    // 🔵 If BOOKED → View / Edit / Delete
+    return (
+      <Space size="small">
+        <Button
+          size="large"
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setRescheduleData(record);
+            setModalMode("view");
+            setIsModalOpen(true);
+          }}
+        >
+          View
+        </Button>
+
+        <Button
+          size="large"
           type="primary"
+          icon={<EditOutlined />}
           onClick={() => {
             setRescheduleData(record);
             setModalMode("edit");
@@ -295,10 +331,7 @@ const handleDelete = (record) => {
         >
           Edit
         </Button>
-      )}
 
-      {/* Only show Delete if status is not completed */}
-      {record.status !== "completed" && (
         <Button
           size="large"
           danger
@@ -307,10 +340,57 @@ const handleDelete = (record) => {
         >
           Delete
         </Button>
-      )}
-    </Space>
-  ),
+      </Space>
+    );
+  },
 },
+//    {
+//   title: "Actions",
+//   width: 140,
+//   render: (_, record) => (
+//     <Space size="small">
+//       <Button
+//         size="large"
+//         icon={<EyeOutlined />}
+//         onClick={() => {
+//           setRescheduleData(record);
+//           setModalMode("view");
+//           setIsModalOpen(true);
+//         }}
+//       >
+//         View
+//       </Button>
+
+//       {/* Only show Edit if status is not completed */}
+//       {record.status !== "completed" && (
+//         <Button
+//           size="large"
+//           icon={<EditOutlined />}
+//           type="primary"
+//           onClick={() => {
+//             setRescheduleData(record);
+//             setModalMode("edit");
+//             setIsModalOpen(true);
+//           }}
+//         >
+//           Edit
+//         </Button>
+//       )}
+
+//       {/* Only show Delete if status is not completed */}
+//       {record.status !== "completed" && (
+//         <Button
+//           size="large"
+//           danger
+//           icon={<DeleteOutlined />}
+//           onClick={() => handleDelete(record)}
+//         >
+//           Delete
+//         </Button>
+//       )}
+//     </Space>
+//   ),
+// },
   ];
 
   return (

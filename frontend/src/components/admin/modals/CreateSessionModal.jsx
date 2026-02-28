@@ -32,6 +32,8 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
   const [form] = Form.useForm();
   const dispatch = useDispatch();
   const isView = mode === "view";
+  const isBookingMode =
+  mode === "edit" && data?.status === "not_booked";
 
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [primaryCounsellorId, setPrimaryCounsellorId] = useState(null);
@@ -58,31 +60,69 @@ const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? 
   }, [visible, dispatch, isView]);
 
   // ================= PREFILL EDIT / VIEW =================
-  useEffect(() => {
-    if (!visible || !data || mode === "create") return;
-    if (!students.length || !counsellors.length) return;
+  // useEffect(() => {
+  //   if (!visible || !data || mode === "create") return;
+  //   if (!students.length || !counsellors.length) return;
 
-    const lead = data.counsellors?.find((c) => c.role === "lead");
-    const assistant = data.counsellors?.find((c) => c.role === "assistant");
+  //   const lead = data.counsellors?.find((c) => c.role === "lead");
+  //   const assistant = data.counsellors?.find((c) => c.role === "assistant");
 
-    form.setFieldsValue({
-      student: data.student?.id,
-      mode: data.slot?.mode
-        ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
-        : undefined,
-      primaryCounsellor: lead
-        ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
-        : null,
-      secondaryCounsellor: assistant
-        ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
-        : null,
-      date: data.date ? dayjs(data.date) : null,
-    });
+  //   form.setFieldsValue({
+  //     student: data.student?.id,
+  //     mode: data.slot?.mode
+  //       ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
+  //       : undefined,
+  //     primaryCounsellor: lead
+  //       ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
+  //       : null,
+  //     secondaryCounsellor: assistant
+  //       ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
+  //       : null,
+  //     date: data.date ? dayjs(data.date) : null,
+  //   });
 
-    setPrimaryCounsellorId(lead?.counsellor?.id || null);
-    setSelectedDate(data.date ? dayjs(data.date) : null);
-    setSelectedSlot(data.slot || null);
-  }, [visible, data, mode, students, counsellors, form]);
+  //   setPrimaryCounsellorId(lead?.counsellor?.id || null);
+  //   setSelectedDate(data.date ? dayjs(data.date) : null);
+  //   setSelectedSlot(data.slot || null);
+  // }, [visible, data, mode, students, counsellors, form]);
+
+
+
+
+  // ================= PREFILL CREATE / EDIT / VIEW =================
+useEffect(() => {
+  if (!visible || !data) return;
+  if (!students.length || !counsellors.length) return;
+
+  const lead = data.counsellors?.find((c) => c.role === "lead");
+  const assistant = data.counsellors?.find((c) => c.role === "assistant");
+
+  // Determine mode for prefill (from student preference or slot)
+  const prefillMode =
+    data.student?.preferred_counselling_mode?.toLowerCase() === "online"
+      ? "Online"
+      : data.student?.preferred_counselling_mode?.toLowerCase() === "offline"
+      ? "Offline"
+      : data.slot?.mode
+      ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
+      : undefined;
+
+  form.setFieldsValue({
+    student: data.student?.id,
+    mode: prefillMode,
+    primaryCounsellor: lead
+      ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
+      : null,
+    secondaryCounsellor: assistant
+      ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
+      : null,
+    date: data.date ? dayjs(data.date) : null,
+  });
+
+  setPrimaryCounsellorId(lead?.counsellor?.id || null);
+  setSelectedDate(data.date ? dayjs(data.date) : null);
+  setSelectedSlot(data.slot || null);
+}, [visible, data, students, counsellors, form]);
 
   // ================= FETCH SLOTS =================
   useEffect(() => {
@@ -202,8 +242,15 @@ const isSlotExpired = (slot) => {
       <Modal
         open={visible}
         width={820}
-        title={mode === "view" ? "View Counselling Session" : mode === "edit" ? "Edit Counselling Session" : "Create Counselling Session"}
-        onCancel={() => {
+       title={
+  isView
+    ? "View Counselling Session"
+    : isBookingMode
+    ? "Book Counselling Session"
+    : mode === "edit"
+    ? "Edit Counselling Session"
+    : "Create Counselling Session"
+}  onCancel={() => {
   resetModal();
   onClose();
 }}
@@ -213,39 +260,40 @@ const isSlotExpired = (slot) => {
     <Button key="close" onClick={onClose}>
       Close
     </Button>
-  ) : mode === "edit" ? (
-    <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-      {/* Left side: Mark as Completed */}
+) : mode === "edit" ? (
+  <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+    
+    {/* Show Mark as Completed ONLY if not booking mode */}
+    {!isBookingMode && (
       <Button
-  key="mark"
-  type="primary" // must be primary to apply custom color properly
-  onClick={handleMarkCompleted}
-  disabled={data?.status === "completed"}
-  style={{
-    backgroundColor: "#349304", // Ant Design green
-    borderColor: "#52c41a",
-    color: "#fff",
-  }}
->
-  Mark as Completed
-</Button>
+        key="mark"
+        type="primary"
+        onClick={handleMarkCompleted}
+        disabled={data?.status === "completed"}
+        style={{
+          backgroundColor: "#349304",
+          borderColor: "#52c41a",
+          color: "#fff",
+        }}
+      >
+        Mark as Completed
+      </Button>
+    )}
 
-
-      {/* Right side: Cancel and Update */}
-      <div>
-        <Button key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
-          Cancel
-        </Button>
-        <Button
-          key="submit"
-          type="primary"
-          loading={bookingLoading}
-          onClick={handleSubmit}
-        >
-          Update
-        </Button>
-      </div>
+    <div style={{ marginLeft: "auto" }}>
+      <Button key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
+        Cancel
+      </Button>
+      <Button
+        key="submit"
+        type="primary"
+        loading={bookingLoading}
+        onClick={handleSubmit}
+      >
+        {isBookingMode ? "Book Session" : "Update"}
+      </Button>
     </div>
+  </div>
   ) : (
     // Create mode
     <div style={{ display: "flex", justifyContent: "flex-end" }}>

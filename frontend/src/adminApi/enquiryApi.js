@@ -45,3 +45,12 @@ export const updateEnquiryApi = async (payload) => {
   const response = await axiosInstance.patch(`/lead-registeration/leads/${id}/`, data);
   return response.data;
 };
+
+
+// get streams
+export const getStreamsApi = async () => {
+  const response = await axiosInstance.get(
+    "/lead-registeration/streams/"
+  );
+  return response.data;
+};

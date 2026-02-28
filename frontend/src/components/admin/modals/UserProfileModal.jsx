@@ -151,7 +151,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
                 </Tag>
               </Descriptions.Item>
 
-              <Descriptions.Item label="Amount Paid">
+              <Descriptions.Item label="Fees Paid">
                 ₹ {paymentSummary.total_amount_paid || 0} / ₹ {user.price || 0}
                 {user.price > 0 && (
                   <>

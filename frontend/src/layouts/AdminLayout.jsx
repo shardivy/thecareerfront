@@ -33,6 +33,7 @@ import {
   UnorderedListOutlined,
   PhoneFilled,
   NotificationFilled,
+  AppstoreFilled,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
@@ -61,7 +62,8 @@ const AdminLayout = () => {
 
   // Branding label: show 'Counsellor Dashboard' for counsellors and 'Admin Dashboard' otherwise
   const isCounsellorRole = role === "lead_counsellor" || role === "counsellor";
-  const brandingLabel = isCounsellorRole ? "Counsellor Dashboard" : "Admin Dashboard";
+  const isUiUxRole = role === "ui_ux";
+  const brandingLabel = isCounsellorRole ? "Counsellor Dashboard" : isUiUxRole ? "UI/UX Dashboard" : "Admin Dashboard";
 
   // Prefer profile name after profile is loaded/updated; fall back to email
   const profile = useSelector((state) => state.profile.profile);
@@ -112,9 +114,14 @@ const AdminLayout = () => {
     "/s-admin/contentManagement": "Content Management",
     "/s-admin/examManagements": "User Request List",
     "/s-admin/examlist": "Exam List",
-    "/s-admin/employeeList": "Employee List",
+    "/s-admin/employeeList": "User List",
     "/s-admin/notificationManagement": "Notification Management",
     "/s-admin/settings": "Settings",
+
+    "/s-admin/counsellor-dashboard": "Dashboard",
+    "/s-admin/session-history": "Session History",
+
+    "/s-admin/uiux-dashboard": "Dashboard",
 
 
     // "/admin/leadlist": "Lead List",
@@ -136,7 +143,7 @@ const AdminLayout = () => {
 
   /* ===================== MENU ITEMS ===================== */
   const menuItems = [
-    {
+    (role !== "counsellor" && role !== "ui_ux") && {
       key: "/s-admin/dashboard",
       icon: <DashboardFilled />,
       label: "Dashboard",
@@ -146,8 +153,45 @@ const AdminLayout = () => {
       },
       style: { marginBottom: 12, marginTop: 24 },
     },
+
+
+    (role === "counsellor") && {
+      key: "/s-admin/counsellor-dashboard",
+      icon: <DashboardFilled />,
+      label: "Dashboard",
+      onClick: () => {
+        navigate("/s-admin/counsellor-dashboard");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+    (role === "counsellor") && {
+      key: "/s-admin/session-history",
+      icon: <CalendarFilled />,
+      label: "Session History",
+      onClick: () => {
+        navigate("/s-admin/session-history");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+    // (role === "admin" || role === "superadmin") && {
+    (role === "ui_ux") && {
+      key: "/s-admin/uiux-dashboard",
+      icon: <DashboardFilled />,
+      label: "Dashboard",
+      onClick: () => {
+        navigate("/s-admin/uiux-dashboard");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+
     /* ================= ADMIN / SUPERADMIN ONLY ================= */
-  (role === "admin" || role === "superadmin") && {
+    (role === "admin" || role === "superadmin") && {
       key: "/s-admin/enquiry-leads",
       icon: <FileTextFilled />,
       label: "Enquiry & Leads",
@@ -158,10 +202,10 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
- (role === "admin" || role === "superadmin" || role === "lead_counsellor" || role === "counsellor" ) && {
+    (role === "admin" || role === "superadmin" || role === "lead_counsellor") && {
       key: "/s-admin/users",
       icon: <TeamOutlined />,
-      label: "Users",
+      label: "Students Enrolled",
       onClick: () => {
         navigate("/s-admin/users");
         setDrawerVisible(false);
@@ -169,7 +213,7 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
-  (role === "admin" || role === "superadmin") && {
+    (role === "admin" || role === "superadmin") && {
       key: "/s-admin/programs",
       icon: <BookFilled />,
       label: "Program & Services",
@@ -180,7 +224,7 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
-  (role === "admin" || role === "superadmin") && {
+    (role === "admin" || role === "superadmin") && {
       key: "/s-admin/paymentmanagement",
       icon: <CreditCardFilled />,
       label: "Payments",
@@ -191,10 +235,15 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
-  (role === "admin" || role === "superadmin") && {
+    (role === "admin" || role === "superadmin") && {
       key: "exam-management",
       icon: <CalendarFilled />,
-      label: "Exam Management",
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Aptitude Test</div>
+          <div>Management</div>
+        </div>
+      ),
       children: [
         {
           key: "/s-admin/examlist",
@@ -206,7 +255,7 @@ const AdminLayout = () => {
           },
         },
 
-    (role === "admin" || role === "superadmin") && {
+        (role === "admin" || role === "superadmin") && {
           key: "/s-admin/examManagements",
           icon: <SolutionOutlined />,
           label: "User Request List",
@@ -220,10 +269,10 @@ const AdminLayout = () => {
     },
 
 
-  (role === "admin" || role === "superadmin") && {
+    (role === "admin" || role === "superadmin") && {
       key: "/s-admin/reportsmanagement",
       icon: <FileTextFilled />,
-      label: "Report Management",
+      label: "Aptitude Test Reports",
       onClick: () => {
         navigate("/s-admin/reportsmanagement");
         setDrawerVisible(false);
@@ -231,10 +280,17 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
-  (role === "admin" || role === "superadmin") && {
+    (role === "admin" || role === "superadmin") && {
       key: "slot-booking",
       icon: <CalendarFilled />,
-      label: "Slot Management",
+      // label: "Counselling Slot Booking",
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Counselling</div>
+          <div>Slot Booking</div>
+        </div>
+      ),
+
       children: [
         {
           key: "/s-admin/createslot",
@@ -257,49 +313,49 @@ const AdminLayout = () => {
       ],
     },
 
-  // (role === "admin" || role === "superadmin") &&
-  //   {
-  //     key: "/admin/followupManagement",
-  //     icon: <PhoneFilled />,
-  //     label: "Follow-Up Management",
-  //     onClick: () => {
-  //       navigate("/admin/followupManagement");
-  //       setDrawerVisible(false);
-  //     },
-  //     style: { marginBottom: 12 },
-  //   },
+    // (role === "admin" || role === "superadmin") &&
+    //   {
+    //     key: "/s-admin/followupManagement",
+    //     icon: <PhoneFilled />,
+    //     label: "Follow-Up Management",
+    //     onClick: () => {
+    //       navigate("/s-admin/followupManagement");
+    //       setDrawerVisible(false);
+    //     },
+    //     style: { marginBottom: 12 },
+    //   },
 
-  //   (role === "admin" || role === "superadmin") && {
-  //     key: "/admin/content-management",
-  //     icon: <BookFilled />,
-  //     label: "Content Management",
-  //     onClick: () => {
-  //       navigate("/admin/contentManagement");
-  //       setDrawerVisible(false);
-  //     },
-  //     style: { marginBottom: 12 },
-  //   },
+    (role === "admin" || role === "superadmin" || role === "ui_ux") && {
+      key: "/s-admin/content-management",
+      icon: <BookFilled />,
+      label: "Content Management",
+      onClick: () => {
+        navigate("/s-admin/contentManagement");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
 
-  // (role === "admin" || role === "superadmin") &&{
-  //     key: "/admin/notificationManagement",
-  //     icon: <NotificationFilled />,
-  //     label: "Notification Management",
-  //     onClick: () => {
-  //       navigate("/admin/notificationManagement");
-  //       setDrawerVisible(false);
-  //     },
-  //     style: { marginBottom: 12 },
-  //   },
+    // (role === "admin" || role === "superadmin") &&{
+    //     key: "/s-admin/notificationManagement",
+    //     icon: <NotificationFilled />,
+    //     label: "Notification Management",
+    //     onClick: () => {
+    //       navigate("/s-admin/notificationManagement");
+    //       setDrawerVisible(false);
+    //     },
+    //     style: { marginBottom: 12 },
+    //   },
 
-      (role === "admin" || role === "superadmin") && {
-      key: "employee-management",
+    (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/userManagement",
       icon: <TeamOutlined />,
-      label: "Employee Management",
+      label: "User Management",
       children: [
         {
           key: "/s-admin/employeeList",
           icon: <UnorderedListOutlined />,
-          label: "Employee List",
+          label: "User List",
           onClick: () => {
             navigate("/s-admin/employeeList");
             setDrawerVisible(false);
@@ -308,16 +364,16 @@ const AdminLayout = () => {
       ],
     },
 
-  //    (role === "lead_counsellor" || role === "counsellor") &&{
-  //   key: "/admin/leadlist",
-  //   icon: <UnorderedListOutlined />,
-  //   label: "Lead List",
-  //   onClick: () => {
-  //     navigate("/admin/leadlist");
-  //     setDrawerVisible(false);
-  //   },
-  //   style: { marginBottom: 12 },
-  // },
+    //    (role === "lead_counsellor" || role === "counsellor") &&{
+    //   key: "/admin/leadlist",
+    //   icon: <UnorderedListOutlined />,
+    //   label: "Lead List",
+    //   onClick: () => {
+    //     navigate("/admin/leadlist");
+    //     setDrawerVisible(false);
+    //   },
+    //   style: { marginBottom: 12 },
+    // },
 
 
 
@@ -579,17 +635,17 @@ const AdminLayout = () => {
                 </span>
               </Dropdown> */}
 
-               <span>
-    <Badge count={unreadCount} size="small">
-      <BellOutlined
-        style={{
-          fontSize: 20,
-          cursor: "default",
-          opacity: 0.6,   // optional: show disabled look
-        }}
-      />
-    </Badge>
-  </span>
+              <span>
+                <Badge count={unreadCount} size="small">
+                  <BellOutlined
+                    style={{
+                      fontSize: 20,
+                      cursor: "default",
+                      opacity: 0.6,   // optional: show disabled look
+                    }}
+                  />
+                </Badge>
+              </span>
 
               {/* 👤 USER */}
               <Dropdown menu={userMenu} trigger={["click"]}>

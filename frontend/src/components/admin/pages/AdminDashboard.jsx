@@ -1,27 +1,111 @@
-// src/pages/AdminDashboard.jsx
-import React from "react";
-import { Row, Col, Card, Typography, Table, Tag } from "antd";
+import React, { useEffect, useState } from "react";
+import { Row, Col, Card, Typography, Table, Tag, Spin, Alert, Space, Select } from "antd";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title as ChartTitle, Tooltip, Legend, ArcElement } from "chart.js";
-import { Bar, Pie } from "react-chartjs-2";
+import { Bar, Doughnut } from "react-chartjs-2";
 import { FileTextOutlined, TeamOutlined, CalendarOutlined, CreditCardOutlined } from "@ant-design/icons";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchDashboardStats, fetchLeadStats } from "../../../adminSlices/dashboardSlice";
 
 import adminTheme from "../../../theme/adminTheme";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, ChartTitle, Tooltip, Legend);
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const AdminDashboard = () => {
+  const dispatch = useDispatch();
+ const { stats: dashboardStats, leadStats, loading, error } =
+  useSelector((state) => state.dashboard);
+
+  const [chartPeriod, setChartPeriod] = useState("monthly"); // Weekly / Monthly / Yearly
+
+useEffect(() => {
+  dispatch(fetchDashboardStats());
+  dispatch(fetchLeadStats(chartPeriod));
+}, [dispatch, chartPeriod]);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div style={{
+        padding: 24,
+        textAlign: 'center',
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <Spin size="large" tip="Loading dashboard data..." />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div style={{ padding: 24, minHeight: '100vh' }}>
+        <Alert
+          message="Error Loading Dashboard"
+          description={error}
+          type="error"
+          showIcon
+        />
+      </div>
+    );
+  }
+
   // =================== SUMMARY STATS ===================
   const stats = [
-    { title: "Total Enquiries", value: 482, change: "+12.5%", icon: <FileTextOutlined /> },
-    { title: "Registered Users", value: 342, change: "+8.2%", icon: <TeamOutlined /> },
-    { title: "Payment Pending", value: 28, change: "", icon: <CreditCardOutlined /> },
-    { title: "Today's Sessions", value: 12, change: "5 completed, 7 scheduled", icon: <CalendarOutlined /> },
-    { title: "Exams Pending", value: 15, change: "", icon: <CalendarOutlined /> },
-    { title: "Exams Completed", value: 127, change: "", icon: <CalendarOutlined /> },
-    { title: "Follow-Ups Due", value: 23, change: "", icon: <FileTextOutlined /> },
-    { title: "Reports Pending", value: 8, change: "", icon: <FileTextOutlined /> },
+    {
+      title: "Total Enquiries",
+      value: dashboardStats?.leads?.total_leads || 0,
+      converted: dashboardStats?.leads?.total_converted || 0,
+      nonConverted: dashboardStats?.leads?.total_enquiry || 0,
+      icon: <FileTextOutlined />,
+    },
+    {
+      title: "Registered Students",
+      value: dashboardStats?.students?.registered_students || 0,
+      icon: <TeamOutlined />,
+    },
+    {
+      title: "Expected Revenue",
+      value: `₹${dashboardStats?.payments?.total_expected || 0}`,
+      icon: <CreditCardOutlined />,
+    },
+    {
+      title: "Total Collected",
+      value: `₹${dashboardStats?.payments?.total_collected || 0}`,
+      icon: <CreditCardOutlined />,
+    },
+    {
+      title: "Today's Sessions",
+      value: dashboardStats?.today_sessions?.total || 0,
+      booked: dashboardStats?.today_sessions?.booked || 0,
+      completed: dashboardStats?.today_sessions?.completed || 0,
+      icon: <CalendarOutlined />,
+    },
+    {
+      title: "Exam Applicants",
+      value: dashboardStats?.user_exams?.total || 0,
+      inProgress: dashboardStats?.user_exams?.in_progress || 0,
+      completed: dashboardStats?.user_exams?.completed || 0,
+      icon: <CalendarOutlined />,
+    },
+    {
+      title: "Reports",
+      value: dashboardStats?.reports?.pending_uploaded || 0,
+      uploadPending: dashboardStats?.reports?.pending_uploaded || 0,
+      icon: <FileTextOutlined />,
+    },
+    {
+      title: "Total Content",
+      value: dashboardStats?.content?.total || 0,
+      free: dashboardStats?.content?.free || 0,
+      premium: dashboardStats?.content?.premium || 0,
+      icon: <FileTextOutlined />,
+    },
   ];
 
   // =================== CHART DATA ===================
@@ -29,26 +113,74 @@ const AdminDashboard = () => {
     labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
     datasets: [
       {
-        label: "Enquiries",
+        label: "Total Enquiries",
         data: [62, 58, 78, 75, 92, 98],
         backgroundColor: adminTheme.token.colorPrimary,
+        barThickness: 40,
+        maxBarThickness: 50,
+      },
+      {
+        label: "Converted",
+        data: [30, 25, 40, 38, 50, 55],
+        backgroundColor: adminTheme.token.colorSuccess,
+        barThickness: 40,
+        maxBarThickness: 50,
       },
     ],
   };
 
-  const enquirySources = {
-    labels: ["Website", "WhatsApp", "Call", "Walk-in"],
+const getEnquiriesData = () => {
+  if (!leadStats) {
+    return {
+      labels: [],
+      datasets: [],
+    };
+  }
+
+  return {
+    labels: leadStats.labels || [],
     datasets: [
       {
-        data: [45, 30, 15, 10],
+        label: "Total Enquiries",
+        data: leadStats.total || [],
+        backgroundColor: adminTheme.token.colorPrimary,
+        barThickness: 40,
+        maxBarThickness: 50,
+      },
+      {
+        label: "Total Converted",
+        data: leadStats.converted || [],
+        backgroundColor: adminTheme.token.colorSuccess,
+        barThickness: 40,
+        maxBarThickness: 50,
+      },
+    ],
+  };
+};
+
+  const paymentComparison = {
+    labels: ["Expected Revenue", "Collected Revenue"],
+    datasets: [
+      {
+        data: [
+          dashboardStats?.payments?.total_expected || 0,
+          dashboardStats?.payments?.total_collected || 0,
+        ],
         backgroundColor: [
           adminTheme.token.colorPrimary,
           adminTheme.token.colorSuccess,
-          adminTheme.token.colorWarning,
-          adminTheme.token.colorInfo,
         ],
       },
     ],
+  };
+
+  const paymentChartOptions = {
+    cutout: "50%",
+    responsive: true,
+    plugins: {
+      legend: { position: "bottom" },
+      tooltip: { enabled: true },
+    },
   };
 
   // =================== RECENT ACTIVITIES ===================
@@ -82,9 +214,6 @@ const AdminDashboard = () => {
   return (
     <div style={{ padding: 1, minHeight: "100vh" }}>
       <Title level={3} style={{ color: adminTheme.token.colorTextBase }}>Dashboard</Title>
-      {/* <Text style={{ color: adminTheme.token.colorTextSecondary }}>
-        Welcome back! Here's what's happening today.
-      </Text> */}
 
       {/* =================== SUMMARY CARDS =================== */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
@@ -101,7 +230,6 @@ const AdminDashboard = () => {
                 boxShadow: adminTheme.token.boxShadow,
               }}
             >
-              {/* ICON + TITLE */}
               <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
                 <span style={{ fontSize: 24, color: adminTheme.token.colorPrimary, marginRight: 8 }}>
                   {item.icon}
@@ -110,14 +238,62 @@ const AdminDashboard = () => {
                   {item.title}
                 </Text>
               </div>
-
-              {/* VALUE */}
               <Title level={3} style={{ margin: "4px 0", color: adminTheme.token.colorTextBase }}>
                 {item.value}
               </Title>
 
-              {/* CHANGE */}
-              {item.change && <Text style={{ color: adminTheme.token.colorSuccess }}>{item.change}</Text>}
+              {/* CONDITIONAL DETAILS */}
+              {item.title === "Total Enquiries" && (
+                <Space size="large" style={{ marginTop: 6 }}>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    Converted: {item.converted}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    Non-Converted: {item.nonConverted}
+                  </Text>
+                </Space>
+              )}
+
+              {item.title === "Today's Sessions" && (
+                <Space size="large" style={{ marginTop: 6 }}>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    Completed: {item.completed}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    Booked: {item.booked}
+                  </Text>
+                </Space>
+              )}
+
+              {item.title === "Exam Applicants" && (
+                <Space size="large" style={{ marginTop: 6 }}>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    In Progress: {item.inProgress}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    Completed: {item.completed}
+                  </Text>
+                </Space>
+              )}
+
+              {item.title === "Total Content" && (
+                <Space size="large" style={{ marginTop: 6 }}>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    Free: {item.free}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    Premium: {item.premium}
+                  </Text>
+                </Space>
+              )}
+
+              {item.title === "Reports" && (
+  <Space size="large" style={{ marginTop: 6 }}>
+    <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+      Pending Upload: {item.uploadPending}
+    </Text>
+  </Space>
+)}
             </Card>
           </Col>
         ))}
@@ -127,18 +303,38 @@ const AdminDashboard = () => {
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24} md={16}>
           <Card
-            title="Monthly Enquiries"
+            title={
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Monthly Enquiries</span>
+                <Select
+                  value={chartPeriod}
+                  onChange={(value) => setChartPeriod(value)}
+                  options={[
+                    { label: "Weekly", value: "weekly" },
+                    { label: "Monthly", value: "monthly" },
+                    { label: "Yearly", value: "yearly" },
+                  ]}
+                  size="small"
+                  style={{ width: 120 }}
+                />
+              </div>
+            }
             style={{ borderRadius: adminTheme.token.borderRadius, boxShadow: adminTheme.token.boxShadow }}
           >
-            <Bar data={monthlyEnquiries} />
+            <Bar data={getEnquiriesData()} />
           </Card>
         </Col>
+
         <Col xs={24} md={8}>
           <Card
-            title="Enquiry Sources"
-            style={{ borderRadius: adminTheme.token.borderRadius, boxShadow: adminTheme.token.boxShadow }}
+            title="Payment Comparison"
+            style={{
+              borderRadius: adminTheme.token.borderRadius,
+              boxShadow: adminTheme.token.boxShadow,
+              height: 440,
+            }}
           >
-            <Pie data={enquirySources} />
+            <Doughnut data={paymentComparison} options={paymentChartOptions} />
           </Card>
         </Col>
       </Row>

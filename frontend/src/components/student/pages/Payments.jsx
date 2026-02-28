@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Row,
@@ -20,57 +20,57 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 
-import UploadPaymentModal from "../modals/UploadPaymentModal"; 
+import UploadPaymentModal from "../modals/UploadPaymentModal";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchStudentPaymentHistory, fetchStudentPaymentProgress } from "../../../adminSlices/paymentSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 
-
-/* ===================== MOCK DATA ===================== */
-const summaryData = {
-  totalFee: 20000,
-  paidAmount: 10000,
-  dueAmount: 10000,
-};
-
-const invoiceData = [
-  {
-    key: "1",
-    srNo: 1,
-    package: "Basic",
-    amount: 499,
-    status: "Paid",
-    date: "10 Jan 2026",
-  },
-  {
-    key: "2",
-    srNo: 2,
-    package: "Standard",
-    amount: 5999,
-    status: "Paid",
-    date: "25 Jan 2026",
-  },
-  {
-    key: "3",
-    srNo: 3,
-    package: "Premium",
-    amount: 9999,
-    status: "Due",
-    date: "15 Feb 2026",
-  },
-];
-
 /* ===================== COMPONENT ===================== */
 const Payments = () => {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
-  const navigate = useNavigate();
-
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+
+  const { historyList, historyLoading } = useSelector(
+    (state) => state.payment
+  );
+
+  const { progressData, progressLoading } = useSelector(
+    (state) => state.payment
+  );
+
+  const totalFee = Number(progressData?.package_price) || 0;
+  const paidAmount = Number(progressData?.total_paid) || 0;
+  const dueAmount = Number(progressData?.remaining_amount) || 0;
+
+  const summaryData = {
+    totalFee,
+    paidAmount,
+    dueAmount,
+  };
 
   const paymentProgress =
-    (summaryData.paidAmount / summaryData.totalFee) * 100;
+    totalFee > 0 ? Math.min((paidAmount / totalFee) * 100, 100) : 0;
+
+
+  useEffect(() => {
+    const studentId = localStorage.getItem("studentId");
+
+    console.log("Student ID from localStorage:", studentId);
+
+    if (studentId) {
+      dispatch(fetchStudentPaymentHistory(studentId));
+      dispatch(fetchStudentPaymentProgress(studentId));
+    }
+  }, [dispatch]);
+
+
 
   const handleUploadPaymentClick = () => {
     setIsUploadModalOpen(true);
@@ -85,6 +85,36 @@ const Payments = () => {
     console.log("Payment uploaded successfully");
   };
 
+  const truncateAfterFive = (text = "") => {
+    if (!text) return "-";
+    return text.length > 5 ? `${text.slice(0, 5)}...` : text;
+  };
+
+
+  const formattedHistory = historyList.map((item, index) => {
+    const rawDate = item.payment_date || item.created_at;
+
+    return {
+      key: item.id || index,
+      srNo: index + 1,
+      program: item.program_name || item.program || "N/A",
+      package: item.package_name || item.package || "-",
+      paidAmount: item.amount || 0,
+      packagePrice: item.package_price || 0,
+      status:
+        item.status === "paid" || item.status === "verified"
+          ? "Paid"
+          : item.status === "partial_paid"
+            ? "partial_paid"
+            : "not_paid",
+      paymentMethod: item.method || "-",
+      date: rawDate
+        ? new Date(rawDate).toLocaleDateString("en-IN")
+        : "-",
+      txn: item.transaction_id || "-",
+    };
+  });
+
   /* ===================== TABLE COLUMNS ===================== */
   const columns = [
     {
@@ -94,16 +124,75 @@ const Payments = () => {
       width: 80,
     },
     {
-      title: "Package",
-      dataIndex: "package",
-      key: "package",
-      ellipsis: true,
+      title: "Program / Counselling Service",
+      width: 220,
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.program || "N/A"}</Text>
+          <br />
+          <Text
+            type="colortextSecondary"
+          >
+            {record.package || "-"}
+          </Text>
+        </div>
+      ),
     },
     {
-      title: "Amount (₹)",
-      dataIndex: "amount",
-      key: "amount",
-      render: (amt) => <Text strong>₹{amt}</Text>,
+      title: "Amount",
+      render: (_, record) => {
+        const paid = record.paidAmount || 0;
+        const total = record.packagePrice || 0;
+
+        return (
+          <span>
+            ₹{paid.toLocaleString("en-IN")}
+            <Text type="colorTextSecondary">
+              {" "}
+              / ₹{total.toLocaleString("en-IN")}
+            </Text>
+          </span>
+        );
+      },
+    },
+    {
+      title: "Status",
+      dataIndex: "status",
+      key: "status",
+      render: (status) => {
+        if (status === "fully_paid") {
+          return (
+            <Tag color="green" icon={<CheckCircleOutlined />}>
+              Fully Paid
+            </Tag>
+          );
+        }
+
+        if (status === "partial_paid") {
+          return (
+            <Tag color="orange" icon={<ClockCircleOutlined />}>
+              Partial Paid
+            </Tag>
+          );
+        }
+
+        if (status === "not_paid") {
+          return (
+            <Tag color="red" icon={<ClockCircleOutlined />}>
+              Due
+            </Tag>
+          );
+        }
+
+        return <Tag>{status}</Tag>;
+      },
+    },
+
+    {
+      title: "Payment Method",
+      dataIndex: "paymentMethod",
+      render: (method) =>
+        method === "-" ? <Text type="colorTextSecondary">-</Text> : <Tag>{method}</Tag>,
     },
     {
       title: "Date",
@@ -112,33 +201,23 @@ const Payments = () => {
       responsive: ["md"],
     },
     {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (status) =>
-        status === "Paid" ? (
-          <Tag color="green" icon={<CheckCircleOutlined />}>
-            Paid
-          </Tag>
-        ) : (
-          <Tag color="red" icon={<ClockCircleOutlined />}>
-            Due
-          </Tag>
-        ),
+      title: "Transaction ID",
+      dataIndex: "txn",
+      render: (txn) => truncateAfterFive(txn),
     },
     {
       title: "Action",
       key: "action",
       render: (_, record) =>
-        record.status === "Due" ? (
+        record.status === "not_paid" ? (
           <Button
-  type="primary"
-  size={isMobile ? "small" : "middle"}
-  icon={<CreditCardOutlined />}
-  onClick={() => navigate("/student/payment-page")}
->
-  {isMobile ? "Pay Now" : "Pay Now"}
-</Button>
+            type="primary"
+            size={isMobile ? "small" : "middle"}
+            icon={<CreditCardOutlined />}
+            onClick={() => navigate("/student/payment-page")}
+          >
+            {isMobile ? "Pay Now" : "Pay Now"}
+          </Button>
 
         ) : (
           <Button
@@ -151,13 +230,15 @@ const Payments = () => {
     },
   ];
 
+
+
   return (
     <div style={{ padding: isMobile ? 12 : 24 }}>
       {/* ===================== HEADER ===================== */}
       <Row justify="center">
         <Col>
           <Title
-            level={isMobile ? 4 : 3}
+            level={isMobile ? 4 : 2}
             style={{ margin: 5, textAlign: "center" }}
           >
             Payments
@@ -231,8 +312,8 @@ const Payments = () => {
       >
         <Table
           columns={columns}
-          dataSource={invoiceData}
-          pagination={false}
+          dataSource={formattedHistory}
+          loading={historyLoading}
           size={isMobile ? "small" : "middle"}
           scroll={{ x: "max-content" }}
         />

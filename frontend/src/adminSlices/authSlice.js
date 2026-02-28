@@ -39,6 +39,7 @@ const authSlice = createSlice({
     error: null,
     success: false,
     successMessage: null, 
+    complete_profile: null,
   },
   reducers: {
     logout: (state) => {
@@ -61,8 +62,10 @@ const authSlice = createSlice({
         state.success = true;
 
         state.user = action.payload.user || null;
-
         state.accessToken = action.payload.access;
+
+          // ✅ STORE COMPLETE PROFILE
+        state.complete_profile = action.payload.complete_profile;
 
         // ✅ store backend message
         state.successMessage = action.payload.message || "Login successful";

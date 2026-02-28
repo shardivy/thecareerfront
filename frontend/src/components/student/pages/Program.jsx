@@ -19,7 +19,7 @@ import {
 import antdTheme from "../../../theme/antdTheme";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchPrograms } from "../../../adminSlices/programSlice";
+import { fetchActivePrograms } from "../../../adminSlices/programSlice";
 import { fetchPackagesByProgram, clearPackages } from "../../../adminSlices/packageSlice";
 
 const { Title, Text } = Typography;
@@ -55,13 +55,13 @@ const Program = () => {
   const screens = useBreakpoint();
   const dispatch = useDispatch();
 
-  const { list: programsList, loading } = useSelector((state) => state.programs);
+  const { activeList: programsList, loading } = useSelector((state) => state.programs);
   const { list: packageList, loading: packageLoading } = useSelector((state) => state.packages);
   const profile = useSelector((state) => state.profile?.profile);
 
   // ================= FETCH PROGRAMS =================
   useEffect(() => {
-    dispatch(fetchPrograms());
+    dispatch(fetchActivePrograms());
   }, [dispatch]);
 
   // ================= LOAD SELECTED PROGRAM FROM PROFILE OR LOCALSTORAGE =================
@@ -190,7 +190,7 @@ const Program = () => {
   return (
     <div
       style={{
-        padding: screens.xs ? "20px 16px" : "40px 20px",
+        padding: screens.xs ? "20px 16px" : "20px 20px",
         maxWidth: "1200px",
         margin: "0 auto",
         fontFamily: token.fontFamily,

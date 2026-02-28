@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
-import { Modal, Form, Input, Button, Select } from "antd";
+import { Modal, Form, Input, Button, Select, Switch } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchPackages } from "../../../adminSlices/packageSlice";
+import { fetchActivePrograms } from "../../../adminSlices/programSlice";
 
 const { Option } = Select;
 
@@ -10,11 +11,13 @@ const AddPackageModal = ({
   onClose,
   onSubmit,
   initialValues,
-  programs = [],
   viewMode = false,
 }) => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
+
+const programs = useSelector((state) => state.programs.activeList);
+const programsLoading = useSelector((state) => state.programs.loading);
 
   const { list: packages, loading } = useSelector((state) => state.packages);
 
@@ -24,6 +27,12 @@ const AddPackageModal = ({
       dispatch(fetchPackages());
     }
   }, [visible, packages.length, dispatch]);
+
+  useEffect(() => {
+  if (visible) {
+    dispatch(fetchActivePrograms());
+  }
+}, [visible, dispatch]);
 
   // Prefill form (Edit / View)
   useEffect(() => {
@@ -36,6 +45,8 @@ const AddPackageModal = ({
         features: Array.isArray(initialValues.features)
           ? initialValues.features.map((f) => f.description)
           : [],
+        aptitude_test:
+          initialValues.aptitude_test ?? false,
       });
     } else {
       form.resetFields();
@@ -53,8 +64,8 @@ const AddPackageModal = ({
         viewMode
           ? "View Counselling Service"
           : initialValues
-          ? "Edit Counselling Service"
-          : "Create Counselling Service"
+            ? "Edit Counselling Service"
+            : "Create Counselling Service"
       }
       open={visible}
       onCancel={onClose}
@@ -65,16 +76,16 @@ const AddPackageModal = ({
       <Form layout="vertical" form={form} onFinish={handleFinish}>
 
         {/* PACKAGE NAME */}
-      <Form.Item
-  label="Counselling Service"
-  name="name"
-  rules={[{ required: true, message: "Please enter counselling service name" }]}
->
-  <Input
-    placeholder="Enter counselling service name"
-    disabled={viewMode}
-  />
-</Form.Item>
+        <Form.Item
+          label="Counselling Service"
+          name="name"
+          rules={[{ required: true, message: "Please enter counselling service name" }]}
+        >
+          <Input
+            placeholder="Enter counselling service name"
+            disabled={viewMode}
+          />
+        </Form.Item>
 
         {/* DESCRIPTION */}
         <Form.Item
@@ -98,11 +109,11 @@ const AddPackageModal = ({
           name="program_id"
           rules={[{ required: true, message: "Please select a program" }]}
         >
-          <Select
-            placeholder="Select program"
-            disabled={viewMode}
-            loading={loading}
-          >
+         <Select
+  placeholder={programsLoading ? "Loading programs..." : "Select program"}
+  disabled={viewMode}
+  loading={programsLoading}
+>
             {programs.map((prog) => (
               <Option key={prog.id} value={prog.id}>
                 {prog.name}
@@ -138,6 +149,19 @@ const AddPackageModal = ({
           />
         </Form.Item>
 
+        {/* APTITUDE TEST TOGGLE */}
+        <Form.Item
+          label="Aptitude Test Availability"
+          name="aptitude_test"
+          valuePropName="checked"
+        >
+          <Switch
+            checkedChildren="Available"
+            unCheckedChildren="Unavailable"
+            disabled={viewMode}
+          />
+        </Form.Item>
+
         {/* ACTION BUTTONS */}
         {!viewMode && (
           <Form.Item>
@@ -155,6 +179,8 @@ const AddPackageModal = ({
             </div>
           </Form.Item>
         )}
+
+
 
       </Form>
     </Modal>

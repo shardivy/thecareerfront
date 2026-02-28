@@ -190,7 +190,7 @@ const EmployeeList = () => {
     <>
       <Row justify="space-between" align="middle" gutter={[16, 16]} style={{ marginBottom: 16 }}>
         <Col xs={24} sm={12}>
-          <Title level={3} style={{ margin: 0 }}>Employee List</Title>
+          <Title level={3} style={{ margin: 0 }}>User List</Title>
         </Col>
         <Col xs={24} sm={12} style={{ textAlign: "right" }}>
           <Button
@@ -198,7 +198,7 @@ const EmployeeList = () => {
             icon={<PlusOutlined />}
             onClick={() => { setModalMode("add"); setEditingEmployee(null); setIsModalOpen(true); }}
           >
-            Add Employee
+            Add User
           </Button>
         </Col>
       </Row>

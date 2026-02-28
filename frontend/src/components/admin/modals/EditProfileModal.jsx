@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { Modal, Form, Input, Select, Button, Row, Col, message } from "antd";
-import { updateProfile } from "../../../adminSlices/profileSlice";
+import { updateProfile,getProfile } from "../../../adminSlices/profileSlice";
 
 const { Option } = Select;
 
@@ -35,6 +35,7 @@ const EditProfileModal = ({ visible, onClose, userData }) => {
       await dispatch(updateProfile(payload)).unwrap();
 
       message.success("Profile updated successfully");
+      dispatch(getProfile(payload)); // Update Redux state with new profile data
       onClose();
     } catch (err) {
       message.error(err?.message || "Validation failed");

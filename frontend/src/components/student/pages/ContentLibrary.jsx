@@ -119,33 +119,33 @@ const ContentLibrary = () => {
   const [accessLevel, setAccessLevel] = useState("All"); // ✅ NEW
 
   const filteredData = contentData.filter((item) => {
-  return (
-    item.title.toLowerCase().includes(search.toLowerCase()) &&
-    (type === "All" || item.type === type) &&
-    (accessLevel === "All" || item.accessType === accessLevel)
-  );
-});
+    return (
+      item.title.toLowerCase().includes(search.toLowerCase()) &&
+      (type === "All" || item.type === type) &&
+      (accessLevel === "All" || item.accessType === accessLevel)
+    );
+  });
 
 
   const handleView = (item) => {
-  if (item.accessType === "Premium") return;
-  window.open(item.viewUrl, "_blank");
-};
+    if (item.accessType === "Premium") return;
+    window.open(item.viewUrl, "_blank");
+  };
 
-const handleDownload = (item) => {
-  if (item.accessType === "Premium" || !item.downloadUrl) return;
+  const handleDownload = (item) => {
+    if (item.accessType === "Premium" || !item.downloadUrl) return;
 
-  const link = document.createElement("a");
-  link.href = item.downloadUrl;
-  link.download = "";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+    const link = document.createElement("a");
+    link.href = item.downloadUrl;
+    link.download = "";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
 
   return (
-    <div style={{ padding: "40px 20px" }}>
+    <div style={{ padding: "20px 20px" }}>
       {/* HEADER */}
       <div style={{ textAlign: "center", marginBottom: 32 }}>
         <Title level={2}>Content Library</Title>
@@ -167,7 +167,7 @@ const handleDownload = (item) => {
           />
         </Col>
 
-  
+
         {/* TYPE */}
         <Col xs={24} sm={12} md={4}>
           <Select size="large" value={type} onChange={setType} style={{ width: "100%" }}>

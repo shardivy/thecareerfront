@@ -31,7 +31,7 @@ import {
   updateEnquiry,
   clearUpdateState,
 } from "../../../adminSlices/updateEnquirySlice";
-import { fetchPrograms } from "../../../adminSlices/programSlice";
+import { fetchActivePrograms } from "../../../adminSlices/programSlice";
 import { fetchPackagesByProgram } from "../../../adminSlices/packageSlice";
 import { fetchEnquiries } from "../../../adminSlices/enquiryListSlice";
 
@@ -49,9 +49,10 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState(null);
 
-  const { list: programs = [], loading: programLoading } = useSelector(
-    (state) => state.programs
-  );
+  const { activeList: programs = [], loading: programsLoading } = useSelector(
+  (state) => state.programs
+);
+  const activePrograms = useSelector((state) => state.programs.activeList);
 
   const { list: packages = [], loading: packagesLoading } = useSelector(
     (state) => state.packages
@@ -80,7 +81,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
   /* ================= FETCH PROGRAMS ================= */
   useEffect(() => {
     if (open) {
-      dispatch(fetchPrograms());
+      dispatch(fetchActivePrograms());
     }
   }, [open, dispatch]);
 
@@ -349,7 +350,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                   rules={[{ required: true }]}
                 >
                   <Select
-                    loading={programLoading}
+                    loading={programsLoading}
                     onChange={handleProgramChange}
                     disabled={isConvert}
                   >
@@ -417,6 +418,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                         <Option value="Commerce">Commerce</Option>
                         <Option value="Arts">Arts</Option>
                         <Option value="BBA">BBA</Option>
+                        <Option value="UG">UG</Option>
                         <Option value="Others">Others</Option>
 
                       </Select>
@@ -459,7 +461,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                   <Col xs={24} sm={12}>
                     <Form.Item
                       name="amount"
-                      label="Amount"
+                      label="Fees Paid"
                       dependencies={["package"]}
                       rules={[
                         { required: true, message: "Please enter amount" },

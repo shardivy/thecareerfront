@@ -80,6 +80,8 @@ const ContentManagement = () => {
     },
   ]);
 
+  const [drafts, setDrafts] = useState([]);
+
   const { token } = theme.useToken();
 
   // STATS
@@ -106,10 +108,16 @@ const ContentManagement = () => {
       value: dataSource.reduce((sum, i) => sum + i.downloads, 0),
       icon: <DownloadOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
     },
+    {
+      title: "Drafts",
+      value: drafts.length,
+      subtitle: "Unsaved content",
+      icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+    },
   ];
 
-  // FILTERED DATA BASED ON TAB + SEARCH + OTHER FILTERS
-  const filteredDataSource = dataSource.filter((item) => {
+  // FILTERED DATA
+  const filteredDataSource = (activeTab === "drafts" ? drafts : dataSource).filter((item) => {
     const matchesTab =
       activeTab === "all"
         ? true
@@ -119,6 +127,8 @@ const ContentManagement = () => {
         ? item.type === "Video"
         : activeTab === "guides"
         ? item.category === "Guide"
+        : activeTab === "drafts"
+        ? true
         : true;
 
     const matchesSearch = Object.values(item)
@@ -128,17 +138,9 @@ const ContentManagement = () => {
     const matchesCategory = !categoryFilter || item.category === categoryFilter;
     const matchesType = !typeFilter || item.type === typeFilter;
     const matchesAccess = !accessFilter || item.access === accessFilter;
-    const matchesDate =
-      !dateFilter || dayjs(item.date).isSame(dayjs(dateFilter), "day");
+    const matchesDate = !dateFilter || dayjs(item.date).isSame(dayjs(dateFilter), "day");
 
-    return (
-      matchesTab &&
-      matchesSearch &&
-      matchesCategory &&
-      matchesType &&
-      matchesAccess &&
-      matchesDate
-    );
+    return matchesTab && matchesSearch && matchesCategory && matchesType && matchesAccess && matchesDate;
   });
 
   // HANDLERS
@@ -156,32 +158,43 @@ const ContentManagement = () => {
 
   const handleDelete = (record) => {
     setDataSource((prev) => prev.filter((i) => i.key !== record.key));
+    setDrafts((prev) => prev.filter((i) => i.key !== record.key));
     message.success(`Deleted: ${record.title}`);
   };
 
   const handleSaveContent = (data) => {
-    if (data.key) {
-      // Edit
+    if (drafts.find((d) => d.key === data.key)) {
+      setDrafts((prev) => prev.filter((d) => d.key !== data.key));
+    }
+
+    if (data.key && dataSource.find((d) => d.key === data.key)) {
       setDataSource((prev) =>
         prev.map((item) =>
-          item.key === data.key
-            ? { ...item, ...data, date: dayjs().format("YYYY-MM-DD") }
-            : item
+          item.key === data.key ? { ...item, ...data, date: dayjs().format("YYYY-MM-DD") } : item
         )
       );
     } else {
-      // Add
       const newRecord = {
         ...data,
-        key: Date.now(),
+        key: data.key || Date.now(),
         downloads: 0,
         date: dayjs().format("YYYY-MM-DD"),
       };
       setDataSource((prev) => [newRecord, ...prev]);
     }
+
     setIsUploadModalOpen(false);
     setEditRecord(null);
     setViewMode(false);
+  };
+
+  const handleSaveDraft = (values) => {
+    setDrafts((prev) => {
+      if (values.key && prev.find((d) => d.key === values.key)) {
+        return prev.map((d) => (d.key === values.key ? { ...d, ...values } : d));
+      }
+      return [...prev, { ...values, key: values.key || Date.now() }];
+    });
   };
 
   // TABLE COLUMNS
@@ -249,11 +262,7 @@ const ContentManagement = () => {
             View
           </Button>
 
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
+          <Button type="primary" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             Edit
           </Button>
 
@@ -344,12 +353,13 @@ const ContentManagement = () => {
           { key: "study", label: "Study Material" },
           { key: "videos", label: "Videos" },
           { key: "guides", label: "Guides" },
+          { key: "drafts", label: `Drafts (${drafts.length})` }, // NEW
         ]}
       />
 
       {/* TABLE */}
       <Card bordered={false} style={{ borderRadius: token.borderRadius }}>
-        <Title level={5}>All Content</Title>
+        <Title level={5}>{activeTab === "drafts" ? "Drafts" : "All Content"}</Title>
 
         {/* SEARCH & FILTER */}
         <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
@@ -429,6 +439,7 @@ const ContentManagement = () => {
           setViewMode(false);
         }}
         onSubmit={handleSaveContent}
+        onSaveDraft={handleSaveDraft} // NEW
       />
     </div>
   );

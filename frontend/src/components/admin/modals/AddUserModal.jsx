@@ -21,7 +21,7 @@ import {
   updateUser,
   fetchStudents,
 } from "../../../adminSlices/userSlice";
-import { fetchPrograms } from "../../../adminSlices/programSlice";
+import { fetchActivePrograms } from "../../../adminSlices/programSlice";
 import { fetchPackagesByProgram } from "../../../adminSlices/packageSlice";
 
 const { Option } = Select;
@@ -64,9 +64,11 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
-  const { list: programs = [], loading: programsLoading } = useSelector(
-    (state) => state.programs
-  );
+ const { activeList: programs = [], loading: programsLoading } = useSelector(
+  (state) => state.programs
+);
+  const activePrograms = useSelector((state) => state.programs.activeList);
+  
   const { list: packages = [], loading: packagesLoading } = useSelector(
     (state) => state.packages
   );
@@ -90,6 +92,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
     "Commerce",
     "Arts",
     "BBA",
+    "UG",
     "Others",
   ]);
 
@@ -165,7 +168,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
   /* ================= FETCH DATA ================= */
   useEffect(() => {
     if (open) {
-      dispatch(fetchPrograms());
+      dispatch(fetchActivePrograms());
     }
   }, [open, dispatch]);
 
@@ -497,7 +500,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
               <Col xs={24} md={12}>
                 <Form.Item
                   name="amount"
-                  label="Amount"
+                  label="Fees Paid"
                   rules={[
                     { required: true, message: "Please enter amount" },
                     {

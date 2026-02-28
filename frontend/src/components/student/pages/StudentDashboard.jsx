@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Card,
   Button,
@@ -9,6 +10,7 @@ import {
   Badge,
   Grid,
   theme,
+  Spin,
 } from "antd";
 import {
   BookOutlined,
@@ -17,32 +19,52 @@ import {
   LockOutlined,
 } from "@ant-design/icons";
 import JourneySteps from "./JourneySteps";
+import { fetchStudentJourney } from "../../../adminSlices/userSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const StudentDashboard = () => {
   const screens = useBreakpoint();
-  const navigate = useNavigate();  
-  const selectedProgram = localStorage.getItem("selectedProgram");
-
- const normalizedProgram = selectedProgram?.trim().toLowerCase();
-
-const allowedPrograms = [
-  "pg counselling",
-  "8-12 aptitude test",
-];
-
-const showExamAndReport = allowedPrograms.includes(normalizedProgram);
-
- 
-
-  // 🔥 Access theme tokens
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { token } = theme.useToken();
 
-     const currentStep = 2; // example
+  const { journey, journeyLoading } = useSelector(
+    (state) => state.users
+  );
 
-   const getJourneyAction = () => {
+  const studentId = localStorage.getItem("studentId");
+  const selectedProgram = localStorage.getItem("selectedProgram");
+
+  const normalizedProgram = selectedProgram?.trim().toLowerCase();
+
+  const allowedPrograms = [
+    "pg counselling",
+    "8-12 aptitude test",
+  ];
+
+  const showExamAndReport =
+    allowedPrograms.includes(normalizedProgram);
+
+  /* ================= FETCH JOURNEY ================= */
+  useEffect(() => {
+    if (studentId) {
+      dispatch(fetchStudentJourney(studentId));
+    }
+  }, [dispatch, studentId]);
+
+  /* ================= JOURNEY DATA ================= */
+  const progressData = journey?.progress || {};
+
+  // Backend usually sends 1-based index → convert to 0-based
+  const currentStep =
+    progressData?.current_step !== undefined
+      ? progressData.current_step - 1
+      : 0;
+
+  /* ================= BUTTON LOGIC ================= */
+  const getJourneyAction = () => {
     switch (currentStep) {
       case 0:
       case 1:
@@ -58,29 +80,34 @@ const showExamAndReport = allowedPrograms.includes(normalizedProgram);
         };
 
       case 3:
-         if (showExamAndReport) {
-        return {
-          label: "Start Exam →",
-          path: "/student/exam-management",
-        };
-      }
-       break;
+        if (showExamAndReport) {
+          return {
+            label: "Start Exam →",
+            path: "/student/exam-management",
+          };
+        }
+        break;
 
       case 4:
+        if (showExamAndReport) {
+          return {
+            label: "View Report →",
+            path: "/student/report-management",
+          };
+        }
+        break;
+
+      case 5:
         return {
           label: "Book Counselling Session →",
           path: "/student/slot-booking",
         };
 
-       
       case 6:
-        if (showExamAndReport) {
         return {
-          label: "View Report →",
+          label: "Submit Review →",
           path: "/student/report-management",
         };
-         }
-      break;
 
       default:
         return {
@@ -98,39 +125,39 @@ const showExamAndReport = allowedPrograms.includes(normalizedProgram);
         padding: screens.xs ? "8px" : "30px 20px",
         maxWidth: 1200,
         margin: "0 auto",
-        // background: token.colorBgLayout,
-        color:"black",
       }}
     >
       {/* ===================== PROGRESS STEPS ===================== */}
-      <div style={{ overflowX: "auto", paddingBottom: 10 ,}}>
-       <JourneySteps 
-  currentStep={1} 
-  showExamAndReport={showExamAndReport}
-/>
-
+      <div style={{ overflowX: "auto", paddingBottom: 10 }}>
+        {journeyLoading ? (
+          <Spin />
+        ) : (
+          <JourneySteps
+            currentStep={currentStep}
+            showExamAndReport={showExamAndReport}
+          />
+        )}
       </div>
 
-      {/* ===================== CHOOSE YOUR PATH ===================== */}
+      {/* ===================== CTA CARD ===================== */}
       <Card
         style={{
           margin: "32px 0",
           borderRadius: token.borderRadiusLG,
           background: `linear-gradient(90deg, ${token.colorPrimary}, ${token.colorInfo})`,
-          color: token.colorTextSecondary,
         }}
       >
         <Row align="middle" justify="space-between" gutter={[16, 16]}>
           <Col xs={24} md={16}>
-            <Title level={4} style={{ color: token.colorTextPrimary }}>
-              Choose Your Path
+            <Title level={4} style={{ color: "#fff" }}>
+              Continue Your Journey
             </Title>
-            <Text style={{ color: token.colorTextTertiary, fontSize: 15 }}>
-              Select a program and service to begin your career counselling journey
+            <Text style={{ color: "#f0f0f0", fontSize: 15 }}>
+              Complete your next step to unlock more features
             </Text>
           </Col>
 
-         <Col
+          <Col
             xs={24}
             md={8}
             style={{ display: "flex", justifyContent: "flex-end" }}
@@ -151,24 +178,15 @@ const showExamAndReport = allowedPrograms.includes(normalizedProgram);
         <Col xs={24} sm={12} md={8}>
           <Card
             hoverable
-            onClick={() => navigate("/student/freecontent")}
+            onClick={() => navigate("/student/content-library")}
             style={{ borderRadius: token.borderRadiusLG }}
           >
-            <Row align="middle" justify="space-between">
-              <BookOutlined
-                style={{ fontSize: 26, color: token.colorSuccess }}
-              />
-              <Badge
-                count="Free"
-                style={{ backgroundColor: token.colorSuccess }}
-              />
-            </Row>
+            <BookOutlined
+              style={{ fontSize: 26, color: token.colorSuccess }}
+            />
             <Title level={5} style={{ marginTop: 16 }}>
               Explore Content Library
             </Title>
-            <Text type="colorTextSecondary">
-              Explore videos, articles and guidance
-            </Text>
           </Card>
         </Col>
 
@@ -184,41 +202,37 @@ const showExamAndReport = allowedPrograms.includes(normalizedProgram);
             <Title level={5} style={{ marginTop: 16 }}>
               My Program
             </Title>
-            <Text type="colorTextSecondary">
-              View your enrolled counselling program
-            </Text>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} md={8}>
-          <Card
-            hoverable
-            onClick={() => navigate("/student/report-management")}
-            style={{ borderRadius: token.borderRadiusLG }}
-          >
-            <FileTextOutlined
-              style={{ fontSize: 26, color: token.colorInfo }}
-            />
-            <Title level={5} style={{ marginTop: 16 }}>
-              My Assessment Report
-            </Title>
-            <Text type="colorTextSecondary">
-              Download your career assessment results
-            </Text>
-          </Card>
-        </Col>
+        {showExamAndReport && (
+  <Col xs={24} sm={12} md={8}>
+    <Card
+      hoverable
+      onClick={() => navigate("/student/report-management")}
+      style={{ borderRadius: token.borderRadiusLG }}
+    >
+      <FileTextOutlined
+        style={{ fontSize: 26, color: token.colorInfo }}
+      />
+      <Title level={5} style={{ marginTop: 16 }}>
+        My Assessment Report
+      </Title>
+    </Card>
+  </Col>
+)}
 
         <Col xs={24} sm={12} md={8}>
-          <Card hoverable style={{ borderRadius: token.borderRadiusLG }}>
+          <Card 
+          hoverable 
+              onClick={() => navigate("/student/content-library")}
+          style={{ borderRadius: token.borderRadiusLG }}>
             <LockOutlined
               style={{ fontSize: 26, color: token.colorError }}
             />
             <Title level={5} style={{ marginTop: 16 }}>
               Locked Content
             </Title>
-            <Text type="colorTextSecondary">
-              Complete steps to unlock premium features
-            </Text>
           </Card>
         </Col>
       </Row>

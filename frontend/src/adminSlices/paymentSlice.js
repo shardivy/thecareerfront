@@ -7,6 +7,7 @@ import {
   updatePaymentApi,
   fetchStudentPaymentSummaryApi,
   fetchStudentPaymentHistoryApi,
+  fetchStudentPaymentProgressApi,
 } from "../adminApi/paymentApi";
 
 /* ================= SUBMIT PAYMENT ================= */
@@ -124,6 +125,20 @@ export const fetchStudentPaymentHistory = createAsyncThunk(
 );
 
 
+/* ================= FETCH STUDENT PAYMENT PROGRESS ================= */
+export const fetchStudentPaymentProgress = createAsyncThunk(
+  "payment/fetchStudentProgress",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await fetchStudentPaymentProgressApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch payment progress"
+      );
+    }
+  }
+);
+
 /* ================= SLICE ================= */
 const paymentSlice = createSlice({
   name: "payment",
@@ -163,6 +178,10 @@ historyLoading: false,
 historyError: null,
 historyList: [],
 
+/* ===== Student Payment Progress ===== */
+progressLoading: false,
+progressError: null,
+progressData: null,
   },
 
   reducers: {
@@ -403,7 +422,23 @@ formattedList.sort((a, b) => {
 .addCase(fetchStudentPaymentHistory.rejected, (state, action) => {
   state.historyLoading = false;
   state.historyError = action.payload;
+})
+
+/* ================= STUDENT PAYMENT PROGRESS ================= */
+.addCase(fetchStudentPaymentProgress.pending, (state) => {
+  state.progressLoading = true;
+  state.progressError = null;
+})
+.addCase(fetchStudentPaymentProgress.fulfilled, (state, action) => {
+  state.progressLoading = false;
+  state.progressData = action.payload?.data || action.payload;
+})
+.addCase(fetchStudentPaymentProgress.rejected, (state, action) => {
+  state.progressLoading = false;
+  state.progressError = action.payload;
 });
+
+
 
 
   },

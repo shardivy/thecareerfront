@@ -59,14 +59,10 @@ const profileSlice = createSlice({
       .addCase(updateProfile.pending, (state) => {
         state.loading = true;
       })
-      .addCase(updateProfile.fulfilled, (state, action) => {
+      .addCase(updateProfile.fulfilled, (state) => {
         state.loading = false;
 
-        // ✅ KEY FIX
-        state.profile = {
-          ...state.profile,
-          ...action.payload,
-        };
+        
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;

@@ -3,7 +3,8 @@ import {
   getProgramsApi,
   addProgramApi,
   updateProgramApi,
-  getProgramStatsApi, // ✅ import new API
+  getProgramStatsApi, 
+  getActiveProgramsApi,
 } from "../adminApi/programApi";
 
 // ------------------- FETCH PROGRAMS -------------------
@@ -19,6 +20,20 @@ export const fetchPrograms = createAsyncThunk(
   }
 );
 
+// ------------------- FETCH ACTIVE PROGRAMS -------------------
+export const fetchActivePrograms = createAsyncThunk(
+  "programs/fetchActive",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await getActiveProgramsApi();
+      return res;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to load active programs"
+      );
+    }
+  }
+);
 
 // ------------------- ADD PROGRAM -------------------
 export const addProgram = createAsyncThunk(
@@ -64,6 +79,7 @@ const programSlice = createSlice({
   name: "programs",
   initialState: {
     list: [],
+    activeList: [], 
     loading: false,
     error: null,
     stats: { total_programs: 0, total_packages: 0, total_enrolled: 0, revenue: 0 },
@@ -92,6 +108,32 @@ const programSlice = createSlice({
         state.list = programs;
       })
       .addCase(fetchPrograms.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
+
+      // FETCH ACTIVE PROGRAMS
+      // ================= FETCH ACTIVE PROGRAMS =================
+      .addCase(fetchActivePrograms.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchActivePrograms.fulfilled, (state, action) => {
+        state.loading = false;
+
+        const activePrograms = Array.isArray(action.payload?.data)
+          ? action.payload.data
+          : [];
+
+        // Optional: sort alphabetically
+        activePrograms.sort((a, b) =>
+          a.name?.localeCompare(b.name, undefined, {
+            sensitivity: "base",
+          })
+        );
+
+        state.activeList = activePrograms;
+      })
+      .addCase(fetchActivePrograms.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
 
       // ADD PROGRAM
       .addCase(addProgram.pending, (state) => { state.loading = true; })

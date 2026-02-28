@@ -28,7 +28,7 @@ import {
 import dayjs from "dayjs";
 import BookSessionModal from "../modals/BookSessionModal";
 import {
-  fetchCounsellingBookings,
+  fetchStudentCounsellingBookings,
   deleteCounsellingBooking,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
@@ -63,10 +63,21 @@ const SlotBookingList = () => {
   );
 
   /* ================= FETCH DATA ================= */
+  const studentId = localStorage.getItem("studentId"); // Retrieve studentId from localStorage
+
   useEffect(() => {
-    dispatch(fetchCounsellingBookings());
+    if (studentId) {
+      dispatch(fetchStudentCounsellingBookings(studentId));
+    }
+  }, [dispatch, studentId]);
+
+  useEffect(() => {
     dispatch(fetchLeadCounsellors());
   }, [dispatch]);
+
+  useEffect(() => {
+    console.log("Sessions data:", sessions); // Debug log to inspect sessions data
+  }, [sessions]);
 
   /* ================= CURRENT TIME UPDATER ================= */
   useEffect(() => {
@@ -77,35 +88,50 @@ const SlotBookingList = () => {
   }, []);
 
   /* ================= MAP API DATA ================= */
-  /* ================= MAP API DATA ================= */
-  const mappedSessions = sessions.map((s) => ({
-    ...s,
-    key: s.id,
-    counsellorDisplay: Array.isArray(s.counsellors)
-      ? s.counsellors.map((c) => ({
-        id: c.counsellor?.id ?? null,
-        name: c.counsellor
-          ? `${c.counsellor.first_name} ${c.counsellor.last_name}`
-          : "—",
-        role: c.role ?? "—",
+const mappedSessions = sessions.map((s) => ({
+  ...s,
+  key: s.id,
+
+  // ✅ HANDLE MULTIPLE COUNSELLORS
+  counsellorsList: Array.isArray(s.counsellors)
+    ? s.counsellors.map((c) => ({
+        id: c.counsellor.id,
+        name: `${c.counsellor.first_name} ${c.counsellor.last_name}`,
+        role: c.role,
       }))
-      : [],
-    mode: s.slot?.mode
-      ? s.slot.mode.charAt(0).toUpperCase() + s.slot.mode.slice(1)
+    : [],
+
+  counsellorDisplay: Array.isArray(s.counsellors)
+    ? s.counsellors
+        .map(
+          (c) =>
+            `${c.counsellor.first_name} ${c.counsellor.last_name} (${c.role})`
+        )
+        .join(", ")
+    : "—",
+
+  mode: s.mode
+    ? s.mode.charAt(0).toUpperCase() + s.mode.slice(1)
+    : "—",
+
+  time:
+    s.start_time && s.end_time
+      ? `${s.start_time} - ${s.end_time}`
       : "—",
-    time: s.slot ? `${s.slot.start_time} - ${s.slot.end_time}` : "—",
-    duration: s.slot?.duration ?? "60 mins",
-      location:
-    s.slot?.mode === "offline"
-      ? s.slot?.location || "ABC College, Main Campus, Bangalore"
-      : "",
-    zoomLink: s.slot?.zoom_link ?? "https://zoom.us/j/123456789",
-    // <-- Replace 'Booked' with 'Upcoming'
-    status: s.status === "Booked" ? "Upcoming" : s.status,
-  }));
 
+  date: s.slot_date || "—",
 
-  
+  status: s.status
+    ? s.status.charAt(0).toUpperCase() + s.status.slice(1)
+    : "—",
+
+  location:
+    s.mode === "offline"
+      ? "ABC College, Main Campus, Bangalore"
+      : "—",
+
+  zoomLink: s.meeting_link || "—",
+}));
 
   /* ================= FILTERING ================= */
   const filteredSessions = mappedSessions.filter((s) => {
@@ -182,7 +208,7 @@ const SlotBookingList = () => {
         dispatch(deleteCounsellingBooking(sessionId))
           .unwrap()
           .then(() => {
-            dispatch(fetchCounsellingBookings());
+            dispatch(fetchStudentCounsellingBookings(studentId));
             message.success("Session cancelled successfully");
           });
       },
@@ -259,12 +285,38 @@ const SlotBookingList = () => {
                 <Space>
                   <Avatar size={48} icon={<UserOutlined />} />
                   <div>
-                    <Text strong>{session.counsellorDisplay[0]?.name || "—"}</Text>
-                    <br />
-                    <Text type="colorTextSecondary">{session.counsellorDisplay[0]?.role || "—"}</Text>
+                    <div>
+  {session.counsellorsList.length > 0 ? (
+    session.counsellorsList.map((c, index) => (
+      <div key={c.id}>
+        <Text strong>{c.name}</Text>{" "}
+        <br></br>
+        <Tag
+          color={c.role === "lead" ? "blue" : "purple"}
+          style={{ marginLeft: 6 }}
+        >
+          {c.role}
+        </Tag>
+      </div>
+    ))
+  ) : (
+    <Text strong>—</Text>
+  )}
+</div>
                   </div>
                 </Space>
-                <Tag color={statusColor(session.status === "booked" ? "Upcoming" : session.status)}>
+                <Tag
+                  color={statusColor(session.status === "booked" ? "Upcoming" : session.status)}
+                  style={{
+                    fontSize: "14px",
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    backgroundColor: session.status === "Completed" ? "#f0f0f0" : undefined,
+                    color: session.status === "Completed" ? "#9c4e00" : undefined,
+                    filter: session.status === "Completed" ? "blur(1px)" : "none",
+                    opacity: session.status === "Completed" ? 0.6 : 1,
+                  }}
+                >
                   {session.status === "booked" ? "Upcoming" : session.status}
                 </Tag>
 
@@ -383,7 +435,7 @@ const SlotBookingList = () => {
         <BookSessionModal
           rescheduleData={rescheduleData}
           closeModal={() => setIsModalOpen(false)}
-          onSave={() => dispatch(fetchCounsellingBookings())}
+          onSave={() => dispatch(fetchStudentCounsellingBookings(studentId))}
         />
       </Modal>
     </div>

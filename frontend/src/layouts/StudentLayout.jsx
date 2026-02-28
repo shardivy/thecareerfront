@@ -44,6 +44,14 @@ export default function StudentLayout() {
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   const username = localStorage.getItem("username") || "Student";
+
+  // Function to truncate name for smaller screens
+  const truncatedUsername = screens.xs
+    ? username.length > 10
+      ? `${username.slice(0, 10)}...`
+      : username
+    : username;
+
   const selectedProgram = localStorage.getItem("selectedProgram");
 const normalizedProgram = selectedProgram?.trim().toLowerCase();
 
@@ -176,7 +184,7 @@ const showExamAndReport =
     setDrawerVisible(false);
   },
   style: { marginBottom: 12 },
-},
+}
 
   ];
 
@@ -237,35 +245,35 @@ const handleLogout = () => {
     </div>
   );
 
+  const isProfilePage = location.pathname === "/student/student-profile";
+
   return (
     <Layout style={{ minHeight: "100vh", background: token.colorBgLayout }}>
-      {/* ===================== SIDEBAR ===================== */}
-      {!screens.xs && (
-       <Sider
-  width={SIDEBAR_WIDTH}
-  style={{
-    background: token.colorPrimary, // 🔥 DARK BLUE
-    position: "fixed",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    boxShadow: token.boxShadow,
-  }}
->
+      {!isProfilePage && !screens.xs && (
+        <Sider
+          width={SIDEBAR_WIDTH}
+          style={{
+            background: token.colorPrimary, // 🔥 DARK BLUE
+            position: "fixed",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            boxShadow: token.boxShadow,
+          }}
+        >
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            <h2 style={{ textAlign: "center", padding: 16, margin: 0 , color: "#FFFFFF" }}>
+            <h2 style={{ textAlign: "center", padding: 16, margin: 0, color: "#FFFFFF" }}>
               Student Panel
             </h2>
 
-            <div style={{ flex: 1, padding: "8px 12px"  }}>{MenuContent}</div>
+            <div style={{ flex: 1, padding: "8px 12px" }}>{MenuContent}</div>
 
             <LogoutButton />
           </div>
         </Sider>
       )}
 
-      {/* ===================== MOBILE DRAWER ===================== */}
-      {screens.xs && (
+      {screens.xs && !isProfilePage && (
         <Drawer
           title="Student Panel"
           placement="right"
@@ -278,59 +286,58 @@ const handleLogout = () => {
         </Drawer>
       )}
 
-      {/* ===================== MAIN ===================== */}
-      <Layout style={{ marginLeft: screens.xs ? 0 : SIDEBAR_WIDTH }}>
-        <Header
-          style={{
-            background: token.colorBgContainer,
-            padding: "0 16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            boxShadow: token.boxShadow,
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <Breadcrumb items={breadcrumbItems} />
+      <Layout style={{ marginLeft: !isProfilePage && !screens.xs ? SIDEBAR_WIDTH : 0 }}>
+        {!isProfilePage && (
+          <Header
+            style={{
+              background: token.colorBgContainer,
+              padding: "0 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              boxShadow: token.boxShadow,
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+            }}
+          >
+            <Breadcrumb items={breadcrumbItems} />
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {/* 🔔 Notifications */}
-            <Dropdown
-              trigger={["click"]}
-              dropdownRender={() => (
-                <NotificationDropdown
-                  notifications={notifications}
-                  setNotifications={setNotifications}
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <Dropdown
+                trigger={["click"]}
+                dropdownRender={() => (
+                  <NotificationDropdown
+                    notifications={notifications}
+                    setNotifications={setNotifications}
+                  />
+                )}
+              >
+                <Badge count={unreadCount} size="small">
+                  <BellOutlined style={{ fontSize: 20, cursor: "pointer" }} />
+                </Badge>
+              </Dropdown>
+
+              <Dropdown menu={userMenu} trigger={["click"]}>
+                <Space style={{ cursor: "pointer" }}>
+                  <Text strong>{truncatedUsername}</Text>
+                  <Avatar
+                    icon={<UserOutlined />}
+                    style={{ background: token.colorPrimary }}
+                  />
+                </Space>
+              </Dropdown>
+
+              {screens.xs && (
+                <Button
+                  type="text"
+                  icon={<MenuOutlined />}
+                  onClick={() => setDrawerVisible(true)}
                 />
               )}
-            >
-              <Badge count={unreadCount} size="small">
-                <BellOutlined style={{ fontSize: 20, cursor: "pointer" }} />
-              </Badge>
-            </Dropdown>
-
-            {/* 👤 User */}
-            <Dropdown menu={userMenu} trigger={["click"]}>
-              <Space style={{ cursor: "pointer" }}>
-                <Text strong>{username}</Text>
-                <Avatar
-                  icon={<UserOutlined />}
-                  style={{ background: token.colorPrimary }}
-                />
-              </Space>
-            </Dropdown>
-
-            {screens.xs && (
-              <Button
-                type="text"
-                icon={<MenuOutlined />}
-                onClick={() => setDrawerVisible(true)}
-              />
-            )}
-          </div>
-        </Header>
+            </div>
+          </Header>
+        )}
 
         <Content
           style={{

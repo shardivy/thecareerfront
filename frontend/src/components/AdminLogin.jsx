@@ -27,7 +27,7 @@ const AdminLogin = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { loading, error, success, successMessage, user } = useSelector(
+  const { loading, error, success, successMessage, complete_profile ,user } = useSelector(
     (state) => state.auth
   );
 
@@ -46,18 +46,31 @@ const AdminLogin = () => {
 
         case "lead_counsellor":
         case "counsellor":
-          navigate("/s-admin/dashboard");
+          navigate("/s-admin/counsellor-dashboard");
           break;
 
-        case "student":
-          navigate("/student/student-profile");
+        case "ui_ux":
+          navigate("/s-admin/uiux-dashboard");
           break;
+
+        //  case "student":
+        //   navigate("/student/student-profile");
+        //   break;
+          
+    case "student":
+        if (complete_profile) {
+          navigate("/student/dashboard");
+        } else {
+          navigate("/student/student-profile");
+        }
+        break;
+
 
         default:
           navigate("/student/dashboard");
       }
     }
-  }, [success, successMessage, user, navigate]);
+  }, [success, successMessage, complete_profile, user, navigate]);
 
   /* ========= ERROR ========= */
   useEffect(() => {

@@ -451,7 +451,8 @@ const UserList = () => {
     <div style={{ padding: 1 }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Title level={3}>User Lists</Title>
+          {/* <Title level={3}>User Lists</Title> */}
+           <Title level={3}>Students Enrolled</Title>
         </Col>
         <Col>
           <Space>
