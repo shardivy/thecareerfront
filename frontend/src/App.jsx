@@ -37,7 +37,6 @@ import Profile from "./components/admin/pages/Profile";
 import ForgotPassword from "./components/admin/pages/ForgotPassword";
 import ResetPassword from "./components/admin/pages/ResetPassword";
 import ExamList from "./components/admin/pages/ExamList";
-import LeadList from "./components/counsellor/pages/LeadList";
 import PaymentPage from "./components/student/pages/PaymentPage";
 import CounsellorDashboard from "./components/counsellor/pages/CounsellorDashboard";
 import SessionHistory from "./components/counsellor/pages/SessionHistory";
@@ -100,7 +99,7 @@ const App = () => {
           <Route path="examlist" element={<ExamList />} />
 
             {/* ===================== counsellor ROUTES ===================== */}
-          <Route path="leadlist" element={<LeadList />} />
+     
           <Route path="counsellor-dashboard" element={<CounsellorDashboard />} />
           <Route path="session-history" element={<SessionHistory />} />
 

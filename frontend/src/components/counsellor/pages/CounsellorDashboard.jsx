@@ -1,5 +1,5 @@
 // src/pages/CounsellorDashboard.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Row,
   Col,
@@ -27,6 +27,10 @@ import dayjs from "dayjs";
 import adminTheme from "../../../theme/adminTheme";
 import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
 import StudentProfileModal from "../modals/StudentProfileModal";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchMyStudents, fetchCounsellorDashboardCount } from "../../../adminSlices/counsellorSlice";
+import { getStudentProfile } from "../../../adminSlices/profileSlice";
+import { markCounsellingBookingCompleted } from "../../../adminSlices/counsellingBookingSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -38,220 +42,257 @@ const CounsellorDashboard = () => {
   const [notesModal, setNotesModal] = useState(false);
   const [confirmModal, setConfirmModal] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
-  const [completedIds, setCompletedIds] = useState([]);
   const [profileModal, setProfileModal] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 5,
   });
   const [locationModal, setLocationModal] = useState(false);
+  const dispatch = useDispatch();
 
-  const dummyData = {
-    weekly: { assignedStudents: 12, upcomingSessions: 5, completedSessions: 8 },
-    monthly: { assignedStudents: 45, upcomingSessions: 18, completedSessions: 32 },
-    yearly: { assignedStudents: 320, upcomingSessions: 76, completedSessions: 280 },
-  };
+  const { students, studentsLoading } = useSelector(
+    (state) => state.counsellors
+  );
 
-  const currentStats = dummyData[period];
+  const { profile, loading: profileLoading } = useSelector(
+    (state) => state.profile
+  );
 
-  const upcomingSessions = [
-    {
-      key: 1,
-      studentName: "Rahul Sharma",
-      date: "2026-02-25",
-      startTime: "15:00",
-      endTime: "16:00",
-      mode: "Online",
-      zoomLink: "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
-    },
-    {
-      key: 2,
-      studentName: "Anjali Verma",
-      date: "2026-02-26",
-      startTime: "10:30",
-      endTime: "11:30",
-      mode: "Offline",
-      location: {
-        // counselorName: "Mrs. Reena Bhutada",
-        officeName: "Abhinav Career Scope",
-        building: "Bhagwati Maestros, Miller 403",
-        landmarkLine1: "LMD Chowk, Above Indian Smart Bazaar",
-        area: "Bavdhan",
-        city: "Pune",
-        state: "Maharashtra",
-        pincode: "411021",
-        nearby: "Near Chandani Chowk, Bavdhan",
-        instructions: "Start 20 minutes earlier due to traffic",
-        parking: "Parking available outside the building gate"
-      }
-    },
-    {
-      key: 3,
-      studentName: "Amit Patel",
-      date: "2024-01-10",
-      startTime: "09:00",
-      endTime: "10:00",
-      mode: "Online",
-    },
-  ];
+  const { dashboardStats, dashboardLoading } = useSelector(
+  (state) => state.counsellors
+);
 
-  const columns = [
-      {
+  useEffect(() => {
+    dispatch(fetchMyStudents());
+  }, [dispatch]);
+
+  useEffect(() => {
+  dispatch(fetchCounsellorDashboardCount(period));
+}, [dispatch, period]);
+
+
+
+  const upcomingSessions = (students || []).map((item) => {
+    const [startTime, endTime] = item.slot_time.split(" - ");
+
+    return {
+      id: item.id,
+      key: item.id,
+      student_id: item.student_id,
+      studentName: item.student_name,
+      studentEmail: item.student_email,
+      studentPhone: item.student_phone,       // ✅ Add this
+      counsellorName: item.counsellor_name,
+      date: item.date,
+      startTime,
+      endTime,
+      mode: item.mode === "online" ? "Online" : "Offline",
+      status: item.status,
+    };
+  });
+
+const columns = [
+  {
     title: "Sr No",
     key: "serial",
     width: 80,
     render: (_, __, index) =>
       (pagination.current - 1) * pagination.pageSize + index + 1,
   },
-    {
-      title: "User Name",
-      dataIndex: "studentName",
-    },
-    {
-      title: "Date",
-      dataIndex: "date",
-      render: (date) => dayjs(date).format("DD-MM-YYYY"),
-    },
-    {
-      title: "Slot Time",
-      render: (_, record) =>
-        `${dayjs(record.startTime, "HH:mm").format("hh:mm A")} - 
-         ${dayjs(record.endTime, "HH:mm").format("hh:mm A")}`,
-    },
-    {
-      title: "Mode",
-      dataIndex: "mode",
-      render: (mode) =>
-        mode === "Online" ? (
-          <Tag color="green">Online</Tag>
-        ) : (
-          <Tag color="blue">Offline</Tag>
-        ),
-    },
-    {
-      title: "Actions",
-      render: (_, record) => {
-        const now = dayjs();
-        const sessionStart = dayjs(`${record.date} ${record.startTime}`);
-        const sessionEnd = dayjs(`${record.date} ${record.endTime}`);
+  {
+    title: "User Name",
+    dataIndex: "studentName",
+    render: (text, record) => (
+      <div>
+        <div style={{ fontWeight: 600 }}>{record.studentName}</div>
+        <div>{record.studentEmail}</div>
+      </div>
+    ),
+  },
+  {
+    title: "Date",
+    dataIndex: "date",
+    render: (date) => dayjs(date).format("DD-MM-YYYY"),
+  },
+  {
+    title: "Slot Time",
+    render: (_, record) =>
+      `${dayjs(record.startTime, "HH:mm").format("hh:mm A")} - 
+       ${dayjs(record.endTime, "HH:mm").format("hh:mm A")}`,
+  },
+  {
+    title: "Mode",
+    dataIndex: "mode",
+    render: (mode) =>
+      mode === "Online" ? (
+        <Tag color="green">Online</Tag>
+      ) : (
+        <Tag color="blue">Offline</Tag>
+      ),
+  },
+{
+  title: "Actions",
+  render: (_, record) => {
 
-        const isBeforeEnd = now.isBefore(sessionEnd);
-        const isJoinEnabled = now.isAfter(
-          sessionStart.subtract(30, "minute")
-        );
+    const now = dayjs();
 
-        return (
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              flexDirection: screens.xs ? "column" : "row",
+    const sessionStart = dayjs(
+      `${record.date} ${record.startTime}`,
+      "YYYY-MM-DD hh:mm A"
+    );
+
+    const sessionEnd = dayjs(
+      `${record.date} ${record.endTime}`,
+      "YYYY-MM-DD hh:mm A"
+    );
+
+    const isJoinEnabled =
+      now.isAfter(sessionStart.subtract(5, "minute")) &&
+      now.isBefore(sessionEnd);
+
+    const showCompleteButton =
+      record.status !== "completed" &&
+      now.isAfter(sessionStart.subtract(15, "minute"));
+
+    const isSessionOver = now.isAfter(sessionEnd);
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          flexWrap: "wrap",
+          flexDirection: screens.xs ? "column" : "row",
+        }}
+      >
+
+        {/* ALWAYS SHOW PROFILE BUTTON */}
+        <Button
+          icon={<UserOutlined />}
+          onClick={() => {
+            dispatch(getStudentProfile(record.student_id))
+              .unwrap()
+              .then(() => setProfileModal(true))
+              .catch(() =>
+                message.error("Failed to load student profile")
+              );
+          }}
+        >
+          View Profile
+        </Button>
+
+        {/* ONLINE SESSION */}
+        {record.mode === "Online" && !isSessionOver && (
+          <Button
+            type="primary"
+            icon={<VideoCameraOutlined />}
+            disabled={!isJoinEnabled}
+            onClick={() => {
+              window.open(
+                "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
+                "_blank"
+              );
             }}
           >
-            {isBeforeEnd ? (
-              <>
-                <Button
-                  size={screens.xs ? "middle" : "large"}
-                  icon={<UserOutlined />}
-                  onClick={() => {
-                    setSelectedSession(record);
-                    setProfileModal(true);
-                  }}
-                >
-                  View Profile
-                </Button>
+            Join
+          </Button>
+        )}
 
-                {record.mode === "Online" ? (
-                  <Button
-                    type="primary"
-                    size={screens.xs ? "middle" : "large"}
-                    icon={<VideoCameraOutlined />}
-                    disabled={!isJoinEnabled}
-                    onClick={() => {
-                      window.open(
-                        "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
-                        "_blank"
-                      );
-                    }}
-                  >
-                    Join
-                  </Button>
-                ) : (
-                  <Button
-                    type="primary"
-                    size={screens.xs ? "middle" : "large"}
-                    icon={<EnvironmentOutlined />}
-                    // disabled={!isJoinEnabled}
-                    onClick={() => {
-                      setSelectedSession(record);
-                      setLocationModal(true);
-                    }}
-                  >
-                    Location Details
-                  </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <Button
-                  type="primary"
-                  size={screens.xs ? "middle" : "large"}
-                  icon={<CheckCircleOutlined />}
-                  disabled={completedIds.includes(record.key)}
-                  style={
-                    !completedIds.includes(record.key)
-                      ? {
-                        backgroundColor: "#52c41a",
-                        borderColor: "#52c41a",
-                      }
-                      : {}
-                  }
-                  onClick={() => {
-                    setSelectedSession(record);
-                    setConfirmModal(true);
-                  }}
-                >
-                  {completedIds.includes(record.key)
-                    ? "Completed"
-                    : "Mark as Complete"}
-                </Button>
+        {/* OFFLINE SESSION */}
+        {record.mode === "Offline" && !isSessionOver && (
+          <Button
+            type="primary"
+            icon={<EnvironmentOutlined />}
+            onClick={() => {
+              setSelectedSession({
+                ...record,
+                location: staticLocation,
+              });
+              setLocationModal(true);
+            }}
+          >
+            Location Details
+          </Button>
+        )}
 
-                <Button
-                  size={screens.xs ? "middle" : "large"}
-                  icon={<FileTextOutlined />}
-                  onClick={() => {
-                    setSelectedSession(record);
-                    setNotesModal(true);
-                  }}
-                >
-                  Add Notes
-                </Button>
-              </>
-            )}
-          </div>
-        );
-      },
-    },
-  ];
+        {/* SESSION COMPLETED */}
+        {record.status === "completed" && (
+          <Button
+            type="primary"
+            icon={<CheckCircleOutlined />}
+            disabled
+          >
+            Completed
+          </Button>
+        )}
+
+        {/* MARK COMPLETE */}
+        {record.status !== "completed" && showCompleteButton && (
+          <Button
+            type="primary"
+            icon={<CheckCircleOutlined />}
+            style={{
+              backgroundColor: "#52c41a",
+              borderColor: "#52c41a",
+            }}
+            onClick={() => {
+              setSelectedSession(record);
+              setConfirmModal(true);
+            }}
+          >
+            Mark as Complete
+          </Button>
+        )}
+
+        {/* ADD NOTES */}
+        {(isSessionOver || record.status === "completed") && (
+          <Button
+            icon={<FileTextOutlined />}
+            onClick={() => {
+              setSelectedSession(record);
+              setNotesModal(true);
+            }}
+          >
+            Add Notes
+          </Button>
+        )}
+
+      </div>
+    );
+  },
+}
+];
 
   const stats = [
-    {
-      title: "Assigned Students",
-      value: currentStats.assignedStudents,
-      icon: <TeamOutlined />,
-    },
-    {
-      title: "Upcoming Sessions",
-      value: currentStats.upcomingSessions,
-      icon: <CalendarOutlined />,
-    },
-    {
-      title: "Completed Sessions",
-      value: currentStats.completedSessions,
-      icon: <CalendarOutlined />,
-    },
-  ];
+  {
+    title: "Assigned Students",
+    value: dashboardStats.assignedStudents,
+    icon: <TeamOutlined />,
+  },
+  {
+    title: "Upcoming Sessions",
+    value: dashboardStats.upcomingSessions,
+    icon: <CalendarOutlined />,
+  },
+  {
+    title: "Completed Sessions",
+    value: dashboardStats.completedSessions,
+    icon: <CalendarOutlined />,
+  },
+];
+
+  const staticLocation = {
+    officeName: "Abhinav Career Scope",
+    building: "Bhagwati Maestros, Miller 403",
+    landmarkLine1: "LMD Chowk, Above Indian Smart Bazaar",
+    area: "Bavdhan",
+    city: "Pune",
+    state: "Maharashtra",
+    pincode: "411021",
+    nearby: "Near Chandani Chowk, Bavdhan",
+    instructions: "Start 20 minutes earlier due to traffic",
+    parking: "Parking available outside the building gate"
+  };
 
   return (
     <div style={{ padding: screens.xs ? 12 : 20 }}>
@@ -279,6 +320,7 @@ const CounsellorDashboard = () => {
         {stats.map((item, index) => (
           <Col xs={24} sm={12} md={8} key={index}>
             <Card
+              loading={dashboardLoading}
               style={{
                 borderRadius: adminTheme.token.borderRadius,
                 boxShadow: adminTheme.token.boxShadow,
@@ -304,8 +346,9 @@ const CounsellorDashboard = () => {
               <Table
                 columns={columns}
                 dataSource={upcomingSessions}
-                rowKey="key"
-                scroll={{ x: 800 }}
+                loading={studentsLoading}
+                rowKey="id"
+                scroll={{ x: 1015 }}
                 pagination={{
                   ...pagination,
                   total: upcomingSessions.length,
@@ -322,13 +365,56 @@ const CounsellorDashboard = () => {
       </Row>
 
       {/* COMPLETE MODAL */}
-      <Modal title="Confirm Completion" open={confirmModal} onCancel={() => { setConfirmModal(false); setSelectedSession(null); }} onOk={() => { if (selectedSession?.key) { setCompletedIds((prev) => (prev.includes(selectedSession.key) ? prev : [...prev, selectedSession.key])); } message.success("Session marked as completed!"); setConfirmModal(false); setSelectedSession(null); }} okText="Yes, Complete" cancelText="Cancel" okButtonProps={{ style: { backgroundColor: "#52c41a", borderColor: "#52c41a", color: "#fff", }, }} > <p> Are you sure you want to mark session{" "} <strong>{selectedSession?.studentName}</strong> as completed? </p> </Modal>
+      {/* COMPLETE MODAL */}
+      <Modal
+        title="Confirm Completion"
+        open={confirmModal}
+        onCancel={() => {
+          setConfirmModal(false);
+          setSelectedSession(null);
+        }}
+        onOk={async () => {
+          if (!selectedSession?.id) return;
+
+          try {
+            await dispatch(
+              markCounsellingBookingCompleted(selectedSession.id)
+            ).unwrap();
+
+            message.success("Session marked as completed!");
+
+            setConfirmModal(false);
+            setSelectedSession(null);
+          } catch (error) {
+            message.error(error || "Failed to mark session as completed");
+          }
+        }}
+        okText="Yes, Complete"
+        cancelText="Cancel"
+        okButtonProps={{
+          style: {
+            backgroundColor: "#52c41a",
+            borderColor: "#52c41a",
+            color: "#fff",
+          },
+        }}
+      >
+        <p>
+          Are you sure you want to mark session{" "}
+          <strong>{selectedSession?.studentName}</strong> as completed?
+        </p>
+      </Modal>
+
+
       {/* LOCATION MODAL */}
       <Modal
         title={`Location Details`}
         open={locationModal}
         onCancel={() => setLocationModal(false)}
         footer={[
+          <Button key="close" onClick={() => setLocationModal(false)}>
+            Close
+          </Button>,
           <Button key="map" type="primary" onClick={() => {
             const address = `${selectedSession.location.officeName}, ${selectedSession.location.area}, ${selectedSession.location.city}`;
             window.open(
@@ -338,9 +424,7 @@ const CounsellorDashboard = () => {
           }}>
             Open in Google Maps
           </Button>,
-          <Button key="close" onClick={() => setLocationModal(false)}>
-            Close
-          </Button>,
+
         ]}
       >
         {selectedSession?.location && (
@@ -379,7 +463,8 @@ const CounsellorDashboard = () => {
       <StudentProfileModal
         open={profileModal}
         onClose={() => setProfileModal(false)}
-        student={selectedSession}
+        student={profile}
+        loading={profileLoading}
       />
     </div>
   );

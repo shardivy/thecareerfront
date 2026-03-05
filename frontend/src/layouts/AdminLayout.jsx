@@ -166,16 +166,6 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
-    (role === "counsellor") && {
-      key: "/s-admin/session-history",
-      icon: <CalendarFilled />,
-      label: "Session History",
-      onClick: () => {
-        navigate("/s-admin/session-history");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
 
     // (role === "admin" || role === "superadmin") && {
     (role === "ui_ux") && {
@@ -188,6 +178,18 @@ const AdminLayout = () => {
       },
       style: { marginBottom: 12 },
     },
+
+    (role === "counsellor") && {
+      key: "/s-admin/session-history",
+      icon: <CalendarFilled />,
+      label: "Session History",
+      onClick: () => {
+        navigate("/s-admin/session-history");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
 
 
     /* ================= ADMIN / SUPERADMIN ONLY ================= */
@@ -335,6 +337,18 @@ const AdminLayout = () => {
       },
       style: { marginBottom: 12 },
     },
+
+    (role === "ui_ux") && {
+      key: "/s-admin/session-history",
+      icon: <CalendarFilled />,
+      label: "Session History",
+      onClick: () => {
+        navigate("/s-admin/session-history");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
 
     // (role === "admin" || role === "superadmin") &&{
     //     key: "/s-admin/notificationManagement",

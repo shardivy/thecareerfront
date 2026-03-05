@@ -515,6 +515,7 @@ const [pageSize, setPageSize] = useState(5);
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           initialValues={editingPackage}
+            viewMode={viewMode}
           programs={programData}
           onSubmit={async (values) => {
             const payload = {

@@ -48,6 +48,7 @@ const StudentRegister = () => {
   const [parentMobileValue, setParentMobileValue] = useState("");
   const [parentEmailValue, setParentEmailValue] = useState("");
   const [specializationOptions, setSpecializationOptions] = useState([]);
+  const [parentNameFromApi, setParentNameFromApi] = useState("");
   
   // Redux selectors
  const { 
@@ -145,24 +146,42 @@ const StudentRegister = () => {
       .catch((err) => message.error(err));
   };
 
-  const handleVerifyOtp = () => {
-    if (!parentEmailValue) {
-      message.error("Enter a valid parent email");
-      return;
-    }
-    if (!otpValue || otpValue.trim().length < 4) {
-      message.error("Enter a valid OTP");
-      return;
-    }
+const handleVerifyOtp = () => {
+  if (!parentEmailValue) {
+    message.error("Enter a valid parent email");
+    return;
+  }
+  if (!otpValue || otpValue.trim().length < 4) {
+    message.error("Enter a valid OTP");
+    return;
+  }
 
-    dispatch(verifyOtpRegister({ parent_email: parentEmailValue, otp: otpValue }))
-      .unwrap()
-      .then((res) => {
-        setOtpVerified(true);
-        message.success(res.message || "OTP verified successfully");
-      })
-      .catch((err) => message.error(err));
-  };
+  dispatch(verifyOtpRegister({ parent_email: parentEmailValue, otp: otpValue }))
+    .unwrap()
+    .then((res) => {
+      setOtpVerified(true);
+      message.success(res.message || "OTP verified successfully");
+
+      if (res.parent_exists === true) {
+        setParentExists(true);
+        setParentMode("full");
+        setParentNameFromApi(res.parent_name || "");
+
+        // Set value inside form
+        form.setFieldsValue({
+          parentName: res.parent_name || "",
+        });
+      } else {
+        setParentExists(false);
+        setParentMode("full");
+
+        form.setFieldsValue({
+          parentName: "",
+        });
+      }
+    })
+    .catch((err) => message.error(err));
+};
 
   const onFinish = (values) => {
     if (!otpVerified) {
@@ -236,12 +255,31 @@ const StudentRegister = () => {
                 form={form}
                 layout="vertical"
                 onFinish={onFinish}
-                onValuesChange={(changedValues) => {
-                  if (changedValues.parentMobile !== undefined)
-                    setParentMobileValue(changedValues.parentMobile || "");
-                  if (changedValues.parentEmail !== undefined)
-                    setParentEmailValue(changedValues.parentEmail || "");
-                }}
+              onValuesChange={(changedValues) => {
+  if (changedValues.parentMobile !== undefined) {
+    const newMobile = changedValues.parentMobile || "";
+    setParentMobileValue(newMobile);
+
+    // 🔄 Reset OTP flow if mobile changed after sending OTP
+    if (otpSent) {
+      setOtpSent(false);
+      setOtpVerified(false);
+      setOtpValue("");
+    }
+  }
+
+  if (changedValues.parentEmail !== undefined) {
+    const newEmail = changedValues.parentEmail || "";
+    setParentEmailValue(newEmail);
+
+    // 🔄 Reset OTP flow if email changed after sending OTP
+    if (otpSent) {
+      setOtpSent(false);
+      setOtpVerified(false);
+      setOtpValue("");
+    }
+  }
+}}
                 style={{ marginTop: 28 }}
               >
                 <Divider orientation="left">Student Details</Divider>
@@ -367,25 +405,47 @@ const StudentRegister = () => {
                 <Divider orientation="left">Parent Details</Divider>
 
                 {/* Parent Mobile & Email */}
-                <Row gutter={16}>
-                  <Col md={12}>
-                    <Form.Item label="Mobile Number (WhatsApp)" name="parentMobile" rules={[{ required: true }]}>
-                      <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
-                    </Form.Item>
-                  </Col>
-                  <Col md={12}>
-                    <Form.Item label="Email" name="parentEmail" rules={[{ type: "email", required: parentMode === "full" }]}>
-                      <Input size="large" prefix={<MailOutlined />} />
-                    </Form.Item>
-                  </Col>
-                </Row>
+              <Row gutter={16}>
+  <Col md={12}>
+    <Form.Item
+      label="Mobile Number (WhatsApp)"
+      name="parentMobile"
+      rules={[
+        { required: true, message: "Parent mobile number is required" }
+      ]}
+    >
+      <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
+    </Form.Item>
+  </Col>
+
+  <Col md={12}>
+    <Form.Item
+      label="Email"
+      name="parentEmail"
+      rules={[
+        { required: true, message: "Parent email is required" },
+        { type: "email", message: "Enter a valid email address" }
+      ]}
+    >
+      <Input size="large" prefix={<MailOutlined />} />
+    </Form.Item>
+  </Col>
+</Row>
 
                 {/* Full Parent Mode */}
-                {parentMode === "full" && parentExists === false && (
-                  <Form.Item label="Parent Name" name="parentName" rules={[{ required: true }]}>
-                    <Input size="large" prefix={<UserOutlined />} />
-                  </Form.Item>
-                )}
+              {parentMode === "full" && otpVerified && (
+  <Form.Item
+    label="Parent Name"
+    name="parentName"
+    rules={[{ required: true }]}
+  >
+    <Input
+      size="large"
+      prefix={<UserOutlined />}
+      disabled={parentExists === true}
+    />
+  </Form.Item>
+)}
 
                 {/* Send OTP Button */}
                 {canSendOtp && (
@@ -428,7 +488,7 @@ const StudentRegister = () => {
 
                 <Text style={{ display: "block", textAlign: "center" }}>
                   Already have an account?{" "}
-                  <Text type="primary" style={{ cursor: "pointer", textDecoration: "underline" }} onClick={() => navigate("/")}>
+                  <Text type="primary" style={{ cursor: "pointer", textDecoration: "underline", color: "#1890ff", }} onClick={() => navigate("/")}>
                     Login
                   </Text>
                 </Text>

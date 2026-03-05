@@ -1,6 +1,6 @@
 // src/components/counsellor/SessionHistory.jsx
 
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import {
   Card,
   Table,
@@ -14,6 +14,7 @@ import {
   Space,
   Modal,
   Grid,
+  message,
 } from "antd";
 import {
   SearchOutlined,
@@ -24,6 +25,9 @@ import dayjs from "dayjs";
 
 import StudentProfileModal from "../modals/StudentProfileModal";
 import SessionNotesModal from "../modals/SessionNotesModal";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchMyStudents } from "../../../adminSlices/counsellorSlice";
+import { getStudentProfile } from "../../../adminSlices/profileSlice";
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -31,33 +35,37 @@ const { useBreakpoint } = Grid;
 
 const SessionHistory = () => {
   const screens = useBreakpoint();
+  const dispatch = useDispatch();
+  const [profileModal, setProfileModal] = useState(false);
+const [selectedStudent, setSelectedStudent] = useState(null);
 
-  /* ================= DUMMY DATA ================= */
-  const sessions = [
-    {
-      id: 1,
-      studentName: "Rahul Sharma",
-      email: "rahul@gmail.com",
-      phone: "9876543210",
-      date: "2026-02-25",
-      startTime: "15:00",
-      endTime: "16:00",
-      mode: "Online",
-      discussion:
-        "Student showed improvement in focus. Suggested weekly practice plan.",
-    },
-    {
-      id: 2,
-      studentName: "Anjali Verma",
-      email: "anjali@gmail.com",
-      phone: "9999999999",
-      date: "2026-02-20",
-      startTime: "10:30",
-      endTime: "11:30",
-      mode: "Offline",
-    },
-  ];
+const { students, studentsLoading } = useSelector((state) => state.counsellors);
+const { profile, loading: profileLoading } = useSelector(
+  (state) => state.profile
+);
 
+
+useEffect(() => {
+  dispatch(fetchMyStudents());
+}, [dispatch]);
+
+const tableData = (students || []).map((item) => {
+  const [startTime, endTime] = item.slot_time?.split(" - ") || ["", ""];
+
+  return {
+    ...item, // keep all original fields for modal
+    key: item.id,
+    studentName: item.student_name,
+    studentEmail: item.student_email,
+    studentPhone: item.student_phone,
+    counsellorName: item.counsellor_name,
+    date: item.date,
+    startTime,
+    endTime,
+    mode: item.mode === "online" ? "Online" : "Offline",
+    status: item.status,
+  };
+});
   /* ================= STATES ================= */
   const [searchText, setSearchText] = useState("");
   const [filterDate, setFilterDate] = useState(null);
@@ -72,7 +80,7 @@ const SessionHistory = () => {
   const [selectedSession, setSelectedSession] = useState(null);
 
   /* ================= FILTER LOGIC ================= */
-  const filteredSessions = sessions.filter((session) => {
+  const filteredSessions = tableData.filter((session) => {
     const matchesSearch = session.studentName
       .toLowerCase()
       .includes(searchText.toLowerCase());
@@ -123,16 +131,22 @@ const SessionHistory = () => {
           direction={screens.xs ? "vertical" : "horizontal"}
           style={{ width: "100%" }}
         >
-          <Button
-            icon={<UserOutlined />}
-            block={screens.xs}
-            onClick={() => {
-              setSelectedSession(record);
-              setProfileOpen(true);
-            }}
-          >
-            View Profile
-          </Button>
+         <Button
+      icon={<UserOutlined />}
+      onClick={() => {
+        dispatch(getStudentProfile(record.student_id))
+          .unwrap()
+          .then(() => {
+            setSelectedStudent(record.student_id);
+            setProfileModal(true);
+          })
+          .catch(() =>
+            message.error("Failed to load student profile")
+          );
+      }}
+    >
+      View Profile
+    </Button>
 
           <Button
             type="primary"
@@ -196,10 +210,24 @@ const SessionHistory = () => {
 
         {/* ================= TABLE ================= */}
         <div style={{ overflowX: "auto" }}>
-         <Table
+        <Table
   columns={columns}
-  dataSource={filteredSessions}
+  dataSource={tableData.filter((session) => {
+    const matchesSearch = session.studentName
+      .toLowerCase()
+      .includes(searchText.toLowerCase());
+
+    const matchesDate = filterDate
+      ? dayjs(session.date).format("YYYY-MM-DD") ===
+        dayjs(filterDate).format("YYYY-MM-DD")
+      : true;
+
+    const matchesMode = filterMode ? session.mode === filterMode : true;
+
+    return matchesSearch && matchesDate && matchesMode;
+  })}
   rowKey="id"
+  loading={studentsLoading}
   pagination={{
     current: pagination.current,
     pageSize: pagination.pageSize,
@@ -218,11 +246,12 @@ const SessionHistory = () => {
       </Card>
 
       {/* PROFILE MODAL */}
-      <StudentProfileModal
-        open={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        student={selectedSession}
-      />
+    <StudentProfileModal
+  open={profileModal}
+  onClose={() => setProfileModal(false)}
+  student={profile}
+  loading={profileLoading}
+/>
 
       {/* NOTES MODAL */}
       <Modal
@@ -236,7 +265,7 @@ const SessionHistory = () => {
       >
         <SessionNotesModal
           session={selectedSession}
-          isViewMode={true}
+          // isViewMode={true}
           onClose={() => setNotesOpen(false)}
         />
       </Modal>

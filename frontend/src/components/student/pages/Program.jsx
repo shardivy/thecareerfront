@@ -59,6 +59,12 @@ const Program = () => {
   const { list: packageList, loading: packageLoading } = useSelector((state) => state.packages);
   const profile = useSelector((state) => state.profile?.profile);
 
+  // Check if user is free (student_id is null)
+  const isFreeUser = !profile?.student_id;
+
+  // For free users, we don't require student_id, so we can still show programs
+  const finalProgram = profile?.program || selectedProgram;
+
   // ================= FETCH PROGRAMS =================
   useEffect(() => {
     dispatch(fetchActivePrograms());
@@ -68,6 +74,7 @@ const Program = () => {
   useEffect(() => {
     const savedProgram = localStorage.getItem("selectedProgram");
     if (programsList.length) {
+      // For free users, we still want to show the program from profile if available
       const programFromProfile = profile?.program;
       const programToUse = programFromProfile || savedProgram;
 
@@ -75,6 +82,7 @@ const Program = () => {
         setSelectedProgram(programToUse);
         const selected = programsList.find((p) => p.name === programToUse);
         if (selected?.id) {
+          // Even for free users, we fetch packages to display available services
           dispatch(fetchPackagesByProgram(selected.id));
         }
       }
@@ -168,7 +176,7 @@ const Program = () => {
             <Button
               type="default"
               icon={<ArrowRightOutlined />}
-              onClick={() => navigate("/student/freecontent")}
+              onClick={() => navigate("/student/content-library")}
               size={screens.xs ? "small" : "middle"}
             >
               Browse Content
@@ -180,13 +188,287 @@ const Program = () => {
   );
 
   // ================= DISPLAY PROGRAMS =================
-  const displayedPrograms = programsList.filter((p) => !profile?.program || p.name === profile.program);
+  // For free users, show all programs since no student_id is required
+  // For logged-in users with profile, filter based on their program
+  const displayedPrograms = !isFreeUser && profile?.program
+    ? programsList.filter((p) => p.name === profile.program)
+    : programsList;
+
   const apiPrograms = displayedPrograms.map((p) => {
     const map = programIconColorMap[p.name] || defaultProgramIconColor;
     return { id: p.id, title: p.name, icon: map.icon, color: map.color };
   });
-  const titleText = profile?.program ? "Your Selected Counselling Program" : "Choose Your Career Path";
 
+  // Update title text based on user type
+  const titleText = !isFreeUser && profile?.program
+    ? "Your Selected Counselling Program"
+    : "Choose Your Career Path";
+
+  // Show free user message if applicable
+  if (isFreeUser) {
+    return (
+      <div
+        style={{
+          padding: screens.xs ? "20px 16px" : "20px 20px",
+          maxWidth: "1200px",
+          margin: "0 auto",
+          fontFamily: token.fontFamily,
+        }}
+      >
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "80vh" }}>
+            <Spin size="large" tip="Loading Programs..." />
+          </div>
+        ) : (
+          <>
+            {/* Welcome message for free users */}
+            <Card
+              style={{
+                marginBottom: 30,
+                borderRadius: 16,
+                background: "linear-gradient(90deg, #1E40AF 0%, #6b85db 100%)",
+                color: "#fff",
+              }}
+            >
+              <div style={{ textAlign: "center", padding: screens.xs ? 20 : 30 }}>
+                <Title level={screens.xs ? 3 : 2} style={{ color: "#fff", marginBottom: 10 }}>
+                  Welcome to Career Counselling
+                </Title>
+                <Text style={{ color: "#fff", fontSize: screens.xs ? 14 : 16, display: "block" }}>
+                  Explore our programs and services.
+                </Text>
+              </div>
+            </Card>
+
+            {/* Title */}
+            <Title
+              level={screens.xs ? 3 : 2}
+              style={{
+                textAlign: "center",
+                marginBottom: screens.xs ? 20 : 30,
+              }}
+            >
+              {titleText}
+            </Title>
+
+            {/* Program Slider - Show all programs for free users */}
+            <div
+              style={{
+                position: "relative",
+                marginBottom: 30,
+                display: "flex",
+                alignItems: "center",
+              }}
+            >
+              <div
+                onClick={scrollLeft}
+                style={{
+                  cursor: "pointer",
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(0,0,0,0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 10,
+                }}
+              >
+                <ArrowLeftOutlined />
+              </div>
+
+              <div
+                ref={programScrollRef}
+                style={{
+                  display: "flex",
+                  gap: screens.xs ? 12 : 16,
+                  overflowX: screens.xs ? "auto" : "hidden",
+                  flex: 1,
+                  scrollbarWidth: "thin",
+                  msOverflowStyle: "auto",
+                  padding: "4px 0",
+                }}
+              >
+                {programsList.map((program) => {
+                  const { icon, color } = programIconColorMap[program.name] || defaultProgramIconColor;
+                  return (
+                    <Card
+                      key={program.id}
+                      hoverable
+                      onClick={() => handleProgramSelect(program.name)}
+                      style={{
+                        minWidth: screens.xs ? 140 : 180,
+                        borderRadius: 12,
+                        border: selectedProgram === program.name ? `2px solid ${color}` : "1px solid #f0f0f0",
+                        transition: "all 0.3s ease",
+                      }}
+                      bodyStyle={{ padding: screens.xs ? 12 : 16 }}
+                    >
+                      <div style={{ textAlign: "center" }}>
+                        <div
+                          style={{
+                            fontSize: screens.xs ? 24 : 32,
+                            color: color,
+                            marginBottom: 8,
+                          }}
+                        >
+                          {icon}
+                        </div>
+                        <Text strong style={{ fontSize: screens.xs ? 12 : 14 }}>
+                          {program.name}
+                        </Text>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <div
+                onClick={scrollRight}
+                style={{
+                  cursor: "pointer",
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(0,0,0,0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginLeft: 10,
+                }}
+              >
+                <ArrowRightOutlined />
+              </div>
+            </div>
+
+            {/* Show packages if program selected, otherwise show free content */}
+            {!selectedProgram && <FreeContentCard />}
+
+            {selectedProgram && (
+              <div>
+                <Title level={screens.xs ? 4 : 3} style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30 }}>
+                  {selectedProgram} - Available Services
+                </Title>
+
+                <Row gutter={[screens.xs ? 16 : 24, screens.xs ? 16 : 24]} justify="center">
+                  {packageLoading ? (
+                    <div style={{ textAlign: "center", marginTop: 40 }}>
+                      <Spin size="large" />
+                    </div>
+                  ) : packageList.length > 0 ? (
+                    packageList.map((pkg) => (
+                      <Col xs={24} sm={12} md={8} key={pkg.id}>
+                        <Card
+                          style={{
+                            borderRadius: 12,
+                            position: "relative",
+                            height: "100%",
+                            boxShadow: token.boxShadow,
+                            border: pkg.is_popular ? `2px solid ${token.colorPrimary}` : "1px solid #f0f0f0",
+                          }}
+                          bodyStyle={{ padding: screens.xs ? 16 : 24 }}
+                        >
+                          {pkg.is_popular && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 0,
+                                right: 0,
+                                background: token.colorWarning,
+                                color: "#fff",
+                                padding: "6px 14px",
+                                borderTopRightRadius: 12,
+                                borderBottomLeftRadius: 12,
+                                fontSize: 12,
+                              }}
+                            >
+                              ⭐ Most Popular
+                            </div>
+                          )}
+
+                          <Title level={4}>{pkg.name}</Title>
+                          <Title level={2} style={{ color: token.colorPrimary }}>
+                            ₹{pkg.price}
+                          </Title>
+                          <Text type="colorTextSecondary">{pkg.description || "No description available"}</Text>
+
+                          <div style={{ marginTop: 20 }}>
+                            {pkg.features?.map((feature, i) => (
+                              <div key={i} style={{ display: "flex", marginBottom: 10 }}>
+                                <CheckCircleOutlined
+                                  style={{ color: token.colorSuccess, marginRight: 8, marginTop: 2 }}
+                                />
+                                <Text>{feature.description}</Text>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+                            <Button
+                              block
+                              onClick={() => {
+                                if (pkg.link_url) {
+                                  window.open(pkg.link_url, "_blank"); // open in new tab
+                                } else {
+                                  window.open("#", "_self");
+                                }
+                              }}
+                            >
+                              Learn More
+                            </Button>
+
+                            <Button
+                              type="primary"
+                              block
+                              onClick={() => {
+                                navigate("/student/payment-page", {
+                                  state: {
+                                    packageId: pkg.id,
+                                    packageName: pkg.name,
+                                    packagePrice: pkg.price,
+                                     programId: pkg.program.id,
+                                    programName: selectedProgram,
+                                    isFreeUser: true
+                                  }
+                                });
+                              }}
+                            >
+                              Select Service
+                            </Button>
+                          </div>
+                        </Card>
+                      </Col>
+                    ))
+                  ) : (
+                    <Col span={24} style={{ textAlign: "center", marginTop: screens.xs ? 30 : 50 }}>
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={
+                          <Text style={{ fontSize: screens.xs ? 16 : 18, color: token.colorTextSecondary }}>
+                            No packages available for this program yet.
+                          </Text>
+                        }
+                      >
+                        <Button type="primary" onClick={() => navigate("/student/freecontent")}>
+                          Browse Free Content
+                        </Button>
+                      </Empty>
+                    </Col>
+                  )}
+                </Row>
+
+                <div style={{ marginTop: screens.xs ? 30 : 40 }}>
+                  <FreeContentCard />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // Original return for logged-in users
   return (
     <div
       style={{
@@ -202,114 +484,105 @@ const Program = () => {
         </div>
       ) : (
         <>
+          {/* ================= TITLE ================= */}
           <Title
             level={screens.xs ? 3 : 2}
-            style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30, fontSize: screens.xs ? 24 : 32 }}
+            style={{
+              textAlign: "center",
+              marginBottom: screens.xs ? 20 : 30,
+            }}
           >
             {titleText}
+            {finalProgram && (
+              <Text
+                style={{
+                  marginLeft: 12,
+                  fontSize: screens.xs ? 18 : 26,
+                  fontWeight: "bold",
+                  color: token.colorPrimary,
+                }}
+              >
+                - {finalProgram}
+              </Text>
+            )}
           </Title>
 
-          {/* ================= PROGRAM CARDS ================= */}
-          <div style={{ position: "relative", marginBottom: 30, display: "flex", alignItems: "center" }}>
-            {!profile?.program && (
-              <div onClick={scrollLeft} style={{
-                cursor: "pointer",
+          {/* ================= PROGRAM SLIDER (ONLY IF NOT SELECTED) ================= */}
+          {!finalProgram && (
+            <div
+              style={{
+                position: "relative",
+                marginBottom: 30,
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                backgroundColor: "rgba(0,0,0,0.15)",
-                marginRight: 10,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                fontSize: 20,
-                transition: "all 0.2s",
-              }}>
-                <ArrowLeftOutlined />
-              </div>
-            )}
-
-            <div
-              ref={programScrollRef}
-              style={{
-                display: "flex",
-                gap: screens.xs ? 12 : 16,
-                overflowX: "auto",
-                scrollBehavior: "smooth",
-                flex: 1,
-                paddingBottom: 5,
-                msOverflowStyle: "none",
-                scrollbarWidth: "none",
               }}
             >
-              {apiPrograms.map((program) => (
-                <Card
-                  key={program.title}
-                  hoverable={!profile?.program}
-                  onClick={() => !profile?.program && handleProgramSelect(program.title)}
-                  style={{
-                    minWidth: screens.xs ? 140 : 180,
-                    height: screens.xs ? 110 : 130,
-                    borderRadius: 8,
-                    border: selectedProgram === program.title ? "2px solid #4B7CF3" : "1px solid #f0f0f0",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: profile?.program ? "default" : "pointer",
-                    flexShrink: 0,
-                  }}
-                  bodyStyle={{ padding: screens.xs ? 8 : 12 }}
-                >
-                  <div
+              <div
+                onClick={scrollLeft}
+                style={{
+                  cursor: "pointer",
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(0,0,0,0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginRight: 10,
+                }}
+              >
+                <ArrowLeftOutlined />
+              </div>
+
+              <div
+                ref={programScrollRef}
+                style={{
+                  display: "flex",
+                  gap: screens.xs ? 12 : 16,
+                  overflowX: "auto",
+                  flex: 1,
+                }}
+              >
+                {programsList.map((program) => (
+                  <Card
+                    key={program.id}
+                    hoverable
+                    onClick={() => handleProgramSelect(program.name)}
                     style={{
-                      backgroundColor: program.color,
-                      width: screens.xs ? 36 : 44,
-                      height: screens.xs ? 36 : 44,
-                      borderRadius: "50%",
-                      marginBottom: screens.xs ? 6 : 8,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#fff",
+                      minWidth: screens.xs ? 140 : 180,
+                      borderRadius: 8,
                     }}
                   >
-                    {React.cloneElement(program.icon, { style: { fontSize: screens.xs ? 16 : 20 } })}
-                  </div>
-                  <Text strong style={{ fontSize: screens.xs ? 14 : 16 }}>
-                    {program.title}
-                  </Text>
-                </Card>
-              ))}
-            </div>
+                    <Text strong>{program.name}</Text>
+                  </Card>
+                ))}
+              </div>
 
-            {!profile?.program && (
-              <div onClick={scrollRight} style={{
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 40,
-                height: 40,
-                borderRadius: "50%",
-                backgroundColor: "rgba(0,0,0,0.15)",
-                marginLeft: 10,
-                boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-                fontSize: 20,
-                transition: "all 0.2s",
-              }}>
+              <div
+                onClick={scrollRight}
+                style={{
+                  cursor: "pointer",
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(0,0,0,0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginLeft: 10,
+                }}
+              >
                 <ArrowRightOutlined />
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {!selectedProgram && <FreeContentCard />}
 
           {selectedProgram && (
             <div>
               <Title level={screens.xs ? 4 : 3} style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30 }}>
-                {selectedProgram} Counselling Services
+                Selected Counselling Services
               </Title>
 
               <Row gutter={[screens.xs ? 16 : 24, screens.xs ? 16 : 24]} justify="center">
@@ -368,17 +641,41 @@ const Program = () => {
                             ))}
                           </div>
 
-                          <Button
-                            type="primary"
-                            block
-                            style={{ marginTop: 20 }}
-                            onClick={() => {
-                              localStorage.setItem("selectedPackage", pkg.id);
-                              navigate("/student/payment-page", { state: { packageId: pkg.id } });
-                            }}
-                          >
-                            Select Service
-                          </Button>
+                          {profile?.package_id === pkg.id ? (
+                            <Button
+                              block
+                              disabled
+                              style={{
+                                marginTop: 20,
+                                backgroundColor: token.colorSuccess,
+                                color: "#fff",
+                                border: "none",
+                              }}
+                            >
+                              Selected
+                            </Button>
+                          ) : (
+                            <Button
+                              type="primary"
+                              block
+                              style={{ marginTop: 20 }}
+                              onClick={() => {
+                                // No localStorage set here - pass data through state only
+                                navigate("/student/payment-page", {
+                                  state: {
+                                    packageId: pkg.id,
+                                    packageName: pkg.name,
+                                    packagePrice: pkg.price,
+                                    programId: selectedProgram,
+                                    programName: selectedProgram,
+                                    isFreeUser: false
+                                  }
+                                });
+                              }}
+                            >
+                              Select Service
+                            </Button>
+                          )}
                         </Card>
                       </Col>
                     ))

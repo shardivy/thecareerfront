@@ -9,9 +9,10 @@ import {
   Select,
   Row,
   Col,
-  Popconfirm,
+  Modal,
   Space,
   DatePicker,
+    message,
 } from "antd";
 import {
   EyeOutlined,
@@ -23,68 +24,54 @@ import {
 import dayjs from "dayjs";
 import adminTheme from "../../../theme/adminTheme";
 import AddEmployeeModal from "../modals/AddEmployeeModal";
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect } from "react";
+import { fetchRegisteredUsers ,deleteUser } from "../../../adminSlices/employeeSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 const EmployeeList = () => {
-  const employeeData = [
-    {
-      key: 1,
-      name: "Priya Sharma",
-      email: "priya.sharma@email.com",
-      mobile: "9876543210",
-      role: "Counsellor",
-      date: "2026-01-23",
-      Status: "Active",
-    },
-    {
-      key: 2,
-      name: "Rajesh Kumar",
-      email: "rajesh.k@email.com",
-      mobile: "9123456789",
-      role: "UI/UX",
-      date: "2025-05-23",
-      Status: "Inactive",
-    },
-    {
-      key: 3,
-      name: "Anjali Verma",
-      email: "anjali.v@email.com",
-      mobile: "9012345678",
-      role: "Trainer",
-      date: "2026-01-28",
-      Status: "Active",
-    },
-  ];
 
-  const [employees, setEmployees] = useState(employeeData);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const dispatch = useDispatch();
+
+
+const { employees, loading } = useSelector((state) => state.employee);
+
+
+const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [modalMode, setModalMode] = useState("add");
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null); // <-- single date filter
 
+
+useEffect(() => {
+  dispatch(fetchRegisteredUsers());
+}, [dispatch]);
+
   // ---------------- Filtered Data ----------------
-  const filteredData = employees.filter((emp) => {
-    const search = searchText.toLowerCase();
+const filteredData = (employees || []).filter((emp) => {
+  const search = searchText.toLowerCase();
 
-    const matchesSearch =
-      emp.name.toLowerCase().includes(search) ||
-      emp.email.toLowerCase().includes(search) ||
-      emp.mobile.toLowerCase().includes(search) ||
-      emp.role.toLowerCase().includes(search) ||
-      emp.Status.toLowerCase().includes(search);
+  const matchesSearch =
+    (emp?.name || "").toLowerCase().includes(search) ||
+    (emp?.email || "").toLowerCase().includes(search) ||
+    (emp?.mobile || "").toLowerCase().includes(search) ||
+    (emp?.role || "").toLowerCase().includes(search) ||
+    (emp?.Status || "").toLowerCase().includes(search);
 
-    const matchesStatus = statusFilter ? emp.Status === statusFilter : true;
+  const matchesStatus = statusFilter
+    ? emp?.Status === statusFilter
+    : true;
 
-    const matchesDate = selectedDate
-      ? dayjs(emp.date).isSame(dayjs(selectedDate), "day")
-      : true;
+  const matchesDate = selectedDate
+    ? dayjs(emp?.date).isSame(dayjs(selectedDate), "day")
+    : true;
 
-    return matchesSearch && matchesStatus && matchesDate;
-  });
+  return matchesSearch && matchesStatus && matchesDate;
+});
 
   const handleView = (record) => {
     setEditingEmployee(record);
@@ -92,54 +79,42 @@ const EmployeeList = () => {
     setIsModalOpen(true);
   };
 
-  const handleEdit = (record) => {
-    setEditingEmployee(record);
-    setModalMode("edit");
-    setIsModalOpen(true);
-  };
+const handleEdit = (record) => {
+  setEditingEmployee(record);
+  setModalMode("edit");
+  setIsModalOpen(true);
+};
 
-  const handleSaveEmployee = (values) => {
-    const fullName = `${values.firstName} ${values.lastName}`;
+const showDeleteConfirm = (record) => {
+  Modal.confirm({
+    title: "Delete User",
+    content: `Are you sure you want to delete ${record.name}?`,
+    okText: "Yes, Delete",
+    okType: "danger",
+    cancelText: "Cancel",
+    centered: true,
+    async onOk() {
+      try {
+        await dispatch(deleteUser(record.user_id)).unwrap();
+        message.success("User deleted successfully");
+      } catch (error) {
+        message.error(error || "Delete failed");
+      }
+    },
+  });
+};
 
-    if (modalMode === "edit") {
-      setEmployees((prev) =>
-        prev.map((emp) =>
-          emp.key === editingEmployee.key
-            ? {
-                ...emp,
-                name: fullName,
-                email: values.email,
-                mobile: values.mobile,
-                role: values.program,
-                date: values.date,
-              }
-            : emp
-        )
-      );
-    } else {
-      setEmployees((prev) => [
-        ...prev,
-        {
-          key: Date.now(),
-          name: fullName,
-          email: values.email,
-          mobile: values.mobile,
-          role: values.program,
-          date: values.date,
-          Status: "Active",
-        },
-      ]);
-    }
-
-    setIsModalOpen(false);
-    setEditingEmployee(null);
-  };
+const handleSaveEmployee = () => {
+  dispatch(fetchRegisteredUsers()); // refresh list
+  setIsModalOpen(false);
+  setEditingEmployee(null);
+};
 
   // ---------------- Table Columns ----------------
   const columns = [
     { title: "Sr. No", render: (_, __, index) => index + 1, responsive: ["sm"] },
     {
-      title: "Employee",
+      title: "User Name / Email",
       render: (_, record) => (
         <>
           <Text strong>{record.name}</Text>
@@ -148,7 +123,7 @@ const EmployeeList = () => {
         </>
       ),
     },
-    { title: "WhatsApp Mobile Number", dataIndex: "mobile", responsive: ["sm"] },
+    { title: "Mobile Number", dataIndex: "mobile"},
     { title: "Role", dataIndex: "role" },
     {
       title: "Date",
@@ -173,14 +148,14 @@ const EmployeeList = () => {
           <Button size="large" type="primary" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             Edit
           </Button>
-          <Popconfirm
-            title="Are you sure you want to delete this Employee?"
-            onConfirm={() => setEmployees((prev) => prev.filter((e) => e.key !== record.key))}
-          >
-            <Button size="large" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
+         <Button
+  size="large"
+  danger
+  icon={<DeleteOutlined />}
+  onClick={() => showDeleteConfirm(record)}
+>
+  Delete
+</Button>
         </Space>
       ),
     },

@@ -33,13 +33,15 @@ import {
   deleteCounsellingBooking,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
-
+import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 const SlotBooking = () => {
   const dispatch = useDispatch();
+  const [notesModalOpen, setNotesModalOpen] = useState(false);
+const [selectedSession, setSelectedSession] = useState(null);
 
   const { data = [], loading, stats, statsLoading } = useSelector(
     (state) => state.counsellingBooking
@@ -287,27 +289,41 @@ const handleDelete = (record) => {
   );
 }
 
-    // 🟢 If COMPLETED → Only View
-    if (record.status === "completed") {
-      return (
-        <Button
-          size="large"
-          icon={<EyeOutlined />}
-          onClick={() => {
-            setRescheduleData(record);
-            setModalMode("view");
-            setIsModalOpen(true);
-          }}
-        >
-          View
-        </Button>
-      );
-    }
+
+ // 🟢 If COMPLETED → View + Add Notes
+if (record.status === "completed") {
+  return (
+    <Space>
+      {/* <Button
+        size="large"
+        icon={<EyeOutlined />}
+        onClick={() => {
+          setRescheduleData(record);
+          setModalMode("view");
+          setIsModalOpen(true);
+        }}
+      >
+        View
+      </Button> */}
+
+      <Button
+        size="large"
+        type="primary"
+        onClick={() => {
+          setSelectedSession(record);
+          setNotesModalOpen(true);
+        }}
+      >
+        Add Notes
+      </Button>
+    </Space>
+  );
+}
 
     // 🔵 If BOOKED → View / Edit / Delete
     return (
       <Space size="small">
-        <Button
+        {/* <Button
           size="large"
           icon={<EyeOutlined />}
           onClick={() => {
@@ -317,7 +333,7 @@ const handleDelete = (record) => {
           }}
         >
           View
-        </Button>
+        </Button> */}
 
         <Button
           size="large"
@@ -329,7 +345,7 @@ const handleDelete = (record) => {
             setIsModalOpen(true);
           }}
         >
-          Edit
+          Edit / Reschedule
         </Button>
 
         <Button
@@ -557,6 +573,24 @@ const handleDelete = (record) => {
         mode={modalMode}
         data={rescheduleData}
       />
+
+      {notesModalOpen && (
+  <Modal
+    open={notesModalOpen}
+    footer={null}
+    onCancel={() => setNotesModalOpen(false)}
+    centered
+    width={1000}
+    destroyOnClose
+  >
+    <SessionNotesModal
+      session={selectedSession}
+      onClose={() => setNotesModalOpen(false)}
+      isViewMode={false} // false = add/edit mode
+       hideSessionDetails={true}
+    />
+  </Modal>
+)}
     </div>
   );
 };

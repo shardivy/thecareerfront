@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect} from "react";
 import {
   Layout,
   Menu,
@@ -28,6 +28,8 @@ import {
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import NotificationDropdown from "../components/student/pages/Notification";
+import { useDispatch, useSelector } from "react-redux";
+import { getProfile, clearProfile } from "../adminSlices/profileSlice";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -40,8 +42,18 @@ export default function StudentLayout() {
   const location = useLocation();
   const screens = useBreakpoint();
   const { token } = theme.useToken();
+  const dispatch = useDispatch();
 
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const { profile } = useSelector((state) => state.profile);
+  const tokenFromStorage = localStorage.getItem("studentToken");
+  const selectedPackage = localStorage.getItem("selectedPackage");
+  
+  // Check if package exists in profile or localStorage
+  const hasPackage = !!(profile?.package_id || selectedPackage);
+  
+  // Check if only program exists but no package
+  const hasOnlyProgram = !!(profile?.program) && !hasPackage;
 
   const username = localStorage.getItem("username") || "Student";
 
@@ -52,14 +64,15 @@ export default function StudentLayout() {
       : username
     : username;
 
-  const selectedProgram = localStorage.getItem("selectedProgram");
-const normalizedProgram = selectedProgram?.trim().toLowerCase();
+  useEffect(() => {
+    dispatch(getProfile());
+  }, [dispatch]);
 
-const showExamAndReport =
-  normalizedProgram === "pg counselling" ||
-  normalizedProgram === "8-12 aptitude test";
+  const normalizedProgram = profile?.program?.trim().toLowerCase();
 
-
+  const showExamAndReport =
+    normalizedProgram === "pg counselling" ||
+    normalizedProgram === "8-12 aptitude test";
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -95,7 +108,6 @@ const showExamAndReport =
     "/student/payment-page":"Payment",
   };
 
-
   const pathSnippets = location.pathname.split("/").filter(Boolean);
   const extraBreadcrumbItems = pathSnippets.map((_, index) => {
     const url = `/${pathSnippets.slice(0, index + 1).join("/")}`;
@@ -107,54 +119,80 @@ const showExamAndReport =
 
   const breadcrumbItems = [{ key: "/student/dashboard", title: ".." }, ...extraBreadcrumbItems.slice(1)];
 
-  /* ===================== MENU ITEMS ===================== */
- const menuItems = [
-    {
-      key: "/student/dashboard",
-      icon: <DashboardFilled />,
-      label: "Dashboard",
-      onClick: () => {
-        navigate("/student/dashboard");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12, marginTop: 24 },
+/* ===================== MENU ITEMS ===================== */
+const menuItems = [
+  // Dashboard - Always first
+  {
+    key: "/student/dashboard",
+    icon: <DashboardFilled />,
+    label: "Dashboard",
+    onClick: () => {
+      navigate("/student/dashboard");
+      setDrawerVisible(false);
     },
-    {
-      key: "/student/program",
-      icon: <ReadFilled />,
-      label: "Program & Services",
-      onClick: () => {
-        navigate("/student/program");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
+    style: { marginBottom: 12, marginTop: 24 },
+  },
 
-     ...(showExamAndReport
-    ? [
-    {
-      key: "/student/exam-management",
-      icon: <CalendarFilled />,
-      label: "Exam Management",
-      onClick: () => {
-        navigate("/student/exam-management");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
+  // Program & Services - Always second
+  {
+    key: "/student/program",
+    icon: <ReadFilled />,
+    label: "Program & Services",
+    onClick: () => {
+      navigate("/student/program");
+      setDrawerVisible(false);
     },
-    {
-      key: "/student/report-management",
-      icon: <FileTextFilled />,
-      label: "Report Management",
-      onClick: () => {
-        navigate("/student/report-management");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
+    style: { marginBottom: 12 },
+  },
+];
 
-     ]
-    : []),
+// Content Library item
+const contentLibraryItem = {
+  key: "/student/content-library",
+  icon: <BookFilled />,
+  label: "Content Library",
+  onClick: () => {
+    navigate("/student/content-library");
+    setDrawerVisible(false);
+  },
+  style: { marginBottom: 12 },
+};
+
+// Insert Content Library based on user type
+if (!hasPackage) {
+  // Free user → insert at 3rd position
+  menuItems.splice(2, 0, contentLibraryItem);
+}
+
+// Package-dependent items
+if (hasPackage) {
+  const packageItems = [
+    ...(showExamAndReport
+      ? [
+          {
+            key: "/student/exam-management",
+            icon: <CalendarFilled />,
+            label: "Exam Management",
+            onClick: () => {
+              navigate("/student/exam-management");
+              setDrawerVisible(false);
+            },
+            style: { marginBottom: 12 },
+          },
+          {
+            key: "/student/report-management",
+            icon: <FileTextFilled />,
+            label: "Report Management",
+            onClick: () => {
+              navigate("/student/report-management");
+              setDrawerVisible(false);
+            },
+            style: { marginBottom: 12 },
+          },
+        ]
+      : []),
+
+    // Slot Booking
     {
       key: "/student/slot-booking",
       icon: <ScheduleFilled />,
@@ -165,45 +203,45 @@ const showExamAndReport =
       },
       style: { marginBottom: 12 },
     },
+
+    // Payments
     {
-      key: "/student/content-library",
-      icon: <BookFilled />,
-      label: "Content Library",
+      key: "/student/payments",
+      icon: <CreditCardFilled />,
+      label: "Payments",
       onClick: () => {
-        navigate("/student/content-library");
+        navigate("/student/payments");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
-    {
-  key: "/student/payments",
-  icon: <CreditCardFilled />,
-  label: "Payments",
-  onClick: () => {
-    navigate("/student/payments");
-    setDrawerVisible(false);
-  },
-  style: { marginBottom: 12 },
-}
-
   ];
 
+  // Paid user → insert Content Library as 2nd last item
+  const insertIndex = packageItems.length - 1; // after Slot Booking & Payments
+  packageItems.splice(insertIndex, 0, contentLibraryItem);
 
-const handleLogout = () => {
-  // Remove authentication & user info
-  localStorage.removeItem("studentToken");
-  localStorage.removeItem("username");
+  // Merge package items
+  menuItems.push(...packageItems);
+}
 
-  // Remove program/package stored from profile
-  localStorage.removeItem("selectedProgram");
-  localStorage.removeItem("selectedPackage");
 
-  // If you want to be extra safe, you can also clear everything
-  // localStorage.clear(); // ⚠️ This clears all localStorage, including unrelated keys
+  const handleLogout = () => {
+    // Remove authentication & user info
+    // localStorage.removeItem("studentToken");
+    // localStorage.removeItem("username");
 
-  navigate("/", { replace: true });
-};
+    // // Remove program/package stored from profile
+    // localStorage.removeItem("selectedProgram");
+    // localStorage.removeItem("selectedPackage");
+    // localStorage.removeItem("studentId");
 
+     localStorage.clear();
+      // 2. Optional: reset Redux state
+    dispatch(clearProfile());
+    
+    navigate("/", { replace: true });
+  };
 
   const MenuContent = (
     <Menu
@@ -253,7 +291,7 @@ const handleLogout = () => {
         <Sider
           width={SIDEBAR_WIDTH}
           style={{
-            background: token.colorPrimary, // 🔥 DARK BLUE
+            background: token.colorPrimary,
             position: "fixed",
             left: 0,
             top: 0,

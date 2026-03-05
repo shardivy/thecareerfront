@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Row,
   Col,
@@ -13,8 +13,10 @@ import {
   Select,
   DatePicker,
   theme,
-  Popconfirm,
-  message,
+    message,
+  Empty,
+  Modal,
+  Tooltip,
 } from "antd";
 import {
   PlusOutlined,
@@ -29,9 +31,13 @@ import {
   CalendarOutlined,
   EditOutlined,
   DeleteOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import UploadContentModal from "../modals/UploadContentModal";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchContentList ,fetchContentCount, deleteContent} from "../../../adminSlices/contentSlice";
+
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -47,89 +53,78 @@ const ContentManagement = () => {
   const [editRecord, setEditRecord] = useState(null);
   const [viewMode, setViewMode] = useState(false);
 
-  const [dataSource, setDataSource] = useState([
-    {
-      key: 1,
-      title: "Engineering Entrance Exam Guide 2026",
-      type: "PDF",
-      category: "Study Material",
-      program: "Engineering Career Path",
-      access: "Free",
-      downloads: 234,
-      date: "2025-12-15",
-    },
-    {
-      key: 2,
-      title: "Career Assessment Video Tutorial",
-      type: "Video",
-      category: "Tutorial",
-      program: "Career Assessment",
-      access: "Paid",
-      downloads: 45,
-      date: "2026-01-05",
-    },
-    {
-      key: 3,
-      title: "Guide to Coding Interviews",
-      type: "PDF",
-      category: "Guide",
-      program: "Career Prep",
-      access: "Free",
-      downloads: 150,
-      date: "2026-01-10",
-    },
-  ]);
 
-  const [drafts, setDrafts] = useState([]);
+  const dispatch = useDispatch();
+const { contentList, contentStats, loading } = useSelector(
+  (state) => state.content
+);
+
+  useEffect(() => {
+    dispatch(fetchContentList());
+     dispatch(fetchContentCount());
+  }, [dispatch]);
+
+  const dataSource = Array.isArray(contentList)
+    ? contentList
+    : [];
+
+ // ✅ Separate Draft & Published Content
+const draftData = dataSource.filter((item) => item.is_draft);
+const publishedData = dataSource.filter((item) => !item.is_draft);
 
   const { token } = theme.useToken();
 
   // STATS
-  const stats = [
-    {
-      title: "Total Content",
-      value: dataSource.length,
-      icon: <BookOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-    {
-      title: "Free Content",
-      value: dataSource.filter((i) => i.access === "Free").length,
-      subtitle: "Accessible to all users",
-      icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-    {
-      title: "Premium Content",
-      value: dataSource.filter((i) => i.access === "Paid").length,
-      subtitle: "Paid package only",
-      icon: <LockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-    {
-      title: "Total Downloads",
-      value: dataSource.reduce((sum, i) => sum + i.downloads, 0),
-      icon: <DownloadOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-    {
-      title: "Drafts",
-      value: drafts.length,
-      subtitle: "Unsaved content",
-      icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-    },
-  ];
+ const stats = [
+  {
+    title: "Total Content",
+    value: contentStats?.total_content || 0,
+    icon: <BookOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+  },
+  {
+    title: "Free Content",
+    value: contentStats?.free_content || 0,
+    subtitle: "Accessible to all users",
+    icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+  },
+  {
+    title: "Premium Content",
+    value: contentStats?.premium_content || 0,
+    subtitle: "Paid package only",
+    icon: <LockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+  },
+  {
+    title: "Total Downloads",
+    value: contentStats?.total_downloads || 0,
+    icon: <DownloadOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+  },
+  {
+    title: "Drafts",
+    value: contentStats?.draft_content || 0,
+    subtitle: "Unsaved content",
+    icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+  },
+];
 
   // FILTERED DATA
-  const filteredDataSource = (activeTab === "drafts" ? drafts : dataSource).filter((item) => {
+ const baseData =
+  activeTab === "drafts"
+    ? draftData
+    : publishedData;
+
+const filteredDataSource = baseData.filter((item) => {
     const matchesTab =
       activeTab === "all"
         ? true
         : activeTab === "study"
-        ? item.category === "Study Material"
-        : activeTab === "videos"
-        ? item.type === "Video"
-        : activeTab === "guides"
-        ? item.category === "Guide"
-        : activeTab === "drafts"
-        ? true
-        : true;
+          ? item.category === "study_material"
+          : activeTab === "tutorial"
+            ? item.category === "tutorial"
+            : activeTab === "guides"
+              ? item.category === "guide"
+              : activeTab === "drafts"
+                ? true
+                : true;
 
     const matchesSearch = Object.values(item)
       .join(" ")
@@ -137,7 +132,10 @@ const ContentManagement = () => {
       .includes(searchText.toLowerCase());
     const matchesCategory = !categoryFilter || item.category === categoryFilter;
     const matchesType = !typeFilter || item.type === typeFilter;
-    const matchesAccess = !accessFilter || item.access === accessFilter;
+    const matchesAccess =
+      !accessFilter ||
+      (accessFilter === "Free" && item.free_content) ||
+      (accessFilter === "Paid" && item.payment_required);
     const matchesDate = !dateFilter || dayjs(item.date).isSame(dayjs(dateFilter), "day");
 
     return matchesTab && matchesSearch && matchesCategory && matchesType && matchesAccess && matchesDate;
@@ -156,11 +154,25 @@ const ContentManagement = () => {
     setViewMode(true);
   };
 
-  const handleDelete = (record) => {
-    setDataSource((prev) => prev.filter((i) => i.key !== record.key));
-    setDrafts((prev) => prev.filter((i) => i.key !== record.key));
-    message.success(`Deleted: ${record.title}`);
-  };
+const handleDelete = (record) => {
+  Modal.confirm({
+    title: "Delete Content",
+    content: `Are you sure you want to delete "${record.title}" Content ?`,
+    okText: "Yes, Delete",
+    okType: "danger",
+    cancelText: "Cancel",
+
+    onOk: async () => {
+      try {
+        await dispatch(deleteContent(record.id)).unwrap();
+        message.success("Content deleted successfully");
+        dispatch(fetchContentCount()); // refresh stats
+      } catch (error) {
+        message.error("Failed to delete content");
+      }
+    },
+  });
+};
 
   const handleSaveContent = (data) => {
     if (drafts.find((d) => d.key === data.key)) {
@@ -188,14 +200,67 @@ const ContentManagement = () => {
     setViewMode(false);
   };
 
+  // const handleSaveDraft = (values) => {
+  //   setDrafts((prev) => {
+  //     if (values.key && prev.find((d) => d.key === values.key)) {
+  //       return prev.map((d) => (d.key === values.key ? { ...d, ...values } : d));
+  //     }
+  //     return [...prev, { ...values, key: values.key || Date.now() }];
+  //   });
+  // };
+
+
   const handleSaveDraft = (values) => {
+    // ❌ Prevent draft save when in View mode
+    if (viewMode) return;
+
+    // ❌ Prevent draft save when editing existing record
+    if (editRecord) return;
+
+    // ✅ Allow draft save ONLY for new upload
     setDrafts((prev) => {
       if (values.key && prev.find((d) => d.key === values.key)) {
-        return prev.map((d) => (d.key === values.key ? { ...d, ...values } : d));
+        return prev.map((d) =>
+          d.key === values.key ? { ...d, ...values } : d
+        );
       }
-      return [...prev, { ...values, key: values.key || Date.now() }];
+
+      return [
+        ...prev,
+        { ...values, key: values.key || Date.now() },
+      ];
     });
+
+    // message.success("Draft saved successfully");
   };
+
+ 
+// Helper function to get program display
+const getProgramDisplay = (program_details) => {
+  // No program details at all (null or undefined)
+  if (!program_details) {
+    return <Tag color="default">-</Tag>;
+  }
+  
+  // Empty array - explicitly no programs assigned
+  if (program_details.length === 0) {
+    return <Tag color="default">-</Tag>;
+  }
+  
+  // Single program
+  if (program_details.length === 1) {
+    return <Tag color="blue">{program_details[0].name}</Tag>;
+  }
+  
+  // Multiple programs - show count with tooltip
+  return (
+    <Tooltip title={program_details.map(p => p.name).join(", ")}>
+      <Tag color="green">All Programs</Tag>
+    </Tooltip>
+  );
+};
+
+
 
   // TABLE COLUMNS
   const columns = [
@@ -208,7 +273,7 @@ const ContentManagement = () => {
       title: "Type",
       dataIndex: "type",
       render: (type) =>
-        type === "PDF" ? (
+        type === "pdf" ? (
           <Tag icon={<FilePdfOutlined />} color="error">
             PDF
           </Tag>
@@ -218,20 +283,36 @@ const ContentManagement = () => {
           </Tag>
         ),
     },
-    { title: "Category", dataIndex: "category" },
-    { title: "Program", dataIndex: "program" },
+    {
+      title: "Category",
+      dataIndex: "category",
+      render: (value) => {
+        if (!value) return "-";
+
+        return value
+          .replace(/_/g, " ")              // study_material → study material
+          .replace(/\b\w/g, char => char.toUpperCase());
+        // study material → Study Material
+      },
+    },
+    {
+      title: "Program",
+      key: "program",
+      render: (_, record) => getProgramDisplay(record.program_details),
+    },
     {
       title: "Access",
-      dataIndex: "access",
-      render: (access) =>
-        access === "Free" ? (
+      render: (_, record) =>
+        record.free_content ? (
           <Tag icon={<UnlockOutlined />} color="success">
             Free
           </Tag>
-        ) : (
+        ) : record.payment_required ? (
           <Tag icon={<LockOutlined />} color="warning">
             Paid
           </Tag>
+        ) : (
+          "-"
         ),
     },
     {
@@ -266,17 +347,13 @@ const ContentManagement = () => {
             Edit
           </Button>
 
-          <Popconfirm
-            title="Delete Content"
-            description="Are you sure you want to delete this content?"
-            onConfirm={() => handleDelete(record)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button type="" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
+         <Button
+  type="default"
+  icon={<DeleteOutlined />}
+    onClick={() => handleDelete(record)}
+>
+  Delete
+</Button>
         </Space>
       ),
     },
@@ -348,12 +425,13 @@ const ContentManagement = () => {
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
+        loading={loading}
         items={[
           { key: "all", label: "All Content" },
           { key: "study", label: "Study Material" },
-          { key: "videos", label: "Videos" },
+          { key: "tutorial", label: "Tutorial" },
           { key: "guides", label: "Guides" },
-          { key: "drafts", label: `Drafts (${drafts.length})` }, // NEW
+        { key: "drafts", label: `Drafts (${draftData.length})` }// NEW
         ]}
       />
 
@@ -379,9 +457,9 @@ const ContentManagement = () => {
               style={{ width: "100%" }}
               onChange={setCategoryFilter}
             >
-              <Option value="Study Material">Study Material</Option>
-              <Option value="Tutorial">Tutorial</Option>
-              <Option value="Guide">Guide</Option>
+              <Option value="study_material">Study Material</Option>
+              <Option value="tutorial">Tutorial</Option>
+              <Option value="guide">Guide</Option>
             </Select>
           </Col>
 
@@ -392,8 +470,8 @@ const ContentManagement = () => {
               style={{ width: "100%" }}
               onChange={setTypeFilter}
             >
-              <Option value="PDF">PDF</Option>
-              <Option value="Video">Video</Option>
+              <Option value="pdf">PDF</Option>
+              <Option value="video">Video</Option>
             </Select>
           </Col>
 
@@ -422,9 +500,18 @@ const ContentManagement = () => {
         <Table
           columns={columns}
           dataSource={filteredDataSource}
-          rowKey="key"
+          rowKey="id"
           pagination={{ pageSize: 5 }}
           scroll={{ x: "max-content" }}
+          locale={{
+            emptyText: (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description="No Content Available"
+              />
+            ),
+          }}
+
         />
       </Card>
 

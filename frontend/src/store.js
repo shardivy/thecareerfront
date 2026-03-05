@@ -25,6 +25,8 @@ import studentReducer from "./adminSlices/studentSlice";
 import streamReducer from "./adminSlices/streamSlice";
 import subjectReducer from "./adminSlices/subjectSlice";
 import hobbyReducer from "./adminSlices/hobbySlice";
+import contentReducer from "./adminSlices/contentSlice";
+import employeeReducer from "./adminSlices/employeeSlice";
 
 
 const store = configureStore({
@@ -53,6 +55,8 @@ const store = configureStore({
         streams: streamReducer,
         subjects: subjectReducer, 
         hobbies: hobbyReducer,
+        content: contentReducer,
+        employee: employeeReducer,
 
 
   },

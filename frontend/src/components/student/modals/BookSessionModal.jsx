@@ -35,7 +35,8 @@ const { Title, Text } = Typography;
 
 const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
   const dispatch = useDispatch();
-  const [mode, setMode] = useState("online");
+const preferredMode = localStorage.getItem("preferredCounsellingMode") || "online";
+const [mode, setMode] = useState(preferredMode);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedLeadCounsellor, setSelectedLeadCounsellor] = useState(null);
   const [selectedNormalCounsellor, setSelectedNormalCounsellor] = useState(null);
@@ -49,16 +50,20 @@ const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
   const leadCounsellors = useSelector((state) => state.counsellors.list ?? []);
   const counsellorsLoading = useSelector((state) => state.counsellors.loading);
 
-  const slotsByDate = useSelector((state) => state.counsellingSlots.list ?? []);
+  const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? []);
   const slotsLoading = useSelector((state) => state.counsellingSlots.loading);
 
   const bookingLoading = useSelector((state) => state.counsellingBooking.loading);
+
+  const studentId = localStorage.getItem("studentId");
 
   // ================= FETCH DROPDOWNS =================
   useEffect(() => {
     dispatch(fetchStudents());
     dispatch(fetchLeadCounsellors());
   }, [dispatch]);
+
+
 
   // ================= PREFILL RESCHEDULE =================
   useEffect(() => {
@@ -111,7 +116,7 @@ const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
 
     const payload = {
       // student_id: rescheduleData?.student_id || null,
-      student_id: 157, 
+     student_id: Number(studentId),
       date: dayjs(selectedDate).format("YYYY-MM-DD"),
       slots: [selectedSlot.id ?? selectedSlot.time],
       counsellors_data: [

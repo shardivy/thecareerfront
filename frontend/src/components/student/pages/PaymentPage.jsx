@@ -11,6 +11,7 @@ import {
   Grid,
   Alert,
   Space,
+  Spin,
 } from "antd";
 import {
   QrcodeOutlined,
@@ -19,7 +20,11 @@ import {
   PhoneOutlined,
   CheckCircleFilled,
 } from "@ant-design/icons";
-import axios from "axios";
+import { useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchStudentPaymentHistory } from "../../../adminSlices/paymentSlice";
+import { fetchProgramPackageDetails } from "../../../adminSlices/packageSlice";
+
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -28,10 +33,27 @@ const PaymentPage = () => {
   const { token } = theme.useToken();
   const screens = useBreakpoint();
 
+  const dispatch = useDispatch();
+  const location = useLocation();
+const { packageId, programId, isFreeUser } = location.state || {};
+
+const { selectedPackage } = useSelector((state) => state.packages);
+
+  const { historyList, historyLoading } = useSelector(
+    (state) => state.payment
+  );
+
+  const studentId = localStorage.getItem("studentId");
+
   const [mode, setMode] = useState("UPI");
 
-  // ✅ CHANGED: amount from backend
-  const [amount, setAmount] = useState(0);
+const amount = isFreeUser
+  ? selectedPackage?.price || 0
+  : historyList?.length > 0
+  ? historyList[0]?.remaining_amount ||
+    historyList[0]?.amount ||
+    0
+  : 0;
 
   const isMobile = !screens.md;
   const isTablet = screens.md && !screens.lg;
@@ -39,35 +61,19 @@ const PaymentPage = () => {
   const adminWhatsApp = "919876543210";
   const adminPhone = "9876543210";
 
+
   /* ================= FETCH AMOUNT FROM API ================= */
-  useEffect(() => {
-    const studentId = localStorage.getItem("studentId");
+useEffect(() => {
+  if (isFreeUser && programId && packageId) {
+    dispatch(
+      fetchProgramPackageDetails({
+        programId,
+        packageId,
+      })
+    );
+  }
+}, [dispatch, programId, packageId, isFreeUser]);
 
-    if (!studentId) return;
-
-    const fetchAmount = async () => {
-      try {
-        const response = await axios.get(
-          `http://192.168.0.107:8000/api/payment/payments/student/${studentId}/`
-        );
-
-        const data = response.data;
-
-        // If API returns array
-        if (Array.isArray(data) && data.length > 0) {
-          setAmount(data[0]?.remaining_amount || data[0]?.amount || 0);
-        }
-        // If API returns object
-        else if (!Array.isArray(data)) {
-          setAmount(data?.remaining_amount || data?.amount || 0);
-        }
-      } catch (error) {
-        console.error("Error fetching payment amount:", error);
-      }
-    };
-
-    fetchAmount();
-  }, []);
 
   return (
     <div
@@ -115,7 +121,11 @@ const PaymentPage = () => {
                     color: token.colorPrimary,
                   }}
                 >
-                  ₹ {amount}
+                  {historyLoading ? (
+                    <Spin size="small" />
+                  ) : (
+                    `₹ ${amount}`
+                  )}
                 </Title>
               </div>
 

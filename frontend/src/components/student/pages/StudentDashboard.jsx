@@ -7,7 +7,6 @@ import {
   Row,
   Col,
   Typography,
-  Badge,
   Grid,
   theme,
   Spin,
@@ -34,10 +33,44 @@ const StudentDashboard = () => {
     (state) => state.users
   );
 
-  const studentId = localStorage.getItem("studentId");
-  const selectedProgram = localStorage.getItem("selectedProgram");
+  const { profile } = useSelector((state) => state.profile);
 
-  const normalizedProgram = selectedProgram?.trim().toLowerCase();
+  /* ================= FREE USER CHECK ================= */
+  const isFreeUser = !profile?.package_id;
+
+  /* ================= SAVE PROGRAM & PACKAGE IN LOCAL STORAGE ================= */
+  useEffect(() => {
+    if (!profile) return;
+
+    if (profile.program) {
+      localStorage.setItem("selectedProgram", profile.program);
+    }
+
+    if (profile.package_id) {
+      localStorage.setItem("selectedPackage", profile.package_id);
+    }
+
+    if (profile.student_id) {
+      localStorage.setItem("studentId", profile.student_id);
+    }
+
+    if (profile.first_name && profile.last_name) {
+      const fullName = `${profile.first_name} ${profile.last_name}`;
+      if (localStorage.getItem("username") !== fullName) {
+        localStorage.setItem("username", fullName);
+      }
+    }
+     /* ✅ STORE COUNSELLING MODE */
+  if (profile.preferred_counselling_mode) {
+    localStorage.setItem(
+      "preferredCounsellingMode",
+      profile.preferred_counselling_mode
+    );
+  }
+  }, [profile]);
+
+  /* ================= PROGRAM TYPE LOGIC ================= */
+  const normalizedProgram = profile?.program?.trim().toLowerCase();
 
   const allowedPrograms = [
     "pg counselling",
@@ -47,17 +80,16 @@ const StudentDashboard = () => {
   const showExamAndReport =
     allowedPrograms.includes(normalizedProgram);
 
-  /* ================= FETCH JOURNEY ================= */
+  /* ================= FETCH JOURNEY (ONLY FOR PAID USERS) ================= */
   useEffect(() => {
-    if (studentId) {
-      dispatch(fetchStudentJourney(studentId));
+    if (!isFreeUser && profile?.student_id) {
+      dispatch(fetchStudentJourney(profile.student_id));
     }
-  }, [dispatch, studentId]);
+  }, [dispatch, profile?.student_id, isFreeUser]);
 
   /* ================= JOURNEY DATA ================= */
   const progressData = journey?.progress || {};
 
-  // Backend usually sends 1-based index → convert to 0-based
   const currentStep =
     progressData?.current_step !== undefined
       ? progressData.current_step - 1
@@ -65,6 +97,13 @@ const StudentDashboard = () => {
 
   /* ================= BUTTON LOGIC ================= */
   const getJourneyAction = () => {
+    if (isFreeUser) {
+      return {
+        label: "Browse Programs & Services →",
+        path: "/student/program",
+      };
+    }
+
     switch (currentStep) {
       case 0:
       case 1:
@@ -122,14 +161,16 @@ const StudentDashboard = () => {
   return (
     <div
       style={{
-        padding: screens.xs ? "8px" : "30px 20px",
+        padding: screens.xs ? "12px 12px 24px" : "30px 20px",
         maxWidth: 1200,
         margin: "0 auto",
       }}
     >
       {/* ===================== PROGRESS STEPS ===================== */}
       <div style={{ overflowX: "auto", paddingBottom: 10 }}>
-        {journeyLoading ? (
+        {isFreeUser ? (
+          <JourneySteps isFreeUser={true} />
+        ) : journeyLoading ? (
           <Spin />
         ) : (
           <JourneySteps
@@ -150,22 +191,36 @@ const StudentDashboard = () => {
         <Row align="middle" justify="space-between" gutter={[16, 16]}>
           <Col xs={24} md={16}>
             <Title level={4} style={{ color: "#fff" }}>
-              Continue Your Journey
+              {isFreeUser
+                ? "Start Your Career Journey"
+                : "Continue Your Journey"}
             </Title>
             <Text style={{ color: "#f0f0f0", fontSize: 15 }}>
-              Complete your next step to unlock more features
+              {isFreeUser
+                ? "Select a program and service package to unlock full access"
+                : "Complete your next step to unlock more features"}
             </Text>
           </Col>
 
           <Col
             xs={24}
             md={8}
-            style={{ display: "flex", justifyContent: "flex-end" }}
+            style={{
+              display: "flex",
+              justifyContent: screens.xs ? "center" : "flex-end",
+            }}
           >
             <Button
               size="large"
               type="primary"
               onClick={() => navigate(journeyAction.path)}
+              style={{
+                width: screens.xs ? "100%" : "auto",   // full width on mobile
+                whiteSpace: screens.xs ? "normal" : "nowrap", // allow wrapping on mobile
+                height: screens.xs ? "auto" : undefined, // auto height for 2 lines
+                padding: screens.xs ? "10px 16px" : undefined,
+                textAlign: "center",
+              }}
             >
               {journeyAction.label}
             </Button>
@@ -205,28 +260,29 @@ const StudentDashboard = () => {
           </Card>
         </Col>
 
-        {showExamAndReport && (
-  <Col xs={24} sm={12} md={8}>
-    <Card
-      hoverable
-      onClick={() => navigate("/student/report-management")}
-      style={{ borderRadius: token.borderRadiusLG }}
-    >
-      <FileTextOutlined
-        style={{ fontSize: 26, color: token.colorInfo }}
-      />
-      <Title level={5} style={{ marginTop: 16 }}>
-        My Assessment Report
-      </Title>
-    </Card>
-  </Col>
-)}
+        {!isFreeUser && showExamAndReport && (
+          <Col xs={24} sm={12} md={8}>
+            <Card
+              hoverable
+              onClick={() => navigate("/student/report-management")}
+              style={{ borderRadius: token.borderRadiusLG }}
+            >
+              <FileTextOutlined
+                style={{ fontSize: 26, color: token.colorInfo }}
+              />
+              <Title level={5} style={{ marginTop: 16 }}>
+                My Assessment Report
+              </Title>
+            </Card>
+          </Col>
+        )}
 
         <Col xs={24} sm={12} md={8}>
-          <Card 
-          hoverable 
-              onClick={() => navigate("/student/content-library")}
-          style={{ borderRadius: token.borderRadiusLG }}>
+          <Card
+            hoverable
+            onClick={() => navigate("/student/content-library")}
+            style={{ borderRadius: token.borderRadiusLG }}
+          >
             <LockOutlined
               style={{ fontSize: 26, color: token.colorError }}
             />

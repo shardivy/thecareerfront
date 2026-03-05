@@ -317,7 +317,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                   name="phone"
                   label="Mobile Number (WhatsApp)"
                   rules={[
-                    { required: true, message: "Please enter mobile number" },
+                   
                     {
                       pattern: /^[0-9]{10}$/,
                       message: "Mobile number must be exactly 10 digits",

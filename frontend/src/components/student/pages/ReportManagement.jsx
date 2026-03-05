@@ -249,16 +249,16 @@ import {
   InfoCircleOutlined,
   StarOutlined,
 } from "@ant-design/icons";
-import SubmitReviewModal from "../modals/SubmitReviewModal";
+// import SubmitReviewModal from "../modals/SubmitReviewModal";
 import { fetchCompletedExamReportsByStudent } from "../../../adminSlices/reportSlice";
 
 const { Title, Text } = Typography;
 
 const ReportManagement = () => {
   /* ---------------- REVIEW STATE ---------------- */
-  const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [rating, setRating] = useState(4);
-  const [feedback, setFeedback] = useState("");
+  // const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  // const [rating, setRating] = useState(4);
+  // const [feedback, setFeedback] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const dispatch = useDispatch();
 
@@ -292,6 +292,15 @@ const ReportManagement = () => {
   const handleView = () => {
     window.open("/Career Counselling & Assessment Platform.pdf", "_blank");
   };
+
+const handleReviewRedirect = () => {
+  window.open(
+
+"https://g.page/Abhinav-career-scope-pune/review?np",
+"_blank"
+  );
+};
+
 
   /* ---------------- REPORT CARD ---------------- */
   const ReportCard = ({ title, locked, reason }) => (
@@ -378,14 +387,14 @@ const ReportManagement = () => {
                 description="Submit your review to unlock the report"
                 style={{ marginBottom: 12 }}
               />
-              <Button
-                block
-                icon={<StarOutlined />}
-                type="primary"
-                onClick={() => setReviewModalOpen(true)}
-              >
-                Submit Review
-              </Button>
+             <Button
+  block
+  icon={<StarOutlined />}
+  type="primary"
+ onClick={handleReviewRedirect}
+>
+  Submit Review
+</Button>
             </>
           ) : (
             <Alert
@@ -439,7 +448,7 @@ const ReportManagement = () => {
       </Row>
 
       {/* ---------------- REVIEW MODAL ---------------- */}
-      <SubmitReviewModal
+      {/* <SubmitReviewModal
         open={reviewModalOpen}
         onCancel={() => setReviewModalOpen(false)}
         onSubmit={handleSubmitReview}
@@ -447,7 +456,7 @@ const ReportManagement = () => {
         setRating={setRating}
         feedback={feedback}
         setFeedback={setFeedback}
-      />
+      /> */}
     </div>
   );
 };

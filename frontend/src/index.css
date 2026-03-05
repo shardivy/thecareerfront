@@ -23,6 +23,8 @@ a:hover {
 }
 
 
+
+
 /* body {
   margin: 0;
   display: flex;
@@ -30,6 +32,8 @@ a:hover {
   min-width: 320px;
   min-height: 100vh;
 } */
+
+
  /* ===== Thin Horizontal Scrollbar ===== */
 .progress-scroll::-webkit-scrollbar {
   height: 4px;
