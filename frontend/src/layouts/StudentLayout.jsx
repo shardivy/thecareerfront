@@ -72,11 +72,15 @@ export default function StudentLayout() {
     dispatch(getProfile());
   }, [dispatch]);
 
-  const normalizedProgram = profile?.program?.trim().toLowerCase();
+  useEffect(() => {
+    if (profile?.aptitude_test !== undefined) {
+      localStorage.setItem("aptitude_test", profile.aptitude_test);
+    }
+  }, [profile]);
 
-  const showExamAndReport =
-    normalizedProgram === "pg counselling" ||
-    normalizedProgram === "8-12 aptitude test";
+  const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
+
+  const showExamAndReport = aptitudeTestFromStorage === "true";
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -276,10 +280,10 @@ export default function StudentLayout() {
     />
   );
 
-const userMenu = {
-  items: [
-    ...(userRole !== "basic_user"
-      ? [
+  const userMenu = {
+    items: [
+      ...(userRole !== "basic_user"
+        ? [
           {
             key: "profile",
             icon: <UserOutlined />,
@@ -287,9 +291,9 @@ const userMenu = {
             onClick: () => navigate("/student/student-profile"),
           },
         ]
-      : []),
-  ],
-};
+        : []),
+    ],
+  };
 
   const LogoutButton = ({ isMobile }) => (
     <div style={{ padding: 16, marginBottom: isMobile ? 24 : 0 }}>
@@ -313,274 +317,275 @@ const userMenu = {
   const isProfilePage = location.pathname === "/student/student-profile";
 
   return (
-     <ConfigProvider theme={adminTheme}>
-    <Layout style={{ minHeight: "100vh", background: token.colorBgLayout }}>
-      {!isProfilePage && !screens.xs && (
-        <Sider
-          width={SIDEBAR_WIDTH}
-          style={{
-            background: token.colorPrimary,
-            position: "fixed",
-            left: 0,
-            top: 0,
-            bottom: 0,
-            boxShadow: token.boxShadow,
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <ConfigProvider theme={adminTheme}>
+      <Layout style={{ minHeight: "100vh", background: token.colorBgLayout }}>
+        {!isProfilePage && !screens.xs && (
+          <Sider
+            width={SIDEBAR_WIDTH}
+            style={{
+              background: token.colorPrimary,
+              position: "fixed",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              boxShadow: token.boxShadow,
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
-            {/* BRANDING */}
-            <div style={{ textAlign: "center", padding: "20px 16px", cursor: "pointer", 
+              {/* BRANDING */}
+              <div style={{
+                textAlign: "center", padding: "20px 16px", cursor: "pointer",
 
               }}
-               onClick={() => navigate(getDashboardPath())}
+                onClick={() => navigate(getDashboardPath())}
               >
 
-              {/* LOGO */}
-              <img
-                src="/Abhinav-logo.jpg"
-                alt="Student Panel"
-                style={{
-                  width: 120,
-                  height: "auto",
-                  objectFit: "contain",
-                  marginBottom: 6,
-                }}
-              />
+                {/* LOGO */}
+                <img
+                  src="/Abhinav-logo.jpg"
+                  alt="Student Panel"
+                  style={{
+                    width: 120,
+                    height: "auto",
+                    objectFit: "contain",
+                    marginBottom: 6,
+                  }}
+                />
 
-             <div
-    style={{
-      fontSize: 18,
-      fontWeight: 700,
-      color: adminTheme.token.colorTextPrimary,
-      lineHeight: "24px",
-    }}
-  >
-    Career Counselling
-  </div>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: adminTheme.token.colorTextPrimary,
+                    lineHeight: "24px",
+                  }}
+                >
+                  Career Counselling
+                </div>
 
-  {/* SUBTITLE */}
-  <div
-    style={{
-      fontSize: 11,
-      fontWeight: 500,
-      marginTop: 4,
-      color: adminTheme.token.colorTextTertiary,
-      letterSpacing: "0.6px",
-      textTransform: "uppercase",
-    }}
-  >
-   Student Dashboard
-  </div>
+                {/* SUBTITLE */}
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    marginTop: 4,
+                    color: adminTheme.token.colorTextTertiary,
+                    letterSpacing: "0.6px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Student Dashboard
+                </div>
+
+              </div>
+
+              {/* MENU */}
+              <div style={{ flex: 1, padding: "8px 12px" }}>
+                {MenuContent}
+              </div>
+
+              {/* LOGOUT */}
+              <LogoutButton />
 
             </div>
+          </Sider>
+        )}
 
-            {/* MENU */}
-            <div style={{ flex: 1, padding: "8px 12px" }}>
+        {screens.xs && !isProfilePage && (
+          <Drawer
+            placement="right"
+            open={drawerVisible}
+            onClose={() => setDrawerVisible(false)}
+            closable
+            title={
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  width: "100%",
+                  paddingTop: 4,
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  navigate(getDashboardPath());
+                  setDrawerVisible(false); // close drawer
+                }}
+              >
+                {/* LOGO */}
+                <img
+                  src="/Abhinav-logo.jpg"
+                  alt="Career Counselling"
+                  style={{
+                    width: 60,
+                    height: "auto",
+                    objectFit: "contain",
+                    marginBottom: 6,
+                  }}
+                />
+
+                {/* TITLE */}
+                <div
+                  style={{
+                    fontSize: 17,
+                    fontWeight: 700,
+                    color: adminTheme.token.colorTextPrimary,
+                    lineHeight: "20px",
+                  }}
+                >
+                  Career Counselling
+                </div>
+
+                {/* SUBTITLE */}
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    marginTop: 3,
+                    color: adminTheme.token.colorTextTertiary,
+                    letterSpacing: "0.6px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Student Panel
+                </div>
+              </div>
+            }
+            styles={{
+              header: {
+                background: token.colorPrimary,
+                borderBottom: "none",
+                direction: "rtl", // ⭐ moves close icon to right
+              },
+              body: {
+                background: token.colorPrimary,
+                padding: 0,
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",
+              },
+            }}
+          >
+            <div style={{ flex: 1, padding: "10px 16px" }}>
               {MenuContent}
             </div>
 
-            {/* LOGOUT */}
-            <LogoutButton />
-
-          </div>
-        </Sider>
-      )}
-
-      {screens.xs && !isProfilePage && (
-<Drawer
-  placement="right"
-  open={drawerVisible}
-  onClose={() => setDrawerVisible(false)}
-  closable
-title={
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      textAlign: "center",
-      width: "100%",
-      paddingTop: 4,
-       cursor: "pointer",
-    }}
-     onClick={() => {
-    navigate(getDashboardPath());
-    setDrawerVisible(false); // close drawer
-  }}
-  >
-    {/* LOGO */}
-    <img
-      src="/Abhinav-logo.jpg"
-      alt="Career Counselling"
-      style={{
-        width: 60,
-        height: "auto",
-        objectFit: "contain",
-        marginBottom: 6,
-      }}
-    />
-
-    {/* TITLE */}
-    <div
-      style={{
-        fontSize: 17,
-        fontWeight: 700,
-        color: adminTheme.token.colorTextPrimary,
-        lineHeight: "20px",
-      }}
-    >
-      Career Counselling
-    </div>
-
-    {/* SUBTITLE */}
-    <div
-      style={{
-        fontSize: 11,
-        fontWeight: 500,
-        marginTop: 3,
-        color: adminTheme.token.colorTextTertiary,
-        letterSpacing: "0.6px",
-        textTransform: "uppercase",
-      }}
-    >
-     Student Panel
-    </div>
-  </div>
-}
-  styles={{
-    header: {
-      background: token.colorPrimary,
-      borderBottom: "none",
-      direction: "rtl", // ⭐ moves close icon to right
-    },
-    body: {
-      background: token.colorPrimary,
-      padding: 0,
-      display: "flex",
-      flexDirection: "column",
-      height: "100%",
-    },
-  }}
->
-  <div style={{ flex: 1, padding: "10px 16px" }}>
-    {MenuContent}
-  </div>
-
-  <LogoutButton isMobile />
-</Drawer>
-      )}
-
-      <Layout style={{ marginLeft: !isProfilePage && !screens.xs ? SIDEBAR_WIDTH : 0 }}>
-        {!isProfilePage && (
-         <Header
-  style={{
-    background: token.colorBgContainer,
-    padding: "0 12px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    boxShadow: token.boxShadow,
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-  }}
->
-  {/* LEFT SIDE - BREADCRUMB */}
-<div
-  style={{
-    maxWidth: screens.xs ? "55%" : "45%",
-    overflow: "hidden",
-    whiteSpace: "nowrap",
-  }}
->
-  <Breadcrumb
-    style={{
-      fontSize: screens.xs ? 13 : 15,
-      whiteSpace: "nowrap",
-    }}
-  >
-    {breadcrumbItems.map((item) => (
-      <Breadcrumb.Item key={item.key}>
-        <span
-          style={{
-            display: "inline-block",
-            maxWidth: screens.xs ? 90 : "none",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            verticalAlign: "bottom",
-          }}
-        >
-          {item.title}
-        </span>
-      </Breadcrumb.Item>
-    ))}
-  </Breadcrumb>
-</div>
-
-  {/* RIGHT SIDE */}
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: screens.xs ? 8 : 14,
-    }}
-  >
-    {/* NOTIFICATION */}
-    <Badge size="small">
-      <BellOutlined style={{ fontSize: 18 }} />
-    </Badge>
-
-    {/* USER NAME */}
-  <Dropdown menu={userMenu} trigger={["click"]}>
-  <Space style={{ cursor: "pointer", alignItems: "center", gap: 8 }}>
-    
-    <Text
-      strong
-      style={{
-        fontSize: screens.xs ? 13 : 15,
-        maxWidth: screens.xs ? 90 : "none",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-      }}
-    >
-      {truncatedUsername}
-    </Text>
-
-    <Avatar
-      icon={<UserOutlined />}
-      style={{ background: token.colorPrimary }}
-    />
-
-  </Space>
-</Dropdown>
-
-    {/* MOBILE MENU BUTTON */}
-    {screens.xs && (
-      <Button
-        type="text"
-        icon={<MenuOutlined />}
-        onClick={() => setDrawerVisible(true)}
-      />
-    )}
-  </div>
-</Header>
+            <LogoutButton isMobile />
+          </Drawer>
         )}
 
-        <Content
-          style={{
-            margin: 16,
-            padding: 16,
-            background: "#eeeeef",
-            borderRadius: token.borderRadius,
-          }}
-        >
-          <Outlet />
-        </Content>
+        <Layout style={{ marginLeft: !isProfilePage && !screens.xs ? SIDEBAR_WIDTH : 0 }}>
+          {!isProfilePage && (
+            <Header
+              style={{
+                background: token.colorBgContainer,
+                padding: "0 12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                boxShadow: token.boxShadow,
+                position: "sticky",
+                top: 0,
+                zIndex: 10,
+              }}
+            >
+              {/* LEFT SIDE - BREADCRUMB */}
+              <div
+                style={{
+                  maxWidth: screens.xs ? "55%" : "45%",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Breadcrumb
+                  style={{
+                    fontSize: screens.xs ? 13 : 15,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {breadcrumbItems.map((item) => (
+                    <Breadcrumb.Item key={item.key}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          maxWidth: screens.xs ? 90 : "none",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          verticalAlign: "bottom",
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                    </Breadcrumb.Item>
+                  ))}
+                </Breadcrumb>
+              </div>
+
+              {/* RIGHT SIDE */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: screens.xs ? 8 : 14,
+                }}
+              >
+                {/* NOTIFICATION */}
+                <Badge size="small">
+                  <BellOutlined style={{ fontSize: 18 }} />
+                </Badge>
+
+                {/* USER NAME */}
+                <Dropdown menu={userMenu} trigger={["click"]}>
+                  <Space style={{ cursor: "pointer", alignItems: "center", gap: 8 }}>
+
+                    <Text
+                      strong
+                      style={{
+                        fontSize: screens.xs ? 13 : 15,
+                        maxWidth: screens.xs ? 90 : "none",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {truncatedUsername}
+                    </Text>
+
+                    <Avatar
+                      icon={<UserOutlined />}
+                      style={{ background: token.colorPrimary }}
+                    />
+
+                  </Space>
+                </Dropdown>
+
+                {/* MOBILE MENU BUTTON */}
+                {screens.xs && (
+                  <Button
+                    type="text"
+                    icon={<MenuOutlined />}
+                    onClick={() => setDrawerVisible(true)}
+                  />
+                )}
+              </div>
+            </Header>
+          )}
+
+          <Content
+            style={{
+              margin: 16,
+              padding: 16,
+              background: "#eeeeef",
+              borderRadius: token.borderRadius,
+            }}
+          >
+            <Outlet />
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
     </ConfigProvider>
   );
 }

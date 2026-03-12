@@ -31,7 +31,7 @@ const JourneySteps = ({
 
     steps.push(
       "Counselling Slot Booking",
-      "Review",
+      // "Review",
       "Full Access"
     );
 
@@ -54,9 +54,9 @@ const JourneySteps = ({
       case "Report":
         return progressData.report === "received_unlocked";
       case "Counselling Slot Booking":
-        return progressData.counselling_slot_booking === true;
-      case "Review":
-        return progressData.review === true;
+      //   return progressData.counselling_slot_booking === true;
+      // case "Review":
+      // return progressData.review === true;
       case "Full Access":
         return progressData.full_access === true;
       default:
@@ -70,7 +70,7 @@ const JourneySteps = ({
       case "Exam":
         return progressData.exam === "in_progress";
       case "Report":
-         return progressData.report === "received_locked";
+        return progressData.report === "received_locked";
       case "Payment":
         return progressData.payment === "partial_paid";
       default:
@@ -100,7 +100,7 @@ const JourneySteps = ({
     const isPartialPayment = label === "Payment" && progressData.payment === "partial_paid";
     const isInProgress = isStepInProgress(label);
     const isActive = stepNo === currentStep + 1;
-    
+
     if (stepNo < currentStep + 1 || isPartialPayment || isInProgress || isActive) {
       return "100%";
     }
@@ -130,9 +130,9 @@ const JourneySteps = ({
         case "Counselling Slot Booking":
           navigate("/student/slot-booking");
           break;
-        case "Review":
-          navigate("/student/report-management");
-          break;
+        // case "Review":
+        //   navigate("/student/report-management");
+        //   break;
         case "Full Access":
           navigate("/student/dashboard");
           break;
@@ -145,123 +145,123 @@ const JourneySteps = ({
   // Get tooltip text
   const getTooltipText = (label) => {
     if (isStepCompleted(label)) return `${label} - Completed`;
-    if (label === "Payment" && progressData.payment === "partial_paid") 
+    if (label === "Payment" && progressData.payment === "partial_paid")
       return `${label} - Partially Paid`;
-    if (label === "Exam" && progressData.exam === "in_progress") 
+    if (label === "Exam" && progressData.exam === "in_progress")
       return `${label} - In Progress`;
- if (label === "Report" && progressData.report === "received_locked") 
-  return `${label} - Locked`;
+    if (label === "Report" && progressData.report === "received_locked")
+      return `${label} - Locked`;
     return `${label} - Pending`;
   };
 
-// Free user static view
-if (isFreeUser) {
-  const freeSteps = [
-    "Registration",
-    "Counselling Service Selection",
-    "Payment",
-    "Exam",
-    "Counselling Slot Booking",
-    "Full Access",
-  ];
+  // Free user static view
+  if (isFreeUser) {
+    const freeSteps = [
+      "Registration",
+      "Counselling Service Selection",
+      "Payment",
+      "Exam",
+      "Counselling Slot Booking",
+      "Full Access",
+    ];
 
-  return (
-    <Card
-      style={{
-        borderRadius: 16,
-        padding: "24px",
-        boxShadow: "0 6px 24px rgba(0,0,0,0.06)",
-      }}
-    >
-      <Title level={4} style={{ marginBottom: 10 }}>
-        Your Career Counselling Journey
-      </Title>
-
-      <Text type="colorTextSecondary" style={{ display: "block", marginBottom: 24 }}>
-        This is a preview of your complete counselling journey.
-      </Text>
-
-      <div
+    return (
+      <Card
         style={{
-          background: token.colorBgContainer,
-          padding: 24,
           borderRadius: 16,
-          border: `1px solid ${token.colorBorder}`,
-          overflowX: "auto",
+          padding: "24px",
+          boxShadow: "0 6px 24px rgba(0,0,0,0.06)",
         }}
       >
+        <Title level={4} style={{ marginBottom: 10 }}>
+          Your Career Counselling Journey
+        </Title>
+
+        <Text type="colorTextSecondary" style={{ display: "block", marginBottom: 24 }}>
+          This is a preview of your complete counselling journey.
+        </Text>
+
         <div
           style={{
-            display: "flex",
-            alignItems: "flex-start",
-            minWidth: freeSteps.length * 140,
+            background: token.colorBgContainer,
+            padding: 24,
+            borderRadius: 16,
+            border: `1px solid ${token.colorBorder}`,
+            overflowX: "auto",
           }}
         >
-          {freeSteps.map((label, index) => (
-            <div
-              key={label}
-              style={{
-                position: "relative",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                width: 140,
-                flexShrink: 0,
-                minHeight: 100,
-              }}
-            >
-              {/* Connector */}
-              {index !== 0 && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              minWidth: freeSteps.length * 140,
+            }}
+          >
+            {freeSteps.map((label, index) => (
+              <div
+                key={label}
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  width: 140,
+                  flexShrink: 0,
+                  minHeight: 100,
+                }}
+              >
+                {/* Connector */}
+                {index !== 0 && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 20,
+                      left: "-70px",
+                      width: "140px",
+                      height: 4,
+                      background: "#e5e7eb",
+                    }}
+                  />
+                )}
+
+                {/* Step Circle */}
                 <div
                   style={{
-                    position: "absolute",
-                    top: 20,
-                    left: "-70px",
-                    width: "140px",
-                    height: 4,
-                    background: "#e5e7eb",
+                    width: 42,
+                    height: 42,
+                    borderRadius: "50%",
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: token.colorPrimary,
+                    color: "#fff",
+                    zIndex: 1,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                   }}
-                />
-              )}
+                >
+                  {index + 1}
+                </div>
 
-              {/* Step Circle */}
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: "50%",
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: token.colorPrimary,
-                  color: "#fff",
-                  zIndex: 1,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-                }}
-              >
-                {index + 1}
+                {/* Step Label */}
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 13,
+                    textAlign: "center",
+                    maxWidth: 120,
+                    fontWeight: 500,
+                  }}
+                >
+                  {label}
+                </div>
               </div>
-
-              {/* Step Label */}
-              <div
-                style={{
-                  marginTop: 10,
-                  fontSize: 13,
-                  textAlign: "center",
-                  maxWidth: 120,
-                  fontWeight: 500,
-                }}
-              >
-                {label}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-    </Card>
-  );
-}
+      </Card>
+    );
+  }
 
   // Paid user view
   return (
