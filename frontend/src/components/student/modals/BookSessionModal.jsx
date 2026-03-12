@@ -35,7 +35,8 @@ const { Title, Text } = Typography;
 
 const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
   const dispatch = useDispatch();
-  const [mode, setMode] = useState("online");
+const preferredMode = localStorage.getItem("preferredCounsellingMode") || "online";
+const [mode, setMode] = useState(preferredMode);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedLeadCounsellor, setSelectedLeadCounsellor] = useState(null);
   const [selectedNormalCounsellor, setSelectedNormalCounsellor] = useState(null);
@@ -49,16 +50,20 @@ const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
   const leadCounsellors = useSelector((state) => state.counsellors.list ?? []);
   const counsellorsLoading = useSelector((state) => state.counsellors.loading);
 
-  const slotsByDate = useSelector((state) => state.counsellingSlots.list ?? []);
+  const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? []);
   const slotsLoading = useSelector((state) => state.counsellingSlots.loading);
 
   const bookingLoading = useSelector((state) => state.counsellingBooking.loading);
+
+  const studentId = localStorage.getItem("studentId");
 
   // ================= FETCH DROPDOWNS =================
   useEffect(() => {
     dispatch(fetchStudents());
     dispatch(fetchLeadCounsellors());
   }, [dispatch]);
+
+
 
   // ================= PREFILL RESCHEDULE =================
   useEffect(() => {
@@ -94,6 +99,26 @@ const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
     return true;
   });
 
+
+const isSlotExpired = (slot) => {
+  if (!selectedDate) return false;
+
+  const today = dayjs().format("YYYY-MM-DD");
+  const selected = dayjs(selectedDate).format("YYYY-MM-DD");
+
+  // Only check expiry if selected date is today
+  if (today !== selected) return false;
+
+  const now = dayjs();
+
+  const slotStart = dayjs(
+    `${selected} ${slot.start_time}`,
+    "YYYY-MM-DD hh:mm A"
+  );
+
+  return now.isAfter(slotStart);
+};
+
   // ================= CONFIRM BOOKING =================
   const handleConfirm = () => {
     if (!selectedLeadCounsellor) {
@@ -111,7 +136,7 @@ const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
 
     const payload = {
       // student_id: rescheduleData?.student_id || null,
-      student_id: 157, 
+     student_id: Number(studentId),
       date: dayjs(selectedDate).format("YYYY-MM-DD"),
       slots: [selectedSlot.id ?? selectedSlot.time],
       counsellors_data: [
@@ -157,14 +182,25 @@ const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
             <Card style={{ borderRadius: 16 }}>
               <Text strong>Session Mode</Text>
               <br />
-              <Radio.Group
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-                style={{ marginTop: 12, display: "flex", gap: 8 }}
-              >
-                <Radio.Button value="online"><VideoCameraOutlined /> Online</Radio.Button>
-                <Radio.Button value="offline"><EnvironmentOutlined /> Offline</Radio.Button>
-              </Radio.Group>
+             <Radio.Group
+  value={mode}
+  onChange={(e) => setMode(e.target.value)}
+  style={{ marginTop: 12, display: "flex", gap: 8 }}
+>
+  <Radio.Button
+    value="online"
+    disabled={preferredMode === "offline"}
+  >
+    <VideoCameraOutlined /> Online
+  </Radio.Button>
+
+  <Radio.Button
+    value="offline"
+    disabled={preferredMode === "online"}
+  >
+    <EnvironmentOutlined /> Offline
+  </Radio.Button>
+</Radio.Group>
             </Card>
 
             {/* Date + Counsellor */}
@@ -223,7 +259,7 @@ const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
                       <Button
                         block
                         size="large"
-                        disabled={slot.status === "booked"} // disable only booked slots
+                        disabled={slot.status === "booked" || isSlotExpired(slot)}
                         type={selectedSlot?.id === slot.id ? "primary" : "default"} // compare objects by id
                         onClick={() => {
                           if (slot.status === "available") setSelectedSlot(slot); // store full object

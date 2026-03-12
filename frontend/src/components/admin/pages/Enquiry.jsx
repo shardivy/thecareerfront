@@ -189,7 +189,7 @@ XLSX.utils.sheet_add_aoa(
       key: "contact",
       render: (_, record) => (
         <div>
-          <Text>{record.phone}</Text>
+          <Text>{record.phone|| "N/A"}</Text>
           </div>
       ),
     },

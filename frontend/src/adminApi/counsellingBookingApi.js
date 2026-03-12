@@ -51,3 +51,12 @@ export const markCounsellingBookingCompletedApi = async (id) => {
   );
   return response.data;
 };
+
+
+// Get counselling bookings by student ID
+export const getStudentCounsellingBookingsApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/counselling_slot/student/${studentId}/bookings/`
+  );
+  return response.data;
+};

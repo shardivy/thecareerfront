@@ -7,6 +7,8 @@ import {
   updatePaymentApi,
   fetchStudentPaymentSummaryApi,
   fetchStudentPaymentHistoryApi,
+  fetchStudentPaymentProgressApi,
+  fetchPendingPaymentStudentsApi   
 } from "../adminApi/paymentApi";
 
 /* ================= SUBMIT PAYMENT ================= */
@@ -124,6 +126,34 @@ export const fetchStudentPaymentHistory = createAsyncThunk(
 );
 
 
+/* ================= FETCH PENDING PAYMENT STUDENTS ================= */
+export const fetchPendingPaymentStudents = createAsyncThunk(
+  "payment/fetchPendingStudents",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await fetchPendingPaymentStudentsApi();
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch pending students"
+      );
+    }
+  }
+);
+
+/* ================= FETCH STUDENT PAYMENT PROGRESS ================= */
+export const fetchStudentPaymentProgress = createAsyncThunk(
+  "payment/fetchStudentProgress",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await fetchStudentPaymentProgressApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch payment progress"
+      );
+    }
+  }
+);
+
 /* ================= SLICE ================= */
 const paymentSlice = createSlice({
   name: "payment",
@@ -162,8 +192,17 @@ const paymentSlice = createSlice({
 historyLoading: false,
 historyError: null,
 historyList: [],
+remainingAmount: 0,
 
+/* ===== Student Payment Progress ===== */
+progressLoading: false,
+progressError: null,
+progressData: null,
   },
+
+  pendingStudentsLoading: false,
+pendingStudentsError: null,
+pendingStudents: [],
 
   reducers: {
     resetPaymentState: (state) => {
@@ -277,28 +316,39 @@ formattedList.sort((a, b) => {
   const statusA = normalize(a.status);
   const statusB = normalize(b.status);
 
+  const isANotPaid = statusA === "not paid";
+  const isBNotPaid = statusB === "not paid";
+
   const isAVerification = statusA === "verification pending";
   const isBVerification = statusB === "verification pending";
 
   const isAPartial = statusA === "partial paid";
   const isBPartial = statusB === "partial paid";
 
-  // 1️⃣ Verification Pending first
+  // 1️⃣ NOT PAID first
+  if (isANotPaid && !isBNotPaid) return -1;
+  if (!isANotPaid && isBNotPaid) return 1;
+
+  // 2️⃣ Verification Pending second
   if (isAVerification && !isBVerification) return -1;
   if (!isAVerification && isBVerification) return 1;
 
-  // 2️⃣ Partial Paid second
+  // 3️⃣ Partial Paid third
   if (isAPartial && !isBPartial) return -1;
   if (!isAPartial && isBPartial) return 1;
 
-  // 3️⃣ If both verification or both partial → oldest first
-  if ((isAVerification && isBVerification) || (isAPartial && isBPartial)) {
+  // 4️⃣ If same category → oldest first
+  if (
+    (isANotPaid && isBNotPaid) ||
+    (isAVerification && isBVerification) ||
+    (isAPartial && isBPartial)
+  ) {
     if (!a.payment_date) return 1;
     if (!b.payment_date) return -1;
     return a.payment_date - b.payment_date;
   }
 
-  // 4️⃣ Others → newest first (keep your logic)
+  // 5️⃣ Others → newest first (keep your previous behavior)
   if (!a.payment_date) return 1;
   if (!b.payment_date) return -1;
   return b.payment_date - a.payment_date;
@@ -397,12 +447,42 @@ formattedList.sort((a, b) => {
 })
 .addCase(fetchStudentPaymentHistory.fulfilled, (state, action) => {
   state.historyLoading = false;
-  state.historyList =
-    action.payload?.data || action.payload || [];
+
+  const payload = action.payload || {};
+
+  state.historyList = payload.data || [];
+  state.remainingAmount = payload.remaining_amount || 0;
 })
 .addCase(fetchStudentPaymentHistory.rejected, (state, action) => {
   state.historyLoading = false;
   state.historyError = action.payload;
+})
+
+/* ================= STUDENT PAYMENT PROGRESS ================= */
+.addCase(fetchStudentPaymentProgress.pending, (state) => {
+  state.progressLoading = true;
+  state.progressError = null;
+})
+.addCase(fetchStudentPaymentProgress.fulfilled, (state, action) => {
+  state.progressLoading = false;
+  state.progressData = action.payload?.data || action.payload;
+})
+.addCase(fetchStudentPaymentProgress.rejected, (state, action) => {
+  state.progressLoading = false;
+  state.progressError = action.payload;
+})
+
+/* ================= FETCH PENDING PAYMENT STUDENTS ================= */
+.addCase(fetchPendingPaymentStudents.pending, (state) => {
+  state.pendingStudentsLoading = true;
+})
+.addCase(fetchPendingPaymentStudents.fulfilled, (state, action) => {
+  state.pendingStudentsLoading = false;
+  state.pendingStudents = action.payload?.data || action.payload || [];
+})
+.addCase(fetchPendingPaymentStudents.rejected, (state, action) => {
+  state.pendingStudentsLoading = false;
+  state.pendingStudentsError = action.payload;
 });
 
 

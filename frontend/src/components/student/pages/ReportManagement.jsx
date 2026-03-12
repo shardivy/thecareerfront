@@ -1,3 +1,232 @@
+// import React, { useState, useEffect } from "react";
+// import { useDispatch, useSelector } from "react-redux";
+// import {
+//   Card,
+//   Row,
+//   Col,
+//   Typography,
+//   Button,
+//   Divider,
+//   Alert,
+//   Tag,
+// } from "antd";
+// import {
+//   FilePdfOutlined,
+//   LockOutlined,
+//   DownloadOutlined,
+//   EyeOutlined,
+//   CalendarOutlined,
+//   InfoCircleOutlined,
+//   StarOutlined,
+// } from "@ant-design/icons";
+// import SubmitReviewModal from "../modals/SubmitReviewModal";
+// import { fetchCompletedExamReportsByStudent } from "../../../adminSlices/reportSlice";
+
+
+// const { Title, Text } = Typography;
+
+// const ReportManagement = () => {
+//   /* ---------------- REVIEW STATE ---------------- */
+//   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+//   const [rating, setRating] = useState(4);
+//   const [feedback, setFeedback] = useState("");
+//   const [reviewSubmitted, setReviewSubmitted] = useState(false);
+//   const dispatch = useDispatch();
+
+//    const { reports, loading, error } = useSelector(
+//     (state) => state.reports
+//   );
+
+
+// useEffect(() => {
+//   const studentId = localStorage.getItem("studentId");
+
+//   if (studentId) {
+//     dispatch(fetchCompletedExamReportsByStudent(studentId));
+//   }
+// }, [dispatch]);
+
+//   /* ---------------- HANDLERS ---------------- */
+//   const handleSubmitReview = () => {
+//     setReviewSubmitted(true);
+//     setReviewModalOpen(false);
+//   };
+
+//   const handleDownload = () => {
+//     const link = document.createElement("a");
+//     link.href = "/Career Counselling & Assessment Platform.pdf";
+//     link.download = "Career_Report.pdf";
+//     document.body.appendChild(link);
+//     link.click();
+//     document.body.removeChild(link);
+//   };
+
+//   const handleView = () => {
+//     window.open("/Career Counselling & Assessment Platform.pdf", "_blank");
+//   };
+
+//   /* ---------------- REPORT CARD ---------------- */
+//   const ReportCard = ({ title, locked, reason }) => (
+//     <Card
+//       style={{
+//         borderRadius: 16,
+//         boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+//         height: "100%",
+//       }}
+//     >
+//       {/* Header */}
+//       <Row justify="space-between">
+//         <Title level={5}>{title}</Title>
+//         <Tag color={locked ? "red" : "green"}>
+//           {locked ? "Locked" : "Unlocked"}
+//         </Tag>
+//       </Row>
+
+//       <Divider />
+
+//       {/* Preview */}
+//       <div
+//         style={{
+//           height: 220,
+//           borderRadius: 12,
+//           background: locked
+//             ? "linear-gradient(180deg,#020617,#0f172a)"
+//             : "#f3f4f6",
+//           display: "flex",
+//           alignItems: "center",
+//           justifyContent: "center",
+//           marginBottom: 16,
+//         }}
+//       >
+//         {locked ? (
+//           <LockOutlined style={{ fontSize: 46, color: "#fff" }} />
+//         ) : (
+//           <FilePdfOutlined style={{ fontSize: 46 }} />
+//         )}
+//       </div>
+
+//       {/* Info */}
+//       <Row gutter={16} style={{ marginBottom: 12 }}>
+//         <Col>
+//           <CalendarOutlined /> <Text>07 Jan 2026</Text>
+//         </Col>
+//         <Col>
+//           <InfoCircleOutlined /> <Text>2.4 MB</Text>
+//         </Col>
+//       </Row>
+
+//       <Divider />
+
+//       {/* Actions */}
+//       {!locked ? (
+//         <>
+//           <Button
+//             block
+//             icon={<EyeOutlined />}
+//             style={{ marginBottom: 10 }}
+//             onClick={handleView}
+//           >
+//             View Report
+//           </Button>
+//           <Button block icon={<DownloadOutlined />} onClick={handleDownload}>
+//             Download PDF
+//           </Button>
+//         </>
+//       ) : reason === "payment" ? (
+//         <Alert
+//           type="warning"
+//           showIcon
+//           message="Payment Pending"
+//           description="Complete payment to unlock this report"
+//         />
+//       ) : (
+//         <>
+//           {!reviewSubmitted ? (
+//             <>
+//               <Alert
+//                 type="info"
+//                 showIcon
+//                 message="Review Required"
+//                 description="Submit your review to unlock the report"
+//                 style={{ marginBottom: 12 }}
+//               />
+//               <Button
+//                 block
+//                 icon={<StarOutlined />}
+//                 type="primary"
+//                 onClick={() => setReviewModalOpen(true)}
+//               >
+//                 Submit Review
+//               </Button>
+//             </>
+//           ) : (
+//             <Alert
+//               type="info"
+//               showIcon
+//               message="Review Submitted"
+//               description="Waiting for admin verification"
+//             />
+//           )}
+//         </>
+//       )}
+//     </Card>
+//   );
+
+//   return (
+//     <div style={{ padding: 16 }}>
+//       <Title level={2} style={{ textAlign: "center" }}>
+//         My Reports
+//       </Title>
+//       <Text
+//         type="colorTextSecondary"
+//         style={{ display: "block", textAlign: "center" }}
+//       >
+//         View and manage your assessment reports
+//       </Text>
+
+//       <Divider />
+
+//      <Row gutter={[24, 24]}>
+//   {reports && reports.length > 0 ? (
+//     reports.map((report) => (
+//       <Col xs={24} md={8} key={report.id}>
+//         <ReportCard
+//           title={report.exam_name || "Career Assessment Report"}
+//           locked={!report.is_unlocked}
+//           reason={report.lock_reason}
+//         />
+//       </Col>
+//     ))
+//   ) : (
+//     !loading && (
+//       <Col span={24}>
+//         <Alert
+//           type="info"
+//           message="No Reports Available"
+//           showIcon
+//         />
+//       </Col>
+//     )
+//   )}
+// </Row>
+
+
+//       {/* ---------------- REVIEW MODAL ---------------- */}
+//       <SubmitReviewModal
+//         open={reviewModalOpen}
+//         onCancel={() => setReviewModalOpen(false)}
+//         onSubmit={handleSubmitReview}
+//         rating={rating}
+//         setRating={setRating}
+//         feedback={feedback}
+//         setFeedback={setFeedback}
+//       />
+//     </div>
+//   );
+// };
+
+// export default ReportManagement;
+
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -9,6 +238,7 @@ import {
   Divider,
   Alert,
   Tag,
+  Spin,
 } from "antd";
 import {
   FilePdfOutlined,
@@ -19,54 +249,74 @@ import {
   InfoCircleOutlined,
   StarOutlined,
 } from "@ant-design/icons";
-import SubmitReviewModal from "../modals/SubmitReviewModal";
 import { fetchCompletedExamReportsByStudent } from "../../../adminSlices/reportSlice";
-
 
 const { Title, Text } = Typography;
 
 const ReportManagement = () => {
-  /* ---------------- REVIEW STATE ---------------- */
-  const [reviewModalOpen, setReviewModalOpen] = useState(false);
-  const [rating, setRating] = useState(4);
-  const [feedback, setFeedback] = useState("");
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const dispatch = useDispatch();
 
-   const { reports, loading, error } = useSelector(
-    (state) => state.reports
-  );
+  const { reports, loading, error } = useSelector((state) => state.reports);
 
+  useEffect(() => {
+    const studentId = localStorage.getItem("studentId");
 
-useEffect(() => {
-  const studentId = localStorage.getItem("studentId");
-
-  if (studentId) {
-    dispatch(fetchCompletedExamReportsByStudent(studentId));
-  }
-}, [dispatch]);
+    if (studentId) {
+      dispatch(fetchCompletedExamReportsByStudent(studentId));
+    }
+  }, [dispatch]);
 
   /* ---------------- HANDLERS ---------------- */
-  const handleSubmitReview = () => {
-    setReviewSubmitted(true);
-    setReviewModalOpen(false);
-  };
 
-  const handleDownload = () => {
-    const link = document.createElement("a");
-    link.href = "/Career Counselling & Assessment Platform.pdf";
-    link.download = "Career_Report.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+const handleDownload = async (url) => {
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+    });
+
+    const blob = await response.blob();
+
+    const downloadUrl = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = downloadUrl;
+    a.setAttribute("download", "Aptitude_Test_Report.pdf");
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+  } catch (err) {
+    console.error("Download error:", err);
+  }
+};
 
   const handleView = () => {
     window.open("/Career Counselling & Assessment Platform.pdf", "_blank");
   };
 
+  const handleReviewRedirect = () => {
+    window.open(
+      "https://g.page/Abhinav-career-scope-pune/review?np",
+      "_blank"
+    );
+  };
+
+
+  const formatDate = (date) => {
+    if (!date) return "-";
+    return new Date(date).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   /* ---------------- REPORT CARD ---------------- */
-  const ReportCard = ({ title, locked, reason }) => (
+
+  const ReportCard = ({ title, locked, reason, report }) => (
     <Card
       style={{
         borderRadius: 16,
@@ -108,11 +358,11 @@ useEffect(() => {
       {/* Info */}
       <Row gutter={16} style={{ marginBottom: 12 }}>
         <Col>
-          <CalendarOutlined /> <Text>07 Jan 2026</Text>
+          <CalendarOutlined /> <Text>{formatDate(report.uploaded_at)}</Text>
         </Col>
-        <Col>
+        {/* <Col>
           <InfoCircleOutlined /> <Text>2.4 MB</Text>
-        </Col>
+        </Col> */}
       </Row>
 
       <Divider />
@@ -124,11 +374,15 @@ useEffect(() => {
             block
             icon={<EyeOutlined />}
             style={{ marginBottom: 10 }}
-            onClick={handleView}
+            onClick={() => handleView(report.file_path)}
           >
             View Report
           </Button>
-          <Button block icon={<DownloadOutlined />} onClick={handleDownload}>
+          <Button
+            block
+            icon={<DownloadOutlined />}
+            onClick={() => handleDownload(report.file_path)}
+          >
             Download PDF
           </Button>
         </>
@@ -154,7 +408,7 @@ useEffect(() => {
                 block
                 icon={<StarOutlined />}
                 type="primary"
-                onClick={() => setReviewModalOpen(true)}
+                onClick={handleReviewRedirect}
               >
                 Submit Review
               </Button>
@@ -172,11 +426,75 @@ useEffect(() => {
     </Card>
   );
 
+
+
+  /* ---------------- PENDING CARD ---------------- */
+
+  const PendingUploadCard = () => (
+    <Card
+      style={{
+        borderRadius: 16,
+        boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+        height: "100%",
+      }}
+    >
+      <Row justify="space-between">
+        <Title level={5}>Career Assessment Report</Title>
+        <Tag color="orange">Pending Upload</Tag>
+      </Row>
+
+      <Divider />
+
+      {/* Preview */}
+      <div
+        style={{
+          height: 220,
+          borderRadius: 12,
+          background: "#f3f4f6",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 16,
+        }}
+      >
+        <FilePdfOutlined style={{ fontSize: 46 }} />
+      </div>
+
+
+      <Divider />
+
+      {/* Buttons disabled but UI normal */}
+      <Row gutter={10}>
+        <Col xs={24} md={12}>
+          <Button block icon={<EyeOutlined />} disabled>
+            View Report
+          </Button>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <Button block icon={<DownloadOutlined />} disabled>
+            Download Report
+          </Button>
+        </Col>
+      </Row>
+
+      <Divider />
+
+      <Alert
+        type="info"
+        showIcon
+        message="Report Not Uploaded Yet"
+        description="Your report will appear here once the counsellor uploads it."
+      />
+    </Card>
+  );
+
   return (
     <div style={{ padding: 16 }}>
       <Title level={2} style={{ textAlign: "center" }}>
         My Reports
       </Title>
+
       <Text
         type="colorTextSecondary"
         style={{ display: "block", textAlign: "center" }}
@@ -186,41 +504,44 @@ useEffect(() => {
 
       <Divider />
 
-     <Row gutter={[24, 24]}>
-  {reports && reports.length > 0 ? (
-    reports.map((report) => (
-      <Col xs={24} md={8} key={report.id}>
-        <ReportCard
-          title={report.exam_name || "Career Assessment Report"}
-          locked={!report.is_unlocked}
-          reason={report.lock_reason}
-        />
-      </Col>
-    ))
+      {loading ? (
+        <div style={{ textAlign: "center", marginTop: 40 }}>
+          <Spin size="large" />
+        </div>
+      ) : (
+       <Row gutter={[24, 24]} justify="center">
+  {reports?.length > 0 ? (
+    reports.map((report) => {
+      if (report.report_status === "not_received") {
+        return (
+          <Col xs={24} md={10} key={report.id}>
+            <PendingUploadCard />
+          </Col>
+        );
+      }
+
+      return (
+        <Col xs={24} md={10} key={report.id}>
+          <ReportCard
+            report={report}
+            title="Aptitude Test Report"
+           locked={report.report_status !== "received_unlocked"}
+            reason={
+              report.payment_status !== "fully_paid"
+                ? "payment"
+                : "review"
+            }
+          />
+        </Col>
+      );
+    })
   ) : (
-    !loading && (
-      <Col span={24}>
-        <Alert
-          type="info"
-          message="No Reports Available"
-          showIcon
-        />
-      </Col>
-    )
+    <Col xs={24} md={12}>
+      <PendingUploadCard />
+    </Col>
   )}
 </Row>
-
-
-      {/* ---------------- REVIEW MODAL ---------------- */}
-      <SubmitReviewModal
-        open={reviewModalOpen}
-        onCancel={() => setReviewModalOpen(false)}
-        onSubmit={handleSubmitReview}
-        rating={rating}
-        setRating={setRating}
-        feedback={feedback}
-        setFeedback={setFeedback}
-      />
+      )}
     </div>
   );
 };

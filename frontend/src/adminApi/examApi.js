@@ -40,3 +40,36 @@ export const rejectUserExamApi = async (id) => {
   );
   return response.data;
 };
+
+//Student dashboard
+// SEND STUDENT EXAM FOR APPROVAL
+export const sendExamForApprovalApi = async (studentId) => {
+  const response = await axiosInstance.post(
+    `/exam/student/${studentId}/send-for-approval/`
+  );
+  return response.data;
+};
+
+// GET EXAM TRACK STATUS (Student)
+export const getExamTrackerApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/exam/exam-tracker/student/${studentId}/`
+  );
+  return response.data;
+};
+
+// START EXAM (using studentId)
+export const startExamApi = async (studentId) => {
+  const response = await axiosInstance.post(
+    `/exam/start-exam/${studentId}/`
+  );
+  return response.data;
+};
+
+// GET EXAM STATUS (Student)
+export const getExamStatusApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/exam/exam-status/${studentId}/`
+  );
+  return response.data;
+};

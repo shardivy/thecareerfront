@@ -5,6 +5,7 @@ import {
   createPackageApi,
   updatePackageApi,
   getPackagesByProgramApi,
+  getProgramPackageDetailsApi,
 } from "../adminApi/packageApi";
 
 /* FETCH ALL PACKAGES */
@@ -58,12 +59,25 @@ export const updatePackage = createAsyncThunk(
   }
 );
 
+/* FETCH SINGLE PROGRAM PACKAGE DETAILS */
+export const fetchProgramPackageDetails = createAsyncThunk(
+  "packages/fetchProgramPackageDetails",
+  async ({ programId, packageId }, { rejectWithValue }) => {
+    try {
+      return await getProgramPackageDetailsApi(programId, packageId);
+    } catch {
+      return rejectWithValue("Failed to fetch package details");
+    }
+  }
+);
+
 const packageSlice = createSlice({
   name: "packages",
   initialState: {
     list: [],
     loading: false,
     error: null,
+     selectedPackage: null, 
   },
   reducers: {
     /* ✅ NOW clearPackages EXISTS */
@@ -127,7 +141,20 @@ const packageSlice = createSlice({
         if (!updated) return;
         const index = state.list.findIndex((p) => p.id === updated.id);
         if (index !== -1) state.list[index] = updated;
-      });
+      })
+
+      /* FETCH SINGLE PACKAGE DETAILS */
+.addCase(fetchProgramPackageDetails.pending, (state) => {
+  state.loading = true;
+})
+.addCase(fetchProgramPackageDetails.fulfilled, (state, action) => {
+  state.loading = false;
+  state.selectedPackage = action.payload?.data || action.payload;
+})
+.addCase(fetchProgramPackageDetails.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+});
   },
 });
 

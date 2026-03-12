@@ -33,3 +33,11 @@ export const getProgramStatsApi = async () => {
   const response = await axiosInstance.get("/program-package/dashboard/counts/");
   return response.data; 
 };
+
+
+export const getActiveProgramsApi = async () => {
+  const response = await axiosInstance.get(
+    "/program-package/programs/active/"
+  );
+  return response.data;
+};

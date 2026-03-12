@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import {
   getProfileApi,
+  getStudentProfileApi,
   updateProfileApi,
 } from "../adminApi/profileApi";
 
@@ -13,6 +14,19 @@ export const getProfile = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data || "Failed to fetch profile"
+      );
+    }
+  }
+);
+
+export const getStudentProfile = createAsyncThunk(
+  "profile/getStudentProfile",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await getStudentProfileApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch student profile"
       );
     }
   }
@@ -39,7 +53,13 @@ const profileSlice = createSlice({
     profile: null,
     error: null,
   },
-  reducers: {},
+   reducers: {
+    clearProfile: (state) => {
+      state.profile = null;
+      state.loading = false;
+      state.error = null;
+    },
+      },
   extraReducers: (builder) => {
     builder
       // ===== GET =====
@@ -55,18 +75,28 @@ const profileSlice = createSlice({
         state.error = action.payload;
       })
 
+       // ===== GET STUDENT PROFILE =====
+    .addCase(getStudentProfile.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    })
+    .addCase(getStudentProfile.fulfilled, (state, action) => {
+      state.loading = false;
+      state.profile = action.payload; 
+    })
+    .addCase(getStudentProfile.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
+    })
+
       // ===== UPDATE =====
       .addCase(updateProfile.pending, (state) => {
         state.loading = true;
       })
-      .addCase(updateProfile.fulfilled, (state, action) => {
+      .addCase(updateProfile.fulfilled, (state) => {
         state.loading = false;
 
-        // ✅ KEY FIX
-        state.profile = {
-          ...state.profile,
-          ...action.payload,
-        };
+        
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
@@ -75,4 +105,5 @@ const profileSlice = createSlice({
   },
 });
 
+export const { clearProfile } = profileSlice.actions;
 export default profileSlice.reducer;

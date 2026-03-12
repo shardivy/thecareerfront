@@ -177,6 +177,8 @@ const ExamManagements = () => {
         ? "Not Started"
         : item.status === "in_progress"
         ? "In Progress"
+        : item.status === "exam_started"
+        ? "Exam Started"
         : item.status === "rejected"
         ? "Rejected"
         : "Awaiting Approval",
@@ -206,32 +208,42 @@ const filteredData = mappedData
     return matchesSearch && matchesStatus;
   })
   .sort((a, b) => {
-    // Move "In Progress" to top only
-    if (a.status === "In Progress" && b.status !== "In Progress")
-      return -1;
+  const priorityStatuses = ["In Progress", "Not Started"];
 
-    if (a.status !== "In Progress" && b.status === "In Progress")
-      return 1;
+  if (priorityStatuses.includes(a.status) && !priorityStatuses.includes(b.status))
+    return -1;
 
-    // Keep original order for others
-    return 0;
-  });
+  if (!priorityStatuses.includes(a.status) && priorityStatuses.includes(b.status))
+    return 1;
+
+  return 0;
+});
 
   /* ================= STATUS TAG ================= */
-  const renderStatus = (status) => {
-    switch (status) {
-      case "Completed":
-        return <Tag color="success">Approved</Tag>;
-      case "Awaiting Approval":
-        return <Tag color="warning">Awaiting Approval</Tag>;
-      case "In Progress":
-        return <Tag color="processing">In Progress</Tag>;
-      case "Rejected":
-        return <Tag color="error">Rejected</Tag>;
-      default:
-        return <Tag>Not Started</Tag>;
-    }
-  };
+const renderStatus = (status) => {
+  switch (status) {
+    case "Completed":
+      return <Tag color="success">Approved</Tag>;
+
+    case "Awaiting Approval":
+      return <Tag color="warning">Awaiting Approval</Tag>;
+
+    case "Exam Started":
+      return <Tag color="processing">Exam Started</Tag>;
+
+    case "In Progress":
+      return <Tag color="processing">In Progress</Tag>;
+
+    case "Rejected":
+      return <Tag color="error">Rejected</Tag>;
+
+    case "Not Started":
+      return <Tag>Not Started</Tag>;
+
+    default:
+      return <Tag>{status}</Tag>;
+  }
+};
 
   /* ================= COLUMNS ================= */
   const columns = [
@@ -302,7 +314,7 @@ const filteredData = mappedData
             </>
           )}
 
-          {record.status === "In Progress" && (
+          {["In Progress", "Not Started"].includes(record.status) && (
             <>
               <Button
                 type="primary"
@@ -335,9 +347,9 @@ const filteredData = mappedData
             </Button>
           )}
 
-          {record.status === "Not Started" && (
+          {/* {record.status === "Not Started" && (
             <Button icon={<BellOutlined />}>Send Reminder</Button>
-          )}
+          )} */}
         </Space>
       ),
     },

@@ -278,54 +278,49 @@ const UserList = () => {
         );
       },
     },
-    {
-      title: "Report",
-      dataIndex: "reportStatus",
-      key: "report",
-      render: (status) => {
-        let color = "default";
-        let icon = <LockOutlined />;
-        let formattedStatus = status;
+{
+  title: "Report",
+  dataIndex: "reportStatus",
+  key: "report",
+  render: (status) => {
+    const normalizedStatus = status?.toLowerCase()?.trim();
 
-        if (status === "Unlocked") {
-          color = "success";
-          icon = <UnlockOutlined />;
-        }
-        else if (status === "Not Applicable") {
-          color = "error";
-          icon = <CloseCircleOutlined />;
-        }
-        else if (status === "Pending Uploaded") {
-          color = "warning";
-          icon = <ClockCircleOutlined />;
-        }
+    let color = "default";
+    let icon = <LockOutlined />;
+    let label = status;
 
-        // 👇 Break into multiple lines if it has space
-        if (status.includes(" ")) {
-          formattedStatus = status.split(" ").map((word, index) => (
-            <React.Fragment key={index}>
-              {word}
-              {index !== status.split(" ").length - 1 && <br />}
-            </React.Fragment>
-          ));
-        }
+    if (normalizedStatus === "received_unlocked") {
+      color = "success";
+      icon = <UnlockOutlined />;
+      label = "Received & Unlocked";
+    } 
+    else if (normalizedStatus === "received_locked") {
+      color = "processing";
+      icon = <LockOutlined />;
+      label = "Received & Locked";
+    } 
+    else if (normalizedStatus === "not_received") {
+      color = "error";
+      icon = <CloseCircleOutlined />;
+      label = "Not Received";
+    }
 
-        return (
-          <Tag
-            icon={icon}
-            color={color}
-            style={{
-              textAlign: "center",
-              whiteSpace: "normal",
-              lineHeight: "16px",
-              padding: "4px 8px",
-            }}
-          >
-            {formattedStatus}
-          </Tag>
-        );
-      },
-    },
+    return (
+      <Tag
+        icon={icon}
+        color={color}
+        style={{
+          textAlign: "center",
+          whiteSpace: "normal",
+          lineHeight: "16px",
+          padding: "4px 8px",
+        }}
+      >
+        {label}
+      </Tag>
+    );
+  },
+},
     // {
     //   title: "Review",
     //   dataIndex: "review",
@@ -347,39 +342,40 @@ const UserList = () => {
       },
     },
 
-    {
-      title: "Journey Status",
-      dataIndex: "journeyStatus",
-      key: "journeyStatus",
-      render: (status) => {
-        let color = "default";
+  {
+  title: "Journey Status",
+  dataIndex: "journeyStatus",
+  key: "journeyStatus",
+  render: (status) => {
+    let color = "default";
 
-        if (status === "Full Access") color = "success";
-        else if (status === "Counselling Slot Booking") color = "processing";
-        else if (status === "Exam") color = "warning";
-        else if (status === "Payment") color = "#722ed1";
+    if (status === "Full Access") color = "success";
+    else if (status === "Counselling Slot Booking") color = "processing";
+    else if (status === "Exam") color = "warning";
+    else if (status === "Payment") color = "#722ed1";
+    else if (status === "Counselling Service Selection") color = "cyan"; // new status color
 
-        // Split second word to next line only for Counselling Slot Booking
-        const formattedStatus =
-          status === "Counselling Slot Booking"
-            ? (
-              <>
-                Counselling <br />
-                Slot Booking
-              </>
-            )
-            : status;
+    // Format multi-word statuses: split each word into <br />
+    const formattedStatus =
+      status && typeof status === "string" && status.includes(" ")
+        ? status.split(" ").map((word, idx) => (
+            <React.Fragment key={idx}>
+              {word}
+              <br />
+            </React.Fragment>
+          ))
+        : status;
 
-        return (
-          <Tag
-            color={color}
-            style={{ textAlign: "center", lineHeight: "16px" }}
-          >
-            {formattedStatus || "—"}
-          </Tag>
-        );
-      },
-    },
+    return (
+      <Tag
+        color={color}
+        style={{ textAlign: "center", lineHeight: "16px" }}
+      >
+        {formattedStatus || "—"}
+      </Tag>
+    );
+  },
+},
     {
       title: "Actions",
       key: "actions",
@@ -394,17 +390,20 @@ const UserList = () => {
           >
             View
           </Button>
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setSelectedUser(record);
-              setModalMode("edit");
-              setAddEditModalOpen(true);
-            }}
-          >
-            Edit
-          </Button>
+
+    
+  <Button
+    type="primary"
+    icon={<EditOutlined />}
+    onClick={() => {
+      setSelectedUser(record);
+      setModalMode("edit");
+      setAddEditModalOpen(true);
+    }}
+  >
+    Edit
+  </Button>
+
           {/* <Button
             type="default"
             danger
@@ -451,7 +450,8 @@ const UserList = () => {
     <div style={{ padding: 1 }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
-          <Title level={3}>User Lists</Title>
+          {/* <Title level={3}>User Lists</Title> */}
+           <Title level={3}>Students Enrolled</Title>
         </Col>
         <Col>
           <Space>

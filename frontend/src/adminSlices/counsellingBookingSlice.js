@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi,markCounsellingBookingCompletedApi  } from "../adminApi/counsellingBookingApi";
+import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi,markCounsellingBookingCompletedApi , getStudentCounsellingBookingsApi } from "../adminApi/counsellingBookingApi";
 
 /* ================= THUNK ================= */
 export const bookCounsellingSlot = createAsyncThunk(
@@ -85,6 +85,20 @@ export const markCounsellingBookingCompleted = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to mark as completed"
+      );
+    }
+  }
+);
+
+// Get counselling bookings for a specific student
+export const fetchStudentCounsellingBookings = createAsyncThunk(
+  "counsellingBooking/fetchStudentBookings",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await getStudentCounsellingBookingsApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to fetch bookings"
       );
     }
   }
@@ -206,7 +220,19 @@ const counsellingBookingSlice = createSlice({
   state.error = action.payload;
 })
 
-
+// Get student bookings
+.addCase(fetchStudentCounsellingBookings.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(fetchStudentCounsellingBookings.fulfilled, (state, action) => {
+  state.loading = false;
+  state.data = action.payload?.data || [];
+})
+.addCase(fetchStudentCounsellingBookings.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+});
   },
 });
 

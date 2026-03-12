@@ -258,6 +258,7 @@ const handleStatusToggle = (record) => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
+               disabled={true}
             onClick={() => {
               setEditingExam(null);
               setModalMode("create");

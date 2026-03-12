@@ -40,6 +40,16 @@ const Profile = () => {
     return <Spin fullscreen />;
   }
 
+  const formatRole = (role) => {
+  if (!role) return "";
+
+  if (role === "ui_ux") return "UI/UX";
+
+  return role
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
   return (
     <div style={{ padding: 16, minHeight: "100vh" }}>
       <Title level={2} style={{ marginBottom: 24 }}>
@@ -82,7 +92,7 @@ const Profile = () => {
               </Title>
 
               <Text style={{ color: "#E0E7FF", fontSize: 16 }}>
-                {profile.role}
+               {formatRole(profile.role)}
               </Text>
 
               <Space style={{ marginTop: 16 }}>
@@ -123,7 +133,7 @@ const Profile = () => {
         <SafetyOutlined /> Role:
       </Text>
       <Text style={{ marginLeft: 8 }}>
-        {profile.role}
+       {formatRole(profile.role)}
       </Text>
     </Col>
   </Row>

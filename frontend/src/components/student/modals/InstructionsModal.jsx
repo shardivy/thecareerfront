@@ -4,304 +4,411 @@ import {
   Typography,
   List,
   Button,
-  Divider,
   Card,
-  Row,
-  Col,
-  Tag,
+  Divider,
   theme,
 } from "antd";
 import {
-  SafetyOutlined,
+  LaptopOutlined,
+  FormOutlined,
   CheckCircleOutlined,
-  InfoCircleOutlined,
-  AppstoreOutlined,
-  LockOutlined,
+  GlobalOutlined,
 } from "@ant-design/icons";
 
-const { Title, Text } = Typography;
+const { Title, Text, Link } = Typography;
 const { useToken } = theme;
 
-const InstructionsModal = ({ open, onClose ,onConfirm }) => {
+const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) => {
   const { token } = useToken();
+
+  const handleStartTest = () => {
+    onClose();
+
+    setTimeout(() => {
+      window.open(
+        "https://www.careerfutura.com/ba/business-associate#",
+        "_blank"
+      );
+      if (typeof onConfirm === "function") {
+        onConfirm();
+      }
+    }, 300);
+  };
 
   return (
     <Modal
-      title="Detailed Exam Instructions"
       open={open}
       onCancel={onClose}
-      width={750}
+      width={850}
       footer={[
         <Button key="close" onClick={onClose}>
           Close
         </Button>,
-       <Button key="start" type="primary" onClick={onConfirm}>
-          OK, I Understand
-        </Button>,
+        showStartTestButton ? (
+          <Button
+            key="start"
+            type="primary"
+            size="large"
+            style={{ borderRadius: 8 }}
+            onClick={handleStartTest}
+          >
+            Start Test
+          </Button>
+        ) : (
+          <Button
+            key="understand"
+            type="primary"
+            size="large"
+            style={{ borderRadius: 8 }}
+            onClick={onClose}
+          >
+            OK, I Understand
+          </Button>
+        ),
       ]}
-    >
-      <div style={{ padding: "10px 0 20px 0" }}>
-        {/* IMPORTANT INSTRUCTIONS CARD */}
-        <Card
-          style={{
-            borderRadius: 14,
-            background: "#ffffff",
-            marginBottom: 24,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          }}
-        >
-          <Title level={5}>
-            <SafetyOutlined style={{ marginRight: 8, color: token.colorPrimary }} />
-            Important Instructions
-          </Title>
-
-          <List
-            size="small"
-            dataSource={[
-              "Exam duration: 60 minutes",
-              "Total questions: 100 (Multiple Choice)",
-              "You can save and resume within 24 hours",
-              "Once submitted, you cannot retake the exam",
-              "Results will be available after admin approval",
-            ]}
-            renderItem={(item) => (
-              <List.Item>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <CheckCircleOutlined style={{ color: token.colorSuccess, fontSize: 14 }} />
-                  <Text style={{ fontSize: 14 }}>{item}</Text>
-                </div>
-              </List.Item>
-            )}
-          />
-        </Card>
-
-        {/* EXAM GUIDELINES */}
-        <Title level={4} style={{ marginBottom: 20, color: token.colorPrimary }}>
-          <SafetyOutlined style={{ marginRight: 8 }} />
-          Exam Guidelines
+      title={
+        <Title level={4} style={{ margin: 0 }}>
+          🎯 Career Assessment Instructions
         </Title>
+      }
+    >
+      <div style={{ padding: "6px 0 12px 0", lineHeight: 1.35 }}>
 
-        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-          <Col xs={24} md={8}>
-            <Card
-              title="Technical Requirements"
-              size="small"
-              style={{ height: "100%" }}
-            >
-              <List
-                size="small"
-                dataSource={[
-                  "Stable internet connection (minimum 2 Mbps)",
-                  "Updated web browser (Chrome/Firefox)",
-                  "Enable JavaScript and cookies",
-                  "Do not refresh or close browser",
-                ]}
-                renderItem={(item) => (
-                  <List.Item style={{ padding: "6px 0" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <CheckCircleOutlined 
-                        style={{ 
-                          color: token.colorSuccess, 
-                          fontSize: 12, 
-                          marginTop: 4 
-                        }} 
-                      />
-                      <Text style={{ fontSize: 13 }}>{item}</Text>
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </Card>
-          </Col>
-
-          <Col xs={24} md={8}>
-            <Card
-              title="Exam Rules"
-              size="small"
-              style={{ height: "100%" }}
-            >
-              <List
-                size="small"
-                dataSource={[
-                  "No external help allowed",
-                  "No switching between tabs/windows",
-                  "Timer continues if browser closed",
-                  "One attempt per question",
-                ]}
-                renderItem={(item) => (
-                  <List.Item style={{ padding: "6px 0" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <CheckCircleOutlined 
-                        style={{ 
-                          color: token.colorSuccess, 
-                          fontSize: 12, 
-                          marginTop: 4 
-                        }} 
-                      />
-                      <Text style={{ fontSize: 13 }}>{item}</Text>
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </Card>
-          </Col>
-
-          <Col xs={24} md={8}>
-            <Card
-              title="Submission Process"
-              size="small"
-              style={{ height: "100%" }}
-            >
-              <List
-                size="small"
-                dataSource={[
-                  "Review answers before submission",
-                  "Click 'Submit' to complete exam",
-                  "Results in 24-48 hours",
-                  "Contact support for issues",
-                ]}
-                renderItem={(item) => (
-                  <List.Item style={{ padding: "6px 0" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <CheckCircleOutlined 
-                        style={{ 
-                          color: token.colorSuccess, 
-                          fontSize: 12, 
-                          marginTop: 4 
-                        }} 
-                      />
-                      <Text style={{ fontSize: 13 }}>{item}</Text>
-                    </div>
-                  </List.Item>
-                )}
-              />
-            </Card>
-          </Col>
-        </Row>
-
-        {/* EXAM SECTIONS */}
-        <div style={{ marginBottom: 24 }}>
-          <Title level={5} style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-            <AppstoreOutlined />
-            Exam Sections Overview
-          </Title>
-          
-          <Row gutter={[12, 12]}>
-            {[
-              { title: "Aptitude & Reasoning", meta: "30 questions • 20 minutes", color: "blue" },
-              { title: "Interest & Personality", meta: "40 questions • 25 minutes", color: "green" },
-              { title: "Subject Preference", meta: "20 questions • 10 minutes", color: "purple" },
-              { title: "Career Values", meta: "10 questions • 5 minutes", color: "orange" },
-            ].map((section, index) => (
-              <Col xs={24} sm={12} key={index}>
-                <Card
-                  size="small"
-                  style={{
-                    borderRadius: 8,
-                  }}
-                  bodyStyle={{ padding: "12px" }}
-                >
-                  <Text strong style={{ display: "block", marginBottom: 4, fontSize: 14 }}>
-                    {section.title}
-                  </Text>
-                  <Tag color={section.color}>{section.meta}</Tag>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </div>
-
-        {/* BEFORE YOU BEGIN */}
+        {/* GETTING STARTED */}
         <Card
+          bodyStyle={{ padding: "12px 16px" }}
           style={{
-            borderRadius: 14,
-            marginBottom: 24,
-            background: "#fafafa",
-          }}
-        >
-          <Title level={5} style={{ marginBottom: 12 }}>
-            <InfoCircleOutlined style={{ color: token.colorPrimary, marginRight: 6 }} />
-            Before You Begin
-          </Title>
-
-          <List
-            size="small"
-            dataSource={[
-              "Stable internet connection required",
-              "Find a quiet place without distractions",
-              "Have a pen and paper for rough work (optional)",
-            ]}
-            renderItem={(item) => (
-              <List.Item>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <CheckCircleOutlined style={{ color: token.colorSuccess }} />
-                  <Text style={{ fontSize: 14 }}>{item}</Text>
-                </div>
-              </List.Item>
-            )}
-          />
-        </Card>
-
-        {/* IMPORTANT NOTES */}
-        <Card
-          type="inner"
-          title="Important Notes"
-          style={{ 
-            backgroundColor: "#f6ffed", 
-            borderColor: "#b7eb8f",
-            marginBottom: 16 
-          }}
-        >
-          <List
-            size="small"
-            dataSource={[
-              "Save your progress every 10 questions",
-              "Network issues pause timer (max 5 minutes)",
-              "Use 'Flag for Review' for uncertain questions",
-              "Results include detailed career recommendations",
-            ]}
-            renderItem={(item) => (
-              <List.Item style={{ paddingLeft: 0, paddingRight: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <InfoCircleOutlined style={{ color: token.colorWarning }} />
-                  <Text style={{ fontSize: 13 }}>{item}</Text>
-                </div>
-              </List.Item>
-            )}
-          />
-        </Card>
-
-        {/* PAYMENT STATUS */}
-        <Card
-          style={{
-            borderRadius: 14,
-            marginTop: 16,
+            borderRadius: 16,
+            background: "linear-gradient(135deg,#e6f7ff,#f0f5ff)",
             marginBottom: 16,
-            background: "linear-gradient(90deg,#fff7e6,#fff1b8)",
           }}
+          bordered={false}
         >
-          <Title level={5} style={{ marginBottom: 8 }}>
-            <LockOutlined style={{ marginRight: 8, color: token.colorWarning }} />
-            Payment Status
+          <Title level={5} style={{ marginBottom: 6 }}>
+            <LaptopOutlined style={{ marginRight: 8 }} />
+            Getting Started
           </Title>
-          <Text strong>
-            This exam is included in your <Tag color="gold">Premium Package</Tag>
-          </Text>
+
+          <List
+            dataSource={[
+              "Use Laptop or Computer only (Mobile not allowed)",
+              "Duration: Approximately 2 Hours",
+              "Timing: Between 11:00 AM – 6:00 PM",
+              "No prior preparation required",
+            ]}
+            renderItem={(item) => (
+              <List.Item style={{ padding: "4px 0" }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <Text style={{ marginRight: 6 }}>{item}</Text>
+                  <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+                </div>
+              </List.Item>
+            )}
+          />
         </Card>
 
-        {/* FINAL REMINDER */}
-        <div style={{ backgroundColor: "#f0f5ff", padding: 16, borderRadius: 8, marginTop: 16 }}>
-          <Title level={5} style={{ color: token.colorPrimary, marginBottom: 8 }}>
-            ⚠️ Important Reminder
+        {/* REGISTRATION */}
+        <Card
+          bodyStyle={{ padding: "12px 16px" }}
+          style={{
+            borderRadius: 16,
+            marginBottom: 16,
+            boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+          }}
+        >
+          <Title level={5} style={{ marginBottom: 6 }}>
+            <FormOutlined style={{ marginRight: 8 }} />
+            Registration Instructions
           </Title>
-          <Text style={{ fontSize: 14 }}>
-            Once you start the exam, the timer will begin immediately. Make sure you're ready 
-            and won't be interrupted for the next 60 minutes. You cannot pause the exam once started.
-          </Text>
-        </div>
+
+          <List
+            dataSource={[
+              "8th Class → Select '9th appeared'",
+              "9th Class → Select '10th appeared'",
+              "10th Class → Select '10th appeared' or '10th completed'",
+              "11th Class → Select '11th completed' or '12th appeared'",
+            ]}
+            renderItem={(item) => (
+              <List.Item style={{ padding: "4px 0" }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <Text style={{ marginRight: 6 }}>{item}</Text>
+                  <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+                </div>
+              </List.Item>
+            )}
+          />
+        </Card>
+
+        {/* SUPPORT & VERIFICATION */}
+        <Card
+          bodyStyle={{ padding: "12px 16px" }}
+          style={{
+            borderRadius: 16,
+            background: "#fafafa",
+            marginBottom: 16,
+          }}
+        >
+          <Title level={5} style={{ marginBottom: 6 }}>
+            📞 Support & Verification
+          </Title>
+
+          <List
+            dataSource={[
+              <>
+                Watch the instructional video before starting.{" "}
+                <Link
+                  href="https://www.youtube.com/watch?v=32FdMJBfRy4"
+                  target="_blank"
+                >
+                  Click here to watch
+                </Link>
+              </>,
+              "For technical help, WhatsApp Mr. Ketan at 8087466154.",
+              "After completing all sections, WhatsApp to confirm submission.",
+            ]}
+            renderItem={(item, index) => (
+              <List.Item key={index} style={{ padding: "4px 0" }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <Text style={{ marginRight: 6 }}>{item}</Text>
+                  <CheckCircleOutlined style={{ color: token.colorPrimary }} />
+                </div>
+              </List.Item>
+            )}
+          />
+        </Card>
+
+        {/* ABOUT */}
+        <Card
+          bodyStyle={{ padding: "12px 16px" }}
+          style={{
+            borderRadius: 16,
+            background: "linear-gradient(135deg,#f0f5ff,#d6e4ff)",
+          }}
+          bordered={false}
+        >
+          <Title level={5} style={{ marginBottom: 6 }}>
+            <GlobalOutlined style={{ marginRight: 8 }} />
+            About Abhinav Career Scope
+          </Title>
+
+          <Text>Career guidance company based in Bavdhan, Pune.</Text>
+
+          <Divider style={{ margin: "10px 0" }} />
+
+          <Text strong>📱 Contact:</Text> 9922695424 <br />
+          <Text strong>📧 Email:</Text> abhinavcareerscope@gmail.com <br />
+          <Text strong>🌐 Website:</Text> www.abhinavcareerscope.com
+        </Card>
       </div>
     </Modal>
   );
 };
 
 export default InstructionsModal;
+
+// import React from "react";
+// import {
+//   Modal,
+//   Typography,
+//   List,
+//   Button,
+//   Card,
+//   Row,
+//   Col,
+//   Tag,
+//   Divider,
+//   theme,
+// } from "antd";
+// import {
+//   LaptopOutlined,
+//   FormOutlined,
+//   CheckCircleOutlined,
+//   GlobalOutlined,
+// } from "@ant-design/icons";
+
+// const { Title, Text, Link } = Typography;
+// const { useToken } = theme;
+
+// const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) => {
+//   const { token } = useToken();
+
+//   const handleStartTest = () => {
+//     onClose();
+
+//     setTimeout(() => {
+//       window.open(
+//         "https://www.careerfutura.com/ba/business-associate#",
+//         "_blank"
+//       );
+//       if (typeof onConfirm === "function") {
+//         onConfirm(); // Invoke the callback to update the exam status
+//       }
+//     }, 300);
+//   };
+
+//   return (
+//     <Modal
+//       open={open}
+//       onCancel={onClose}
+//       width={850}
+//       footer={[
+//         <Button key="close" onClick={onClose}>
+//           Close
+//         </Button>,
+//         showStartTestButton ? (
+//           <Button
+//             key="start"
+//             type="primary"
+//             size="large"
+//             style={{ borderRadius: 8 }}
+//             onClick={handleStartTest}
+//           >
+//             Start Test
+//           </Button>
+//         ) : (
+//           <Button
+//             key="understand"
+//             type="primary"
+//             size="large"
+//             style={{ borderRadius: 8 }}
+//             onClick={onClose}
+//           >
+//             OK, I Understand
+//           </Button>
+//         ),
+//       ]}
+//       title={
+//         <Title level={4} style={{ margin: 0 }}>
+//           🎯 Career Assessment Instructions
+//         </Title>
+//       }
+//     >
+//       <div style={{ padding: "10px 0 20px 0" }}>
+
+//         {/* GETTING STARTED */}
+//         <Card
+//           style={{
+//             borderRadius: 16,
+//             background: "linear-gradient(135deg,#e6f7ff,#f0f5ff)",
+//             marginBottom: 24,
+//           }}
+//           bordered={false}
+//         >
+//           <Title level={5}>
+//             <LaptopOutlined style={{ marginRight: 8 }} />
+//             Getting Started
+//           </Title>
+
+//           <List
+//             dataSource={[
+//               "Use Laptop or Computer only (Mobile not allowed)",
+//               "Duration: Approximately 2 Hours",
+//               "Timing: Between 11:00 AM – 6:00 PM",
+//               "No prior preparation required",
+//             ]}
+//             renderItem={(item) => (
+//               <List.Item>
+//                 <div style={{ display: "flex", alignItems: "center" }}>
+//                   <Text style={{ marginRight: 8 }}>{item}</Text>
+//                   <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+//                 </div>
+//               </List.Item>
+//             )}
+//           />
+//         </Card>
+
+//         {/* REGISTRATION */}
+//         <Card
+//           style={{
+//             borderRadius: 16,
+//             marginBottom: 24,
+//             boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+//           }}
+//         >
+//           <Title level={5}>
+//             <FormOutlined style={{ marginRight: 8 }} />
+//             Registration Instructions
+//           </Title>
+
+//           <List
+//             dataSource={[
+//               "8th Class → Select '9th appeared'",
+//               "9th Class → Select '10th appeared'",
+//               "10th Class → Select '10th appeared' or '10th completed'",
+//               "11th Class → Select '11th completed' or '12th appeared'",
+//             ]}
+//             renderItem={(item) => (
+//               <List.Item>
+//                 <div style={{ display: "flex", alignItems: "center" }}>
+//                   <Text style={{ marginRight: 8 }}>{item}</Text>
+//                   <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+//                 </div>
+//               </List.Item>
+//             )}
+//           />
+//         </Card>
+
+//         {/* SUPPORT & VERIFICATION */}
+//         <Card
+//           style={{
+//             borderRadius: 16,
+//             background: "#fafafa",
+//             marginBottom: 24,
+//           }}
+//         >
+//           <Title level={5}>📞 Support & Verification</Title>
+
+//           <List
+//             dataSource={[
+//               <>
+//                 Watch the instructional video before starting.{" "}
+//                 <Link
+//                   href="https://www.youtube.com/watch?v=32FdMJBfRy4"
+//                   target="_blank"
+//                 >
+//                   Click here to watch
+//                 </Link>
+//               </>,
+//               "For technical help, WhatsApp Mr. Ketan at 8087466154.",
+//               "After completing all sections, WhatsApp to confirm submission.",
+//             ]}
+//             renderItem={(item, index) => (
+//               <List.Item key={index}>
+//                 <div style={{ display: "flex", alignItems: "center" }}>
+//                   <Text style={{ marginRight: 8 }}>{item}</Text>
+//                   <CheckCircleOutlined style={{ color: token.colorPrimary }} />
+//                 </div>
+//               </List.Item>
+//             )}
+//           />
+//         </Card>
+
+//         {/* ABOUT */}
+//         <Card
+//           style={{
+//             borderRadius: 16,
+//             background: "linear-gradient(135deg,#f0f5ff,#d6e4ff)",
+//           }}
+//           bordered={false}
+//         >
+//           <Title level={5}>
+//             <GlobalOutlined style={{ marginRight: 8 }} />
+//             About Abhinav Career Scope
+//           </Title>
+
+//           <Text>
+//             Career guidance company based in Bavdhan, Pune.
+//           </Text>
+
+//           <Divider />
+
+//           <Text strong>📱 Contact:</Text> 9922695424 <br />
+//           <Text strong>📧 Email:</Text> abhinavcareerscope@gmail.com <br />
+//           <Text strong>🌐 Website:</Text> www.abhinavcareerscope.com
+//         </Card>
+//       </div>
+//     </Modal>
+//   );
+// };
+
+// export default InstructionsModal;

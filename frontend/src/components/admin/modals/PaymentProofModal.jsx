@@ -53,6 +53,7 @@ const {
   updateLoading,
   historyLoading,
   historyList,
+  remainingAmount
 } = useSelector((state) => state.payment);
 
 
@@ -467,15 +468,17 @@ const handleRejectConfirm = () => {
     
     {/* LEFT SIDE - Reject (Only for fully paid) */}
 <div style={{ display: "flex", gap: 8 }}>
-  {safeData.status === "fully_paid" && (
-    <Button
-      danger
-      onClick={handleRejectConfirm}
-      loading={verifyLoading}
-    >
-      Reject
-    </Button>
-  )}
+ {["fully_paid", "partial_paid"].includes(
+  safeData.status?.toLowerCase().replace(" ", "_")
+) && (
+  <Button
+    danger
+    onClick={handleRejectConfirm}
+    loading={verifyLoading}
+  >
+    Reject
+  </Button>
+)}
 </div>
 
 
@@ -528,7 +531,7 @@ const handleRejectConfirm = () => {
               </Form.Item>
             </Col>
             <Col xs={24} md={12}>
-              <Form.Item label="Amount" name="amount">
+              <Form.Item label="Fees Paid" name="amount">
                 <Input />
               </Form.Item>
             </Col>
@@ -791,161 +794,229 @@ const handleRejectConfirm = () => {
 {/* ================= PAYMENT HISTORY ================= */}
 {mode === "view" && (
   <>
-    <Divider />
-    <Title level={5} style={{ marginBottom: 16 }}>
-      Payment History
-    </Title>
+    {(() => {
+      const remainingPayments =
+        historyList?.filter((p) => p.status === "not_paid") || [];
 
-    {historyLoading ? (
-      <Text>Loading payment history...</Text>
-    ) : historyList?.length ? (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {historyList
-          .slice()
-          .sort(
-            (a, b) =>
-              new Date(b.created_at || 0) -
-              new Date(a.created_at || 0)
-          )
-          .map((payment, index) => {
+      const completedPayments =
+        historyList?.filter((p) => p.status !== "not_paid") || [];
 
-            const isImageFile =
-              payment.proof_file &&
-              payment.proof_file.match(/\.(jpeg|jpg|png|gif|webp|jfif)$/i);
+     const totalRemaining = remainingAmount || 0;
+     
+      return (
+        <>
+          {/* ================= PAYMENT REMAINING ================= */}
+          {remainingPayments.length > 0 && (
+            <>
+              <Divider />
+              <Title
+                level={5}
+                style={{ marginBottom: 16, color: "#ff4d4f" }}
+              >
+                Payment Remaining
+              </Title>
 
-            const isPdfFile =
-              payment.proof_file &&
-              payment.proof_file.toLowerCase().includes(".pdf");
-
-            return (
+              {/* Total Remaining */}
               <div
-                key={payment.id || index}
                 style={{
                   padding: 20,
                   borderRadius: 16,
                   background: "#ffffff",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-                  border: "1px solid #f0f0f0",
+                  border: "1px solid #ffa39e",
+                  marginBottom: 16,
                 }}
               >
-                {/* Top Row */}
-                <Row justify="space-between" align="middle">
-                  <Col>
-                    <Text type="colorTextSecondary">Amount</Text>
-                    <div
-                      style={{
-                        fontSize: 20,
-                        fontWeight: 600,
-                        color: "#1677ff",
-                      }}
-                    >
-                      ₹ {parseFloat(payment.amount).toLocaleString()}
-                    </div>
-                  </Col>
+                <Text type="colorTextSecondary">
+                  Total Pending Amount
+                </Text>
+                <div
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 700,
+                    color: "#cf1322",
+                  }}
+                >
+                  ₹ {totalRemaining.toLocaleString()}
+                </div>
+              </div>
 
-                  <Col>
-                    <Tag
-                      color={
-                        payment.status === "fully_paid"
-                          ? "green"
-                          : payment.status === "partially_paid"
-                          ? "orange"
-                          : "red"
-                      }
-                    >
-                      {payment.status?.replace("_", " ").toUpperCase()}
-                    </Tag>
-                  </Col>
-                </Row>
-
-                <Divider style={{ margin: "12px 0" }} />
-
-                {/* Details */}
-                <Row gutter={[16, 12]}>
-                  <Col xs={24} md={8}>
-                    <Text type="colorTextSecondary">Method</Text>
-                    <div>{payment.method?.toUpperCase() || "-"}</div>
-                  </Col>
-
-                  <Col xs={24} md={8}>
-                    <Text type="colorTextSecondary">Date</Text>
-                    <div>
-                      {payment.created_at
-                        ? dayjs(payment.created_at).format("DD MMM YYYY, hh:mm A")
-                        : "-"}
-                    </div>
-                  </Col>
-
-                  <Col xs={24} md={8}>
-                    <Text type="colorTextSecondary">Transaction ID</Text>
-                    <div style={{ wordBreak: "break-all" }}>
-                      {payment.transaction_id || "-"}
-                    </div>
-                  </Col>
-                </Row>
-
-                {/* 🔥 PROOF FILE SECTION */}
-                {payment.proof_file && (
-                  <>
-                    <Divider style={{ margin: "16px 0" }} />
-                    <Text type="colorTextSecondary">Payment Proof</Text>
-
-                    <div style={{ marginTop: 8 }}>
-                      {isImageFile ? (
-                        <a
-                          href={payment.proof_file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <img
-                            src={payment.proof_file}
-                            alt="Proof"
-                            style={{
-                              width: 140,
-                              height: 100,
-                              objectFit: "cover",
-                              borderRadius: 8,
-                              border: "1px solid #eee",
-                              cursor: "pointer",
-                            }}
-                          />
-                        </a>
-                      ) : isPdfFile ? (
-                        <a
-                          href={payment.proof_file}
-                          target="_blank"
-                          rel="noopener noreferrer"
+              {/* <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 16,
+                }}
+              >
+                {remainingPayments.map((payment, index) => (
+                  <div
+                    key={payment.id || index}
+                    style={{
+                      padding: 20,
+                      borderRadius: 16,
+                      background: "#fff2f0",
+                      border: "1px solid #ffccc7",
+                    }}
+                  >
+                    <Row justify="space-between" align="middle">
+                      <Col>
+                        <Text type="colorTextSecondary">
+                          Amount Pending
+                        </Text>
+                        <div
                           style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "8px 12px",
-                            border: "1px solid #ddd",
-                            borderRadius: 8,
+                            fontSize: 20,
+                            fontWeight: 600,
+                            color: "#ff4d4f",
                           }}
                         >
-                          <FileImageOutlined />
-                          View PDF
-                        </a>
-                      ) : (
-                        <a
-                          href={payment.proof_file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          View File
-                        </a>
-                      )}
+                          ₹{" "}
+                          {parseFloat(
+                            payment.amount || 0
+                          ).toLocaleString()}
+                        </div>
+                      </Col>
+
+                      <Col>
+                        <Tag color="red">NOT PAID</Tag>
+                      </Col>
+                    </Row>
+                  </div>
+                ))}
+              </div> */}
+            </>
+          )}
+
+          {/* ================= PAYMENT HISTORY ================= */}
+          <Divider />
+          <Title level={5} style={{ marginBottom: 16 }}>
+            Payment History
+          </Title>
+
+          {historyLoading ? (
+            <Text>Loading payment history...</Text>
+          ) : completedPayments.length ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 16,
+              }}
+            >
+              {completedPayments
+                .slice()
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at || 0) -
+                    new Date(a.created_at || 0)
+                )
+                .map((payment, index) => {
+                  return (
+                    <div
+                      key={payment.id || index}
+                      style={{
+                        padding: 20,
+                        borderRadius: 16,
+                        background: "#ffffff",
+                        boxShadow:
+                          "0 4px 12px rgba(0,0,0,0.05)",
+                        border: "1px solid #f0f0f0",
+                      }}
+                    >
+                      <Row
+                        justify="space-between"
+                        align="middle"
+                      >
+                        <Col>
+                          <Text type="colorTextSecondary">
+                            Amount
+                          </Text>
+                          <div
+                            style={{
+                              fontSize: 20,
+                              fontWeight: 600,
+                              color: "#1677ff",
+                            }}
+                          >
+                            ₹{" "}
+                            {parseFloat(
+                              payment.amount || 0
+                            ).toLocaleString()}
+                          </div>
+                        </Col>
+
+                        <Col>
+                          <Tag
+                            color={
+                              payment.status ===
+                              "fully_paid"
+                                ? "green"
+                                : payment.status ===
+                                  "partially_paid"
+                                ? "orange"
+                                : "red"
+                            }
+                          >
+                            {payment.status
+                              ?.replace("_", " ")
+                              .toUpperCase()}
+                          </Tag>
+                        </Col>
+                      </Row>
+
+                      <Divider
+                        style={{ margin: "12px 0" }}
+                      />
+
+                      <Row gutter={[16, 12]}>
+                        <Col xs={24} md={8}>
+                          <Text type="colorTextSecondary">
+                            Method
+                          </Text>
+                          <div>
+                            {payment.method
+                              ?.toUpperCase() || "-"}
+                          </div>
+                        </Col>
+
+                        <Col xs={24} md={8}>
+                          <Text type="colorTextSecondary">
+                            Date
+                          </Text>
+                          <div>
+                            {payment.created_at
+                              ? dayjs(
+                                  payment.created_at
+                                ).format(
+                                  "DD MMM YYYY, hh:mm A"
+                                )
+                              : "-"}
+                          </div>
+                        </Col>
+
+                        <Col xs={24} md={8}>
+                          <Text type="colorTextSecondary">
+                            Transaction ID
+                          </Text>
+                          <div
+                            style={{
+                              wordBreak: "break-all",
+                            }}
+                          >
+                            {payment.transaction_id ||
+                              "-"}
+                          </div>
+                        </Col>
+                      </Row>
                     </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-      </div>
-    ) : (
-      <Empty description="No payment history found" />
-    )}
+                  );
+                })}
+            </div>
+          ) : (
+            <Empty description="No completed payments found" />
+          )}
+        </>
+      );
+    })()}
   </>
 )}
 
