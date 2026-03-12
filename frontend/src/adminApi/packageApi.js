@@ -34,3 +34,11 @@ export const updatePackageApi = async (id, payload) => {
   );
   return response.data;
 };
+
+// GET SINGLE PACKAGE BY PROGRAM + PACKAGE ID + amount
+export const getProgramPackageDetailsApi = async (programId, packageId) => {
+  const response = await axiosInstance.get(
+    `/program-package/programs/${programId}/packages/${packageId}/`
+  );
+  return response.data;
+};

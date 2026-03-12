@@ -5,7 +5,27 @@ import {
   deleteSlotApi,
   createSlotsApi,
   updateCounsellorStatusApi,
+  getSlotsForSelectedDateApi,
+    updateSlotAvailabilityApi,
 } from "../adminApi/counsellingSlotApi";
+
+
+const sortSlotsAsc = (slots) => {
+  if (!slots) return [];
+
+  const toMinutes = (timeStr) => {
+    const [time, modifier] = timeStr.split(" "); // ["03:00", "PM"]
+    let [hours, minutes] = time.split(":").map(Number);
+
+    if (modifier === "PM" && hours !== 12) hours += 12;
+    if (modifier === "AM" && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  return [...slots].sort((a, b) => toMinutes(a.start_time) - toMinutes(b.start_time));
+};
+
 
 /* ---------- FETCH BY DATE ---------- */
 export const fetchSlotsByDate = createAsyncThunk(
@@ -68,11 +88,41 @@ export const updateCounsellorStatus = createAsyncThunk(
 );
 
 
+export const fetchSlotsForSelectedDate = createAsyncThunk(
+  "counsellingSlots/fetchForSelectedDate",
+  async (date, { rejectWithValue }) => {
+    try {
+      return await getSlotsForSelectedDateApi(date);
+    } catch (error) {
+      console.error("API ERROR:", error.response || error);
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch slots for selected date"
+      );
+    }
+  }
+);
+
+// ✅ UPDATE SLOT AVAILABILITY
+export const updateSlotAvailability = createAsyncThunk(
+  "counsellingSlots/updateSlotAvailability",
+  async ({ slotId, is_available }, { rejectWithValue }) => {
+    try {
+      return await updateSlotAvailabilityApi(slotId, { is_available });
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to update slot availability"
+      );
+    }
+  }
+);
+
+
 const counsellingSlotSlice = createSlice({
   name: "counsellingSlots",
   initialState: {
     list: [],
     counsellorWiseList: [],
+      modalSlots: [], 
     loading: false,
     error: null,
   },
@@ -90,11 +140,17 @@ const counsellingSlotSlice = createSlice({
       .addCase(fetchSlotsByDate.pending, (state) => {
         state.loading = true;
       })
-          .addCase(fetchSlotsByDate.fulfilled, (state, action) => {
-        state.loading = false;
-        state.list = action.payload?.data || action.payload || [];
-      })
-         .addCase(fetchSlotsByDate.rejected, (state, action) => {
+.addCase(fetchSlotsByDate.fulfilled, (state, action) => {
+  state.loading = false;
+
+  const slots = action.payload?.data || action.payload || [];
+
+ state.modalSlots = sortSlotsAsc(slots);
+
+})
+
+
+      .addCase(fetchSlotsByDate.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -115,7 +171,7 @@ const counsellingSlotSlice = createSlice({
               counsellor_id: c.counsellor_id,
               counsellor_name: c.counsellor_name,
               is_active: c.is_active,
-              slots: c.slots,
+              slots: sortSlotsAsc(c.slots),
             });
           });
         });
@@ -129,9 +185,9 @@ const counsellingSlotSlice = createSlice({
 
       /* DELETE */
       .addCase(deleteSlot.fulfilled, (state, action) => {
-        state.list = state.list.filter((s) => s.id !== action.payload);
+        state.list = state.list.filter((s) => s.slot_id !== action.payload);
         state.counsellorWiseList = state.counsellorWiseList.filter(
-          (s) => s.id !== action.payload
+          (s) => s.slot_id !== action.payload
         );
       })
 
@@ -147,11 +203,13 @@ const counsellingSlotSlice = createSlice({
         state.error = action.payload;
       })
 
-    .addCase(updateCounsellorStatus.pending, (state) => {
-  state.loading = true; // show spinner if you want
-})
+      //
 
- .addCase(updateCounsellorStatus.fulfilled, (state, action) => {
+      .addCase(updateCounsellorStatus.pending, (state) => {
+        state.loading = true; // show spinner if you want
+      })
+
+      .addCase(updateCounsellorStatus.fulfilled, (state, action) => {
         const { counsellor_id, date, is_active } = action.payload;
 
         state.counsellorWiseList = state.counsellorWiseList.map((item) =>
@@ -163,10 +221,64 @@ const counsellingSlotSlice = createSlice({
         state.loading = false;
       })
 
-.addCase(updateCounsellorStatus.rejected, (state, action) => {
+      .addCase(updateCounsellorStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      //
+      .addCase(fetchSlotsForSelectedDate.pending, (state) => {
+        state.loading = true;
+      })
+
+      .addCase(fetchSlotsForSelectedDate.fulfilled, (state, action) => {
+        state.loading = false;
+
+        const apiData = action.payload?.data || [];
+        const date = action.payload?.date;
+
+        state.list = apiData.map((c) => ({
+          date: date,
+          counsellor_id: c.counsellor_id,
+          counsellor_name: c.counsellor_name,
+          is_active: c.is_active,
+          slots: sortSlotsAsc(c.slots),
+        }));
+      })
+      .addCase(fetchSlotsForSelectedDate.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+.addCase(updateSlotAvailability.fulfilled, (state, action) => {
+  const updatedSlot = action.payload; // { slot_id, is_available }
+
+  state.list = state.list.map((item) => ({
+    ...item,
+    slots: sortSlotsAsc(
+      item.slots?.map((slot) =>
+        slot.slot_id === updatedSlot.slot_id
+          ? { ...slot, is_available: updatedSlot.is_available }
+          : slot
+      )
+    ),
+  }));
+
+  state.counsellorWiseList = state.counsellorWiseList.map((item) => ({
+    ...item,
+    slots: sortSlotsAsc(
+      item.slots?.map((slot) =>
+        slot.slot_id === updatedSlot.slot_id
+          ? { ...slot, is_available: updatedSlot.is_available }
+          : slot
+      )
+    ),
+  }));
+
   state.loading = false;
-  state.error = action.payload;
 });
+
+
 
   },
 });

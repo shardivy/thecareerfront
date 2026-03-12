@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, } from "../adminApi/counsellingBookingApi";
+import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi,markCounsellingBookingCompletedApi , getStudentCounsellingBookingsApi } from "../adminApi/counsellingBookingApi";
 
 /* ================= THUNK ================= */
 export const bookCounsellingSlot = createAsyncThunk(
@@ -8,9 +8,12 @@ export const bookCounsellingSlot = createAsyncThunk(
     try {
       return await bookCounsellingSlotApi(payload);
     } catch (error) {
-      return rejectWithValue(
-        error?.response?.data?.message || "Slot booking failed"
-      );
+      // Extract first error from backend response
+      const backendError =
+        error?.response?.data?.error?.[0] || 
+        error?.response?.data?.message || 
+        "Slot booking failed";
+      return rejectWithValue(backendError);
     }
   }
 );
@@ -57,6 +60,49 @@ export const fetchCounsellingSessionCount = createAsyncThunk(
   }
 );
 
+
+/* ================= DELETE ================= */
+export const deleteCounsellingBooking = createAsyncThunk(
+  "counsellingBooking/delete",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await deleteCounsellingBookingApi(id);
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Delete failed"
+      );
+    }
+  }
+);
+
+
+/* ================= MARK AS COMPLETED ================= */
+export const markCounsellingBookingCompleted = createAsyncThunk(
+  "counsellingBooking/markCompleted",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await markCounsellingBookingCompletedApi(id);
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to mark as completed"
+      );
+    }
+  }
+);
+
+// Get counselling bookings for a specific student
+export const fetchStudentCounsellingBookings = createAsyncThunk(
+  "counsellingBooking/fetchStudentBookings",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await getStudentCounsellingBookingsApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to fetch bookings"
+      );
+    }
+  }
+);
 
 /* ================= SLICE ================= */
 const counsellingBookingSlice = createSlice({
@@ -133,9 +179,60 @@ const counsellingBookingSlice = createSlice({
 .addCase(fetchCounsellingSessionCount.rejected, (state, action) => {
   state.statsLoading = false;
   state.error = action.payload;
+})
+
+/* ================= DELETE ================= */
+.addCase(deleteCounsellingBooking.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(deleteCounsellingBooking.fulfilled, (state, action) => {
+  state.loading = false;
+  state.success = true;
+
+  // Remove deleted booking from table instantly
+  const deletedId = action.meta.arg;
+  state.data = state.data.filter(item => item.id !== deletedId);
+})
+.addCase(deleteCounsellingBooking.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
+
+
+// Inside extraReducers
+.addCase(markCounsellingBookingCompleted.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(markCounsellingBookingCompleted.fulfilled, (state, action) => {
+  state.loading = false;
+  state.success = true;
+
+  // Update local state if needed (e.g., mark booking completed in table)
+  const completedId = action.meta.arg;
+  state.data = state.data.map(item =>
+    item.id === completedId ? { ...item, status: "completed" } : item
+  );
+})
+.addCase(markCounsellingBookingCompleted.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
+
+// Get student bookings
+.addCase(fetchStudentCounsellingBookings.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(fetchStudentCounsellingBookings.fulfilled, (state, action) => {
+  state.loading = false;
+  state.data = action.payload?.data || [];
+})
+.addCase(fetchStudentCounsellingBookings.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
 });
-
-
   },
 });
 

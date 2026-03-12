@@ -119,25 +119,25 @@ const handleFinish = async (values) => {
           </Col>
         </Row> */}
 
-        <Form.Item>
-          <div style={{ textAlign: "right" }}>
-            {/* Always show Close button */}
-            <Button onClick={handleClose}>
-              {viewMode ? "Close" : "Cancel"}
-            </Button>
+       <Form.Item>
+  <div style={{ textAlign: "right" }}>
+    {/* Always show Close button */}
+    <Button onClick={handleClose}>
+      {viewMode ? "Close" : "Cancel"}
+    </Button>
 
-            {/* Submit only in add/edit mode */}
-            {!viewMode && (
-              <Button
-                type="primary"
-                htmlType="submit"
-                style={{ marginLeft: 8 }}
-              >
-                Submit
-              </Button>
-            )}
-          </div>
-        </Form.Item>
+    {/* Submit only in add/edit mode */}
+    {!viewMode && (
+      <Button
+        type="primary"
+        htmlType="submit"
+        style={{ marginLeft: 8 }}
+      >
+        {initialValues ? "Update" : "Submit"} {/* <-- Change text based on mode */}
+      </Button>
+    )}
+  </div>
+</Form.Item>
       </Form>
     </Modal>
   );

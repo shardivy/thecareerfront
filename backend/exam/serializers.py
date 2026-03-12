@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 from exam.models import Exam, UserExam
-from program_package.models import Package, PackageExam, Program
+from program_package.models import Package, PackageExam, Program, UserProgramPackage
 
 
 # ---- Exam Serializer ----
@@ -182,7 +182,11 @@ class UserExamListSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source="user.last_name", read_only=True)
     email = serializers.EmailField(source="user.email", read_only=True)
 
+    program_id = serializers.SerializerMethodField()
     program = serializers.SerializerMethodField()
+    package_id = serializers.SerializerMethodField()
+    package = serializers.SerializerMethodField()
+    
     approved_by = serializers.SerializerMethodField()
     approved_by_role = serializers.SerializerMethodField()
 
@@ -193,22 +197,77 @@ class UserExamListSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "email",
+            "program_id",
             "program",
+            "package_id",
+            "package",
             "status",
             "completed_at",
             "approved_by",
             "approved_by_role",
         )
+        
+    # def get_program_id(self, obj):
+    #     package_exam = (
+    #         obj.exam.exam_packages
+    #         .select_related("package__program")
+    #         .first()
+    #     )
+    #     if package_exam:
+    #         return package_exam.package.program.id
+    #     return None
+
+    # def get_program(self, obj):
+    #     package_exam = (
+    #         obj.exam.exam_packages
+    #         .select_related("package__program")
+    #         .first()
+    #     )
+    #     if package_exam:
+    #         return package_exam.package.program.name
+    #     return None
+    
+    # def get_package_id(self, obj):
+    #     package_exam = (
+    #         obj.exam.exam_packages
+    #         .select_related("package")
+    #         .first()
+    #     )
+    #     if package_exam:
+    #         return package_exam.package.id
+    #     return None
+    
+    # def get_package(self, obj):
+    #     package_exam = (
+    #         obj.exam.exam_packages
+    #         .select_related("package")
+    #         .first()
+    #     )
+    #     if package_exam:
+    #         return package_exam.package.name
+    #     return None
+    
+    def get_user_program_package(self, obj):
+        return UserProgramPackage.objects.filter(user=obj.user).select_related(
+            "program", "package"
+        ).first()
+
+    def get_program_id(self, obj):
+        upp = self.get_user_program_package(obj)
+        return upp.program.id if upp else None
 
     def get_program(self, obj):
-        package_exam = (
-            obj.exam.exam_packages
-            .select_related("package__program")
-            .first()
-        )
-        if package_exam:
-            return package_exam.package.program.name
-        return None
+        upp = self.get_user_program_package(obj)
+        return upp.program.name if upp else None
+
+    def get_package_id(self, obj):
+        upp = self.get_user_program_package(obj)
+        return upp.package.id if upp else None
+
+    def get_package(self, obj):
+        upp = self.get_user_program_package(obj)
+        return upp.package.name if upp else None
+    
 
     def get_approved_by(self, obj):
         if obj.approved_by:
@@ -223,7 +282,7 @@ class UserExamListSerializer(serializers.ModelSerializer):
 #---- Serializer for UserExam Approval Response ----
 class UserExamApproveResponseSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
-    exam_name = serializers.CharField(source="exam.name")
+    exam_name = serializers.SerializerMethodField()
     approved_by = serializers.SerializerMethodField()
     approved_by_role = serializers.SerializerMethodField()
 
@@ -242,6 +301,9 @@ class UserExamApproveResponseSerializer(serializers.ModelSerializer):
     def get_student_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}"
 
+    def get_exam_name(self, obj):
+        return obj.exam.name if obj.exam else None
+
     def get_approved_by(self, obj):
         if obj.approved_by:
             return f"{obj.approved_by.first_name} {obj.approved_by.last_name}"
@@ -251,4 +313,3 @@ class UserExamApproveResponseSerializer(serializers.ModelSerializer):
         if obj.approved_by and obj.approved_by.role:
             return obj.approved_by.role.name
         return None
-

@@ -59,3 +59,40 @@ export const updatePaymentApi = async (id, payload) => {
   );
   return response.data;
 };
+
+// ================= STUDENT PAYMENT  REMAINING AMT =================
+export const fetchStudentPaymentSummaryApi = async (
+  studentId,
+  packageId
+) => {
+  const response = await axiosInstance.get(
+    `/payment/student-payment-summary/${studentId}/${packageId}/`
+  );
+  return response.data;
+};
+
+
+// ================= FETCH STUDENT PAYMENT HISTORY =================
+export const fetchStudentPaymentHistoryApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/payment/payments/student/${studentId}/`
+  );
+  return response.data;
+};
+
+// ================= FETCH STUDENT PAYMENT PROGRESS =================
+export const fetchStudentPaymentProgressApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/payment/student/${studentId}/payment-progress/`
+  );
+  return response.data;
+};
+
+
+// ================= FETCH PENDING PAYMENT STUDENTS =================
+export const fetchPendingPaymentStudentsApi = async () => {
+  const response = await axiosInstance.get(
+    "/payment/pending-payments/"
+  );
+  return response.data;
+};

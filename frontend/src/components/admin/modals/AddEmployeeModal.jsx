@@ -1,16 +1,24 @@
-import React, { useEffect } from "react";
-import { Modal, Form, Input, Select, Button, Row, Col } from "antd";
+import React, { useEffect, useState } from "react";
+import { Modal, Form, Input, Select, Button, Row, Col, message } from "antd";
+import { useDispatch } from "react-redux";
+import {
+  registerUser,
+  updateUser,
+  fetchRegisteredUsers,
+} from "../../../adminSlices/employeeSlice";
 
 const { Option } = Select;
 
 const AddEmployeeModal = ({
   open,
   onCancel,
-  onAdd,
   editingEmployee,
-  mode = "add", // add | edit | view
+  mode = "add",
 }) => {
   const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
+
   const isView = mode === "view";
 
   useEffect(() => {
@@ -20,7 +28,7 @@ const AddEmployeeModal = ({
         firstName,
         lastName,
         email: editingEmployee.email,
-        mobile: editingEmployee.mobile,
+        phone: editingEmployee.mobile,
         program: editingEmployee.role,
       });
     } else {
@@ -28,10 +36,42 @@ const AddEmployeeModal = ({
     }
   }, [editingEmployee, form]);
 
-  const handleFinish = (values) => {
-    if (!isView) {
-      onAdd(values);
+  const handleFinish = async (values) => {
+    if (isView) return;
+
+    const payload = {
+      first_name: values.firstName,
+      last_name: values.lastName,
+      email: values.email,
+      phone: values.phone,
+      role: values.program,
+    };
+
+    try {
+      setLoading(true);
+
+      if (editingEmployee && mode === "edit") {
+        await dispatch(
+          updateUser({
+            userId: editingEmployee.user_id,
+            payload,
+          })
+        ).unwrap();
+
+        message.success("User updated successfully");
+      } else {
+        await dispatch(registerUser(payload)).unwrap();
+        message.success("User added successfully");
+      }
+
+      dispatch(fetchRegisteredUsers());
       form.resetFields();
+      onCancel();
+
+    } catch (error) {
+      message.error(error || "Something went wrong");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -39,10 +79,10 @@ const AddEmployeeModal = ({
     <Modal
       title={
         mode === "view"
-          ? "View Employee"
+          ? "View User"
           : editingEmployee
-          ? "Edit Employee"
-          : "Add Employee"
+          ? "Edit User"
+          : "Add User"
       }
       open={open}
       onCancel={onCancel}
@@ -52,43 +92,41 @@ const AddEmployeeModal = ({
       <Form layout="vertical" form={form} onFinish={handleFinish}>
         <Row gutter={16}>
           <Col span={12}>
-            <Form.Item label="First Name" name="firstName">
+            <Form.Item label="First Name" name="firstName" rules={[{ required: true }]}>
               <Input readOnly={isView} />
             </Form.Item>
           </Col>
 
           <Col span={12}>
-            <Form.Item label="Last Name" name="lastName">
+            <Form.Item label="Last Name" name="lastName" rules={[{ required: true }]}>
               <Input readOnly={isView} />
             </Form.Item>
           </Col>
         </Row>
 
-        <Form.Item label="Email" name="email">
+        <Form.Item label="Email" name="email" rules={[{ required: true, type: "email" }]}>
           <Input readOnly={isView} />
         </Form.Item>
 
         <Row gutter={16}>
           <Col span={12}>
-            <Form.Item label="WhatsApp Mobile Number" name="mobile">
+            <Form.Item label="WhatsApp Mobile Number" name="phone" rules={[{ required: true }]}>
               <Input readOnly={isView} maxLength={10} />
             </Form.Item>
           </Col>
 
-        <Col span={12}>
-  <Form.Item label="Role" name="program">
-    {isView ? (
-      <Input value={form.getFieldValue("program")} readOnly />
-    ) : (
-      <Select>
-        <Option value="Counsellor">Counsellor</Option>
-        <Option value="UI/UX">UI/UX</Option>
-        <Option value="Trainer">Trainer</Option>
-      </Select>
-    )}
-  </Form.Item>
-</Col>
-
+          <Col span={12}>
+            <Form.Item label="Role" name="program" rules={[{ required: true }]}>
+              {isView ? (
+                <Input readOnly />
+              ) : (
+                <Select>
+                  <Option value="counsellor">Counsellor</Option>
+                  <Option value="ui_ux">UI/UX</Option>
+                </Select>
+              )}
+            </Form.Item>
+          </Col>
         </Row>
 
         <Form.Item style={{ textAlign: "right" }}>
@@ -100,9 +138,10 @@ const AddEmployeeModal = ({
             <Button
               type="primary"
               htmlType="submit"
+              loading={loading}
               style={{ marginLeft: 8 }}
             >
-              {editingEmployee ? "Update Employee" : "Add Employee"}
+              {editingEmployee ? "Update User" : "Add User"}
             </Button>
           )}
         </Form.Item>

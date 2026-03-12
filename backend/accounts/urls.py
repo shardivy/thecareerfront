@@ -1,14 +1,16 @@
 from django.urls import path
 
-from accounts.views import AdminDashboardAPIView, AdminStaffRegisterAPIView, AdminUserListAPIView, AssignPermissionsToRoleAPIView, ForgotPasswordAPIView, LoginAPIView, LogoutAPIView, PaymentStatusGraphAPIView, PermissionListCreateAPIView, ProfileUpdateAPIView,  ResetPasswordAPIView, RoleListCreateAPIView, RolePermissionListAPIView, RoleUpdateAPIView, StudentListAPIView, VerifyOTPAPIView
+from accounts.views import AdminDashboardAPIView, AdminStaffRegisterAPIView, AdminUserListAPIView, AssignPermissionsToRoleAPIView, ForgotPasswordAPIView, LeadStatsAPIView, LoginAPIView, LogoutAPIView, PermissionListCreateAPIView, ProfileUpdateAPIView,  ResetPasswordAPIView, RevenueStatsAPIView, RoleListCreateAPIView, RolePermissionListAPIView, RoleUpdateAPIView, StudentListAPIView, StudentProfileByIdAPIView, VerifyOTPAPIView
 
 urlpatterns = [
     path('register/', AdminStaffRegisterAPIView.as_view(), name='register'),
+    path('register/<str:user_id>/', AdminStaffRegisterAPIView.as_view(), name='register'),
     path('login/', LoginAPIView.as_view(), name='login'),
     path('forgot-password/', ForgotPasswordAPIView.as_view(), name='forgot-password'),
     path('verify-otp/', VerifyOTPAPIView.as_view(), name='verify-otp') , 
     path('reset-password/', ResetPasswordAPIView.as_view(), name='reset-password'),  
     path('profile/', ProfileUpdateAPIView.as_view(), name='profile'), 
+    path("student-profile/<int:student_id>/", StudentProfileByIdAPIView.as_view()),
     path('logout/', LogoutAPIView.as_view(), name='logout'),
 
     # ============ Role and permission Url ===========================
@@ -23,7 +25,8 @@ urlpatterns = [
     
     #====================== Dashboard Url ===========================
     path('dashboard/', AdminDashboardAPIView.as_view()),
-    path('dashboard/payment-status-graph/', PaymentStatusGraphAPIView.as_view()),
+    path('lead-stats/', LeadStatsAPIView.as_view(), name='lead-stats'),
+    path('revenue-stats/', RevenueStatsAPIView.as_view(), name='revenue-stats'),
     
     
 ]

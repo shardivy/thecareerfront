@@ -33,3 +33,30 @@ export const getCounsellingSessionCountApi = async (period = "monthly") => {
   );
   return response.data;
 };
+
+
+// Delete a counselling booking
+export const deleteCounsellingBookingApi = async (id) => {
+  const response = await axiosInstance.delete(
+    `/counselling_slot/bookings/${id}/`
+  );
+  return response.data;
+};
+
+
+// Mark counselling booking as completed
+export const markCounsellingBookingCompletedApi = async (id) => {
+  const response = await axiosInstance.put(
+    `/counselling_slot/bookings/${id}/mark-completed/`
+  );
+  return response.data;
+};
+
+
+// Get counselling bookings by student ID
+export const getStudentCounsellingBookingsApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/counselling_slot/student/${studentId}/bookings/`
+  );
+  return response.data;
+};

@@ -23,9 +23,9 @@ class Slot(models.Model):
     date = models.DateField()
     start_time = models.CharField(max_length=150, blank=True, null=True)
     end_time = models.CharField(max_length=150, null=True, blank=True)
-    mode = models.CharField(max_length=20, choices=MODE_CHOICES)
+    mode = models.CharField(max_length=20, choices=MODE_CHOICES, null=True, blank=True)
     # duration_minutes = models.PositiveIntegerField()
-    is_available = models.BooleanField(default=False)
+    is_available = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -34,11 +34,22 @@ class Slot(models.Model):
     class Meta:
         db_table = "slots"
         unique_together = ("counsellor", "date", "start_time", "end_time")
+        
+    def delete(self, using=None, keep_parents=False):
+        """Override delete to only soft delete"""
+        self.is_deleted = True
+        self.is_available = False
+        self.save(update_fields=["is_deleted", "is_available"])
+
+    def hard_delete(self):
+        """Actually delete from database if needed"""
+        super().delete()
 
 
     
 class Booking(models.Model):
     STATUS_CHOICES = (
+        ('not_booked', 'Not Booked'),
         ('booked', 'Booked'),
         ('rescheduled', 'Rescheduled'),
         ('completed', 'Completed'),
@@ -46,7 +57,7 @@ class Booking(models.Model):
     )
 
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='student_bookings')
-    slot = models.ForeignKey(Slot, on_delete=models.CASCADE)
+    slot = models.ForeignKey(Slot, on_delete=models.CASCADE, null=True, blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='booked')
     session_type = models.CharField(max_length=20, blank=True, null=True)
@@ -74,9 +85,14 @@ class BookingCounsellor(models.Model):
     
     
 class CounsellingNote(models.Model):
-    booking = models.ForeignKey(Booking, on_delete=models.CASCADE)
-    counsellor = models.ForeignKey(Counsellor, on_delete=models.CASCADE)
-    notes = models.TextField()
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, null=True, blank=True)
+    counsellor = models.ForeignKey(Counsellor, on_delete=models.CASCADE, null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+    file1 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
+    file2 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
+    file3 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
+    file4 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
+    file5 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)  
     created_at = models.DateTimeField(auto_now_add=True)
 
 

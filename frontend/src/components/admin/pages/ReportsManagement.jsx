@@ -30,15 +30,17 @@ import ViewReportModal from "../modals/ViewReportModal";
 import VerifyReviewModal from "../modals/VerifyReviewModal";
 import { fetchCompletedExamReports } from "../../../adminSlices/reportSlice";
 import { fetchReportStats } from "../../../adminSlices/reportSlice";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 /* ----------------- STATUS COLOR MAPS ----------------- */
 const statusColorMap = {
-  Unlocked: adminTheme.token.colorSuccess,
-  Locked: adminTheme.token.colorError,
-  "Pending Upload": adminTheme.token.colorWarning,
+  "Not Received": adminTheme.token.colorWarning,
+  "Received & Unlocked": adminTheme.token.colorSuccess,
+  "Received & Locked": adminTheme.token.colorError,
   "Review Verification Pending": adminTheme.token.colorInfo,
 };
 
@@ -55,12 +57,11 @@ const examStatusColorMap = {
 };
 
 const statusIconMap = {
-  Unlocked: <UnlockOutlined />,
-  Locked: <LockOutlined />,
-  "Pending Upload": <UploadOutlined />,
+  "Not Received": <UploadOutlined />,
+  "Received & Unlocked": <UnlockOutlined />,
+  "Received & Locked": <LockOutlined />,
   "Review Verification Pending": <FileSyncOutlined />,
 };
-
 /* ----------------- COMPONENT ----------------- */
 const ReportsManagement = () => {
   const dispatch = useDispatch();
@@ -82,6 +83,10 @@ const ReportsManagement = () => {
   const [paymentFilter, setPaymentFilter] = useState(null);
   const [examFilter, setExamFilter] = useState(null);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+
+
   /* ----------------- FETCH DATA ----------------- */
   useEffect(() => {
     dispatch(fetchCompletedExamReports());
@@ -96,25 +101,25 @@ const ReportsManagement = () => {
       icon: <FileOutlined style={{ color: adminTheme.token.colorPrimary }} />,
     },
     {
-      title: "Unlocked",
-      value: stats?.unlocked || 0,
+      title: "Received & Unocked",
+      value: stats?.received_unlocked || 0,
       icon: <UnlockOutlined style={{ color: adminTheme.token.colorSuccess }} />,
     },
     {
-      title: "Locked",
-      value: stats?.locked || 0,
+      title: "Received & Locked",
+      value: stats?.received_locked || 0,
       icon: <LockOutlined style={{ color: adminTheme.token.colorError }} />,
     },
     {
-      title: "Pending Upload",
-      value: stats?.pending_uploaded || 0,
+      title: "Not Received",
+      value: stats?.not_received || 0,
       icon: <UploadOutlined style={{ color: adminTheme.token.colorWarning }} />,
     },
-    {
-      title: "Review Pending",
-      value: stats?.review_pending || 0,
-      icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
-    },
+    // {
+    //   title: "Review Pending",
+    //   value: stats?.review_pending || 0,
+    //   icon: <FileSyncOutlined style={{ color: adminTheme.token.colorInfo }} />,
+    // },
   ];
 
   /* ----------------- MAP API → UI DATA ----------------- */
@@ -126,28 +131,30 @@ const ReportsManagement = () => {
       name: `${item.first_name ?? ""} ${item.last_name ?? ""}`.trim(),
       email: item.email,
       program: item.program ?? "—",
-      status:
-        item.report_status === "pending_uploaded"
-          ? "Pending Upload"
-          : item.report_status === "review_pending"
-          ? "Review Verification Pending"
-          : item.report_status === "unlocked"
-          ? "Unlocked"
-          : item.report_status === "locked"
-          ? "Locked"
-          : "Unknown",
-      paymentStatus:
-        item.payment_status === "paid"
-          ? "Fully Paid"
-          : item.payment_status === "partial"
-          ? "Partial Paid"
-          : "Pending",
+      package:item.package ?? "—" ,
+status:
+  item.report_status === "not_received"
+    ? "Not Received"
+    : item.report_status === "review_pending"
+    ? "Review Verification Pending"
+    : item.report_status === "received_unlocked"
+    ? "Received & Unlocked"
+    : item.report_status === "received_locked"
+    ? "Received & Locked"
+    : "Unknown",
+     paymentStatus:
+  item.payment_status === "fully_paid"
+    ? "Fully Paid"
+    : item.payment_status === "partial_paid"
+      ? "Partial Paid"
+      : "Pending",
+
       examStatus:
         item.exam_status === "completed"
           ? "Completed"
           : item.exam_status === "pending"
-          ? "Pending"
-          : "Not Started",
+            ? "Pending"
+            : "Not Started",
       uploadedDate: item.uploaded_at
         ? new Date(item.uploaded_at).toISOString().split("T")[0]
         : "—",
@@ -156,25 +163,49 @@ const ReportsManagement = () => {
   }, [rawReports]);
 
   /* ----------------- FILTER DATA ----------------- */
-  const filteredData = useMemo(() => {
-    const search = searchText.toLowerCase();
+const filteredData = useMemo(() => {
+  const search = searchText.toLowerCase();
 
-    return mappedReports.filter((item) => {
-      const matchesSearch = Object.values(item)
-        .join(" ")
-        .toLowerCase()
-        .includes(search);
+  const filtered = mappedReports.filter((item) => {
+    const matchesSearch = Object.values(item)
+      .join(" ")
+      .toLowerCase()
+      .includes(search);
 
-      const matchesStatus = statusFilter ? item.status === statusFilter : true;
-      const matchesPayment = paymentFilter
-        ? item.paymentStatus === paymentFilter
-        : true;
-      const matchesExam = examFilter ? item.examStatus === examFilter : true;
+    const matchesStatus = statusFilter ? item.status === statusFilter : true;
+    const matchesPayment = paymentFilter
+      ? item.paymentStatus === paymentFilter
+      : true;
+    const matchesExam = examFilter ? item.examStatus === examFilter : true;
 
-      return matchesSearch && matchesStatus && matchesPayment && matchesExam;
-    });
-  }, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
+    return matchesSearch && matchesStatus && matchesPayment && matchesExam;
+  });
 
+  /* ----------------- CUSTOM SORTING ----------------- */
+const statusPriority = {
+  "Not Received": 1,
+  "Received & Locked": 2,
+  "Received & Unlocked": 3,
+};
+
+  return filtered.sort((a, b) => {
+    const priorityDiff =
+      (statusPriority[a.status] || 99) -
+      (statusPriority[b.status] || 99);
+
+    if (priorityDiff !== 0) return priorityDiff;
+
+    // ✅ If same status AND status is Pending Upload or Locked
+    if (
+      a.status === "Not Received" ||
+      a.status === "Received & Locked"
+    ) {
+      return new Date(a.uploadedDate) - new Date(b.uploadedDate);
+    }
+
+    return 0;
+  });
+}, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
   /* ----------------- BULK UPLOAD ----------------- */
   const handleBulkUpload = () => {
     if (!showCheckboxes) {
@@ -205,19 +236,20 @@ const ReportsManagement = () => {
   /* ----------------- ROW SELECTION ----------------- */
   const rowSelection = showCheckboxes
     ? {
-        selectedRowKeys,
-        onChange: (keys) => setSelectedRowKeys(keys),
-        getCheckboxProps: (record) => ({
-          disabled: record.status !== "Pending Upload",
-        }),
-      }
+      selectedRowKeys,
+      onChange: (keys) => setSelectedRowKeys(keys),
+      getCheckboxProps: (record) => ({
+        disabled: record.status !== "Not Received",
+      }),
+    }
     : null;
 
   /* ----------------- TABLE COLUMNS ----------------- */
   const columns = [
     {
       title: "Sr. No",
-      render: (_, __, index) => index + 1,
+      render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
     },
     {
       title: "User Name",
@@ -230,10 +262,19 @@ const ReportsManagement = () => {
         </>
       ),
     },
-    {
-      title: "Program",
-      dataIndex: "program",
-    },
+      {
+  title: "Program / Counselling Service",
+  width: 250,
+  render: (_, record) => (
+    <div>
+      <Text strong>{record.program || "N/A"}</Text>
+      <br />
+      <Text type="colorTextSecondary" >
+        {record.package || "-"}
+      </Text>
+    </div>
+  ),
+},
     {
       title: "Report Status",
       dataIndex: "status",
@@ -273,7 +314,7 @@ const ReportsManagement = () => {
       title: "Actions",
       render: (_, record) => (
         <Space wrap>
-          {record.status === "Pending Upload" ? (
+      { record.status === "Not Received" ? (
             <Button
               type="primary"
               icon={<UploadOutlined />}
@@ -347,10 +388,59 @@ const ReportsManagement = () => {
     },
   ];
 
+
+  const handleExportToExcel = () => {
+    // Prepare export data
+    const exportData =
+      filteredData.length > 0
+        ? filteredData.map((item, index) => ({
+          "Sr. No": index + 1,
+          "User Name": item.name,
+          Email: item.email,
+          Program: item.program,
+          "Report Status": item.status,
+          "Payment Status": item.paymentStatus,
+          "Exam Status": item.examStatus,
+          "Uploaded Date": item.uploadedDate,
+        }))
+        : [
+          {
+            "Sr. No": "",
+            "User Name": "No records found",
+            Email: "",
+            Program: "",
+            "Report Status": "",
+            "Payment Status": "",
+            "Exam Status": "",
+            "Uploaded Date": "",
+          },
+        ];
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reports");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const data = new Blob([excelBuffer], {
+      type:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+
+    saveAs(data, `Reports_${new Date().toISOString().split("T")[0]}.xlsx`);
+
+    message.success("Excel file downloaded successfully!");
+  };
+
+
   return (
     <div style={{ padding: 16 }}>
       <Title level={3}>Report Management</Title>
-      
+
       {/* ----------------- STATS ----------------- */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         {statsCards.map((item, i) => (
@@ -376,7 +466,7 @@ const ReportsManagement = () => {
           </Col>
         ))}
       </Row>
-      
+
       <br /><br /><br />
 
       {/* ACTION BUTTONS */}
@@ -385,7 +475,7 @@ const ReportsManagement = () => {
         style={{ marginBottom: 16 }}
         justify={{ xs: "center", sm: "end" }}
       >
-        <Col xs={24} sm={12} md={4}>
+        {/* <Col xs={24} sm={12} md={4}>
           <Button
             block
             type="primary"
@@ -399,12 +489,17 @@ const ReportsManagement = () => {
               ? `Upload Selected (${selectedRowKeys.length})`
               : "Bulk Upload"}
           </Button>
-        </Col>
+        </Col> */}
 
         <Col xs={24} sm={12} md={4}>
-          <Button block icon={<DownOutlined />}>
+          <Button
+            block
+            icon={<DownOutlined />}
+            onClick={handleExportToExcel}
+          >
             Export to Excel
           </Button>
+
         </Col>
       </Row>
 
@@ -415,7 +510,7 @@ const ReportsManagement = () => {
             Report Records ({filteredData.length})
           </Title>
         </Col>
-        
+
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={8}>
             <Input
@@ -428,17 +523,19 @@ const ReportsManagement = () => {
 
           <Col xs={24} sm={12} md={5}>
             <Select
-              placeholder="Status"
+              placeholder="Report Status"
               allowClear
               style={{ width: "100%" }}
               onChange={setStatusFilter}
             >
-              <Option value="Unlocked">Unlocked</Option>
-              <Option value="Locked">Locked</Option>
-              <Option value="Pending Upload">Pending Upload</Option>
-              <Option value="Review Verification Pending">
+               <Option value="Not Received">Not Received</Option>
+                  <Option value="Received & Locked">Received & Locked</Option>
+              <Option value="Received & Unlocked">Received & Unlocked</Option>
+           
+             
+              {/* <Option value="Review Verification Pending">
                 Review Verification Pending
-              </Option>
+              </Option> */}
             </Select>
           </Col>
 
@@ -477,7 +574,17 @@ const ReportsManagement = () => {
           rowSelection={rowSelection}
           columns={columns}
           dataSource={filteredData}
-          pagination={{ pageSize: 5 }}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            showSizeChanger: true,
+            pageSizeOptions: [5, 10, 20, 50],
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+          }}
+
           scroll={{ x: "max-content" }}
         />
       </Card>

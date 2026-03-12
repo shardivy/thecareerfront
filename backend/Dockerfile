@@ -1,11 +1,11 @@
-# =========================
+# ===============================
 # Build Stage
-# =========================
+# ===============================
 FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
-# Install system dependencies for building mysqlclient
+# Install build dependencies (needed for mysqlclient)
 RUN apt-get update && apt-get install -y \
     build-essential \
     gcc \
@@ -26,31 +26,37 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 
-# =========================
+# ===============================
 # Production Stage
-# =========================
+# ===============================
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install runtime MySQL client (lighter)
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed Python packages from builder
+# Copy installed Python packages
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy project files
 COPY . .
 
+# Create non-root user
+RUN useradd -m appuser
+
+# Create static directory and fix permissions
+RUN mkdir -p /app/staticfiles
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root
+USER appuser
+
 # Expose port
 EXPOSE 8000
 
-# Create non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
-
-# Run gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "backend.wsgi:application"]
+# Run Django with ASGI (async supported)
+CMD ["gunicorn", "backend.asgi:application", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "3"]

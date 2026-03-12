@@ -18,6 +18,9 @@ import adminTheme from "../../../theme/adminTheme";
 import { EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import AddEnquiryModal from "../modals/AddEnquiryModal";
 import { fetchEnquiries } from "../../../adminSlices/enquiryListSlice";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -74,40 +77,91 @@ const Enquiry = () => {
   const [sourceFilter, setSourceFilter] = useState(null);
   const [dateFilter, setDateFilter] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 5;
+  const [pageSize, setPageSize] = useState(5);
+
 
   // 🔥 NEW STATES (FOR CONVERT)
   const [modalMode, setModalMode] = useState("add"); // add | convert
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
 
   // ---------------- FILTER LOGIC ----------------
-  const filteredEnquiries = enquiriesData.filter((enquiry) => {
-    const matchesSearch =
-      enquiry.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.program.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.source.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.email.toLowerCase().includes(searchText.toLowerCase()) ||
-      enquiry.phone.includes(searchText);
+const filteredEnquiries = enquiriesData.filter((enquiry) => {
+  const search = searchText.toLowerCase();
 
-    const matchesStatus = statusFilter
-      ? enquiry.status.toLowerCase() === statusFilter.toLowerCase()
-      : true;
+  const matchesSearch =
+    (enquiry.name?.toLowerCase() || "").includes(search) ||
+    (enquiry.program?.toLowerCase() || "").includes(search) ||
+    (enquiry.source?.toLowerCase() || "").includes(search) ||
+    (enquiry.email?.toLowerCase() || "").includes(search) ||
+    (enquiry.phone || "").includes(searchText);
 
-    const matchesSource = sourceFilter
-      ? enquiry.source.toLowerCase() === sourceFilter.toLowerCase()
-      : true;
+  const matchesStatus = statusFilter
+    ? enquiry.status?.toLowerCase() === statusFilter.toLowerCase()
+    : true;
 
-    const matchesDate = dateFilter && enquiry.date !== "N/A"
+  const matchesSource = sourceFilter
+    ? enquiry.source?.toLowerCase() === sourceFilter.toLowerCase()
+    : true;
+
+  const matchesDate =
+    dateFilter && enquiry.date !== "N/A"
       ? dayjs(enquiry.date).isSame(dateFilter, "day")
       : !dateFilter;
 
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesSource &&
-      matchesDate
-    );
+  return (
+    matchesSearch &&
+    matchesStatus &&
+    matchesSource &&
+    matchesDate
+  );
+});
+ 
+
+const handleExport = () => {
+  if (!filteredEnquiries.length) return;
+
+  const exportData = filteredEnquiries.map((item, index) => ({
+    "Sr. No": index + 1,
+    "User Name": item.name,
+    "Email": item.email,
+    "Mobile Number": item.phone,
+    "Program of Interest": item.program,
+    "Source": item.source,
+    "Date": item.date,
+    "Status": item.status,
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(exportData, { origin: "A3" });
+
+  // 🔥 Add Download Date at Top
+XLSX.utils.sheet_add_aoa(
+  worksheet,
+  [
+    [`Exported On: ${dayjs().format("YYYY-MM-DD hh:mm A")}`],
+       [`Total Records: ${filteredEnquiries.length}`],
+    [], // empty row
+  ],
+  { origin: "A1" }
+);
+
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Enquiry & Leads");
+
+  const excelBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array",
   });
+
+  const fileData = new Blob([excelBuffer], {
+    type:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+  });
+
+  saveAs(fileData, `Enquiry & Leads.xlsx`);
+};
+
+
 
   // ---------------- TABLE COLUMNS ----------------
   const columns = [
@@ -115,10 +169,9 @@ const Enquiry = () => {
     title: "Sr. No",
     key: "srno",
     render: (_, __, index) => (currentPage - 1) * pageSize + index + 1, // Page-aware serial number
-    responsive: ["xs", "sm", "md", "lg", "xl"],
   },
 {
-  title: "User Name",
+  title: "Name / Email",
   dataIndex: "name",
   key: "name",
   render: (text, record) => (
@@ -136,7 +189,7 @@ const Enquiry = () => {
       key: "contact",
       render: (_, record) => (
         <div>
-          <Text>{record.phone}</Text>
+          <Text>{record.phone|| "N/A"}</Text>
           </div>
       ),
     },
@@ -225,23 +278,35 @@ const Enquiry = () => {
           </Space>
         </Col>
 
-        <Col>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            style={{
-              borderRadius: adminTheme.token.borderRadius,
-              backgroundColor: adminTheme.token.colorPrimary,
-            }}
-            onClick={() => {
-              setModalMode("add");
-              setSelectedEnquiry(null);
-              setOpenAddModal(true);
-            }}
-          >
-            Add Enquiry
-          </Button>
-        </Col>
+      <Col>
+  <Space>
+    <Button
+      onClick={handleExport}
+      style={{
+        borderRadius: adminTheme.token.borderRadius,
+      }}
+    >
+      Export to Excel
+    </Button>
+
+    <Button
+      type="primary"
+      icon={<PlusOutlined />}
+      style={{
+        borderRadius: adminTheme.token.borderRadius,
+        backgroundColor: adminTheme.token.colorPrimary,
+      }}
+      onClick={() => {
+        setModalMode("add");
+        setSelectedEnquiry(null);
+        setOpenAddModal(true);
+      }}
+    >
+      Add Enquiry
+    </Button>
+  </Space>
+</Col>
+
       </Row>
 
       {/* Filters */}
@@ -277,8 +342,7 @@ const Enquiry = () => {
       allowClear
       style={{ width: "100%" }}
     >
-      <Option value="New">New</Option>
-      <Option value="Contacted">Contacted</Option>
+      <Option value="enquiry">Enquiry</Option>
       <Option value="Converted">Converted</Option>
     </Select>
   </Col>
@@ -313,20 +377,28 @@ const Enquiry = () => {
 
 
         {/* Table */}
-        <Table
-          style={{ marginTop: 16 }}
-          columns={columns}
-          dataSource={filteredEnquiries}
-          pagination={{ 
-            pageSize: pageSize,
-            current: currentPage,
-            onChange: (page) => setCurrentPage(page),
-          }}
-          rowClassName={() => "enquiry-row"}
-          scroll={{ x: "max-content" }}
-          loading={loading}
-          locale={{ emptyText: error ? `Error: ${error}` : "No enquiries found" }}
-        />
+       <Table
+  style={{ marginTop: 16 }}
+  columns={columns}
+  dataSource={filteredEnquiries}
+  pagination={{
+    current: currentPage,
+    pageSize: pageSize,
+    showSizeChanger: true,
+    pageSizeOptions: [5, 10, 20, 50],
+    onChange: (page, size) => {
+      setCurrentPage(page);
+      setPageSize(size);
+    },
+  }}
+  rowClassName={() => "enquiry-row"}
+  scroll={{ x: "max-content" }}
+  loading={loading}
+  locale={{
+    emptyText: error ? `Error: ${error}` : "No enquiries found",
+  }}
+/>
+
       </Card>
 
       {/* Hover Effect (UNCHANGED) */}
@@ -342,7 +414,8 @@ const Enquiry = () => {
   onCancel={() => setOpenAddModal(false)}
   mode={modalMode}
   enquiryData={selectedEnquiry}
-  readonly={modalMode === "convert"} // READONLY WHEN CONVERTING
+  readonly={modalMode === "convert"} 
+  
 />
 
     </div>

@@ -42,6 +42,8 @@ const PaymentManagement = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
   const dispatch = useDispatch();
 
   const { stats, statsLoading, list, listLoading } = useSelector(
@@ -71,53 +73,48 @@ const PaymentManagement = () => {
     setSelectedPayment(record);
     setIsModalOpen(true);
   };
-
-  /* ---------------- STATS ---------------- */
   const statsCards = [
     {
-      title: "Total Collected",
-      value: `₹${stats?.total_collected ?? 0}`,
-      icon: (
-        <DollarCircleOutlined
-          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-        />
-      ),
+      title: "Expected Revenue",
+      amount: stats?.total_expected_collection?.expected_amount ?? 0,
+      users: stats?.total_expected_collection?.total_users ?? 0,
+      icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#722ed1" }} />,
     },
     {
-      title: "Pending Verification",
-      value: `₹${stats?.pending_verification ?? 0}`,
-      icon: (
-        <FileTextOutlined
-          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-        />
-      ),
+      title: "Total Collected",
+      amount: stats?.total_collected ?? 0,
+      users:
+        (stats?.partial_paid?.total_users ?? 0) +
+        (stats?.fully_paid?.total_users ?? 0),
+      icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#52c41a" }} />,
     },
     {
       title: "Partial Payments",
-      value: `₹${stats?.partial_paid ?? 0}`,
-      icon: (
-        <PayCircleOutlined
-          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-        />
-      ),
+      amount: stats?.partial_paid?.total_amount ?? 0,
+      users: stats?.partial_paid?.total_users ?? 0,
+      icon: <PayCircleOutlined style={{ fontSize: 28, color: "#faad14" }} />,
     },
     {
-      title: "Fully Pending",
-      value: `₹${stats?.pending ?? 0}`,
-      icon: (
-        <CloseCircleOutlined
-          style={{ fontSize: 28, color: adminTheme.token.colorPrimary }}
-        />
-      ),
+      title: "Fully Paid",
+      amount: stats?.fully_paid?.total_amount ?? 0,
+      users: stats?.fully_paid?.total_users ?? 0,
+      icon: <CheckCircleOutlined style={{ fontSize: 28, color: "#13c2c2" }} />,
+    },
+    {
+      title: "Pending Verification",
+      amount: stats?.verification_pending?.total_amount ?? 0,
+      users: stats?.verification_pending?.total_users ?? 0,
+      icon: <FileTextOutlined style={{ fontSize: 28, color: "#fa541c" }} />,
     },
   ];
+
 
   /* ---------------- STATUS COLORS ---------------- */
   const statusColorMap = {
     "Fully Paid": "success",
     "Partial Paid": "warning",
     "Verification Pending": "processing",
-    Pending: "error",
+      "Not Paid": "error",
   };
 
   /* ---------------- UTILITY FUNCTIONS ---------------- */
@@ -162,15 +159,17 @@ const PaymentManagement = () => {
   };
 
   /* ---------------- API -> TABLE DATA ---------------- */
-const apiPaymentRecords = Array.isArray(list)
-  ? list.map((p, idx) => {
+  const apiPaymentRecords = Array.isArray(list)
+    ? list.map((p, idx) => {
       console.log(`📋 Processing payment ${idx} for table:`, p);
-      
-      const cleanName = extractName(p.user_name);
+
+      // const cleanName = extractName(p.user_name);
       const packageName = p.package_name || p.package || "N/A";
+      const programName = p.program_name || p.program || "N/A";
+
 
       // ✅ Paid + Total
-      const paidAmount = Number(p.amount || 0);
+      const paidAmount = Number(p.total_paid || 0);
       const packagePrice = Number(p.package_price || 0);
 
       const status = toTitle(p.payment_status);
@@ -181,7 +180,9 @@ const apiPaymentRecords = Array.isArray(list)
       return {
         key: p.payment_id || p.id || `payment-${idx}`,
         id: p.payment_id || p.id,
-        name: cleanName,
+        name: p.user_name || "N/A",   // ✅ Keep full name with PE26
+        email: p.email || "-",
+        program: programName,
         package: packageName,
 
         // ✅ Store both separately (better than merging string)
@@ -196,7 +197,7 @@ const apiPaymentRecords = Array.isArray(list)
         originalData: p
       };
     })
-  : [];
+    : [];
 
   /* ---------------- FILTER LOGIC ---------------- */
   const filteredData = apiPaymentRecords.filter((item) => {
@@ -228,48 +229,73 @@ const apiPaymentRecords = Array.isArray(list)
   };
 
   const truncateAfterFive = (text = "") => {
-  if (!text) return "-";
-  return text.length > 5 ? `${text.slice(0, 5)}...` : text;
-};
+    if (!text) return "-";
+    return text.length > 5 ? `${text.slice(0, 5)}...` : text;
+  };
 
   /* ---------------- TABLE COLUMNS ---------------- */
   const columns = [
     {
       title: "Sr. No.",
-      render: (_, __, index) => index + 1,
+      render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
       width: 50,
     },
-    { 
-      title: "User Name", 
-      dataIndex: "name",
-      render: (name) => name || "N/A"
+    {
+      title: "Name / Email",
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.name || "N/A"}</Text>
+          <br />
+          <Text
+            type="colorTextSecondary"
+          >
+            {record.email || "-"}
+          </Text>
+        </div>
+      ),
+      width: 140,
     },
-    { 
-      title: "Package", 
-      dataIndex: "package",
-      render: (pkg) => pkg || "N/A"
-    },
-{
-  title: "Amount",
-  render: (_, record) => {
-    const paid = record.paidAmount || 0;
-    const total = record.packagePrice || 0;
 
-    return (
-      <span>
-        ₹{paid.toLocaleString("en-IN")}
-        <Text type="colorTextSecondary">
-          {" "}
-          / ₹{total.toLocaleString("en-IN")}
-        </Text>
-      </span>
-    );
-  },
-},
+    {
+      title: "Program / Counselling Service",
+      width: 200,
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.program || "N/A"}</Text>
+          <br />
+          <Text
+            type="colortextSecondary"
+          >
+            {record.package || "-"}
+          </Text>
+        </div>
+      ),
+    },
+
+    {
+      title: "Fees Paid",
+      width: 150,
+      render: (_, record) => {
+        const paid = record.paidAmount || 0;
+        const total = record.packagePrice || 0;
+
+        return (
+          <span>
+            ₹{paid.toLocaleString("en-IN")}
+            <Text type="colorTextSecondary">
+              {" "}
+              / ₹{total.toLocaleString("en-IN")}
+            </Text>
+          </span>
+        );
+      },
+    },
 
 
     {
       title: "Payment Status",
+      width:100,
       dataIndex: "status",
       render: (status) => (
         <Tag color={statusColorMap[status] || "default"}>
@@ -281,6 +307,7 @@ const apiPaymentRecords = Array.isArray(list)
     },
     {
       title: "Payment Method",
+      width:100,
       dataIndex: "paymentMethod",
       render: (method) =>
         method === "-" ? <Text type="colorTextSecondary">-</Text> : <Tag>{method}</Tag>,
@@ -293,7 +320,7 @@ const apiPaymentRecords = Array.isArray(list)
         if (date === "-") {
           return "-";
         }
-        
+
         // Parse the date string
         let displayDate = date;
         try {
@@ -307,7 +334,7 @@ const apiPaymentRecords = Array.isArray(list)
         } catch (e) {
           console.error("❌ Error formatting display date:", date, e);
         }
-        
+
         return (
           <Space>
             <CalendarOutlined />
@@ -316,63 +343,122 @@ const apiPaymentRecords = Array.isArray(list)
         );
       },
     },
-{
-  title: "Transaction ID",
-  dataIndex: "txn",
-  render: (txn) => truncateAfterFive(txn),
-},
     {
-      title: "Action",
-      render: (_, record) => {
-        // Only show Verify button for Verification Pending
-        if (record.status === "Verification Pending") {
-          return (
-            <Button
-              size="large"
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              onClick={() => {
-                setSelectedPayment({
-                  ...record,
-                  mode: "verify",
-                  paymentDate: record.date !== "-" ? record.date : null,
-                });
-                setIsModalOpen(true);
-              }}
-            >
-              Verify
-            </Button>
-          );
-        }
+      title: "Transaction ID",
+      dataIndex: "txn",
+      render: (txn) => truncateAfterFive(txn),
+    },
+{
+  title: "Action",
+  render: (_, record) => {
 
-        // For all other statuses, always show View + Edit
-        return (
-          <Space>
-            <Button
-              size="large"
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setSelectedPayment({ ...record, mode: "view" });
-                setIsModalOpen(true);
-              }}
-            >
-              View
-            </Button>
-
-            <Button
-              size="large"
-              icon={<EditOutlined />}
-              onClick={() => {
-                setSelectedPayment({ ...record, mode: "edit" });
-                setIsModalOpen(true);
-              }}
-            >
-              Edit
-            </Button>
-          </Space>
-        );
-      },
+    // ✅ NOT PAID → Upload only
+    if (record.status === "Not Paid") {
+      return (
+        <Button
+          size="large"
+          type="primary"
+          icon={<UploadOutlined />}
+          onClick={() => {
+            setSelectedPayment(record);
+            setIsUploadModalOpen(true);
+          }}
+        >
+          Upload Payment
+        </Button>
+      );
     }
+
+    // ✅ PARTIAL PAID → Upload + View + Edit
+    if (record.status === "Partial Paid") {
+      return (
+        <Space>
+          <Button
+            size="large"
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={() => {
+              setSelectedPayment(record);
+              setIsUploadModalOpen(true);
+            }}
+          >
+            Upload Payment
+          </Button>
+
+          <Button
+            size="large"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setSelectedPayment({ ...record, mode: "view" });
+              setIsModalOpen(true);
+            }}
+          >
+            View
+          </Button>
+
+          <Button
+            size="large"
+            icon={<EditOutlined />}
+            onClick={() => {
+              setSelectedPayment({ ...record, mode: "edit" });
+              setIsModalOpen(true);
+            }}
+          >
+            Edit
+          </Button>
+        </Space>
+      );
+    }
+
+    // ✅ Verification Pending → Verify
+    if (record.status === "Verification Pending") {
+      return (
+        <Button
+          size="large"
+          type="primary"
+          icon={<CheckCircleOutlined />}
+          onClick={() => {
+            setSelectedPayment({
+              ...record,
+              mode: "verify",
+              paymentDate: record.date !== "-" ? record.date : null,
+            });
+            setIsModalOpen(true);
+          }}
+        >
+          Verify
+        </Button>
+      );
+    }
+
+    // ✅ Other statuses → View + Edit
+    return (
+      <Space>
+        <Button
+          size="large"
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setSelectedPayment({ ...record, mode: "view" });
+            setIsModalOpen(true);
+          }}
+        >
+          View
+        </Button>
+
+        <Button
+          size="large"
+          icon={<EditOutlined />}
+          onClick={() => {
+            setSelectedPayment({ ...record, mode: "edit" });
+            setIsModalOpen(true);
+          }}
+        >
+          Edit
+        </Button>
+      </Space>
+    );
+  },
+}
   ];
 
   return (
@@ -380,22 +466,30 @@ const apiPaymentRecords = Array.isArray(list)
       <div style={{ padding: 16 }}>
         <Title level={3}>Payment Management</Title>
 
-        {/* ---------------- STATS ---------------- */}
         <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
           {statsCards.map((stat, i) => (
             <Col xs={24} sm={12} md={6} key={i}>
-              <Card loading={statsLoading} style={{ textAlign: "center" }}>
-                <Space direction="vertical" align="center" size={6}>
-                  <Text strong>{stat.title}</Text>
-                  {stat.icon}
-                  <Title level={4} style={{ margin: 0 }}>
-                    {stat.value}
-                  </Title>
-                </Space>
+              <Card
+                loading={statsLoading}
+                bodyStyle={{ padding: "18px 12px", textAlign: "center" }}
+              >
+                <Text type="colorTextSecondary" style={{ fontSize: 13 }}>
+                  {stat.title}
+                </Text>
+
+                <Title level={3} style={{ margin: "6px 0" }}>
+                  ₹ {stat.amount.toLocaleString()}
+                </Title>
+
+                <Text type="colorTextSecondary" style={{ fontSize: 12 }}>
+                  {stat.users} Users
+                </Text>
               </Card>
             </Col>
           ))}
         </Row>
+
+
 
         {/* ---------------- TABLE ---------------- */}
         <Card>
@@ -456,8 +550,18 @@ const apiPaymentRecords = Array.isArray(list)
             loading={listLoading}
             columns={columns}
             dataSource={filteredData}
-            pagination={{ pageSize: 5 }}
-            scroll={{ x: 1000 }}
+            pagination={{
+              current: currentPage,
+              pageSize: pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: [5, 10, 20, 50],
+              onChange: (page, size) => {
+                setCurrentPage(page);
+                setPageSize(size);
+              },
+            }}
+
+            scroll={{ x: "max-content" }}
             locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}
           />
         </Card>
@@ -470,11 +574,15 @@ const apiPaymentRecords = Array.isArray(list)
           onSuccess={() => dispatch(fetchPayments())}
         />
 
-        <UploadPaymentModal
-          open={isUploadModalOpen}
-          onClose={() => setIsUploadModalOpen(false)}
-          onSuccess={() => dispatch(fetchPayments())}
-        />
+      <UploadPaymentModal
+  open={isUploadModalOpen}
+  paymentData={selectedPayment}
+  onClose={() => {
+    setSelectedPayment(null);
+    setIsUploadModalOpen(false);
+  }}
+  onSuccess={() => dispatch(fetchPayments())}
+/>
       </div>
     </ConfigProvider>
   );

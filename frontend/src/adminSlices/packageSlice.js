@@ -5,6 +5,7 @@ import {
   createPackageApi,
   updatePackageApi,
   getPackagesByProgramApi,
+  getProgramPackageDetailsApi,
 } from "../adminApi/packageApi";
 
 /* FETCH ALL PACKAGES */
@@ -25,6 +26,7 @@ export const fetchPackagesByProgram = createAsyncThunk(
   async (programId, { rejectWithValue }) => {
     try {
       const response = await getPackagesByProgramApi(programId);
+            console.log("API response:", response);
       return response.data.packages; // ✅ FIX
     } catch {
       return rejectWithValue("Failed to fetch packages");
@@ -57,12 +59,25 @@ export const updatePackage = createAsyncThunk(
   }
 );
 
+/* FETCH SINGLE PROGRAM PACKAGE DETAILS */
+export const fetchProgramPackageDetails = createAsyncThunk(
+  "packages/fetchProgramPackageDetails",
+  async ({ programId, packageId }, { rejectWithValue }) => {
+    try {
+      return await getProgramPackageDetailsApi(programId, packageId);
+    } catch {
+      return rejectWithValue("Failed to fetch package details");
+    }
+  }
+);
+
 const packageSlice = createSlice({
   name: "packages",
   initialState: {
     list: [],
     loading: false,
     error: null,
+     selectedPackage: null, 
   },
   reducers: {
     /* ✅ NOW clearPackages EXISTS */
@@ -76,17 +91,31 @@ const packageSlice = createSlice({
       .addCase(fetchPackages.pending, (state) => {
         state.loading = true;
       })
+      // .addCase(fetchPackages.fulfilled, (state, action) => {
+      //   state.loading = false;
+      //   state.list = action.payload?.data || [];
+      // })
+
       .addCase(fetchPackages.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = action.payload?.data || [];
+
+        const packages = action.payload?.data || [];
+
+        // 🔥 Sort alphabetically by name
+        packages.sort((a, b) =>
+          a.name?.localeCompare(b.name, undefined, { sensitivity: "base" })
+        );
+
+        state.list = packages;
       })
+
       .addCase(fetchPackages.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
       /* ✅ FETCH BY PROGRAM */
-    .addCase(fetchPackagesByProgram.pending, (state) => {
+      .addCase(fetchPackagesByProgram.pending, (state) => {
         state.loading = true;
         state.list = [];
       })
@@ -112,7 +141,20 @@ const packageSlice = createSlice({
         if (!updated) return;
         const index = state.list.findIndex((p) => p.id === updated.id);
         if (index !== -1) state.list[index] = updated;
-      });
+      })
+
+      /* FETCH SINGLE PACKAGE DETAILS */
+.addCase(fetchProgramPackageDetails.pending, (state) => {
+  state.loading = true;
+})
+.addCase(fetchProgramPackageDetails.fulfilled, (state, action) => {
+  state.loading = false;
+  state.selectedPackage = action.payload?.data || action.payload;
+})
+.addCase(fetchProgramPackageDetails.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+});
   },
 });
 

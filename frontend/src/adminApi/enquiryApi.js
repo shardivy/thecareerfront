@@ -17,17 +17,40 @@ export const addEnquiryApi = async (payload) => {
   return response.data;
 };
 
-// Convert enquiry to user
-export const convertEnquiryApi = async (id) => {
+// // Convert enquiry to user
+// export const convertEnquiryApi = async (id) => {
+//   const response = await axiosInstance.post(
+//     `/lead-registeration/leads/${id}/convert/`
+//   );
+//   return response.data;
+// };
+
+export const convertEnquiryApi = async (id, payload) => {
   const response = await axiosInstance.post(
-    `/lead-registeration/leads/${id}/convert/`
+    `/lead-registeration/leads/${id}/convert/`,
+    payload,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
   );
   return response.data;
 };
+
 
 // updateEnquiryApi.js
 export const updateEnquiryApi = async (payload) => {
   const { id, ...data } = payload;
   const response = await axiosInstance.patch(`/lead-registeration/leads/${id}/`, data);
+  return response.data;
+};
+
+
+// get streams
+export const getStreamsApi = async () => {
+  const response = await axiosInstance.get(
+    "/lead-registeration/streams/"
+  );
   return response.data;
 };

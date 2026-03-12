@@ -18,6 +18,7 @@ from lead_registration.views import (
     StudentSubjectPreferenceAPIView,
     StudentSubjectPreferenceDetailAPIView,
     SubjectAPIView,
+    UserJourneyAPIView,
     VerifyParentOTPAPIView
 )
 
@@ -55,6 +56,12 @@ urlpatterns = [
     path("hobbies/", HobbyAPIView.as_view()),
     path("students/<int:student_id>/hobbies/",StudentHobbyAPIView.as_view()),
     path("students/<int:student_id>/hobbies/<int:hobby_id>/",StudentHobbyDetailAPIView.as_view()),
+    
+    
+    # path("student/journey/", UserJourneyAPIView.as_view(), name="student-journey")
+    
+    path('student/<int:student_id>/journey/', UserJourneyAPIView.as_view(), name='student-journey'),
+
     
     
 ]

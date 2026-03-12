@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Layout,
   Menu,
@@ -28,6 +28,10 @@ import {
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import NotificationDropdown from "../components/student/pages/Notification";
+import { useDispatch, useSelector } from "react-redux";
+import { getProfile, clearProfile } from "../adminSlices/profileSlice";
+import { ConfigProvider } from "antd";
+import adminTheme from "../theme/adminTheme";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -40,10 +44,43 @@ export default function StudentLayout() {
   const location = useLocation();
   const screens = useBreakpoint();
   const { token } = theme.useToken();
+  const dispatch = useDispatch();
 
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const { profile } = useSelector((state) => state.profile);
+  const tokenFromStorage = localStorage.getItem("studentToken");
+  const selectedPackage = localStorage.getItem("selectedPackage");
+  const getDashboardPath = () => "/student/dashboard";
+
+  // Check if package exists in profile or localStorage
+  const hasPackage = !!(profile?.package_id || selectedPackage);
+
+  // Check if only program exists but no package
+  const hasOnlyProgram = !!(profile?.program) && !hasPackage;
 
   const username = localStorage.getItem("username") || "Student";
+  const userRole = profile?.role;
+
+  // Function to truncate name for smaller screens
+  const truncatedUsername = screens.xs
+    ? username.length > 10
+      ? `${username.slice(0, 10)}...`
+      : username
+    : username;
+
+  useEffect(() => {
+    dispatch(getProfile());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (profile?.aptitude_test !== undefined) {
+      localStorage.setItem("aptitude_test", profile.aptitude_test);
+    }
+  }, [profile]);
+
+  const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
+
+  const showExamAndReport = aptitudeTestFromStorage === "true";
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -68,16 +105,16 @@ export default function StudentLayout() {
   /* ===================== BREADCRUMB ===================== */
   const breadcrumbNameMap = {
     "/student/dashboard": "Dashboard",
-    "/student/program": "Program & Packages",
-    "/student/exam-management": "Exam Management",
-    "/student/report-management": "Report Management",
-    "/student/slot-booking": "Slot Booking",
+    "/student/program": "Program & Services",
+    "/student/exam-management": "Aptitude Test Management",
+    "/student/report-management": "Aptitude Test Report",
+    "/student/slot-booking": "Counselling Slot Booking",
     "/student/freecontent": "Free Content",
     "/student/content-library": "Content Library",
     "/student/student-profile": "Profile",
-    "/student/payments":"Payments"
+    "/student/payments": "Payments",
+    "/student/payment-page": "Payment",
   };
-
 
   const pathSnippets = location.pathname.split("/").filter(Boolean);
   const extraBreadcrumbItems = pathSnippets.map((_, index) => {
@@ -91,7 +128,8 @@ export default function StudentLayout() {
   const breadcrumbItems = [{ key: "/student/dashboard", title: ".." }, ...extraBreadcrumbItems.slice(1)];
 
   /* ===================== MENU ITEMS ===================== */
- const menuItems = [
+  const menuItems = [
+    // Dashboard - Always first
     {
       key: "/student/dashboard",
       icon: <DashboardFilled />,
@@ -100,75 +138,135 @@ export default function StudentLayout() {
         navigate("/student/dashboard");
         setDrawerVisible(false);
       },
-      style: { marginBottom: 12, marginTop: 24 },
+      style: { marginBottom: 12, marginTop: 8 },
     },
+
+    // Program & Services - Always second
     {
       key: "/student/program",
       icon: <ReadFilled />,
-      label: "Program & Packages",
+      label: "Program & Services",
       onClick: () => {
         navigate("/student/program");
         setDrawerVisible(false);
       },
-      style: { marginBottom: 12 },
+      style: { marginBottom: 14 },
     },
-    {
-      key: "/student/exam-management",
-      icon: <CalendarFilled />,
-      label: "Exam Management",
-      onClick: () => {
-        navigate("/student/exam-management");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
-    {
-      key: "/student/report-management",
-      icon: <FileTextFilled />,
-      label: "Report Management",
-      onClick: () => {
-        navigate("/student/report-management");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
-    {
-      key: "/student/slot-booking",
-      icon: <ScheduleFilled />,
-      label: "Slot Booking",
-      onClick: () => {
-        navigate("/student/slot-booking");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
-    {
-      key: "/student/content-library",
-      icon: <BookFilled />,
-      label: "Content Library",
-      onClick: () => {
-        navigate("/student/content-library");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
-    {
-  key: "/student/payments",
-  icon: <CreditCardFilled />,
-  label: "Payments",
-  onClick: () => {
-    navigate("/student/payments");
-    setDrawerVisible(false);
-  },
-  style: { marginBottom: 12 },
-},
-
   ];
+
+  // Content Library item
+  const contentLibraryItem = {
+    key: "/student/content-library",
+    icon: <BookFilled />,
+    label: "Content Library",
+    onClick: () => {
+      navigate("/student/content-library");
+      setDrawerVisible(false);
+    },
+    style: { marginBottom: 10 },
+  };
+
+  // Insert Content Library based on user type
+  if (!hasPackage) {
+    // Free user → insert at 3rd position
+    menuItems.splice(2, 0, contentLibraryItem);
+  }
+
+  // Package-dependent items
+  if (hasPackage) {
+    const packageItems = [
+      ...(showExamAndReport
+        ? [
+          {
+            key: "/student/exam-management",
+            icon: <CalendarFilled />,
+            // label: "Exam Management",
+            label: (
+              <div style={{ lineHeight: "20px" }}>
+                <div>Aptitude Test</div>
+                <div>Management</div>
+              </div>
+            ),
+            onClick: () => {
+              navigate("/student/exam-management");
+              setDrawerVisible(false);
+            },
+            style: { marginBottom: 18 },
+          },
+          {
+            key: "/student/report-management",
+            icon: <FileTextFilled />,
+            // label: "Report Management",
+            // label: "Aptitude Test Reports ",
+            label: (
+              <div style={{ lineHeight: "20px" }}>
+                <div>Aptitude Test</div>
+                <div>Reports</div>
+              </div>
+            ),
+            onClick: () => {
+              navigate("/student/report-management");
+              setDrawerVisible(false);
+            },
+            style: { marginBottom: 18 },
+          },
+        ]
+        : []),
+
+      // Slot Booking
+      {
+        key: "/student/slot-booking",
+        icon: <ScheduleFilled />,
+        // label: "Slot Booking",
+        label: (
+          <div style={{ lineHeight: "20px" }}>
+            <div>Counselling</div>
+            <div>Slot Booking</div>
+          </div>
+        ),
+        onClick: () => {
+          navigate("/student/slot-booking");
+          setDrawerVisible(false);
+        },
+        style: { marginBottom: 18 },
+      },
+
+      // Payments
+      {
+        key: "/student/payments",
+        icon: <CreditCardFilled />,
+        label: "Payments",
+        onClick: () => {
+          navigate("/student/payments");
+          setDrawerVisible(false);
+        },
+        style: { marginBottom: 12 },
+      },
+    ];
+
+    // Paid user → insert Content Library as 2nd last item
+    const insertIndex = packageItems.length - 1; // after Slot Booking & Payments
+    packageItems.splice(insertIndex, 0, contentLibraryItem);
+
+    // Merge package items
+    menuItems.push(...packageItems);
+  }
 
 
   const handleLogout = () => {
-    localStorage.removeItem("studentToken");
-    localStorage.removeItem("username");
+    // Remove authentication & user info
+    // localStorage.removeItem("studentToken");
+    // localStorage.removeItem("username");
+
+    // // Remove program/package stored from profile
+    // localStorage.removeItem("selectedProgram");
+    // localStorage.removeItem("selectedPackage");
+    // localStorage.removeItem("studentId");
+
+    localStorage.clear();
+    // 2. Optional: reset Redux state
+    dispatch(clearProfile());
+
     navigate("/", { replace: true });
   };
 
@@ -184,12 +282,16 @@ export default function StudentLayout() {
 
   const userMenu = {
     items: [
-      {
-        key: "profile",
-        icon: <UserOutlined />,
-        label: "Profile",
-        onClick: () => navigate("/student/student-profile"),
-      },
+      ...(userRole !== "basic_user"
+        ? [
+          {
+            key: "profile",
+            icon: <UserOutlined />,
+            label: "Profile",
+            onClick: () => navigate("/student/student-profile"),
+          },
+        ]
+        : []),
     ],
   };
 
@@ -212,112 +314,278 @@ export default function StudentLayout() {
     </div>
   );
 
+  const isProfilePage = location.pathname === "/student/student-profile";
+
   return (
-    <Layout style={{ minHeight: "100vh", background: token.colorBgLayout }}>
-      {/* ===================== SIDEBAR ===================== */}
-      {!screens.xs && (
-       <Sider
-  width={SIDEBAR_WIDTH}
-  style={{
-    background: token.colorPrimary, // 🔥 DARK BLUE
-    position: "fixed",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    boxShadow: token.boxShadow,
-  }}
->
-          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            <h2 style={{ textAlign: "center", padding: 16, margin: 0 , color: "#FFFFFF" }}>
-              Student Panel
-            </h2>
+    <ConfigProvider theme={adminTheme}>
+      <Layout style={{ minHeight: "100vh", background: token.colorBgLayout }}>
+        {!isProfilePage && !screens.xs && (
+          <Sider
+            width={SIDEBAR_WIDTH}
+            style={{
+              background: token.colorPrimary,
+              position: "fixed",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              boxShadow: token.boxShadow,
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
 
-            <div style={{ flex: 1, padding: "8px 12px"  }}>{MenuContent}</div>
+              {/* BRANDING */}
+              <div style={{
+                textAlign: "center", padding: "20px 16px", cursor: "pointer",
 
-            <LogoutButton />
-          </div>
-        </Sider>
-      )}
+              }}
+                onClick={() => navigate(getDashboardPath())}
+              >
 
-      {/* ===================== MOBILE DRAWER ===================== */}
-      {screens.xs && (
-        <Drawer
-          title="Student Panel"
-          placement="right"
-          open={drawerVisible}
-          onClose={() => setDrawerVisible(false)}
-          bodyStyle={{ padding: 0, display: "flex", flexDirection: "column" }}
-        >
-          <div style={{ flex: 1, padding: 16 }}>{MenuContent}</div>
-          <LogoutButton isMobile />
-        </Drawer>
-      )}
-
-      {/* ===================== MAIN ===================== */}
-      <Layout style={{ marginLeft: screens.xs ? 0 : SIDEBAR_WIDTH }}>
-        <Header
-          style={{
-            background: token.colorBgContainer,
-            padding: "0 16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            boxShadow: token.boxShadow,
-            position: "sticky",
-            top: 0,
-            zIndex: 10,
-          }}
-        >
-          <Breadcrumb items={breadcrumbItems} />
-
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            {/* 🔔 Notifications */}
-            <Dropdown
-              trigger={["click"]}
-              dropdownRender={() => (
-                <NotificationDropdown
-                  notifications={notifications}
-                  setNotifications={setNotifications}
+                {/* LOGO */}
+                <img
+                  src="/Abhinav-logo.jpg"
+                  alt="Student Panel"
+                  style={{
+                    width: 120,
+                    height: "auto",
+                    objectFit: "contain",
+                    marginBottom: 6,
+                  }}
                 />
-              )}
+
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: adminTheme.token.colorTextPrimary,
+                    lineHeight: "24px",
+                  }}
+                >
+                  Career Counselling
+                </div>
+
+                {/* SUBTITLE */}
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    marginTop: 4,
+                    color: adminTheme.token.colorTextTertiary,
+                    letterSpacing: "0.6px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Student Dashboard
+                </div>
+
+              </div>
+
+              {/* MENU */}
+              <div style={{ flex: 1, padding: "8px 12px" }}>
+                {MenuContent}
+              </div>
+
+              {/* LOGOUT */}
+              <LogoutButton />
+
+            </div>
+          </Sider>
+        )}
+
+        {screens.xs && !isProfilePage && (
+          <Drawer
+            placement="right"
+            open={drawerVisible}
+            onClose={() => setDrawerVisible(false)}
+            closable
+            title={
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  textAlign: "center",
+                  width: "100%",
+                  paddingTop: 4,
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  navigate(getDashboardPath());
+                  setDrawerVisible(false); // close drawer
+                }}
+              >
+                {/* LOGO */}
+                <img
+                  src="/Abhinav-logo.jpg"
+                  alt="Career Counselling"
+                  style={{
+                    width: 60,
+                    height: "auto",
+                    objectFit: "contain",
+                    marginBottom: 6,
+                  }}
+                />
+
+                {/* TITLE */}
+                <div
+                  style={{
+                    fontSize: 17,
+                    fontWeight: 700,
+                    color: adminTheme.token.colorTextPrimary,
+                    lineHeight: "20px",
+                  }}
+                >
+                  Career Counselling
+                </div>
+
+                {/* SUBTITLE */}
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    marginTop: 3,
+                    color: adminTheme.token.colorTextTertiary,
+                    letterSpacing: "0.6px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Student Panel
+                </div>
+              </div>
+            }
+            styles={{
+              header: {
+                background: token.colorPrimary,
+                borderBottom: "none",
+                direction: "rtl", // ⭐ moves close icon to right
+              },
+              body: {
+                background: token.colorPrimary,
+                padding: 0,
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",
+              },
+            }}
+          >
+            <div style={{ flex: 1, padding: "10px 16px" }}>
+              {MenuContent}
+            </div>
+
+            <LogoutButton isMobile />
+          </Drawer>
+        )}
+
+        <Layout style={{ marginLeft: !isProfilePage && !screens.xs ? SIDEBAR_WIDTH : 0 }}>
+          {!isProfilePage && (
+            <Header
+              style={{
+                background: token.colorBgContainer,
+                padding: "0 12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                boxShadow: token.boxShadow,
+                position: "sticky",
+                top: 0,
+                zIndex: 10,
+              }}
             >
-              <Badge count={unreadCount} size="small">
-                <BellOutlined style={{ fontSize: 20, cursor: "pointer" }} />
-              </Badge>
-            </Dropdown>
+              {/* LEFT SIDE - BREADCRUMB */}
+              <div
+                style={{
+                  maxWidth: screens.xs ? "55%" : "45%",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Breadcrumb
+                  style={{
+                    fontSize: screens.xs ? 13 : 15,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {breadcrumbItems.map((item) => (
+                    <Breadcrumb.Item key={item.key}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          maxWidth: screens.xs ? 90 : "none",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          verticalAlign: "bottom",
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                    </Breadcrumb.Item>
+                  ))}
+                </Breadcrumb>
+              </div>
 
-            {/* 👤 User */}
-            <Dropdown menu={userMenu} trigger={["click"]}>
-              <Space style={{ cursor: "pointer" }}>
-                <Text strong>{username}</Text>
-                <Avatar
-                  icon={<UserOutlined />}
-                  style={{ background: token.colorPrimary }}
-                />
-              </Space>
-            </Dropdown>
+              {/* RIGHT SIDE */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: screens.xs ? 8 : 14,
+                }}
+              >
+                {/* NOTIFICATION */}
+                <Badge size="small">
+                  <BellOutlined style={{ fontSize: 18 }} />
+                </Badge>
 
-            {screens.xs && (
-              <Button
-                type="text"
-                icon={<MenuOutlined />}
-                onClick={() => setDrawerVisible(true)}
-              />
-            )}
-          </div>
-        </Header>
+                {/* USER NAME */}
+                <Dropdown menu={userMenu} trigger={["click"]}>
+                  <Space style={{ cursor: "pointer", alignItems: "center", gap: 8 }}>
 
-        <Content
-          style={{
-            margin: 16,
-            padding: 16,
-            background: "#eeeeef",
-            borderRadius: token.borderRadius,
-          }}
-        >
-          <Outlet />
-        </Content>
+                    <Text
+                      strong
+                      style={{
+                        fontSize: screens.xs ? 13 : 15,
+                        maxWidth: screens.xs ? 90 : "none",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {truncatedUsername}
+                    </Text>
+
+                    <Avatar
+                      icon={<UserOutlined />}
+                      style={{ background: token.colorPrimary }}
+                    />
+
+                  </Space>
+                </Dropdown>
+
+                {/* MOBILE MENU BUTTON */}
+                {screens.xs && (
+                  <Button
+                    type="text"
+                    icon={<MenuOutlined />}
+                    onClick={() => setDrawerVisible(true)}
+                  />
+                )}
+              </div>
+            </Header>
+          )}
+
+          <Content
+            style={{
+              margin: 16,
+              padding: 16,
+              background: "#eeeeef",
+              borderRadius: token.borderRadius,
+            }}
+          >
+            <Outlet />
+          </Content>
+        </Layout>
       </Layout>
-    </Layout>
+    </ConfigProvider>
   );
 }

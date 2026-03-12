@@ -12,6 +12,7 @@ import {
   Space,
   ConfigProvider,
   Badge,
+  Tag,
 } from "antd";
 import {
   UserOutlined,
@@ -33,6 +34,7 @@ import {
   UnorderedListOutlined,
   PhoneFilled,
   NotificationFilled,
+  AppstoreFilled,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
@@ -61,7 +63,25 @@ const AdminLayout = () => {
 
   // Branding label: show 'Counsellor Dashboard' for counsellors and 'Admin Dashboard' otherwise
   const isCounsellorRole = role === "lead_counsellor" || role === "counsellor";
-  const brandingLabel = isCounsellorRole ? "Counsellor Dashboard" : "Admin Dashboard";
+  const isUiUxRole = role === "ui_ux";
+  const brandingLabel =
+    role === "superadmin"
+      ? "Superadmin Dashboard"
+      : isCounsellorRole
+        ? "Counsellor Dashboard"
+        : isUiUxRole
+          ? "UI/UX Dashboard"
+          : "Admin Dashboard";
+
+  const roleLabelMap = {
+    superadmin: "Superadmin",
+    admin: "Admin",
+    counsellor: "Counsellor",
+    lead_counsellor: "Lead Counsellor",
+    ui_ux: "UI/UX",
+  };
+
+  const roleLabel = roleLabelMap[role] || role;
 
   // Prefer profile name after profile is loaded/updated; fall back to email
   const profile = useSelector((state) => state.profile.profile);
@@ -90,31 +110,37 @@ const AdminLayout = () => {
   }, [profileHasName, displayLabel]);
 
   /* ===================== NOTIFICATIONS ===================== */
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: "New Student Registered", description: "John Doe joined today", type: "student", read: false },
-    { id: 2, title: "Payment Received", description: "Payment received from Jane Smith", type: "payment", read: false },
-  ]);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // const [notifications, setNotifications] = useState([
+  //   { id: 1, title: "New Student Registered", description: "John Doe joined today", type: "student", read: false },
+  //   { id: 2, title: "Payment Received", description: "Payment received from Jane Smith", type: "payment", read: false },
+  // ]);
+  // const unreadCount = notifications.filter((n) => !n.read).length;
 
   /* ===================== BREADCRUMB ===================== */
   const breadcrumbNameMap = {
-    "/admin/profile": "Profile",
-    "/admin/dashboard": "Dashboard",
-    "/admin/enquiry-leads": "Enquiry & Leads",
-    "/admin/users": "Users",
-    "/admin/programs": "Programs",
-    "/admin/exams": "Exams",
-    "/admin/reportsmanagement": "Report Management",
-    "/admin/paymentmanagement": "Payment Management",
-    "/admin/slotbooking": "Slot Booking Management",
-    "/admin/createslot": "Create Slot ",
-    "/admin/followupManagement": "Follow Up Management",
-    "/admin/contentManagement": "Content Management",
-    "/admin/examManagements": "User Request List",
-    "/admin/examlist": "Exam List",
-    "/admin/employeeList": "Employee List",
-    "/admin/notificationManagement": "Notification Management",
-    "/admin/settings": "Settings",
+    "/s-admin/profile": "Profile",
+    "/s-admin/dashboard": "Dashboard",
+    "/s-admin/enquiry-leads": "Enquiry & Leads",
+    "/s-admin/users": "Users",
+    "/s-admin/programs": "Programs & Services",
+    "/s-admin/exams": "Exams",
+    "/s-admin/reportsmanagement": "Report Management",
+    "/s-admin/paymentmanagement": "Payment Management",
+    "/s-admin/slotbooking": "Counselling Bookings",
+    "/s-admin/createslot": "Create Counselling Slot ",
+    "/s-admin/followupManagement": "Follow Up Management",
+    "/s-admin/contentManagement": "Content Management",
+    "/s-admin/examManagements": "User Request List",
+    "/s-admin/examlist": "Exam List",
+    "/s-admin/employeeList": "User List",
+    "/s-admin/notificationManagement": "Notification Management",
+    "/s-admin/settings": "Settings",
+
+    "/s-admin/counsellor-dashboard": "Dashboard",
+    "/s-admin/session-history": "Session History",
+
+    "/s-admin/uiux-dashboard": "Dashboard",
+    "/s-admin/sessions-history": "Session History",
 
 
     // "/admin/leadlist": "Lead List",
@@ -130,88 +156,138 @@ const AdminLayout = () => {
   });
 
   const breadcrumbItems = [
-    { key: "/admin/dashboard", title: ".." },
+    { key: "/s-admin/dashboard", title: ".." },
     ...extraBreadcrumbItems.slice(1),
   ];
 
   /* ===================== MENU ITEMS ===================== */
   const menuItems = [
-    {
-      key: "/admin/dashboard",
+    (role !== "counsellor" && role !== "ui_ux") && {
+      key: "/s-admin/dashboard",
       icon: <DashboardFilled />,
       label: "Dashboard",
       onClick: () => {
-        navigate("/admin/dashboard");
+        navigate("/s-admin/dashboard");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12, marginTop: 24 },
     },
+
+
+    (role === "counsellor") && {
+      key: "/s-admin/counsellor-dashboard",
+      icon: <DashboardFilled />,
+      label: "Dashboard",
+      onClick: () => {
+        navigate("/s-admin/counsellor-dashboard");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+
+    // (role === "admin" || role === "superadmin") && {
+    (role === "ui_ux") && {
+      key: "/s-admin/uiux-dashboard",
+      icon: <DashboardFilled />,
+      label: "Dashboard",
+      onClick: () => {
+        navigate("/s-admin/uiux-dashboard");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+    (role === "counsellor") && {
+      key: "/s-admin/session-history",
+      icon: <CalendarFilled />,
+      label: "Session History",
+      onClick: () => {
+        navigate("/s-admin/session-history");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+
+
     /* ================= ADMIN / SUPERADMIN ONLY ================= */
-  (role === "admin" || role === "superadmin") && {
-      key: "/admin/enquiry-leads",
+    (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/enquiry-leads",
       icon: <FileTextFilled />,
       label: "Enquiry & Leads",
       onClick: () => {
-        navigate("/admin/enquiry-leads");
+        navigate("/s-admin/enquiry-leads");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
 
- (role === "admin" || role === "superadmin" || role === "lead_counsellor" || role === "counsellor" ) && {
-      key: "/admin/users",
+    (role === "admin" || role === "superadmin" || role === "lead_counsellor") && {
+      key: "/s-admin/users",
       icon: <TeamOutlined />,
-      label: "Users",
+      label: "Students Enrolled",
       onClick: () => {
-        navigate("/admin/users");
+        navigate("/s-admin/users");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
 
-  (role === "admin" || role === "superadmin") && {
-      key: "/admin/programs",
+    (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/programs",
       icon: <BookFilled />,
-      label: "Program & Packages",
+      label: "Program & Services",
       onClick: () => {
-        navigate("/admin/programs");
+        navigate("/s-admin/programs");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
 
-  (role === "admin" || role === "superadmin") && {
-      key: "/admin/paymentmanagement",
+    (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/paymentmanagement",
       icon: <CreditCardFilled />,
       label: "Payments",
       onClick: () => {
-        navigate("/admin/paymentmanagement");
+        navigate("/s-admin/paymentmanagement");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
 
-  (role === "admin" || role === "superadmin") && {
+    (role === "admin" || role === "superadmin") && {
       key: "exam-management",
       icon: <CalendarFilled />,
-      label: "Exam Management",
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Aptitude Test</div>
+          <div>Management</div>
+        </div>
+      ),
       children: [
         {
-          key: "/admin/examlist",
+          key: "/s-admin/examlist",
           icon: <UnorderedListOutlined />,
-          label: "Exam List",
+          // label: "Exam List",
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Aptitude Test</div>
+              <div>List</div>
+            </div>
+          ),
           onClick: () => {
-            navigate("/admin/examlist");
+            navigate("/s-admin/examlist");
             setDrawerVisible(false);
           },
         },
 
-    (role === "admin" || role === "superadmin") && {
-          key: "/admin/examManagements",
+        (role === "admin" || role === "superadmin") && {
+          key: "/s-admin/examManagements",
           icon: <SolutionOutlined />,
           label: "User Request List",
           onClick: () => {
-            navigate("/admin/examManagements");
+            navigate("/s-admin/examManagements");
             setDrawerVisible(false);
           },
         },
@@ -220,104 +296,134 @@ const AdminLayout = () => {
     },
 
 
-  (role === "admin" || role === "superadmin") && {
-      key: "/admin/reportsmanagement",
+    (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/reportsmanagement",
       icon: <FileTextFilled />,
-      label: "Report Management",
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Aptitude Test</div>
+          <div>Reports</div>
+        </div>
+      ),
       onClick: () => {
-        navigate("/admin/reportsmanagement");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
-
-  (role === "admin" || role === "superadmin") && {
-      key: "slot-booking",
-      icon: <CalendarFilled />,
-      label: "Slot Booking",
-      children: [
-        {
-          key: "/admin/createslot",
-          icon: <PlusCircleFilled />,
-          label: "Create Slot",
-          onClick: () => {
-            navigate("/admin/createslot");
-            setDrawerVisible(false);
-          },
-        },
-        {
-          key: "/admin/slotbooking",
-          icon: <ClockCircleFilled />,
-          label: "Slot Booking",
-          onClick: () => {
-            navigate("/admin/slotbooking");
-            setDrawerVisible(false);
-          },
-        },
-      ],
-    },
-
-  (role === "admin" || role === "superadmin") &&
-    {
-      key: "/admin/followupManagement",
-      icon: <PhoneFilled />,
-      label: "Follow-Up Management",
-      onClick: () => {
-        navigate("/admin/followupManagement");
+        navigate("/s-admin/reportsmanagement");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
     },
 
     (role === "admin" || role === "superadmin") && {
-      key: "/admin/content-management",
-      icon: <BookFilled />,
-      label: "Content Management",
-      onClick: () => {
-        navigate("/admin/contentManagement");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
+      key: "slot-booking",
+      icon: <CalendarFilled />,
+      // label: "Counselling Slot Booking",
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Counselling</div>
+          <div>Slot Booking</div>
+        </div>
+      ),
 
-  (role === "admin" || role === "superadmin") &&{
-      key: "/admin/notificationManagement",
-      icon: <NotificationFilled />,
-      label: "Notification Management",
-      onClick: () => {
-        navigate("/admin/notificationManagement");
-        setDrawerVisible(false);
-      },
-      style: { marginBottom: 12 },
-    },
-
-      (role === "admin" || role === "superadmin") && {
-      key: "employee-management",
-      icon: <TeamOutlined />,
-      label: "Employee Management",
       children: [
         {
-          key: "/admin/employeeList",
-          icon: <UnorderedListOutlined />,
-          label: "Employee List",
+          key: "/s-admin/createslot",
+          icon: <PlusCircleFilled />,
+          // label: "Create Counselling Slot",
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Create</div>
+              <div>Counselling Slot</div>
+            </div>
+          ),
           onClick: () => {
-            navigate("/admin/employeeList");
+            navigate("/s-admin/createslot");
+            setDrawerVisible(false);
+          },
+        },
+        {
+          key: "/s-admin/slotbooking",
+          icon: <ClockCircleFilled />,
+          // label: "Counselling Bookings",
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Counselling</div>
+              <div>Bookings</div>
+            </div>
+          ),
+          onClick: () => {
+            navigate("/s-admin/slotbooking");
             setDrawerVisible(false);
           },
         },
       ],
     },
 
-  //    (role === "lead_counsellor" || role === "counsellor") &&{
-  //   key: "/admin/leadlist",
-  //   icon: <UnorderedListOutlined />,
-  //   label: "Lead List",
-  //   onClick: () => {
-  //     navigate("/admin/leadlist");
-  //     setDrawerVisible(false);
-  //   },
-  //   style: { marginBottom: 12 },
-  // },
+    // (role === "admin" || role === "superadmin") &&
+    //   {
+    //     key: "/s-admin/followupManagement",
+    //     icon: <PhoneFilled />,
+    //     label: "Follow-Up Management",
+    //     onClick: () => {
+    //       navigate("/s-admin/followupManagement");
+    //       setDrawerVisible(false);
+    //     },
+    //     style: { marginBottom: 12 },
+    //   },
+
+    (role === "admin" || role === "superadmin" || role === "ui_ux") && {
+      key: "/s-admin/content-management",
+      icon: <BookFilled />,
+      label: "Content Management",
+      onClick: () => {
+        navigate("/s-admin/contentManagement");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+    (role === "ui_ux") && {
+      key: "/s-admin/sessions-history",
+      icon: <CalendarFilled />,
+      label: "Session History",
+      onClick: () => {
+        navigate("/s-admin/sessions-history");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+
+    // (role === "admin" || role === "superadmin") &&{
+    //     key: "/s-admin/notificationManagement",
+    //     icon: <NotificationFilled />,
+    //     label: "Notification Management",
+    //     onClick: () => {
+    //       navigate("/s-admin/notificationManagement");
+    //       setDrawerVisible(false);
+    //     },
+    //     style: { marginBottom: 12 },
+    //   },
+
+    (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/employeeList",
+      icon: <TeamOutlined />,
+      label: "User Management",
+      onClick: () => {
+        navigate("/s-admin/employeeList");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+    //    (role === "lead_counsellor" || role === "counsellor") &&{
+    //   key: "/admin/leadlist",
+    //   icon: <UnorderedListOutlined />,
+    //   label: "Lead List",
+    //   onClick: () => {
+    //     navigate("/admin/leadlist");
+    //     setDrawerVisible(false);
+    //   },
+    //   style: { marginBottom: 12 },
+    // },
 
 
 
@@ -371,7 +477,7 @@ const AdminLayout = () => {
         key: "profile",
         icon: <UserOutlined />,
         label: "Profile",
-        onClick: () => navigate("/admin/profile"),
+        onClick: () => navigate("/s-admin/profile"),
       },
     ],
   };
@@ -396,6 +502,13 @@ const AdminLayout = () => {
     </div>
   );
 
+  const getDashboardPath = () => {
+  if (role === "superadmin" || role === "admin") return "/s-admin/dashboard";
+  if (role === "counsellor" || role === "lead_counsellor") return "/s-admin/counsellor-dashboard";
+  if (role === "ui_ux") return "/s-admin/uiux-dashboard";
+  return "/s-admin/dashboard"; // fallback
+};
+
   return (
     <ConfigProvider theme={adminTheme}>
       <Layout style={{ minHeight: "100vh" }}>
@@ -413,31 +526,54 @@ const AdminLayout = () => {
           >
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
               {/* BRANDING */}
-              <div style={{ padding: "24px 16px", textAlign: "center" }}>
-                <div
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: adminTheme.token.colorTextPrimary,
-                    lineHeight: "26px",
-                  }}
-                >
-                  Career Counselling
-                </div>
+        
+{/* BRANDING */}
+<div
+  style={{
+    padding: "20px 16px",
+    textAlign: "center",
+       cursor: "pointer",
+  }}
+    onClick={() => navigate(getDashboardPath())}
+>
+  {/* LOGO */}
+  <img
+    src="/Abhinav-logo.jpg"
+    alt="Career Counselling"
+    style={{
+      width: 120,
+      height: "auto",
+      objectFit: "contain",
+      marginBottom: 8,
+    }}
+  />
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    marginTop: 6,
-                    color: adminTheme.token.colorTextTertiary,
-                    letterSpacing: "0.6px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {brandingLabel}
-                </div>
-              </div>
+  {/* TITLE */}
+  <div
+    style={{
+      fontSize: 18,
+      fontWeight: 700,
+      color: adminTheme.token.colorTextPrimary,
+      lineHeight: "24px",
+    }}
+  >
+    Career Counselling
+  </div>
+
+  {/* SUBTITLE */}
+  <div
+    style={{
+      fontSize: 11,
+      fontWeight: 500,
+      marginTop: 4,
+      color: adminTheme.token.colorTextTertiary,
+      letterSpacing: "0.6px",
+      textTransform: "uppercase",
+    }}
+  >
+    {brandingLabel}
+  </div>
+</div>
 
 
               {/* MENU - scrollable with small width scrollbar */}
@@ -484,29 +620,54 @@ const AdminLayout = () => {
             open={drawerVisible}
             onClose={() => setDrawerVisible(false)}
             closable={false}
-            title={
-              <div>
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: adminTheme.token.colorTextPrimary,
-                  }}
-                >
-                  Career Counselling
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    marginTop: 4,
-                    color: adminTheme.token.colorTextTertiary,
-                    letterSpacing: "0.6px",
-                  }}
-                >
-                  {brandingLabel}
-                </div>
-              </div>
-            }
+           title={
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+        cursor: "pointer",
+    }}
+    onClick={() => {
+    navigate(getDashboardPath());
+    setDrawerVisible(false); // close drawer
+  }}
+  >
+    <img
+      src="/Abhinav-logo.jpg"
+      alt="Career Counselling"
+      style={{
+        width: 66,
+        height: "auto",
+        objectFit: "contain",
+      }}
+    />
+
+    <div>
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: adminTheme.token.colorTextPrimary,
+          lineHeight: "18px",
+        }}
+      >
+        Career Counselling
+      </div>
+
+      <div
+        style={{
+          fontSize: 11,
+          marginTop: 2,
+          color: adminTheme.token.colorTextTertiary,
+          letterSpacing: "0.5px",
+        }}
+      >
+        {brandingLabel}
+      </div>
+    </div>
+  </div>
+}
             extra={
               <Button
                 type="text"
@@ -562,13 +723,22 @@ const AdminLayout = () => {
             {!screens.xs ? (
               <Breadcrumb items={breadcrumbItems} />
             ) : (
-              <Text strong style={{ fontSize: 16 }}>{brandingLabel}</Text>
+              <Text
+                strong
+                style={{
+                  fontSize: 13,
+                  lineHeight: "16px",
+                }}
+              >
+                {brandingLabel.split(" ")[0]} <br />
+                {brandingLabel.split(" ")[1]}
+              </Text>
             )}
 
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
 
               {/* 🔔 NOTIFICATIONS */}
-              <Dropdown
+              {/* <Dropdown
                 trigger={["click"]}
                 dropdownRender={() => <NotificationDropdown notifications={notifications} setNotifications={setNotifications} />}
               >
@@ -577,23 +747,59 @@ const AdminLayout = () => {
                     <BellOutlined style={{ fontSize: 20, cursor: "pointer" }} />
                   </Badge>
                 </span>
-              </Dropdown>
+              </Dropdown> */}
+
+              <span>
+                <Badge size="small">
+                  <BellOutlined
+                    style={{
+                      fontSize: 20,
+                      cursor: "default",
+                      opacity: 0.6,   // optional: show disabled look
+                    }}
+                  />
+                </Badge>
+              </span>
 
               {/* 👤 USER */}
               <Dropdown menu={userMenu} trigger={["click"]}>
-                <Space style={{ cursor: "pointer", alignItems: "center", gap: 8 }}>
-                  <Text
-                    strong
-                    title={displayLabel}
-                    style={{ fontSize: screens.xs ? 12 : undefined, maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                  >
-                    {screens.xs ? truncatedLabelMobile : truncatedLabel}
-                  </Text>
+                <Space style={{ cursor: "pointer", alignItems: "center", gap: 10 }}>
+
+                  <div style={{ lineHeight: "16px" }}>
+                    <Text
+                      strong
+                      title={displayLabel}
+                      style={{
+                        display: "block",
+                        fontSize: screens.xs ? 12 : 14,
+                        maxWidth: 140,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {displayLabel}
+                    </Text>
+
+                    <Tag
+                      color="blue"
+                      style={{
+                        marginTop: 2,
+                        fontSize: 10,
+                        padding: "0 6px",
+                        lineHeight: "16px",
+                      }}
+                    >
+                      {roleLabel}
+                    </Tag>
+                  </div>
+
                   <Avatar
                     size={screens.xs ? 32 : 40}
                     icon={<UserOutlined />}
                     style={{ backgroundColor: adminTheme.token.colorPrimary }}
                   />
+
                 </Space>
               </Dropdown>
 

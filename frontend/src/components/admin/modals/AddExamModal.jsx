@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Modal, Form, Input, Select, Row, Col, message } from "antd";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchPrograms } from "../../../adminSlices/programSlice";
+import { fetchActivePrograms } from "../../../adminSlices/programSlice";
 import {
   fetchPackagesByProgram,
   clearPackages,
@@ -16,7 +16,7 @@ const AddExamModal = ({ open, mode, editingExam, onCancel, onSuccess }) => {
   const dispatch = useDispatch();
 
   // Redux state
-  const { list: programs = [], loading: programsLoading } = useSelector(
+  const { activeList: programs = [], loading: programsLoading } = useSelector(
     (state) => state.programs
   );
   const { list: packages = [], loading: packagesLoading } = useSelector(
@@ -26,7 +26,7 @@ const AddExamModal = ({ open, mode, editingExam, onCancel, onSuccess }) => {
 
   // Fetch programs when modal opens
   useEffect(() => {
-    if (open) dispatch(fetchPrograms());
+    if (open) dispatch(fetchActivePrograms());
   }, [open, dispatch]);
 
   // Populate form if editing or viewing
@@ -143,12 +143,12 @@ const AddExamModal = ({ open, mode, editingExam, onCancel, onSuccess }) => {
 
           <Col span={12}>
             <Form.Item
-              label="Package"
+              label="Counselling Services"
               name="package"
-              rules={[{ required: true, message: "Please select package" }]}
+              rules={[{ required: true, message: "Please select counselling service" }]}
             >
               <Select
-                placeholder={packagesLoading ? "Loading..." : "Select package"}
+                placeholder={packagesLoading ? "Loading..." : "Select counselling service"}
                 loading={packagesLoading}
                 allowClear
                 disabled={isViewMode}

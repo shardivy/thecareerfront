@@ -20,6 +20,13 @@ import updateEnquiryReducer from "./adminSlices/updateEnquirySlice";
 import examReducer from "./adminSlices/examSlice";
 import userExamReducer from "./adminSlices/userExamSlice";
 import reportReducer from "./adminSlices/reportSlice";
+import dashboardReducer from "./adminSlices/dashboardSlice";
+import studentReducer from "./adminSlices/studentSlice";
+import streamReducer from "./adminSlices/streamSlice";
+import subjectReducer from "./adminSlices/subjectSlice";
+import hobbyReducer from "./adminSlices/hobbySlice";
+import contentReducer from "./adminSlices/contentSlice";
+import employeeReducer from "./adminSlices/employeeSlice";
 
 
 const store = configureStore({
@@ -43,6 +50,13 @@ const store = configureStore({
         exam: examReducer,
         userExams: userExamReducer,
         reports: reportReducer,
+        dashboard: dashboardReducer,
+        student: studentReducer,
+        streams: streamReducer,
+        subjects: subjectReducer, 
+        hobbies: hobbyReducer,
+        content: contentReducer,
+        employee: employeeReducer,
 
 
   },

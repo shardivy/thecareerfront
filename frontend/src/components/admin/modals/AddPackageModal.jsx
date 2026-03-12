@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
-import { Modal, Form, Input, Button, Select } from "antd";
+import { Modal, Form, Input, Button, Select, Switch } from "antd";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchPackages } from "../../../adminSlices/packageSlice";
+import { fetchActivePrograms } from "../../../adminSlices/programSlice";
 
 const { Option } = Select;
 
@@ -10,11 +11,13 @@ const AddPackageModal = ({
   onClose,
   onSubmit,
   initialValues,
-  programs = [],
   viewMode = false,
 }) => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
+
+  const programs = useSelector((state) => state.programs.activeList);
+  const programsLoading = useSelector((state) => state.programs.loading);
 
   const { list: packages, loading } = useSelector((state) => state.packages);
 
@@ -25,17 +28,26 @@ const AddPackageModal = ({
     }
   }, [visible, packages.length, dispatch]);
 
+  useEffect(() => {
+    if (visible) {
+      dispatch(fetchActivePrograms());
+    }
+  }, [visible, dispatch]);
+
   // Prefill form (Edit / View)
   useEffect(() => {
     if (initialValues) {
       form.setFieldsValue({
         name: initialValues.name || "",
         description: initialValues.description || "",
+        link_url: initialValues.link_url || "",
         program_id: initialValues.program?.id || undefined,
         price: Number(initialValues.price) || "",
         features: Array.isArray(initialValues.features)
           ? initialValues.features.map((f) => f.description)
           : [],
+        aptitude_test:
+          initialValues.aptitude_test ?? false,
       });
     } else {
       form.resetFields();
@@ -51,30 +63,31 @@ const AddPackageModal = ({
     <Modal
       title={
         viewMode
-          ? "View Package"
+          ? "View Counselling Service"
           : initialValues
-          ? "Edit Package"
-          : "Create Package"
+            ? "Edit Counselling Service"
+            : "Create Counselling Service"
       }
       open={visible}
       onCancel={onClose}
       footer={null}
       centered
       destroyOnClose
+        width={600} 
     >
       <Form layout="vertical" form={form} onFinish={handleFinish}>
 
         {/* PACKAGE NAME */}
-      <Form.Item
-  label="Package"
-  name="name"
-  rules={[{ required: true, message: "Please enter package name" }]}
->
-  <Input
-    placeholder="Enter package name"
-    disabled={viewMode}
-  />
-</Form.Item>
+        <Form.Item
+          label="Counselling Service"
+          name="name"
+          rules={[{ required: true, message: "Please enter counselling service name" }]}
+        >
+          <Input
+            placeholder="Enter counselling service name"
+            disabled={viewMode}
+          />
+        </Form.Item>
 
         {/* DESCRIPTION */}
         <Form.Item
@@ -86,8 +99,24 @@ const AddPackageModal = ({
           ]}
         >
           <Input.TextArea
-            placeholder="Enter package description"
+            placeholder="Enter counselling service description"
             rows={3}
+            disabled={viewMode}
+          />
+        </Form.Item>
+
+
+        {/* LINK URL */}
+
+        <Form.Item
+          label="Service Link URL"
+          name="link_url"
+          rules={[
+            { type: "url", message: "Please enter a valid URL (https://example.com)" }
+          ]}
+        >
+          <Input
+            placeholder="https://example.com"
             disabled={viewMode}
           />
         </Form.Item>
@@ -99,9 +128,9 @@ const AddPackageModal = ({
           rules={[{ required: true, message: "Please select a program" }]}
         >
           <Select
-            placeholder="Select program"
+            placeholder={programsLoading ? "Loading programs..." : "Select program"}
             disabled={viewMode}
-            loading={loading}
+            loading={programsLoading}
           >
             {programs.map((prog) => (
               <Option key={prog.id} value={prog.id}>
@@ -138,23 +167,39 @@ const AddPackageModal = ({
           />
         </Form.Item>
 
+        {/* APTITUDE TEST TOGGLE */}
+        <Form.Item
+          label="Aptitude Test Availability"
+          name="aptitude_test"
+          valuePropName="checked"
+        >
+          <Switch
+            checkedChildren="Available"
+            unCheckedChildren="Unavailable"
+            disabled={viewMode}
+          />
+        </Form.Item>
+
         {/* ACTION BUTTONS */}
-        {!viewMode && (
-          <Form.Item>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 8,
-              }}
-            >
-              <Button onClick={onClose}>Cancel</Button>
-              <Button type="primary" htmlType="submit">
-                Submit
-              </Button>
-            </div>
-          </Form.Item>
-        )}
+       {/* ACTION BUTTONS */}
+{!viewMode && (
+  <Form.Item>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: 8,
+      }}
+    >
+      <Button onClick={onClose}>Cancel</Button>
+      <Button type="primary" htmlType="submit">
+        {initialValues ? "Update" : "Submit"} {/* <-- Change text here */}
+      </Button>
+    </div>
+  </Form.Item>
+)}
+
+
 
       </Form>
     </Modal>

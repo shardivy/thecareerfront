@@ -1,8 +1,11 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "http://192.168.0.108:8000/api",
-  // ❌ DO NOT set Content-Type here
+  // baseURL: "http://192.168.82.38:8000/api",
+
+  baseURL: "https://staging.abhinavcareerscope.com/api",
+
+
 });
 
 // 👇 PUBLIC ENDPOINTS
@@ -11,7 +14,12 @@ const publicEndpoints = [
   "/login/",
   "/reset-password/",
   "/verify-otp/",
-];
+  // "/program-package/get-programs/",
+  // "/lead-registeration/send-otp/",   
+  // "/lead-registeration/verify-otp-register/",
+  // "/lead-registeration/student/register/",
+
+]; 
 
 // ================= REQUEST INTERCEPTOR =================
 axiosInstance.interceptors.request.use(
@@ -24,6 +32,7 @@ axiosInstance.interceptors.request.use(
 
     if (accessToken && !isPublic) {
       config.headers.Authorization = `Bearer ${accessToken}`;
+          console.log("Outgoing request:", config.url, "Token:", accessToken);
     } else {
       delete config.headers.Authorization;
     }

@@ -1,14 +1,15 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Card,
   Button,
   Row,
   Col,
   Typography,
-  Badge,
   Grid,
   theme,
+  Spin,
 } from "antd";
 import {
   BookOutlined,
@@ -17,6 +18,7 @@ import {
   LockOutlined,
 } from "@ant-design/icons";
 import JourneySteps from "./JourneySteps";
+import { fetchStudentJourney } from "../../../adminSlices/userSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -24,54 +26,227 @@ const { useBreakpoint } = Grid;
 const StudentDashboard = () => {
   const screens = useBreakpoint();
   const navigate = useNavigate();
-
-  // 🔥 Access theme tokens
+  const dispatch = useDispatch();
   const { token } = theme.useToken();
+
+  const { journey, journeyLoading } = useSelector(
+    (state) => state.users
+  );
+
+  const { profile } = useSelector((state) => state.profile);
+
+  /* ================= FREE USER CHECK ================= */
+  const isFreeUser = !profile?.package_id;
+
+  /* ================= SAVE PROGRAM & PACKAGE IN LOCAL STORAGE ================= */
+  useEffect(() => {
+    if (!profile) return;
+
+    if (profile.program) {
+      localStorage.setItem("selectedProgram", profile.program);
+    }
+
+    if (profile.package_id) {
+      localStorage.setItem("selectedPackage", profile.package_id);
+    }
+
+    if (profile.student_id) {
+      localStorage.setItem("studentId", profile.student_id);
+    }
+
+    if (profile.first_name && profile.last_name) {
+      const fullName = `${profile.first_name} ${profile.last_name}`;
+      if (localStorage.getItem("username") !== fullName) {
+        localStorage.setItem("username", fullName);
+      }
+    }
+    /* ✅ STORE COUNSELLING MODE */
+    if (profile.preferred_counselling_mode) {
+      localStorage.setItem(
+        "preferredCounsellingMode",
+        profile.preferred_counselling_mode
+      );
+    }
+  }, [profile]);
+
+  /* ================= PROGRAM TYPE LOGIC ================= */
+
+  // Read aptitude_test from localStorage
+  const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
+
+  // Show exam & report only if aptitude_test = true
+  const showExamAndReport = aptitudeTestFromStorage === "true";
+
+  /* ================= FETCH JOURNEY (ONLY FOR PAID USERS) ================= */
+  useEffect(() => {
+    if (!isFreeUser && profile?.student_id) {
+      dispatch(fetchStudentJourney(profile.student_id));
+    }
+  }, [dispatch, profile?.student_id, isFreeUser]);
+
+
+  /* ================= JOURNEY DATA ================= */
+  const progressData = journey?.progress || {};
+
+  let currentStep =
+    progressData?.current_step !== undefined
+      ? progressData.current_step - 1
+      : 0;
+
+  // Adjust step index if exam/report are not part of the journey
+  if (!showExamAndReport && currentStep > 2) {
+    currentStep = currentStep - 2;
+  }
+
+  useEffect(() => {
+    if (progressData) {
+      const paymentCompleted = progressData.payment === "fully_paid";
+
+      // If exam is part of the journey
+      let examCompleted;
+      if (showExamAndReport) {
+        examCompleted = progressData.exam === "completed";
+      } else {
+        // Journey does not include exam
+        examCompleted = "not_applicable"; // mark as not applicable
+      }
+
+      localStorage.setItem("paymentCompleted", paymentCompleted);
+      localStorage.setItem("examCompleted", examCompleted);
+    }
+  }, [progressData, showExamAndReport]);
+
+
+  /* ================= BUTTON LOGIC ================= */
+  const getJourneyAction = () => {
+    if (isFreeUser) {
+      return {
+        label: "Browse Programs & Services →",
+        path: "/student/program",
+      };
+    }
+
+    switch (currentStep) {
+      case 0:
+      case 1:
+        return {
+          label: "View Programs & Services →",
+          path: "/student/program",
+        };
+
+      case 2:
+        return {
+          label: "Pay Now →",
+          path: "/student/payments",
+        };
+
+      case 3:
+        if (showExamAndReport) {
+          return {
+            label: "Start Exam →",
+            path: "/student/exam-management",
+          };
+        }
+        break;
+
+      case 4:
+        if (showExamAndReport) {
+          return {
+            label: "View Report →",
+            path: "/student/report-management",
+          };
+        }
+        break;
+
+      case 5:
+        return {
+          label: "Book Counselling Session →",
+          path: "/student/slot-booking",
+        };
+
+      case 6:
+        return {
+          label: "Submit Review →",
+          path: "/student/report-management",
+        };
+
+      default:
+        return {
+          label: "Go to Dashboard →",
+          path: "/student/dashboard",
+        };
+    }
+  };
+
+  const journeyAction = getJourneyAction();
 
   return (
     <div
       style={{
-        padding: screens.xs ? "8px" : "30px 20px",
+        padding: screens.xs ? "12px 12px 24px" : "30px 20px",
         maxWidth: 1200,
         margin: "0 auto",
-        // background: token.colorBgLayout,
-        color:"black",
       }}
     >
       {/* ===================== PROGRESS STEPS ===================== */}
-      <div style={{ overflowX: "auto", paddingBottom: 10 ,}}>
-        <JourneySteps currentStep={1} />
+      <div style={{ overflowX: "auto", paddingBottom: 10 }}>
+        {isFreeUser ? (
+          <JourneySteps isFreeUser={true} />
+        ) : journeyLoading ? (
+          <Spin />
+        ) : (
+          <JourneySteps
+            currentStep={currentStep}
+            showExamAndReport={showExamAndReport}
+            progressData={progressData}
+            journeyLoading={journeyLoading}
+          />
+        )}
       </div>
 
-      {/* ===================== CHOOSE YOUR PATH ===================== */}
+      {/* ===================== CTA CARD ===================== */}
       <Card
         style={{
           margin: "32px 0",
           borderRadius: token.borderRadiusLG,
           background: `linear-gradient(90deg, ${token.colorPrimary}, ${token.colorInfo})`,
-          color: token.colorTextSecondary,
         }}
       >
         <Row align="middle" justify="space-between" gutter={[16, 16]}>
           <Col xs={24} md={16}>
-            <Title level={4} style={{ color: token.colorTextPrimary }}>
-              Choose Your Path
+            <Title level={4} style={{ color: "#fff" }}>
+              {isFreeUser
+                ? "Start Your Career Journey"
+                : "Continue Your Journey"}
             </Title>
-            <Text style={{ color: token.colorTextTertiary, fontSize: 15 }}>
-              Select a program and package to begin your career counselling journey
+            <Text style={{ color: "#f0f0f0", fontSize: 15 }}>
+              {isFreeUser
+                ? "Select a program and service package to unlock full access"
+                : "Complete your next step to unlock more features"}
             </Text>
           </Col>
 
           <Col
             xs={24}
             md={8}
-            style={{ display: "flex", justifyContent: "flex-end" }}
+            style={{
+              display: "flex",
+              justifyContent: screens.xs ? "center" : "flex-end",
+            }}
           >
             <Button
               size="large"
-              onClick={() => navigate("/student/program")}
+              type="primary"
+              onClick={() => navigate(journeyAction.path)}
+              style={{
+                width: screens.xs ? "100%" : "auto",   // full width on mobile
+                whiteSpace: screens.xs ? "normal" : "nowrap", // allow wrapping on mobile
+                height: screens.xs ? "auto" : undefined, // auto height for 2 lines
+                padding: screens.xs ? "10px 16px" : undefined,
+                textAlign: "center",
+              }}
             >
-              View Programs & Packages →
+              {journeyAction.label}
             </Button>
           </Col>
         </Row>
@@ -82,24 +257,15 @@ const StudentDashboard = () => {
         <Col xs={24} sm={12} md={8}>
           <Card
             hoverable
-            onClick={() => navigate("/student/freecontent")}
+            onClick={() => navigate("/student/content-library")}
             style={{ borderRadius: token.borderRadiusLG }}
           >
-            <Row align="middle" justify="space-between">
-              <BookOutlined
-                style={{ fontSize: 26, color: token.colorSuccess }}
-              />
-              <Badge
-                count="Free"
-                style={{ backgroundColor: token.colorSuccess }}
-              />
-            </Row>
+            <BookOutlined
+              style={{ fontSize: 26, color: token.colorSuccess }}
+            />
             <Title level={5} style={{ marginTop: 16 }}>
-              Free Content Library
+              Explore Content Library
             </Title>
-            <Text type="colorTextSecondary">
-              Explore free videos, articles and guidance
-            </Text>
           </Card>
         </Col>
 
@@ -115,43 +281,40 @@ const StudentDashboard = () => {
             <Title level={5} style={{ marginTop: 16 }}>
               My Program
             </Title>
-            <Text type="colorTextSecondary">
-              View your enrolled counselling program
-            </Text>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} md={8}>
-          <Card
-            hoverable
-            onClick={() => navigate("/student/report-management")}
-            style={{ borderRadius: token.borderRadiusLG }}
-          >
-            <FileTextOutlined
-              style={{ fontSize: 26, color: token.colorInfo }}
-            />
-            <Title level={5} style={{ marginTop: 16 }}>
-              My Assessment Report
-            </Title>
-            <Text type="colorTextSecondary">
-              Download your career assessment results
-            </Text>
-          </Card>
-        </Col>
+        {!isFreeUser && showExamAndReport && (
+          <Col xs={24} sm={12} md={8}>
+            <Card
+              hoverable
+              onClick={() => navigate("/student/report-management")}
+              style={{ borderRadius: token.borderRadiusLG }}
+            >
+              <FileTextOutlined
+                style={{ fontSize: 26, color: token.colorInfo }}
+              />
+              <Title level={5} style={{ marginTop: 16 }}>
+                My Assessment Report
+              </Title>
+            </Card>
+          </Col>
+        )}
 
-        <Col xs={24} sm={12} md={8}>
-          <Card hoverable style={{ borderRadius: token.borderRadiusLG }}>
-            <LockOutlined
-              style={{ fontSize: 26, color: token.colorError }}
-            />
-            <Title level={5} style={{ marginTop: 16 }}>
-              Locked Content
-            </Title>
-            <Text type="colorTextSecondary">
-              Complete steps to unlock premium features
-            </Text>
-          </Card>
-        </Col>
+        {/* <Col xs={24} sm={12} md={8}>
+                <Card
+                  hoverable
+                  onClick={() => navigate("/student/content-library")}
+                  style={{ borderRadius: token.borderRadiusLG }}
+                >
+                  <LockOutlined
+                    style={{ fontSize: 26, color: token.colorError }}
+                  />
+                  <Title level={5} style={{ marginTop: 16 }}>
+                    Locked Content
+                  </Title>
+                </Card>
+              </Col> */}
       </Row>
     </div>
   );

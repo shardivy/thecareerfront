@@ -160,7 +160,7 @@ const handleStatusToggle = (record) => {
       ),
     },
     {
-      title: "Package",
+      title: "Counselling Service",
       dataIndex: "package",
       render: (text) => (
         <span style={{ whiteSpace: "pre-line" }}>
@@ -258,6 +258,7 @@ const handleStatusToggle = (record) => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
+               disabled={true}
             onClick={() => {
               setEditingExam(null);
               setModalMode("create");
@@ -305,7 +306,7 @@ const handleStatusToggle = (record) => {
 
           <Col md={6}>
             <Select
-              placeholder="Package"
+              placeholder="Counselling Services"
               allowClear
               style={{ width: "100%" }}
               value={filterPackage}

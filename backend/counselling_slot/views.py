@@ -1,18 +1,35 @@
 from django.shortcuts import get_object_or_404, render
+from backend import settings
+from lead_registration.models import StudentProfile
+from counselling_slot.tasks import send_booking_cancel_notification
+from django.db.transaction import on_commit
+from counselling_slot.services import get_counsellor_slots_by_date
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db import transaction
 from collections import defaultdict
 from datetime import timedelta
 from django.utils.timezone import now
 
+from datetime import datetime
+from django.utils import timezone
+from django.core.files.storage import default_storage
+from rest_framework.parsers import MultiPartParser, FormParser
+import os
+import pytz
+import mimetypes
+from django.db.models import F, ExpressionWrapper, DateTimeField
+from django.http import FileResponse
+from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_exempt
+
 from accounts.models import User
 from django.db import IntegrityError
 from accounts.permissions import IsAdmin, IsCounsellor, IsSuperAdmin
-from counselling_slot.models import Booking, BookingCounsellor, Counsellor, Slot
-from counselling_slot.serializers import AddCounsellorSerializer, BookingCreateSerializer, BookingReadSerializer, CounsellorListSerializer, CounsellorResponseSerializer, LeadCounsellorUserSerializer, SlotCreateSerializer, SlotResponseSerializer, SlotUpdateSerializer, UserBasicSerializer
+from counselling_slot.models import Booking, BookingCounsellor, CounsellingNote, CounsellingNote, Counsellor, Slot
+from counselling_slot.serializers import AddCounsellorSerializer, BookingCreateSerializer, BookingReadSerializer, CounsellingNoteSerializer, CounsellorListSerializer, CounsellorResponseSerializer, CounsellorStudentBookingSerializer, LeadCounsellorUserSerializer, SlotCreateSerializer, SlotResponseSerializer, SlotUpdateSerializer, StudentBookingSerializer, UserBasicSerializer
  
 # ============================ New Code Below =========================
 
@@ -258,25 +275,56 @@ class SlotCreateAPIView(APIView):
         
         
 # API to delete a slot
+# class SlotDeleteAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     @transaction.atomic
+#     def delete(self, request, slot_id):
+#         slot = get_object_or_404(Slot, id=slot_id)
+
+#         # 🚨 Do not allow deleting if booked
+#         if Booking.objects.filter(slot=slot).exists():
+#             return Response(
+#                 {"success": False, "message": "Slot cannot be deleted because it is already booked."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ✅ Soft delete only
+#         slot.is_deleted = True
+#         slot.is_available = False
+#         slot.save(update_fields=["is_deleted", "is_available"])
+
+#         return Response(
+#             {"success": True, "message": "Slot deleted successfully."},
+#             status=status.HTTP_200_OK
+#         )
+
+# Add debugging to verify your delete method is being called
 class SlotDeleteAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @transaction.atomic
     def delete(self, request, slot_id):
+        print(f"Soft delete called for slot {slot_id}")  # Debug line
         slot = get_object_or_404(Slot, id=slot_id)
 
-        slot.is_deleted = True   # ✅ soft delete
-        slot.save()
+        if Booking.objects.filter(slot=slot).exists():
+            return Response(
+                {"success": False, "message": "Slot cannot be deleted because it is already booked."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        slot.is_deleted = True
+        slot.is_available = False
+        slot.save(update_fields=["is_deleted", "is_available"])
+        
+        print(f"Slot {slot_id} soft deleted successfully")  # Debug line
 
         return Response(
-            {
-                "message": "Slot deleted successfully",
-                "slot_id": slot_id
-            },
+            {"success": True, "message": "Slot deleted successfully."},
             status=status.HTTP_200_OK
-        )
+        )   
 
-        
         
 class UpdateCounsellorStatusAPIView(APIView):
     """
@@ -528,7 +576,8 @@ class DateWiseSlotListAPIView(APIView):
 
        
 class BookingCreateAPIView(APIView):
-    permission_classes = [IsAdmin | IsSuperAdmin | IsCounsellor]
+    # permission_classes = [IsAdmin | IsSuperAdmin | IsCounsellor]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = BookingCreateSerializer(data=request.data)
@@ -581,7 +630,11 @@ class BookingCreateAPIView(APIView):
         )
         
     def put(self, request, booking_id):
-        serializer = BookingCreateSerializer(data=request.data)
+        # serializer = BookingCreateSerializer(data=request.data)
+        serializer = BookingCreateSerializer(
+            data=request.data,
+            context={"booking_id": booking_id}
+        )
         serializer.is_valid(raise_exception=True)
 
         student = serializer.validated_data["student_id"]
@@ -648,37 +701,161 @@ class BookingCreateAPIView(APIView):
             status=status.HTTP_200_OK
         )
         
-    def get(self, request, booking_id=None):
-        if booking_id:
-            # 🔹 Single booking
-            booking = get_object_or_404(Booking, id=booking_id)
+    # def get(self, request, booking_id=None):
+    #     if booking_id:
+    #         # 🔹 Single booking
+    #         booking = get_object_or_404(Booking, id=booking_id)
 
-            serializer = BookingReadSerializer(booking)
-            return Response(
-                {
-                    "message": "Booking fetched successfully",
-                    "data": serializer.data
-                },
-                status=status.HTTP_200_OK
+    #         serializer = BookingReadSerializer(booking)
+    #         return Response(
+    #             {
+    #                 "message": "Booking fetched successfully",
+    #                 "data": serializer.data
+    #             },
+    #             status=status.HTTP_200_OK
+    #         )
+
+    #     # 🔹 Booking list
+    #     bookings = (
+    #         Booking.objects
+    #         .select_related("student", "slot")
+    #         .prefetch_related("bookingcounsellor_set__counsellor__user")
+    #         .order_by("-created_at")
+    #     )
+
+    #     serializer = BookingReadSerializer(bookings, many=True)
+    #     return Response(
+    #         {
+    #             "message": "Bookings fetched successfully",
+    #             "data": serializer.data
+    #         },
+    #         status=status.HTTP_200_OK
+    #     )
+    
+    def get(self, request, booking_id=None):
+
+        # =============================
+        # AUTO UPDATE BOOKING STATUS
+        # =============================
+
+        ist = pytz.timezone("Asia/Kolkata")
+        now = timezone.now().astimezone(ist)
+        print("NOW:", now)
+
+        bookings = Booking.objects.select_related("slot").filter(status="booked")
+
+        for booking in bookings:
+            slot = booking.slot
+
+            if not slot:
+                continue
+
+            slot_date = slot.date
+            end_time = slot.end_time
+
+            # handle time range like "12:30 PM - 02:30 PM"
+            if isinstance(end_time, str):
+
+                if "-" in end_time:
+                    end_time = end_time.split("-")[1].strip()
+
+                try:
+                    end_time = datetime.strptime(end_time.strip(), "%I:%M %p").time()
+                except ValueError:
+                    try:
+                        end_time = datetime.strptime(end_time.strip(), "%H:%M:%S").time()
+                    except ValueError:
+                        end_time = datetime.strptime(end_time.strip(), "%H:%M").time()
+
+            end_datetime = datetime.combine(slot_date, end_time)
+
+            # convert to IST
+            end_datetime = ist.localize(end_datetime)
+
+            print("END:", end_datetime)
+
+            if now >= end_datetime:
+                booking.status = "completed"
+                booking.save(update_fields=["status"])
+                print("UPDATED:", booking.id)
+
+        # =============================
+        # SINGLE BOOKING
+        # =============================
+
+        if booking_id:
+            booking = get_object_or_404(
+                Booking.objects.select_related("student", "slot")
+                .prefetch_related("bookingcounsellor_set__counsellor__user"),
+                id=booking_id
             )
 
-        # 🔹 Booking list
-        bookings = (
-            Booking.objects
-            .select_related("student", "slot")
-            .prefetch_related("bookingcounsellor_set__counsellor__user")
+            serializer = BookingReadSerializer(booking)
+
+            return Response({
+                "message": "Booking fetched successfully",
+                "data": serializer.data
+            })
+
+        # =============================
+        # ALL BOOKINGS
+        # =============================
+
+        bookings = Booking.objects.select_related("student", "slot") \
+            .prefetch_related("bookingcounsellor_set__counsellor__user") \
             .order_by("-created_at")
-        )
 
         serializer = BookingReadSerializer(bookings, many=True)
+
+        return Response({
+            "message": "Bookings fetched successfully",
+            "data": serializer.data
+        })  
+        
+    def delete(self, request, booking_id):
+
+        try:
+            booking = Booking.objects.select_related(
+                "student", "slot"
+            ).prefetch_related(
+                "bookingcounsellor_set__counsellor__user"
+            ).get(id=booking_id)
+
+        except Booking.DoesNotExist:
+            return Response(
+                {"message": "Booking not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Collect before delete
+        student_email = booking.student.user.email
+
+        counsellor_emails = [
+            bc.counsellor.user.email
+            for bc in booking.bookingcounsellor_set.all()
+        ]
+
+        slot_details = {
+            "date": str(booking.slot.date),
+            "start_time": str(booking.slot.start_time),
+            "end_time": str(booking.slot.end_time),
+            "mode": booking.slot.mode,
+        }
+
+        booking.delete()
+
+        # Trigger celery after commit
+        on_commit(lambda: send_booking_cancel_notification.delay(
+            student_email,
+            counsellor_emails,
+            slot_details
+        ))
+
         return Response(
-            {
-                "message": "Bookings fetched successfully",
-                "data": serializer.data
-            },
+            {"message": "Booking deleted successfully"},
             status=status.HTTP_200_OK
         )
-        
+            
 class SessionDashboardCountAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -734,6 +911,619 @@ class SessionDashboardCountAPIView(APIView):
 
             "completed_sessions": completed_sessions
         })
+   
+FIXED_SLOTS = [
+    ("10:30 AM", "12:30 PM"),
+    ("12:30 PM", "02:30 PM"),
+    ("03:00 PM", "05:00 PM"),
+    ("05:00 PM", "07:00 PM"),
+]     
+        
+class CounsellorSlotByDateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    """
+    Fetch slots for a given date.
+    Also creates missing slots in Slot table for each counsellor.
+    """
+
+    def get(self, request, date):
+        try:
+            selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response(
+                {"message": "Invalid date format. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        counsellors = Counsellor.objects.select_related("user").all()
+        response_data = []
+
+        for counsellor in counsellors:
+
+            counsellor_user_id = counsellor.user_id
+
+            # 🔹 Fetch all slots (fixed + manual)
+            slots = Slot.objects.filter(
+                counsellor_id=counsellor_user_id,
+                date=selected_date,
+                is_deleted=False
+            ).order_by("start_time")
+
+            # 🔹 If no slots exist → create fixed slots
+            if not slots.exists():
+                fixed_slot_objects = [
+                    Slot(
+                        counsellor_id=counsellor_user_id,
+                        date=selected_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        is_available=True
+                    )
+                    for start_time, end_time in FIXED_SLOTS
+                ]
+                Slot.objects.bulk_create(fixed_slot_objects)
+
+                slots = Slot.objects.filter(
+                    counsellor_id=counsellor_user_id,
+                    date=selected_date,
+                    is_deleted=False
+                ).order_by("start_time")
+
+            # 🔹 Booking status map
+            booking_status_map = {
+                b["slot_id"]: b["status"]
+                for b in Booking.objects.filter(
+                    slot__in=slots
+                ).values("slot_id", "status")
+            }
+
+            counsellor_slots = [
+                {
+                    "slot_id": slot.id,
+                    "start_time": slot.start_time,
+                    "end_time": slot.end_time,
+                    "mode": slot.mode,
+                    "is_available": slot.is_available,
+                    "status": booking_status_map.get(slot.id, "available")
+                }
+                for slot in slots
+            ]
+
+            response_data.append({
+                "counsellor_id": counsellor.id,
+                "counsellor_name": f"{counsellor.user.first_name} {counsellor.user.last_name}".strip(),
+                "is_active": counsellor.is_active,
+                "total_slots": len(counsellor_slots),
+                "slots": counsellor_slots
+            })
+
+        return Response({
+            "message": "All slots fetched successfully",
+            "date": selected_date,
+            "data": response_data
+        })
+
+
+
+class SlotAvailabilityUpdateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @transaction.atomic
+    def put(self, request, slot_id):
+
+        slot = get_object_or_404(Slot, id=slot_id, is_deleted=False)
+
+        is_available = request.data.get("is_available")
+
+        # Validate input
+        if is_available is None:
+            return Response(
+                {
+                    "success": False,
+                    "message": "is_available field is required."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not isinstance(is_available, bool):
+            return Response(
+                {
+                    "success": False,
+                    "message": "is_available must be true or false."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        slot.is_available = is_available
+        slot.save(update_fields=["is_available"])
+
+        return Response(
+            {
+                "success": True,
+                "message": "Slot availability updated successfully.",
+                "slot_id": slot.id,
+                "is_available": slot.is_available
+            },
+            status=status.HTTP_200_OK
+        )
+        
+        
+class BookingMarkCompletedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, booking_id):
+        booking = get_object_or_404(Booking, id=booking_id)
+
+        # Optional validation
+        if booking.status == "cancelled":
+            return Response(
+                {"message": "Cancelled booking cannot be marked as completed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if booking.status == "completed":
+            return Response(
+                {"message": "Booking is already completed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ Update status
+        booking.status = "completed"
+        booking.save()
+
+        return Response(
+            {
+                "message": "Booking marked as completed successfully",
+                "booking_id": booking.id,
+                "status": booking.status,
+                "updated_at": booking.updated_at
+            },
+            status=status.HTTP_200_OK
+        )
+
+
+# class BookingMarkCompletedAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def put(self, request, booking_id):
+#         booking = get_object_or_404(Booking, id=booking_id)
+
+#         # ❌ Cancelled booking validation
+#         if booking.status == "cancelled":
+#             return Response(
+#                 {"message": "Cancelled booking cannot be marked as completed."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         slot = booking.slot
+
+#         if not slot or not slot.end_time:
+#             return Response(
+#                 {"message": "Slot end time not available."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         try:
+#             # Convert slot date + end_time to datetime
+#             end_datetime = datetime.strptime(
+#                 f"{slot.date} {slot.end_time}",
+#                 "%Y-%m-%d %H:%M"
+#             )
+#             end_datetime = timezone.make_aware(end_datetime)
+
+#             # 30 minutes before end time
+#             trigger_time = end_datetime - timedelta(minutes=120)
+
+#             now = timezone.now()
+
+#             if now >= trigger_time:
+#                 booking.status = "completed"
+#                 booking.save(update_fields=["status"])
+
+#                 return Response(
+#                     {
+#                         "message": "Booking automatically marked as completed (30 minutes before slot end).",
+#                         "booking_id": booking.id,
+#                         "status": booking.status,
+#                         "updated_at": booking.updated_at
+#                     },
+#                     status=status.HTTP_200_OK
+#                 )
+
+#             else:
+#                 return Response(
+#                     {
+#                         "message": "Booking cannot be marked as completed yet. 30 minutes window not reached.",
+#                         "booking_id": booking.id
+#                     },
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+#         except Exception:
+#             return Response(
+#                 {"message": "Invalid slot time format."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+
+# ================= Student Booking List API (with slot & counsellor details) ================
+
+# class StudentBookingListAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, student_id):
+
+#         # 🔹 Get student profile
+#         student_profile = get_object_or_404(StudentProfile, id=student_id)
+
+#         # 🔹 Fetch bookings
+#         bookings = Booking.objects.filter(
+#             student=student_profile
+#         ).select_related(
+#             "slot",
+#             "slot__counsellor"
+#         ).order_by("-created_at")
+
+#         serializer = StudentBookingSerializer(bookings, many=True)
+
+#         return Response({
+#             "count": bookings.count(),
+#             "data": serializer.data
+#         })
+      
+      
+class StudentBookingListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+
+        student_profile = get_object_or_404(StudentProfile, id=student_id)
+
+        bookings = list(
+            Booking.objects.filter(
+                student=student_profile
+            ).select_related(
+                "slot",
+                "slot__counsellor"
+            ).order_by("-created_at")
+        )
+
+        serializer = StudentBookingSerializer(bookings, many=True)
+
+        return Response({
+            "count": len(bookings),
+            "data": serializer.data
+        })
+
+        
+# ================== Counsellor Dashboard API ==================
+
+class CounsellorStudentBookingListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        bookings = Booking.objects.filter(
+            bookingcounsellor__counsellor__user=request.user,
+            status__in=["booked", "completed"]
+        ).select_related(
+            "student__user",
+            "slot"
+        ).prefetch_related(
+            "bookingcounsellor_set__counsellor__user"
+        ).distinct().order_by("-date")
+
+        serializer = CounsellorStudentBookingSerializer(
+            bookings,
+            many=True,
+            context={"request": request}
+        )
+        return Response(serializer.data)
+
+
+class CounsellorCompletedStudentBookingListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        bookings = Booking.objects.filter(
+            bookingcounsellor__counsellor__user=request.user,
+            status="completed"
+        ).select_related(
+            "student__user",
+            "slot"
+        ).prefetch_related(
+            "bookingcounsellor_set__counsellor__user"
+        ).distinct().order_by("-date")
+
+        serializer = CounsellorStudentBookingSerializer(
+            bookings,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(serializer.data)
+    
+# class DashboardCounsellorCompletedStudentBookingListAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         bookings = Booking.objects.filter(
+#             bookingcounsellor__counsellor__user=request.user,
+#             status__in=["completed", "booked"]
+#         ).select_related(
+#             "student__user",
+#             "slot"
+#         ).prefetch_related(
+#             "bookingcounsellor_set__counsellor__user"
+#         ).distinct().order_by("-date")
+
+#         serializer = CounsellorStudentBookingSerializer(
+#             bookings,
+#             many=True,
+#             context={"request": request}
+#         )
+
+#         return Response(serializer.data)
+    
+class AllCounsellorStudentBookingListAPIView(APIView):
+    """
+    Fetch all counselling session bookings for all counsellors
+    where booking status is either 'booked' or 'completed'.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        bookings = (
+            Booking.objects.filter(
+                status__in=[ "completed"]
+            )
+            .select_related(
+                "student__user",
+                "slot"
+            )
+            .prefetch_related(
+                "bookingcounsellor_set__counsellor__user"
+            )
+            .distinct()
+            .order_by("-date")
+        )
+
+        serializer = CounsellorStudentBookingSerializer(
+            bookings,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response({
+            "message": "All counsellor booking list fetched successfully",
+            "total_bookings": bookings.count(),
+            "data": serializer.data
+        })
+
+# views.py
+
+class CounsellingNoteCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    
+    def get(self, request, booking_id):
+        booking = get_object_or_404(Booking, id=booking_id)
+
+        notes = CounsellingNote.objects.filter(booking=booking)
+
+        serializer = CounsellingNoteSerializer(
+            notes,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request, booking_id):
+        booking = get_object_or_404(Booking, id=booking_id)
+
+        serializer = CounsellingNoteSerializer(
+            data=request.data,
+            context={
+                "request": request,
+                "booking": booking
+            }
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+
+        return Response(serializer.errors, status=400)
+    
+    def put(self, request, booking_id, note_id):
+
+        booking = get_object_or_404(Booking, id=booking_id)
+        note = get_object_or_404(CounsellingNote, id=note_id, booking=booking)
+
+        serializer = CounsellingNoteSerializer(
+            note,
+            data=request.data,
+            partial=True,
+            context={"request": request, "booking": booking}
+        )
+
+        if serializer.is_valid():
+            note = serializer.save()
+
+            # Delete specific file
+            delete_file = request.data.get("delete_file")
+
+            if delete_file in ["file1", "file2", "file3", "file4", "file5"]:
+                file_field = getattr(note, delete_file)
+
+                if file_field:
+                    file_field.delete(save=False)
+
+                setattr(note, delete_file, None)
+                note.save()
+
+            return Response(
+                CounsellingNoteSerializer(note, context={"request": request}).data
+            )
+
+        return Response(serializer.errors, status=400)
+    
+@method_decorator(xframe_options_exempt, name="dispatch")
+class CounsellingNoteFileView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, note_id, file_field):
+
+        note = get_object_or_404(CounsellingNote, id=note_id)
+
+        if file_field not in ["file1", "file2", "file3", "file4", "file5"]:
+            return Response({"error": "Invalid file"}, status=404)
+
+        file = getattr(note, file_field)
+
+        if not file:
+            return Response({"error": "File not found"}, status=404)
+
+        response = FileResponse(file.open("rb"))
+        response["Content-Disposition"] = "inline"
+        return response
+    
+class CounsellingNoteFileDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, booking_id, note_id, file_field):
+
+        booking = get_object_or_404(Booking, id=booking_id)
+        note = get_object_or_404(CounsellingNote, id=note_id, booking=booking)
+
+        valid_fields = ["file1", "file2", "file3", "file4", "file5"]
+
+        if file_field not in valid_fields:
+            return Response(
+                {"error": "Invalid file field"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        file = getattr(note, file_field)
+
+        if not file:
+            return Response(
+                {"error": "File not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # delete file from storage
+        file.delete(save=False)
+
+        # remove reference from DB
+        setattr(note, file_field, None)
+        note.save()
+
+        return Response(
+            {"message": f"{file_field} deleted successfully"},
+            status=status.HTTP_200_OK
+        )
+    
+
+class CounsellorDashboardCountAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        period = request.query_params.get("period", "monthly")  
+        # period = weekly / monthly / yearly
+
+        user = request.user
+
+        # Get Counsellor instance
+        try:
+            counsellor = Counsellor.objects.get(user=user)
+        except Counsellor.DoesNotExist:
+            return Response({"error": "Counsellor not found"}, status=404)
+
+        today = timezone.now().date()
+
+        # ============================================
+        # 1️⃣ Assigned Students Count
+        # ============================================
+        assigned_students = BookingCounsellor.objects.filter(
+            counsellor=counsellor
+        ).values("booking__student").distinct().count()
+
+        # ============================================
+        # Base Booking Query For This Counsellor
+        # ============================================
+        bookings = Booking.objects.filter(
+            bookingcounsellor__counsellor=counsellor
+        )
+
+        # ============================================
+        # Date Filtering
+        # ============================================
+        if period == "weekly":
+            start_date = today - timezone.timedelta(days=today.weekday())
+            bookings = bookings.filter(date__gte=start_date)
+
+        elif period == "monthly":
+            bookings = bookings.filter(
+                date__year=today.year,
+                date__month=today.month
+            )
+
+        elif period == "yearly":
+            bookings = bookings.filter(
+                date__year=today.year
+            )
+
+        # ============================================
+        # 2️⃣ Upcoming Sessions
+        # ============================================
+        upcoming_sessions = bookings.filter(
+            date__gte=today,
+            status__in=["booked", "rescheduled"]
+        ).count()
+
+        # ============================================
+        # 3️⃣ Completed Sessions
+        # ============================================
+        completed_sessions = bookings.filter(
+            status="completed"
+        ).count()
+
+        return Response({
+            "assigned_students": assigned_students,
+            "upcoming_sessions": upcoming_sessions,
+            "completed_sessions": completed_sessions,
+            "period": period
+        }, status=status.HTTP_200_OK)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

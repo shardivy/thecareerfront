@@ -50,3 +50,28 @@ export const updateCounsellorStatusApi = async (payload) => {
   );
   return response.data;
 };
+
+
+// ✅ GET slots for selected date
+export const getSlotsForSelectedDateApi = async (date) => {
+  const response = await axiosInstance.get(
+    `/counselling_slot/counsellor-slots/${date}/`
+  );
+  return response.data; // ✅ MUST BE THIS
+};
+
+
+//
+// ✅ UPDATE SLOT AVAILABILITY
+export const updateSlotAvailabilityApi = async (slotId, payload) => {
+  /**
+   * payload = {
+   *   is_available: true/false
+   * }
+   */
+  const response = await axiosInstance.put(
+    `/counselling_slot/slots/${slotId}/availability/`,
+    payload
+  );
+  return response.data;
+};

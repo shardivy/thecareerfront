@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Row,
   Col,
@@ -11,54 +11,104 @@ import {
   Badge,
   ConfigProvider,
   theme,
+  message
 } from "antd";
 import {
   ClockCircleOutlined,
-  FileTextOutlined,
-  SafetyOutlined,
   CheckCircleOutlined,
-  LockOutlined,
-  AppstoreOutlined,
   InfoCircleOutlined,
   QuestionCircleOutlined,
+  LaptopOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import StatusTrackingModal from "../modals/StatusTrackingModal";
 import InstructionsModal from "../modals/InstructionsModal";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  sendExamForApproval,
+  startExam,
+  fetchExamStatus
+} from "../../../adminSlices/examSlice";
 
 const { Title, Text } = Typography;
 
 const ExamManagement = () => {
   const [statusModalVisible, setStatusModalVisible] = useState(false);
-  const [instructionsModalVisible, setInstructionsModalVisible] =
-    useState(false);
-
-  // exam status state
+  const [instructionsModalVisible, setInstructionsModalVisible] = useState(false);
+  const [instructionsMode, setInstructionsMode] = useState("view");
   const [examStatus, setExamStatus] = useState("not_started");
-  // not_started | in_progress | completed
+  const [onInstructionsConfirm, setOnInstructionsConfirm] = useState(null);
 
-  const { useToken } = theme;
+  const { tracker } = useSelector((state) => state.exam);
+  const dispatch = useDispatch();
+  const studentId = localStorage.getItem("studentId");
 
+  useEffect(() => {
+    if (studentId) {
+      dispatch(fetchExamStatus(studentId));
+    }
+  }, [dispatch, studentId]);
+
+  useEffect(() => {
+    if (tracker?.status) {
+      setExamStatus(tracker.status);
+    }
+  }, [tracker]);
+
+  // START EXAM
   const handleStartExam = () => {
-    window.open("https://external-exam-platform.com", "_blank");
-    setExamStatus("in_progress");
+    setInstructionsMode("start");
+
+    setOnInstructionsConfirm(() => async () => {
+      try {
+        await dispatch(startExam(studentId)).unwrap();
+
+        window.open(
+          "https://www.careerfutura.com/ba/business-associate#",
+          "_blank"
+        );
+
+        // 👇 immediately refetch status
+        dispatch(fetchExamStatus(studentId));
+        message.success("Exam started successfully!");
+
+      } catch (error) {
+        message.error("Failed to start exam");
+      }
+    });
+
+    setInstructionsModalVisible(true);
   };
 
-  const handleMarkCompleted = () => {
-    setExamStatus("completed");
+  // MARK COMPLETED
+  const handleMarkCompleted = async () => {
+    try {
+      await dispatch(sendExamForApproval(studentId)).unwrap();
+      setExamStatus("pending_approval");
+      message.success("Exam sent for admin approval!");
+    } catch (error) {
+      message.error("Failed to send for approval");
+    }
   };
 
-  const PageContent = () => {
-    const { token } = useToken();
+  const { token } = theme.useToken();
 
-    return (
+  // STATUS CONDITIONS
+  const showStartButton = examStatus === "not_started";
+
+  const isInProgress = examStatus === "in_progress";
+  const isPendingApproval = examStatus === "pending_approval";
+  const isCompleted = examStatus === "completed";
+  // 🔒 Lock UI when completed
+  const isExamLocked = isCompleted || isInProgress || isPendingApproval;
+
+  return (
+    <ConfigProvider theme={adminTheme}>
       <div style={{ minHeight: "100vh" }}>
         {/* HEADER */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
-          <Title level={2} style={{ marginBottom: 6 }}>
-            Career Assessment Test
-          </Title>
-          <Text type="colorTextSecondary" style={{ fontSize: 15 }}>
+          <Title level={2}>Career Assessment Test</Title>
+          <Text type="colorTextSecondary">
             Discover your strengths, interests, and ideal career path
           </Text>
         </div>
@@ -76,14 +126,22 @@ const ExamManagement = () => {
           <Button
             size="large"
             icon={<QuestionCircleOutlined />}
+            disabled={isExamLocked}
             style={{
               borderRadius: 8,
-              backgroundColor: token.colorPrimary,
+              backgroundColor: isExamLocked
+                ? "#d9d9d9"
+                : token.colorPrimary,
               color: "#fff",
               fontWeight: 600,
               border: "none",
             }}
-            onClick={() => setInstructionsModalVisible(true)}
+            onClick={() => {
+              if (!isExamLocked) {
+                setInstructionsMode("view");
+                setInstructionsModalVisible(true);
+              }
+            }}
           >
             Instructions
           </Button>
@@ -104,94 +162,75 @@ const ExamManagement = () => {
         </div>
 
         <Row gutter={[32, 32]} justify="center">
-          {/* LEFT COLUMN */}
+          {/* LEFT CARD */}
           <Col xs={24} md={16}>
-            <Title level={5} style={{ marginBottom: 18 }}>
-              <AppstoreOutlined /> Exam Sections
-            </Title>
-
-            <Row gutter={[20, 20]}>
-              {[
-                { title: "Aptitude & Reasoning", meta: "30 questions • 20 minutes" },
-                {
-                  title: "Interest & Personality",
-                  meta: "40 questions • 25 minutes",
-                },
-                {
-                  title: "Subject Preference",
-                  meta: "20 questions • 10 minutes",
-                },
-                { title: "Career Values", meta: "10 questions • 5 minutes" },
-              ].map((section, index) => (
-                <Col xs={24} md={12} key={index}>
-                  <Card
-                    hoverable
-                    style={{
-                      borderRadius: 14,
-                      boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
-                    }}
-                  >
-                    <Title level={5} style={{ marginBottom: 6 }}>
-                      {section.title}
-                    </Title>
-                    <Tag color="blue">{section.meta}</Tag>
-                  </Card>
-                </Col>
-              ))}
-            </Row>
-
-            {/* BEFORE YOU BEGIN */}
             <Card
               style={{
                 borderRadius: 14,
                 marginTop: 32,
-                boxShadow: "0 10px 25px rgba(0,0,0,0.05)",
+                opacity: isExamLocked ? 0.6 : 1,
+                pointerEvents: isExamLocked ? "none" : "auto",
               }}
             >
               <Title level={5}>
-                <InfoCircleOutlined
-                  style={{ color: token.colorPrimary, marginRight: 6 }}
-                />
-                Before You Begin
+                <InfoCircleOutlined style={{ marginRight: 6 }} />
+                Important Notice
               </Title>
 
-              <List
-                size="small"
-                dataSource={[
-                  "Stable internet connection required",
-                  "Find a quiet place without distractions",
-                  "Have a pen and paper for rough work (optional)",
-                ]}
-                renderItem={(item) => (
-                  <List.Item>
-                    <CheckCircleOutlined
-                      style={{ color: token.colorSuccess, marginRight: 6 }}
-                    />
-                    <Text>{item}</Text>
-                  </List.Item>
-                )}
-              />
-            </Card>
+              {!isInProgress && !isPendingApproval && !isCompleted && (
+                <Text>
+                  Please read the complete instructions before starting the exam.
+                  Ensure you are using a laptop/desktop and have a stable internet
+                  connection.
+                </Text>
+              )}
 
-            {/* PAYMENT STATUS */}
-            <Card
-              style={{
-                borderRadius: 14,
-                marginTop: 32,
-                background: "linear-gradient(90deg,#fff7e6,#fff1b8)",
-                border: "1px solid #faad14",
-              }}
-            >
-              <Title level={5}>
-                <LockOutlined /> Payment Status
-              </Title>
-              <Text strong>
-                Included in <Tag color="gold">Premium Package</Tag>
-              </Text>
+              {isInProgress && (
+                <Text>
+                  Your exam is currently in progress. Once you have completed the exam,
+                  please click the <b>"Mark as Completed"</b> button to submit it for
+                  admin approval.
+                </Text>
+              )}
+
+              {isPendingApproval && (
+                <Text>
+                  Your exam has been submitted successfully and is currently
+                  waiting for admin approval. You will be notified once the
+                  approval is completed.
+                </Text>
+              )}
+
+              <Divider style={{ margin: "12px 0" }} />
+
+
+              {!isCompleted &&
+                <Button
+                  type="primary"
+                  disabled={isExamLocked}
+                  onClick={() => {
+                    if (!isExamLocked) {
+                      setInstructionsMode("view");
+                      setInstructionsModalVisible(true);
+                    }
+                  }}
+                >
+                  View Full Instructions
+                </Button>
+              }
+
+              {isCompleted && (
+                <Text
+                  type="colorTextSecondary"
+                  style={{ display: "block", marginTop: 8 }}
+                >
+                  Exam completed. Instructions are no longer accessible.
+                </Text>
+              )}
             </Card>
           </Col>
 
-          {/* RIGHT COLUMN */}
+          {/* RIGHT SIDE CARD */}
           <Col xs={24} md={8}>
             <div style={{ position: "sticky", top: 100 }}>
               <Badge.Ribbon text="Recommended" color="blue">
@@ -205,11 +244,13 @@ const ExamManagement = () => {
                     Exam Details{" "}
                     <Tag
                       color={
-                        examStatus === "completed"
+                        isCompleted
                           ? "green"
-                          : examStatus === "in_progress"
-                          ? "orange"
-                          : "blue"
+                          : isPendingApproval
+                            ? "purple"
+                            : isInProgress
+                              ? "orange"
+                              : "blue"
                       }
                     >
                       {examStatus.replace("_", " ").toUpperCase()}
@@ -222,35 +263,37 @@ const ExamManagement = () => {
                     size="small"
                     dataSource={[
                       {
+                        icon: <LaptopOutlined />,
+                        text: "Use Laptop/Desktop only",
+                      },
+                      {
                         icon: <ClockCircleOutlined />,
-                        label: "Duration",
-                        value: "60 Minutes",
+                        text: "Exam Window: 11:00 AM – 6:00 PM",
                       },
                       {
-                        icon: <FileTextOutlined />,
-                        label: "Questions",
-                        value: "100 MCQs",
+                        icon: <InfoCircleOutlined />,
+                        text: "Approx. Duration: 2 Hours",
                       },
                       {
-                        icon: <SafetyOutlined />,
-                        label: "Marking",
-                        value: "No Negative Marking",
+                        icon: <CheckCircleOutlined />,
+                        text: "Complete all sections before submission",
                       },
                     ]}
-                    renderItem={(item) => (
-                      <List.Item>
-                        <Text strong>
-                          {item.icon} {item.label}:
+                    renderItem={(item, index) => (
+                      <List.Item key={index}>
+                        <Text>
+                          <span style={{ marginRight: 8 }}>
+                            {item.icon}
+                          </span>
+                          {item.text}
                         </Text>
-                        <Text style={{ marginLeft: 6 }}>{item.value}</Text>
                       </List.Item>
                     )}
                   />
 
                   <Divider />
 
-                  {/* BUTTON STATES */}
-                  {examStatus === "not_started" && (
+                  {showStartButton && (
                     <Button
                       type="primary"
                       size="large"
@@ -262,7 +305,7 @@ const ExamManagement = () => {
                     </Button>
                   )}
 
-                  {examStatus === "in_progress" && (
+                  {isInProgress && (
                     <>
                       <Button
                         block
@@ -279,20 +322,6 @@ const ExamManagement = () => {
                         Exam In Progress
                       </Button>
 
-                      <Text
-                        type="colorTextSecondary"
-                        style={{
-                          display: "block",
-                          marginTop: 12,
-                          fontSize: 13,
-                          textAlign: "center",
-                        }}
-                      >
-                        Complete the exam on the external platform.
-                        <br />
-                        Click below after final submission.
-                      </Text>
-
                       <Button
                         type="primary"
                         block
@@ -305,10 +334,47 @@ const ExamManagement = () => {
                       >
                         Mark as Completed
                       </Button>
+
+                      {/* New Text Link */}
+                      <Text
+                        style={{
+                          display: "block",
+                          marginTop: 10,
+                          fontSize: 13,
+                          textAlign: "center",
+                        }}
+                      >
+                        Visit the site to know more:{" "}
+                        <a
+                          href="https://abhinavcareerscope.com/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontWeight: 600 }}
+                        >
+                          Click Here
+                        </a>
+                      </Text>
                     </>
                   )}
 
-                  {examStatus === "completed" && (
+                  {isPendingApproval && (
+                    <Button
+                      block
+                      disabled
+                      style={{
+                        borderRadius: 10,
+                        height: 48,
+                        background: "#f9f0ff",
+                        borderColor: "#d3adf7",
+                        color: "#722ed1",
+                        fontWeight: 600,
+                      }}
+                    >
+                      ⏳ Waiting for Admin Approval
+                    </Button>
+                  )}
+
+                  {isCompleted && (
                     <Button
                       block
                       disabled
@@ -324,34 +390,21 @@ const ExamManagement = () => {
                       ✅ Exam Completed
                     </Button>
                   )}
-
-                  <Text
-                    type="colorTextSecondary"
-                    style={{
-                      display: "block",
-                      textAlign: "center",
-                      marginTop: 10,
-                      fontSize: 12,
-                    }}
-                  >
-                    External assessment platform
-                  </Text>
                 </Card>
               </Badge.Ribbon>
             </div>
           </Col>
         </Row>
       </div>
-    );
-  };
-
-  return (
-    <ConfigProvider theme={adminTheme}>
-      <PageContent />
 
       <InstructionsModal
         open={instructionsModalVisible}
         onClose={() => setInstructionsModalVisible(false)}
+        onConfirm={() => {
+          setInstructionsModalVisible(false);
+          if (onInstructionsConfirm) onInstructionsConfirm();
+        }}
+        showStartTestButton={instructionsMode === "start"}
       />
 
       <StatusTrackingModal

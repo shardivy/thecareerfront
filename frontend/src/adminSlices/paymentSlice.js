@@ -5,6 +5,10 @@ import {
   fetchPaymentsApi,
   verifyPaymentApi,
   updatePaymentApi,
+  fetchStudentPaymentSummaryApi,
+  fetchStudentPaymentHistoryApi,
+  fetchStudentPaymentProgressApi,
+  fetchPendingPaymentStudentsApi   
 } from "../adminApi/paymentApi";
 
 /* ================= SUBMIT PAYMENT ================= */
@@ -80,10 +84,71 @@ export const updatePayment = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.error ||
-          error.response?.data?.message ||
-          error.response?.data ||
-          error.message ||
-          "Update failed"
+        error.response?.data?.message ||
+        error.response?.data ||
+        error.message ||
+        "Update failed"
+      );
+    }
+  }
+);
+
+/* ================= FETCH STUDENT PAYMENT SUMMARY ================= */
+export const fetchStudentPaymentSummary = createAsyncThunk(
+  "payment/fetchStudentSummary",
+  async ({ studentId, packageId }, { rejectWithValue }) => {
+    try {
+      return await fetchStudentPaymentSummaryApi(
+        studentId,
+        packageId
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch summary"
+      );
+    }
+  }
+);
+
+
+/* ================= FETCH STUDENT PAYMENT HISTORY ================= */
+export const fetchStudentPaymentHistory = createAsyncThunk(
+  "payment/fetchStudentHistory",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await fetchStudentPaymentHistoryApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch payment history"
+      );
+    }
+  }
+);
+
+
+/* ================= FETCH PENDING PAYMENT STUDENTS ================= */
+export const fetchPendingPaymentStudents = createAsyncThunk(
+  "payment/fetchPendingStudents",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await fetchPendingPaymentStudentsApi();
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch pending students"
+      );
+    }
+  }
+);
+
+/* ================= FETCH STUDENT PAYMENT PROGRESS ================= */
+export const fetchStudentPaymentProgress = createAsyncThunk(
+  "payment/fetchStudentProgress",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await fetchStudentPaymentProgressApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch payment progress"
       );
     }
   }
@@ -117,7 +182,27 @@ const paymentSlice = createSlice({
     listLoading: false,
     listError: null,
     list: [],
+
+    /* ===== Student Summary ===== */
+    summaryLoading: false,
+    summaryError: null,
+    summaryData: null,
+
+    /* ===== Student Payment History ===== */
+historyLoading: false,
+historyError: null,
+historyList: [],
+remainingAmount: 0,
+
+/* ===== Student Payment Progress ===== */
+progressLoading: false,
+progressError: null,
+progressData: null,
   },
+
+  pendingStudentsLoading: false,
+pendingStudentsError: null,
+pendingStudents: [],
 
   reducers: {
     resetPaymentState: (state) => {
@@ -166,72 +251,113 @@ const paymentSlice = createSlice({
       .addCase(fetchPayments.pending, (state) => {
         state.listLoading = true;
       })
-      .addCase(fetchPayments.fulfilled, (state, action) => {
-        state.listLoading = false;
+.addCase(fetchPayments.fulfilled, (state, action) => {
+  state.listLoading = false;
 
-        const payload = action.payload;
-        let paymentList = [];
+  const payload = action.payload;
+  let paymentList = [];
 
-        if (Array.isArray(payload)) {
-          paymentList = payload;
-        } else if (Array.isArray(payload?.data)) {
-          paymentList = payload.data;
-        }
+  if (Array.isArray(payload)) {
+    paymentList = payload;
+  } else if (Array.isArray(payload?.data)) {
+    paymentList = payload.data;
+  }
 
-        state.list = paymentList.map((payment, index) => {
-          let userName = payment.user_name || "";
-          if (userName.includes(" - ")) {
-            const parts = userName.split(" - ");
-            userName = parts[parts.length - 1].trim();
-          }
+  const formattedList = paymentList.map((payment) => {
+   
 
-          let formattedDate = "-";
-          const dateToUse = payment.payment_date || payment.created_at;
+    const formattedDate =
+      payment.payment_date || payment.created_at
+        ? new Date(payment.payment_date || payment.created_at)
+        : null;
 
-          if (dateToUse) {
-            try {
-              formattedDate = new Date(dateToUse)
-                .toISOString()
-                .split("T")[0];
-            } catch {
-              formattedDate = "-";
-            }
-          }
+    return {
+      key: payment.payment_id || payment.id,
+      id: payment.payment_id || payment.id,
+      user_id: payment.user_id,
+      student_id: payment.student_id,
 
-          return {
-            key: payment.payment_id || payment.id || `payment-${index}`,
-            id: payment.payment_id || payment.id,
-            user_id: payment.user_id,
-            student_id: payment.student_id,
+       name: payment.user_name || "", 
+      user_name: payment.user_name || "",
+  student_name: payment.user_name || "",
+ email: payment.email || "",
+ 
 
-            name: userName,
-            user_name: userName,
-            student_name: userName,
-            user_email: payment.email || "",
+     program_id:payment.program_id,
+     program_name:payment.program || "",
+      package_id: payment.package_id,
+      package_name: payment.package || "",
+      package_price: payment.package_price || 0,
 
-            package_id: payment.package_id,
-            package_name: payment.package || "",
-            package_price: payment.package_price || 0,
+      amount: payment.amount || 0,
+      total_paid: payment.total_paid || 0,
+
+      payment_status:
+        payment.payment_status || payment.status || "pending",
+      status:
+        payment.payment_status || payment.status || "pending",
+
+      payment_method:
+        payment.payment_method || payment.method || "",
+
+      payment_date: formattedDate,
+      transaction_id:
+        payment.transaction_id || payment.txn || "-",
+
+      proof_file_url: payment.proof_file_url || "",
+    };
+  });
+
+  // ✅ SORT AFTER MAP
+formattedList.sort((a, b) => {
+  const normalize = (val) =>
+    val?.toString().toLowerCase().replace(/_/g, " ");
+
+  const statusA = normalize(a.status);
+  const statusB = normalize(b.status);
+
+  const isANotPaid = statusA === "not paid";
+  const isBNotPaid = statusB === "not paid";
+
+  const isAVerification = statusA === "verification pending";
+  const isBVerification = statusB === "verification pending";
+
+  const isAPartial = statusA === "partial paid";
+  const isBPartial = statusB === "partial paid";
+
+  // 1️⃣ NOT PAID first
+  if (isANotPaid && !isBNotPaid) return -1;
+  if (!isANotPaid && isBNotPaid) return 1;
+
+  // 2️⃣ Verification Pending second
+  if (isAVerification && !isBVerification) return -1;
+  if (!isAVerification && isBVerification) return 1;
+
+  // 3️⃣ Partial Paid third
+  if (isAPartial && !isBPartial) return -1;
+  if (!isAPartial && isBPartial) return 1;
+
+  // 4️⃣ If same category → oldest first
+  if (
+    (isANotPaid && isBNotPaid) ||
+    (isAVerification && isBVerification) ||
+    (isAPartial && isBPartial)
+  ) {
+    if (!a.payment_date) return 1;
+    if (!b.payment_date) return -1;
+    return a.payment_date - b.payment_date;
+  }
+
+  // 5️⃣ Others → newest first (keep your previous behavior)
+  if (!a.payment_date) return 1;
+  if (!b.payment_date) return -1;
+  return b.payment_date - a.payment_date;
+});
+
+  state.list = formattedList;
+})
 
 
-            amount: payment.amount || 0,
-
-            payment_status:
-              payment.payment_status || payment.status || "pending",
-            status:
-              payment.payment_status || payment.status || "pending",
-
-            payment_method:
-              payment.payment_method || payment.method || "",
-
-            payment_date: formattedDate,
-            transaction_id:
-              payment.transaction_id || payment.txn || "-",
-
-            proof_file_url: payment.proof_file_url || "",
-          };
-        });
-      })
       .addCase(fetchPayments.rejected, (state, action) => {
         state.listLoading = false;
         state.listError = action.payload;
@@ -295,7 +421,71 @@ const paymentSlice = createSlice({
       .addCase(updatePayment.rejected, (state, action) => {
         state.updateLoading = false;
         state.updateError = action.payload;
-      });
+      })
+
+      /* ================= STUDENT SUMMARY ================= */
+      .addCase(fetchStudentPaymentSummary.pending, (state) => {
+        state.summaryLoading = true;
+        state.summaryData = null;
+        state.summaryError = null;
+      })
+      .addCase(fetchStudentPaymentSummary.fulfilled, (state, action) => {
+        state.summaryLoading = false;
+        state.summaryData = action.payload?.data;
+        state.summaryError = null;
+      })
+      .addCase(fetchStudentPaymentSummary.rejected, (state, action) => {
+        state.summaryLoading = false;
+        state.summaryError = action.payload || action.error.message;
+        state.summaryData = null;
+      })
+
+      /* ================= STUDENT PAYMENT HISTORY ================= */
+.addCase(fetchStudentPaymentHistory.pending, (state) => {
+  state.historyLoading = true;
+  state.historyError = null;
+})
+.addCase(fetchStudentPaymentHistory.fulfilled, (state, action) => {
+  state.historyLoading = false;
+
+  const payload = action.payload || {};
+
+  state.historyList = payload.data || [];
+  state.remainingAmount = payload.remaining_amount || 0;
+})
+.addCase(fetchStudentPaymentHistory.rejected, (state, action) => {
+  state.historyLoading = false;
+  state.historyError = action.payload;
+})
+
+/* ================= STUDENT PAYMENT PROGRESS ================= */
+.addCase(fetchStudentPaymentProgress.pending, (state) => {
+  state.progressLoading = true;
+  state.progressError = null;
+})
+.addCase(fetchStudentPaymentProgress.fulfilled, (state, action) => {
+  state.progressLoading = false;
+  state.progressData = action.payload?.data || action.payload;
+})
+.addCase(fetchStudentPaymentProgress.rejected, (state, action) => {
+  state.progressLoading = false;
+  state.progressError = action.payload;
+})
+
+/* ================= FETCH PENDING PAYMENT STUDENTS ================= */
+.addCase(fetchPendingPaymentStudents.pending, (state) => {
+  state.pendingStudentsLoading = true;
+})
+.addCase(fetchPendingPaymentStudents.fulfilled, (state, action) => {
+  state.pendingStudentsLoading = false;
+  state.pendingStudents = action.payload?.data || action.payload || [];
+})
+.addCase(fetchPendingPaymentStudents.rejected, (state, action) => {
+  state.pendingStudentsLoading = false;
+  state.pendingStudentsError = action.payload;
+});
+
+
   },
 });
 
