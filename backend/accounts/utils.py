@@ -13,19 +13,59 @@ def generate_otp():
     return str(random.randint(100000, 999999))
 
 def send_otp_email(email, otp):
-    subject = "Password Reset OTP"
+    subject = "Password Reset Request – One-Time Password (OTP)"
+
     message = f"""
-Hello 👋
+Dear User,
 
-We received a request to reset your password.
+We received a request to reset the password for your account.
 
-Your One-Time Password (OTP) is: {otp}
+Please use the following One-Time Password (OTP) to proceed with the password reset process:
 
-⚠️ This OTP is valid for 10 minutes only.
+----------------------------------------
+OTP: {otp}
+----------------------------------------
 
-If you did not request a password reset, please ignore this email.
+Note:
+• This OTP is valid for 10 minutes only.
+• Please do not share this OTP with anyone for security reasons.
 
-Regards,
+If you did not request a password reset, please ignore this email. Your account will remain secure.
+
+If you need any assistance, feel free to contact our support team.
+
+Best regards,  
+Career Counselling Team
+"""
+
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False
+    )
+
+def send_user_credentials_email(email, password):
+    subject = "Your Account Login Credentials"
+
+    message = f"""
+Dear User,
+
+Greetings from the Career Counselling Team.
+
+Your account has been successfully created. Please find your login credentials below:
+
+----------------------------------------
+Login Credentials
+----------------------------------------
+Email: {email}
+Password: {password}
+----------------------------------------
+
+If you have any questions or require assistance, please feel free to contact our support team.
+
+Best regards,  
 Career Counselling Team
 """
 
@@ -38,21 +78,105 @@ Career Counselling Team
     )
 
 
-def send_credentials_email(email, password):
-    subject = "Your Login Credentials"
-    message = f"""
-Hello 👋
+def send_credentials_email(email, password, program_name, package_name):
+    subject = "Congratulations! Your Account Has Been Successfully Created "
 
-Your account has been successfully created.
+    message = f"""
+Dear Candidate,
+
+Congratulations! 
+
+You have been successfully selected for the **{program_name}** program under the **{package_name}** service.
+
+We have excited to support you in your career journey.
+
+--------------------------------------------------
+Access Your Dashboard
+--------------------------------------------------
+
+You can access your dashboard and track your complete counselling journey using the login credentials below:
+
+Login Link:
+https://staging.abhinavcareerscope.com/
 
 Login Credentials:
 Email: {email}
 Password: {password}
 
-Please login and change your password after first login.
+--------------------------------------------------
+Payment Details
+--------------------------------------------------
 
-Regards,
-Career Counselling Team
+Session Fees:
+
+🔹 Online Session: ₹5,000 (via GPay)
+
+🔹 Offline Session:
+₹500 via GPay + ₹4,500 cash at the time of counseling
+
+--------------------------------------------------
+Assessment / Exam Link
+--------------------------------------------------
+
+If you are selected for the assessment exam, please use the following link:
+
+https://staging.abhinavcareerscope.com/ba/business-associate#
+
+If the exam is not applicable to you, please ignore this section.
+
+--------------------------------------------------
+Important Instructions
+--------------------------------------------------
+
+✔️ Please join using a **Laptop only**  
+✔️ Join **5 minutes before the scheduled session** for technical checks  
+✔️ Keep **paper and pen ready** for taking notes  
+
+--------------------------------------------------
+Offline Session Process (If Applicable)
+--------------------------------------------------
+
+Office Address:
+
+Mrs. Reena Bhutada  
+Abhinav Career Scope, Pune  
+Bhagwati Maestros, Miller 403  
+LMD Chowk, Above Indian Smart Bazaar  
+Bavdhan, Pune – 411021  
+
+📌 Important Notes:
+
+• Office is near **Chandani Chowk, Bavdhan**  
+• Please start **20 minutes earlier** considering traffic  
+• **Parking is available outside the building gate**
+
+--------------------------------------------------
+Online Session Instructions
+--------------------------------------------------
+
+If your session is online:
+
+✔️ Please join **5 minutes before the scheduled time**  
+✔️ Ensure you have a **stable internet connection**  
+✔️ Join the session using a **Laptop**
+
+--------------------------------------------------
+Fee Reminder (If Applicable)
+--------------------------------------------------
+
+Kindly pay the remaining **₹4,500 in cash** at the time of counseling.
+
+(If the fees are already fully paid, please ignore this reminder.)
+
+--------------------------------------------------
+
+If you have any questions or need assistance, feel free to contact our support team.
+
+We look forward to guiding you through your career journey.
+
+Best Regards,  
+Career Counselling Team  
+CareerFutura
 """
 
     send_mail(
@@ -63,11 +187,10 @@ Career Counselling Team
         fail_silently=False
     )
 
-
 def send_password_reset_email(email, password):
     subject = "Password Reset Successful"
     message = f"""
-Hello 👋,
+Hello,
 
 Your password has been reset successfully.
 
@@ -97,6 +220,7 @@ ROLE_PREFIX = {
     "parent": "PAR",
     # "lead_counsellor": "LCNS",
     "counsellor": "CNS",
+    "ui_ux": "UIUX",
 }
 
 def generate_role_id(role_name, model, field_name):

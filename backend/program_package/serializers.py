@@ -70,7 +70,9 @@ class PackageCreateSerializer(serializers.ModelSerializer):
             "name",
             "price",
             "description",
+            "link_url",
             "is_active",
+            "aptitude_test",
             "features"
         ]
 
@@ -108,7 +110,9 @@ class PackageListSerializer(serializers.ModelSerializer):
             "is_active",
             "program",
             "description",
+            "link_url",
             "active_users",
+            "aptitude_test",
             "features"
         ]
 
@@ -148,6 +152,7 @@ class PackageWithFeaturesSerializer(serializers.ModelSerializer):
             "name",
             "price",
             "description",
+            "link_url",
             "is_active",
             "program",
             "active_users",

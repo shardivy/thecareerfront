@@ -284,6 +284,7 @@ INSTALLED_APPS = [
     'counselling_slot',
     'exam',
     'report',
+    'content',
 ]
 
 

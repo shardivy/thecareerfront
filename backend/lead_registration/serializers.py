@@ -97,8 +97,8 @@ class AddUserSerializer(serializers.Serializer):
     # -------------------------
     first_name = serializers.CharField()
     last_name = serializers.CharField()
-    email = serializers.EmailField()
-    phone = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     password = serializers.CharField(required=False, write_only=True)
 
 
@@ -186,10 +186,10 @@ class AddUserSerializer(serializers.Serializer):
 
 
             # ❌ Minimum amount check
-            if amount < Decimal("500"):
-                raise serializers.ValidationError(
-                    {"amount": "Minimum payment amount must be ₹500."}
-                )
+            # if amount < Decimal("500"):
+            #     raise serializers.ValidationError(
+            #         {"amount": "Minimum payment amount must be ₹500."}
+            #     )
 
             # ❌ Exceeding package amount
             if amount > package_price:
@@ -198,10 +198,10 @@ class AddUserSerializer(serializers.Serializer):
                 )
 
             # ❌ Payment type required if amount provided
-            if not payment_type:
-                raise serializers.ValidationError(
-                    {"payment_type": "Payment type is required when amount is provided."}
-                )
+            # if not payment_type:
+            #     raise serializers.ValidationError(
+            #         {"payment_type": "Payment type is required when amount is provided."}
+            #     )
 
         return attrs
 
@@ -285,6 +285,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "email",
+            # "password",
             "phone",
             "is_active"
         ]
@@ -312,6 +313,11 @@ class UserProgramPackageDetailSerializer(serializers.ModelSerializer):
 class PaymentDetailSerializer(serializers.ModelSerializer):
     proof_file = serializers.SerializerMethodField()
     payment_date = serializers.SerializerMethodField()
+    program_id = serializers.SerializerMethodField()
+    program = serializers.SerializerMethodField()
+    package_id = serializers.SerializerMethodField()
+    package = serializers.SerializerMethodField()
+    package_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
@@ -322,7 +328,12 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
             "method",
             "transaction_id",
             "status",
-            "payment_date", 
+            "payment_date",
+            "program_id",
+            "program",
+            "package_id",
+            "package",
+            "package_price",
             "proof_file",
             "created_at"
         ]
@@ -351,6 +362,36 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
             return obj.created_at
         else:
             return obj.payment_date   # 👈 your Payment model date field
+        
+    def get_program_id(self, obj):
+        upp = self.context.get("upp")
+        if not upp or not upp.program:
+            return None
+        return upp.program.id
+        
+    def get_program(self, obj):
+        upp = self.context.get("upp")
+        if not upp or not upp.program:
+            return None
+        return upp.program.name
+
+    def get_package_id(self, obj):
+        upp = self.context.get("upp")
+        if not upp or not upp.package:
+            return None
+        return upp.package.id
+
+    def get_package(self, obj):
+        upp = self.context.get("upp")
+        if not upp or not upp.package:
+            return None
+        return upp.package.name
+    
+    def get_package_price(self, obj):
+        upp = self.context.get("upp")
+        if not upp or not upp.package:
+            return None
+        return upp.package.price
 
 
 # ============================ Student Registration form serializers below =========================
@@ -362,7 +403,7 @@ class StudentRegistrationSerializer(serializers.Serializer):
     student_name = serializers.CharField(required=True)
     dob = serializers.DateField(required=True)
     student_email = serializers.EmailField(required=True)
-    student_mobile = serializers.CharField(required=True)
+    student_mobile = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     study_class = serializers.CharField(required=True)
     stream_id = serializers.IntegerField(required=False, allow_null=True)
 
@@ -371,6 +412,11 @@ class StudentRegistrationSerializer(serializers.Serializer):
     # =========================
     parent_mobile = serializers.CharField(required=True)
     parent_email = serializers.EmailField(required=True)
+    parent_name = serializers.CharField(required=False, allow_blank=True)
+    
+    program = serializers.PrimaryKeyRelatedField(
+    queryset=Program.objects.all()
+)
 
     # =========================
     # 🔐 Auth
@@ -394,10 +440,10 @@ class StudentRegistrationSerializer(serializers.Serializer):
                 "student_email": "Student email already exists"
             })
 
-        if User.objects.filter(phone=attrs["student_mobile"]).exists():
-            raise serializers.ValidationError({
-                "student_mobile": "Student mobile already exists"
-            })
+        # if User.objects.filter(phone=attrs["student_mobile"]).exists():
+        #     raise serializers.ValidationError({
+        #         "student_mobile": "Student mobile already exists"
+        #     })
 
         # =========================
         # 👨‍👩 Parent can already exist

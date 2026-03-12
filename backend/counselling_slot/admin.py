@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from counselling_slot.models import Booking, Counsellor, Slot
+from counselling_slot.models import Booking, BookingCounsellor, CounsellingNote, Counsellor, Slot
 
 @admin.register(Counsellor)
 class CounsellorAdmin(admin.ModelAdmin):
@@ -77,3 +77,56 @@ class BookingAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
 
     readonly_fields = ("created_at", "updated_at")
+    
+    
+@admin.register(BookingCounsellor)
+class BookingCounsellorAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "booking",
+        "counsellor",
+        "role",
+        "assigned_at",
+    )
+
+    list_filter = (
+        "role",
+        "assigned_at",
+    )
+
+    search_fields = (
+        "booking__id",
+        "counsellor__email",
+        "counsellor__first_name",
+        "counsellor__last_name",
+    )
+
+    ordering = ("-assigned_at",)
+
+    readonly_fields = ("assigned_at",)
+
+
+@admin.register(CounsellingNote)
+class CounsellingNoteAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "booking",
+        "counsellor",
+        "created_at",
+    )
+
+    list_filter = (
+        "created_at",
+    )
+
+    search_fields = (
+        "booking__id",
+        "counsellor__email",
+        "counsellor__first_name",
+        "counsellor__last_name",
+        "notes",
+    )
+
+    ordering = ("-created_at",)
+
+    readonly_fields = ("created_at",)

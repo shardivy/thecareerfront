@@ -1,10 +1,16 @@
 from datetime import timezone
+from email.utils import format_datetime
 from django.shortcuts import get_object_or_404, render
+from counselling_slot.models import Booking
+from lead_registration.models import StudentProfile
+from django.db import transaction
 from exam.service import create_default_exams_for_all_packages
 from report.models import Report
 from rest_framework.views import APIView
 from rest_framework.authentication import (TokenAuthentication)
 from django.utils import timezone
+from rest_framework.permissions import IsAuthenticated
+from django.utils.timezone import is_naive, localtime, make_aware
 
 from accounts.models import User
 from accounts.permissions import IsAdmin, IsCounsellor, IsSuperAdmin
@@ -251,15 +257,28 @@ class UserExamListAPIView(APIView):
 
 class ApproveUserExamAPIView(APIView):
     """
-    Approve a user exam only if exam is successfully completed.
-    On approval, initialize a Report entry (without upload info).
+    Approve a user exam only if eligible.
+    On approval:
+        - Mark exam completed
+        - Create report entry
+        - Initialize booking (if student profile exists)
     """
-    permission_classes = [
-        IsSuperAdmin | IsAdmin | IsCounsellor
-    ]
+    permission_classes = [IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request, pk):
-        user_exam = get_object_or_404(UserExam, id=pk)
+
+        user_exam = get_object_or_404(
+            UserExam.objects.select_related("user", "exam"),
+            id=pk
+        )
+
+        # # 🔴 Safety: exam must exist
+        # if not user_exam.exam:
+        #     return Response(
+        #         {"message": "Exam is not assigned to this UserExam"},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
 
         # 🔴 Already completed
         if user_exam.status == "completed":
@@ -269,7 +288,7 @@ class ApproveUserExamAPIView(APIView):
             )
 
         # 🔴 Not eligible
-        ALLOWED_STATUSES = ["submitted", "pending_approval", "in_progress"]
+        ALLOWED_STATUSES = [ "pending_approval", "in_progress", "not_started"]
 
         if user_exam.status not in ALLOWED_STATUSES:
             return Response(
@@ -280,22 +299,34 @@ class ApproveUserExamAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-
         # ✅ APPROVE EXAM
         user_exam.status = "completed"
         user_exam.approved_by = request.user
         user_exam.completed_at = timezone.now()
         user_exam.save()
 
-        # ✅ INITIALIZE REPORT (NO UPLOAD INFO)
-        report, created = Report.objects.get_or_create(
+        # ✅ CREATE / GET REPORT
+        report, _ = Report.objects.get_or_create(
             user=user_exam.user,
             exam=user_exam.exam,
             defaults={
-                "report_status": "pending_uploaded",
+                "report_status": "not_received",
                 "review_required": False,
             }
         )
+
+        # ✅ CREATE BOOKING (ONLY IF NOT EXISTS)
+        # student_profile = StudentProfile.objects.filter(
+        #     user=user_exam.user
+        # ).first()
+
+        # if student_profile:
+        #     Booking.objects.get_or_create(
+        #         student=student_profile,
+        #         defaults={
+        #             "status": "not_booked",
+        #         }
+        #     )
 
         serializer = UserExamApproveResponseSerializer(user_exam)
 
@@ -328,7 +359,7 @@ class RejectUserExamAPIView(APIView):
             )
 
         # 🔴 Not eligible
-        ALLOWED_STATUSES = ["submitted", "pending_approval", "completed"]
+        ALLOWED_STATUSES = [ "pending_approval", "in_progress", "completed"]
 
         if user_exam.status not in ALLOWED_STATUSES:
             return Response(
@@ -354,3 +385,192 @@ class RejectUserExamAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+
+
+class UpdateExamToPendingApprovalAPIView(APIView):
+    """
+    Update student's latest exam status to pending_approval
+    using student_id
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, student_id):
+
+        student = get_object_or_404(StudentProfile, id=student_id)
+        user = student.user
+
+        # 🔹 Get latest completed exam
+        user_exam = UserExam.objects.filter(
+            user=user,
+            status__in=["in_progress", "not_started"]
+        ).order_by("-created_at").first()
+
+        if not user_exam:
+            return Response(
+                {"message": "No in_progress exam found for this student"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 🔹 Update status
+        user_exam.status = "pending_approval"
+        user_exam.save()
+
+        return Response(
+            {
+                "message": "Exam status updated to pending approval",
+                "student_id": student.id,
+                "exam_id": user_exam.id,
+                "status": user_exam.status
+            },
+            status=status.HTTP_200_OK
+        )
+        
+class StartExamAPIView(APIView):
+    """
+    Update student's latest exam status to 'in_progress'
+    if current status is 'not_started'.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, student_id):
+
+        # 🔹 Get student profile
+        student = get_object_or_404(StudentProfile, id=student_id)
+        user = student.user
+
+        # 🔹 Get latest exam with allowed statuses
+        user_exam = UserExam.objects.filter(
+            user=user,
+            status__in=["not_started"]
+        ).order_by("-created_at").first()
+
+        if not user_exam:
+            return Response(
+                {"message": "No not_started exam found for this student"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # 🔹 Update status
+        user_exam.status = "in_progress"
+        user_exam.save()
+
+        return Response(
+            {
+                "message": "Exam started successfully",
+                "student_id": student.id,
+                "exam_id": user_exam.id,
+                "status": user_exam.status
+            },
+            status=status.HTTP_200_OK
+        )
+        
+class FetchStudentExamStatusAPIView(APIView):
+    """
+    Fetch the latest exam status for a student using student_id.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+
+        # 🔹 Get student profile
+        student = get_object_or_404(StudentProfile, id=student_id)
+        user = student.user
+
+        # 🔹 Get latest exam
+        user_exam = UserExam.objects.filter(
+            user=user
+        ).order_by("-created_at").first()
+
+        if not user_exam:
+            return Response(
+                {"message": "No exam found for this student"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(
+            {
+                "student_id": student.id,
+                "exam_id": user_exam.id,
+                "status": user_exam.status,
+                # "completed_at": user_exam.completed_at,
+                "created_at": user_exam.created_at
+            },
+            status=status.HTTP_200_OK
+        )
+
+        
+class ExamTrackerAPIView(APIView):
+
+    permission_classes = [IsAuthenticated]
+    
+    def format_datetime(dt):
+        if not dt:
+            return None
+        if is_naive(dt):
+            dt = make_aware(dt)
+        return localtime(dt).strftime("%Y-%m-%d %H:%M")
+
+    def get(self, request, student_id):
+
+        student = get_object_or_404(StudentProfile, id=student_id)
+        user = student.user
+
+        user_exam = (
+            UserExam.objects
+            .filter(user=user)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not user_exam:
+            return Response(
+                {"message": "No exam record found for this student"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        status_value = user_exam.status
+
+        # ✅ Progressive Step Logic
+        exam_started_status = status_value in [
+            "in_progress", "pending_approval", "received_unlocked", "completed"
+        ]
+
+        exam_submitted_status = status_value in [
+            "pending_approval", "received_unlocked", "completed"
+        ]
+        awaiting_approval_status = status_value in [
+            "received_unlocked", "completed"
+        ]
+
+         # ✅ Get actual report record
+        report = Report.objects.filter(
+            user=user,
+            exam=user_exam.exam
+        ).order_by("-uploaded_at").first()
+
+        report_status_value = report.report_status if report else None
+
+        report_generation_status = report_status_value in ["received_locked", "received_unlocked", "not_received"]
+
+        return Response({
+            "student_id": student_id,
+            "exam_started": {
+                "status": exam_started_status,
+                "date": format_datetime(user_exam.created_at) if exam_started_status else None
+            },
+            "exam_submitted": {
+                "status": exam_submitted_status,
+                "date": format_datetime(user_exam.completed_at) if exam_submitted_status else None
+            },
+            "awaiting_approval": {
+                "status": awaiting_approval_status
+            },
+            "report_generation": {
+                "status": report_generation_status,
+                "report_status": report_status_value
+            }
+        })

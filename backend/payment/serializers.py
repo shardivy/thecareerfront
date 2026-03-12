@@ -119,23 +119,29 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         payments_qs = Payment.objects.filter(
             user=user,
             package=package
-        )
+        ).exclude(status="not_paid")
 
         if self.instance:
             payments_qs = payments_qs.exclude(id=self.instance.id)
 
-        total_paid = payments_qs.aggregate(total=Sum("amount"))["total"] or 0
+        total_paid = payments_qs.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
 
         remaining_amount = package_amount - total_paid
 
+       # 🚨 Already fully paid
         if remaining_amount <= 0:
             raise serializers.ValidationError(
-                "This package is already fully paid."
+                {"message": "You already paid the full package amount."}
             )
 
+        # 🚨 Payment exceeds package price
         if amount > remaining_amount:
             raise serializers.ValidationError(
-                f"Amount exceeds remaining balance. Remaining amount is {remaining_amount}."
+                {
+                    "message": f"You are paying more than the package amount."
+                }
             )
 
         attrs["remaining_amount"] = remaining_amount
@@ -385,3 +391,58 @@ class PaymentLogSerializer(serializers.ModelSerializer):
                 "email": obj.changed_by.email
             }
         return None
+    
+# ========================================= Student API =================================
+
+class PackageDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Package
+        fields = "__all__"
+        
+class StudentPaymentSerializer(serializers.ModelSerializer):
+    package = PackageDetailSerializer()
+    # verified_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "amount",
+            "payment_type",
+            "method",
+            "status",
+            "payment_date",
+            "transaction_id",
+            "proof_file",
+            "created_at",
+            "package",
+            # "verified_by_name"
+        ]
+
+    # def get_verified_by_name(self, obj):
+    #     if obj.verified_by:
+    #         return f"{obj.verified_by.first_name} {obj.verified_by.last_name}"
+    #     return None
+    
+class StudentPaymentDetailSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source="user.first_name")
+    last_name = serializers.CharField(source="user.last_name")
+    email = serializers.EmailField(source="user.email")
+    phone = serializers.CharField(source="user.phone")
+
+    payments = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentProfile
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "payments"
+        ]
+
+    def get_payments(self, obj):
+        payments = Payment.objects.filter(user=obj.user).select_related("package", "verified_by")
+        return StudentPaymentSerializer(payments, many=True).data

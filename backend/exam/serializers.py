@@ -282,7 +282,7 @@ class UserExamListSerializer(serializers.ModelSerializer):
 #---- Serializer for UserExam Approval Response ----
 class UserExamApproveResponseSerializer(serializers.ModelSerializer):
     student_name = serializers.SerializerMethodField()
-    exam_name = serializers.CharField(source="exam.name")
+    exam_name = serializers.SerializerMethodField()
     approved_by = serializers.SerializerMethodField()
     approved_by_role = serializers.SerializerMethodField()
 
@@ -301,6 +301,9 @@ class UserExamApproveResponseSerializer(serializers.ModelSerializer):
     def get_student_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}"
 
+    def get_exam_name(self, obj):
+        return obj.exam.name if obj.exam else None
+
     def get_approved_by(self, obj):
         if obj.approved_by:
             return f"{obj.approved_by.first_name} {obj.approved_by.last_name}"
@@ -310,4 +313,3 @@ class UserExamApproveResponseSerializer(serializers.ModelSerializer):
         if obj.approved_by and obj.approved_by.role:
             return obj.approved_by.role.name
         return None
-

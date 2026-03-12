@@ -12,6 +12,7 @@ class UserManager(BaseUserManager):
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)
+        # user.password = password
         user.save(using=self._db)
         return user
 
@@ -36,7 +37,7 @@ class Role(models.Model):
         ('counsellor', 'Counsellor'),
         ('student', 'Student'),
         ('parent', 'Parent'),
-        ('free_user', 'Free User'),
+        ('basic_user', 'Basic User'),
         ('ui_ux', 'UI/UX')
     )
 
@@ -73,8 +74,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=15, null=True, blank=True, unique=True)
-    password = models.CharField(max_length=128, null=True, blank=True)
+    phone = models.CharField(max_length=15, null=True, blank=True)
+    # password = models.CharField(max_length=128, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     

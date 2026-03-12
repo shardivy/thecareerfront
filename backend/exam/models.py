@@ -17,14 +17,15 @@ class UserExam(models.Model):
     STATUS_CHOICES = (
         ('not_started', 'Not Started'),
         ('in_progress', 'In Progress'),
-        ('submitted', 'Submitted'),
+        # ('submitted', 'Submitted'),
+        # ('exam_started', 'Exam Started'),
         ('pending_approval', 'Pending Approval'),
         ('completed', 'Completed'),
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='not_started')
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
+    status = models.CharField(max_length=200, choices=STATUS_CHOICES, default='not_started')
     completed_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name='approved_exams'

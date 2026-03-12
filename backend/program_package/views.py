@@ -32,6 +32,17 @@ class ProgramListAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+        
+class ActiveProgramListAPIView(APIView):
+
+    def get(self, request):
+        programs = Program.objects.filter(is_active=True).order_by("-created_at")
+        serializer = ProgramSerializer(programs, many=True)
+
+        return Response({
+            "count": programs.count(),
+            "data": serializer.data
+        })
 
 class AddProgramAPIView(APIView):
     """
@@ -163,7 +174,9 @@ class PackageCreateAPIView(APIView):
                     "name": package.name,
                     "price": float(package.price),
                     "description": package.description,
+                    "link_url": package.link_url,
                     "is_active": package.is_active,
+                    "aptitude_test": package.aptitude_test,
                     "features": [
                         {
                             "id": feature.id,
@@ -213,7 +226,9 @@ class PackageCreateAPIView(APIView):
                     "name": package.name,
                     "price": float(package.price),
                     "description": package.description,
+                    "link_url": package.link_url,
                     "is_active": package.is_active,
+                    "aptitude_test": package.aptitude_test,
                     "features": [
                         {
                             "id": f.id,
@@ -315,115 +330,42 @@ class ProgramPackagesAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
+class ProgramPackageDetailAPIView(APIView):
+    """
+    API to fetch a specific package under a program using program_id and package_id.
+    Returns program name, package name, price, description, and package URL.
+    """
+    permission_classes = [IsAuthenticated]
+    def get(self, request, program_id, package_id):
 
+        try:
+            program = Program.objects.get(id=program_id, is_active=True)
+        except Program.DoesNotExist:
+            return Response(
+                {"error": "Program not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-# class AddPackageAPIView(APIView):
-#     """
-#     API to allow admin and super_admin users to create a new Package.
-#     """
-#     permission_classes = [IsAdmin | IsSuperAdmin]
+        try:
+            package = Package.objects.get(
+                id=package_id,
+                program=program,
+                is_active=True
+            )
+        except Package.DoesNotExist:
+            return Response(
+                {"error": "Package not found for this program"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-#     def post(self, request):
-#         try:
-#             serializer = PackageSerializer(data=request.data)
+        data = {
+            "program_id": program.id,
+            "program_name": program.name,
+            "package_id": package.id,
+            "package_name": package.name,
+            "price": package.price,
+            # "package_url": package.link_url,
+            # "description": package.description
+        }
 
-#             if serializer.is_valid():
-#                 package = serializer.save()
-
-#                 logger.info(
-#                     f"Package created | Package ID: {package.id} | "
-#                     f"Program: {package.program.name} | "
-#                     f"Name: {package.name}"
-#                 )
-
-#                 return Response(
-#                     {
-#                         "message": "Package added successfully",
-#                         "data": serializer.data
-#                     },
-#                     status=status.HTTP_201_CREATED
-#                 )
-
-#             logger.warning(
-#                 f"Package creation validation failed | Errors: {serializer.errors}"
-#             )
-
-#             return Response(
-#                 {
-#                     "message": "Validation error",
-#                     "errors": serializer.errors
-#                 },
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         except Exception as e:
-#             logger.error(f"Package creation failed | Error: {str(e)}")
-
-#             return Response(
-#                 {
-#                     "message": "Something went wrong while adding package",
-#                     "error": str(e)
-#                 },
-#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             )
-            
-#     def put(self, request, package_id):
-#         try:
-#             try:
-#                 package = Package.objects.get(id=package_id)
-#             except Package.DoesNotExist:
-#                 logger.warning(f"Package update failed | Package ID not found: {package_id}")
-#                 return Response(
-#                     {"message": "Package not found"},
-#                     status=status.HTTP_404_NOT_FOUND
-#                 )
-
-#             serializer = PackageSerializer(
-#                 package,
-#                 data=request.data,
-#                 partial=True  # allow partial updates
-#             )
-
-#             if serializer.is_valid():
-#                 package = serializer.save()
-
-#                 logger.info(
-#                     f"Package updated | Package ID: {package.id} | "
-#                     f"Program: {package.program.name} | "
-#                     f"Name: {package.name}"
-#                 )
-
-#                 return Response(
-#                     {
-#                         "message": "Package updated successfully",
-#                         "data": serializer.data
-#                     },
-#                     status=status.HTTP_200_OK
-#                 )
-
-#             logger.warning(
-#                 f"Package update validation failed | Package ID: {package_id} | "
-#                 f"Errors: {serializer.errors}"
-#             )
-
-#             return Response(
-#                 {
-#                     "message": "Validation error",
-#                     "errors": serializer.errors
-#                 },
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         except Exception as e:
-#             logger.error(
-#                 f"Package update failed | Package ID: {package_id} | Error: {str(e)}"
-#             )
-
-#             return Response(
-#                 {
-#                     "message": "Something went wrong while updating package",
-#                     "error": str(e)
-#                 },
-#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             )
-
+        return Response(data)

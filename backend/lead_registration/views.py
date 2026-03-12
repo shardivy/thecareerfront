@@ -15,6 +15,7 @@ from django.contrib.auth.hashers import make_password
 import logging
 from accounts.constants import PROGRAM_PREFIX_MAP
 from django.db.models import Sum
+from django.utils import timezone
 
 from accounts.models import Role, User
 from accounts.permissions import IsAdmin, IsSuperAdmin
@@ -24,7 +25,7 @@ from exam.models import Exam, UserExam
 from lead_registration.models import Hobby, Lead, ParentProfile, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from lead_registration.serializers import AddUserSerializer, HobbySerializer, LeadSerializer, ParentDetailSerializer, PaymentDetailSerializer, StreamSerializer, StudentAcademicHistorySerializer, StudentHobbySerializer, StudentProfileDetailSerializer, StudentRegistrationSerializer, StudentStreamSerializer, StudentSubjectPreferenceSerializer, SubjectSerializer, UserDetailSerializer, UserProgramPackageDetailSerializer, UserProgramPackageResponseSerializer
 from payment.models import Payment, PaymentLog
-from program_package.models import Program, UserProgramPackage
+from program_package.models import PackageExam, Program, UserProgramPackage
 from report.models import Report, Review
 
 
@@ -525,20 +526,45 @@ class AddUserAPIView(APIView):
                 
 #++++++++++++++++++++++++++++++++ just for now and will later delete it ++++++++++++++++++++++++++++++++++++++++++
 
-                # 🔹 Create UserExam entries if program requires it
-                if program.name in ["8-12 Aptitude Test", "PG Counselling"]:
-                    # Get all exams linked to this package
-                    exams = Exam.objects.filter(exam_packages__package=upp.package).distinct()
-                    
-                    user_exam_objects = [
-                        UserExam(
-                            user=user,
-                            exam=exam,
-                            status="in_progress"
-                        )
-                        for exam in exams
-                    ]
-                    UserExam.objects.bulk_create(user_exam_objects)
+                # # 🔹 Auto-create UserExam if aptitude_test = True
+                # package = serializer.validated_data["package"]
+
+                # if package.aptitude_test:
+
+                #     # Get all exam mappings for this package
+                #     package_exams = PackageExam.objects.filter(package_id=package.id)
+
+                #     if package_exams.exists():
+
+                #         user_exams = [
+                #             UserExam(
+                #                 user=user,
+                #                 exam=pe.exam,
+                #                 status="in_progress"
+                #             )
+                #             for pe in package_exams
+                #         ]
+
+                #         UserExam.objects.bulk_create(user_exams)
+                
+                # 🔹 Auto-create UserExam OR Booking based on aptitude_test
+                package = serializer.validated_data["package"]
+
+                if package.aptitude_test:
+                    # Create UserExam
+                    UserExam.objects.create(
+                        user=user,
+                        status="not_started"
+                    )
+                else:
+                    # Create Booking entry
+                    student_profile = user.student_profile  
+
+                    Booking.objects.create(
+                        student=student_profile,
+                        status="not_booked",  
+                        # session_type="career_counselling"  
+                    )
 # ==========================================================================================================
 
                 # 🔹 Create payment (OPTIONAL)
@@ -551,10 +577,12 @@ class AddUserAPIView(APIView):
                     package_price = serializer.validated_data["package"].price
 
                     # 🔹 Determine payment status
-                    if amount == package_price:
-                        payment_status = "fully_paid"
-                    else:
+                    if amount == 0:
+                        payment_status = "not_paid"
+                    elif amount < package_price:
                         payment_status = "partial_paid"
+                    else:
+                        payment_status = "fully_paid"
 
                     payment = Payment.objects.create(
                         user=user,
@@ -570,7 +598,7 @@ class AddUserAPIView(APIView):
 
                 # 🔹 Send credentials email
                 try:
-                    send_credentials_email(user.email, password)
+                    send_credentials_email(user.email, password, program.name, package.name)
                 except Exception as e:
                     print("Email sending failed:", e)
 
@@ -749,16 +777,19 @@ class AddUserAPIView(APIView):
             
             amount = serializer.validated_data.get("amount")
 
-            if amount is not None:
+            if amount is not None and payment:
 
                 package_price = payment.package.price
 
-                if amount < 500:
-                    return Response(
-                        {"message": "Amount must be at least ₹500"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                # 🔹 Apply ₹500 rule ONLY if package price is greater than 0
+                # if package_price > 0:
+                #     if amount < 500:
+                #         return Response(
+                #             {"message": "Amount must be at least ₹500"},
+                #             status=status.HTTP_400_BAD_REQUEST
+                #         )
 
+                # 🔹 Prevent overpayment
                 if amount > package_price:
                     return Response(
                         {"message": f"Amount cannot exceed ₹{package_price}"},
@@ -768,11 +799,12 @@ class AddUserAPIView(APIView):
                 payment.amount = amount
 
                 # 🔹 Auto update status
-                if amount == package_price:
-                    payment.status = "fully_paid"
+                if amount == 0:
+                    payment_status = "not_paid"
+                elif amount < package_price:
+                    payment_status = "partial_paid"
                 else:
-                    payment.status = "partial_paid"
-
+                    payment_status = "fully_paid"
 
                 payment.save()
 
@@ -929,88 +961,181 @@ class AdminUserFullUpdateAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
-        
+            
+     
+#     #  ======================= Student Academic ===============================       
+
 
 # class ConvertLeadAPIView(APIView):
 #     """
-#     Convert Lead -> User -> StudentProfile
+#     Convert Lead → User → StudentProfile → Program → Package → Payment
 #     """
 
 #     def post(self, request, lead_id):
 #         lead = get_object_or_404(Lead, id=lead_id)
 
-#         # 🚫 Already converted
 #         if lead.status == "converted":
 #             return Response(
 #                 {"message": "Lead already converted"},
 #                 status=status.HTTP_400_BAD_REQUEST
 #             )
 
-#         # 🚫 Email required
 #         if not lead.email:
 #             return Response(
-#                 {"message": "Email is required to convert user"},
+#                 {"message": "Email is required to convert lead"},
 #                 status=status.HTTP_400_BAD_REQUEST
 #             )
 
-#         # 🚫 Duplicate user
 #         if User.objects.filter(email=lead.email).exists():
 #             return Response(
 #                 {"message": "User already exists with this email"},
 #                 status=status.HTTP_400_BAD_REQUEST
 #             )
 
+#         # 🔹 Merge lead data + POST data
+#         payload = request.data.copy()
+#         payload["first_name"] = lead.first_name
+#         payload["last_name"] = lead.last_name
+#         payload["email"] = lead.email
+#         payload["phone"] = lead.phone
+
+#         serializer = AddUserSerializer(data=payload)
+
+#         if not serializer.is_valid():
+#             return Response(
+#                 {
+#                     "message": "Validation error",
+#                     "errors": serializer.errors
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
 #         try:
 #             with transaction.atomic():
 
-#                 # 🎓 Get Student Role
-#                 student_role = Role.objects.get(name="Student")
+#                 # 🔹 Role & Password
+#                 student_role = Role.objects.get(name="student")
 
-#                 # 🔐 Generate Password
-#                 raw_password = generate_password()
+#                 # Check if password provided
+#                 password = serializer.validated_data.get("password")
 
-#                 # 1️⃣ Create User
+#                 # Generate password if not provided
+#                 if not password:
+#                     password = generate_password()
+
+#                 # 🔹 Program prefix logic
+#                 program = serializer.validated_data["program"]
+#                 prefix = PROGRAM_PREFIX_MAP.get(program.name)
+
+#                 first_name = serializer.validated_data["first_name"]
+#                 if prefix and not first_name.startswith(prefix):
+#                     first_name = f"{prefix} - {first_name}"
+
+#                 # 🔹 Create User
 #                 user = User.objects.create(
-#                     first_name=lead.first_name,
-#                     last_name=lead.last_name,
-#                     email=lead.email,
-#                     phone=lead.phone,
+#                     first_name=first_name,
+#                     last_name=serializer.validated_data["last_name"],
+#                     email=serializer.validated_data["email"],
+#                     phone=serializer.validated_data.get("phone"),
 #                     role=student_role,
-#                     password=make_password(raw_password),
 #                     is_active=True
 #                 )
+#                 user.set_password(password)
+#                 user.save()
 
-#                 # 2️⃣ Create Student Profile
-#                 student = StudentProfile.objects.create(
-#                     user=user
+#                 # 🔹 Create Student Profile (FIXED)
+#                 student_profile = StudentProfile.objects.create(
+#                     user=user,
+#                     study_class=serializer.validated_data.get("study_class"),
+#                     current_academic_stage=serializer.validated_data.get("current_academic_stage"),
+#                     current_academic_year=serializer.validated_data.get("current_academic_year"),
+#                     school_college=serializer.validated_data.get("school_college"),
+#                     city=serializer.validated_data.get("city"),
+#                     preferred_counselling_mode=serializer.validated_data.get(
+#                         "preferred_counselling_mode"
+#                     ),
 #                 )
 
-#                 # 3️⃣ Update Lead Status
+#                 # 🔹 Assign Program & Package
+#                 upp = UserProgramPackage.objects.create(
+#                     user=user,
+#                     program=serializer.validated_data["program"],
+#                     package=serializer.validated_data["package"],
+#                     assigned_by="lead-conversion"
+#                 )
+                
+#                # 🔹 Auto-create UserExam if aptitude_test = True
+#                 package = serializer.validated_data["package"]
+
+#                 if package.aptitude_test:
+#                     UserExam.objects.create(
+#                         user=user,
+#                         status="in_progress"
+#                     )
+#                 else:
+#                     Booking.objects.create(
+#                         student=student_profile,   # ✅ use variable
+#                         status="not_booked"
+#                     )
+
+
+#                 # 🔹 Payment (CLEAN LOGIC)
+#                 payment = None
+#                 amount = serializer.validated_data.get("amount")
+
+#                 if amount:
+#                     package = serializer.validated_data["package"]
+#                     package_price = package.price
+
+#                     # Decide status
+#                     if amount >= package_price:
+#                         paymnet_status = "fully_paid"
+#                     else:
+#                         paymnet_status = "partial_paid"
+                        
+#                     transaction_id = serializer.validated_data.get("transaction_id")
+
+#                     # Convert blank → None (extra safety)
+#                     if not transaction_id:
+#                         transaction_id = None
+
+#                     payment = Payment.objects.create(
+#                         user=user,
+#                         package=package,
+#                         amount=amount,
+#                         payment_type=serializer.validated_data.get("payment_type"),
+#                         method=serializer.validated_data.get("method"),
+#                         transaction_id=transaction_id,
+#                         proof_file=serializer.validated_data.get("proof_file"),
+#                         status=paymnet_status   # ✅ override default
+#                     )
+
+
+#                     # upp.save(update_fields=["payment_status"])
+
+#                 # 🔹 Update Lead
 #                 lead.status = "converted"
 #                 lead.save(update_fields=["status"])
 
-#                 # 4️⃣ Send Email
-#                 send_credentials_email(lead.email, raw_password)
-
-#                 # 5️⃣ Send WhatsApp (MSG91)
-#                 if lead.phone:
-#                     try:
-#                         send_whatsapp_message(
-#                             phone=lead.phone,
-#                             email=lead.email,
-#                             password=raw_password
-#                         )
-#                     except Exception as whatsapp_error:
-#                         # WhatsApp failure should NOT rollback conversion
-#                         print("MSG91 WhatsApp Error:", whatsapp_error)
-
+#                 # 🔹 Send Email
+#                 try:
+#                     send_credentials_email(user.email, password)
+#                 except Exception as e:
+#                     print("Email sending failed:", e)
+                    
 #                 return Response(
 #                     {
 #                         "message": "Lead converted successfully",
 #                         "data": {
-#                             "lead_id": lead.id,
-#                             "user_id": user.id,
-#                             "student_id": student.id
+#                             "user": UserDetailSerializer(user).data,
+#                             "student_profile": StudentProfileDetailSerializer(student_profile).data,
+#                             "program_package": UserProgramPackageDetailSerializer(upp).data,
+#                             "payment": (
+#                                 PaymentDetailSerializer(
+#                                     payment,
+#                                     context={"request": request}
+#                                 ).data if payment else None
+#                             )
 #                         }
 #                     },
 #                     status=status.HTTP_201_CREATED
@@ -1019,15 +1144,11 @@ class AdminUserFullUpdateAPIView(APIView):
 #         except Exception as e:
 #             return Response(
 #                 {
-#                     "message": "Conversion failed",
+#                     "message": "Lead conversion failed",
 #                     "error": str(e)
 #                 },
 #                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
 #             )
-            
-     
-#     #  ======================= Student Academic ===============================       
-
 
 class ConvertLeadAPIView(APIView):
     """
@@ -1035,6 +1156,7 @@ class ConvertLeadAPIView(APIView):
     """
 
     def post(self, request, lead_id):
+
         lead = get_object_or_404(Lead, id=lead_id)
 
         if lead.status == "converted":
@@ -1049,20 +1171,29 @@ class ConvertLeadAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if User.objects.filter(email=lead.email).exists():
-            return Response(
-                {"message": "User already exists with this email"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # 🔹 Merge lead data + POST data
         payload = request.data.copy()
         payload["first_name"] = lead.first_name
         payload["last_name"] = lead.last_name
-        payload["email"] = lead.email
-        payload["phone"] = lead.phone
 
-        serializer = AddUserSerializer(data=payload)
+        # 🔹 Check existing user
+        existing_user = User.objects.filter(email=lead.email).first()
+
+        # if existing_user:
+        #     payload["email"] = existing_user.email
+        #     payload["phone"] = existing_user.phone
+        # else:
+        #     payload["email"] = lead.email
+        #     payload["phone"] = lead.phone
+        
+        payload["email"] = lead.email
+
+        # Use request phone if given, otherwise lead phone
+        payload["phone"] = request.data.get("phone") or lead.phone
+
+        serializer = AddUserSerializer(
+            data=payload,
+            context={"user_id": existing_user.id if existing_user else None}
+        )
 
         if not serializer.is_valid():
             return Response(
@@ -1077,29 +1208,52 @@ class ConvertLeadAPIView(APIView):
             with transaction.atomic():
 
                 student_role = Role.objects.get(name="student")
-                password = generate_password()
 
-                # 🔹 Program prefix logic
-                program = serializer.validated_data["program"]
-                prefix = PROGRAM_PREFIX_MAP.get(program.name)
+                user = existing_user
+                password = None
 
-                first_name = serializer.validated_data["first_name"]
-                if prefix and not first_name.startswith(prefix):
-                    first_name = f"{prefix} - {first_name}"
+                # ---------------------------------
+                # 🔹 Create User if not exists
+                # ---------------------------------
+                if not user:
 
-                # 🔹 Create User
-                user = User.objects.create(
-                    first_name=first_name,
-                    last_name=serializer.validated_data["last_name"],
-                    email=serializer.validated_data["email"],
-                    phone=serializer.validated_data.get("phone"),
-                    role=student_role,
-                    is_active=True
-                )
-                user.set_password(password)
-                user.save()
+                    password = serializer.validated_data.get("password")
 
-                # 🔹 Create Student Profile (FIXED)
+                    if not password:
+                        password = generate_password()
+
+                    program = serializer.validated_data["program"]
+                    package = serializer.validated_data["package"]
+                    prefix = PROGRAM_PREFIX_MAP.get(program.name)
+
+                    first_name = serializer.validated_data["first_name"]
+
+                    if prefix and not first_name.startswith(prefix):
+                        first_name = f"{prefix} - {first_name}"
+
+                    user = User.objects.create(
+                        first_name=first_name,
+                        last_name=serializer.validated_data["last_name"],
+                        email=lead.email,
+                        phone=serializer.validated_data.get("phone"),
+                        role=student_role,
+                        is_active=True
+                    )
+
+                    user.set_password(password)
+                    user.save()
+                else:
+                    # user already exists → do NOT touch password
+                    password = None
+
+                
+                    if user.role != student_role:
+                        user.role = student_role
+                        user.save()
+
+                # ---------------------------------
+                # 🔹 Create Student Profile
+                # ---------------------------------
                 student_profile = StudentProfile.objects.create(
                     user=user,
                     study_class=serializer.validated_data.get("study_class"),
@@ -1112,72 +1266,111 @@ class ConvertLeadAPIView(APIView):
                     ),
                 )
 
+                # ---------------------------------
                 # 🔹 Assign Program & Package
+                # ---------------------------------
                 upp = UserProgramPackage.objects.create(
                     user=user,
                     program=serializer.validated_data["program"],
                     package=serializer.validated_data["package"],
                     assigned_by="lead-conversion"
                 )
-                
-                # 🔹 Create UserExam entries if program requires it
-                if program.name in ["8-12 Aptitude Test", "PG Counselling"]:
-                    exams = Exam.objects.filter(
-                        exam_packages__package=upp.package
-                    ).distinct()
 
-                    user_exam_objects = [
-                        UserExam(
-                            user=user,
-                            exam=exam,
-                            status="in_progress"
-                        )
-                        for exam in exams
-                    ]
+                package = serializer.validated_data["package"]
 
-                    UserExam.objects.bulk_create(user_exam_objects)
-
-
-                # 🔹 Payment (CLEAN LOGIC)
-                payment = None
-                amount = serializer.validated_data.get("amount")
-
-                if amount:
-                    package = serializer.validated_data["package"]
-                    package_price = package.price
-
-                    # Decide status
-                    if amount >= package_price:
-                        paymnet_status = "fully_paid"
-                    else:
-                        paymnet_status = "partial_paid"
-                        
-                    transaction_id = serializer.validated_data.get("transaction_id")
-
-                    # Convert blank → None (extra safety)
-                    if not transaction_id:
-                        transaction_id = None
-
-                    payment = Payment.objects.create(
+                # ---------------------------------
+                # 🔹 Exam or Booking
+                # ---------------------------------
+                if package.aptitude_test:
+                    UserExam.objects.create(
                         user=user,
-                        package=package,
-                        amount=amount,
-                        payment_type=serializer.validated_data.get("payment_type"),
-                        method=serializer.validated_data.get("method"),
-                        transaction_id=transaction_id,
-                        proof_file=serializer.validated_data.get("proof_file"),
-                        status=paymnet_status   # ✅ override default
+                        status="not_started"
+                    )
+                else:
+                    Booking.objects.create(
+                        student=student_profile,
+                        status="not_booked"
                     )
 
+                # ---------------------------------
+                # 🔹 Payment
+                # ---------------------------------
+                # payment = None
+                # amount = serializer.validated_data.get("amount")
 
-                    # upp.save(update_fields=["payment_status"])
+                # if amount:
 
+                #     package_price = package.price
+
+                #     if amount >= package_price:
+                #         payment_status = "fully_paid"
+                #     else:
+                #         payment_status = "partial_paid"
+
+                #     transaction_id = serializer.validated_data.get("transaction_id")
+                    
+                #      # Fix for duplicate '' error
+                #     if not transaction_id:
+                #         transaction_id = None
+
+                #     payment = Payment.objects.create(
+                #         user=user,
+                #         package=package,
+                #         amount=amount,
+                #         payment_type=serializer.validated_data.get("payment_type"),
+                #         method=serializer.validated_data.get("method"),
+                #         transaction_id=transaction_id,
+                #         proof_file=serializer.validated_data.get("proof_file"),
+                #         status=payment_status
+                #     )
+                
+                # ---------------------------------
+                # 🔹 Payment
+                # ---------------------------------
+                payment = None
+                amount = serializer.validated_data.get("amount", 0)
+
+                package_price = package.price
+
+                # ✅ Determine payment status
+                if amount == 0:
+                    payment_status = "not_paid"
+                elif amount < package_price:
+                    payment_status = "partial_paid"
+                else:
+                    payment_status = "fully_paid"
+
+                transaction_id = serializer.validated_data.get("transaction_id")
+
+                # Fix for duplicate '' error
+                if not transaction_id:
+                    transaction_id = None
+
+                payment = Payment.objects.create(
+                    user=user,
+                    package=package,
+                    amount=amount,
+                    payment_type=serializer.validated_data.get("payment_type"),
+                    method=serializer.validated_data.get("method"),
+                    transaction_id=transaction_id,
+                    proof_file=serializer.validated_data.get("proof_file"),
+                    status=payment_status
+                )
+
+                # ---------------------------------
                 # 🔹 Update Lead
+                # ---------------------------------
                 lead.status = "converted"
                 lead.save(update_fields=["status"])
 
-                # 🔹 Send Email
-                send_credentials_email(user.email, password)
+                # ---------------------------------
+                # 🔹 Send Email ONLY if new user created
+                # ---------------------------------
+                if password:
+                    try:
+                        send_credentials_email(user.email, password, program.name, package.name)
+                    except Exception as e:
+                        print("Email sending failed:", e)
 
                 return Response(
                     {
@@ -1205,6 +1398,7 @@ class ConvertLeadAPIView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
 
 
 
@@ -1511,6 +1705,123 @@ class StudentHobbyDetailAPIView(APIView):
 
 # ==================== Student Registration form API Views are below ================================
 
+# class StudentRegistrationAPIView(APIView):
+#     permission_classes = []
+
+#     @transaction.atomic
+#     def post(self, request):
+#         serializer = StudentRegistrationSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         data = serializer.validated_data
+
+#         # Split student name
+#         first_name, *last = data["student_name"].split(" ", 1)
+#         last_name = last[0] if last else ""
+
+#         # =====================================
+#         # ✅ Create Lead Entry
+#         # =====================================
+#         lead = Lead.objects.create(
+#             first_name=first_name,
+#             last_name=last_name,
+#             phone=data.get("student_mobile") or None,
+#             email=data["student_email"],
+#             program=data["program"],
+#             study_class=data["study_class"],
+#             specialization=data.get("specialization"),
+#             source="website",
+#             status="enquiry",
+#             date=timezone.now().date()
+#         )
+
+#         # =====================================
+#         # ✅ CREATE STUDENT USER
+#         # =====================================
+#         student_role = Role.objects.get(name="student")
+
+#         student_user, created = User.objects.get_or_create(
+#             email=data["student_email"],
+#             defaults={
+#                 "first_name": first_name,
+#                 "last_name": last_name,
+#                 "phone": data.get("student_mobile") or None,
+#                 "role": student_role,
+#                 "is_active": True
+#             }
+#         )
+
+#         if created:
+#             student_password = data.get("password")
+
+#             if not student_password:
+#                 student_password = generate_password()
+
+#             student_user.set_password(student_password)
+#             student_user.save()
+#         else:
+#             student_user.phone = data.get("student_mobile") or None
+#             student_user.first_name = first_name
+#             student_user.last_name = last_name
+#             student_user.save()
+
+#         # =====================================
+#         # ✅ CREATE PARENT USER
+#         # =====================================
+#         parent_role = Role.objects.get(name="parent")
+
+#         parent_first, *parent_last = data.get("parent_name", "").split(" ", 1)
+#         parent_last_name = parent_last[0] if parent_last else ""
+
+#         parent_user, created = User.objects.get_or_create(
+#             email=data["parent_email"],
+#             defaults={
+#                 "phone": data["parent_mobile"],
+#                 "role": parent_role,
+#                 "first_name": parent_first,
+#                 "last_name": parent_last_name,
+#                 "is_active": True
+#             }
+#         )
+
+#         if created:
+#             parent_password = generate_password()
+#             parent_user.set_password(parent_password)
+#             parent_user.save()
+#         else:
+#             parent_user.phone = data["parent_mobile"]
+#             parent_user.first_name = parent_first
+#             parent_user.last_name = parent_last_name
+#             parent_user.save()
+            
+        
+
+#         # =====================================
+#         # ✅ CREATE PARENT PROFILE
+#         # =====================================
+#         parent, parent_created = ParentProfile.objects.get_or_create(
+#             user=parent_user
+#         )
+        
+#         # =====================================
+#         # ✅ ASSIGN PROGRAM TO STUDENT
+#         # =====================================
+#         UserProgramPackage.objects.get_or_create(
+#             user=student_user,
+#             program=data["program"],
+            
+#         )
+
+#         return Response(
+#             {
+#                 "message": "Registration successful",
+#                 "lead_id": lead.id,
+#                 "student_user_id": student_user.id,
+#                 "parent_id": parent.id
+#             },
+#             status=201
+#         )     
+
+
 class StudentRegistrationAPIView(APIView):
     permission_classes = []
 
@@ -1520,141 +1831,264 @@ class StudentRegistrationAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        # ===============================
+        # Split student name
+        # ===============================
         first_name, *last = data["student_name"].split(" ", 1)
         last_name = last[0] if last else ""
 
-        student_role = Role.objects.get(name="student")
-        parent_role = Role.objects.get(name="parent")
-
-        # =========================
-        # 🔍 CHECK IF PARENT EXISTS
-        # =========================
-        parent_user = User.objects.filter(
-            email=data["parent_email"],
-            phone=data["parent_mobile"],
-            role=parent_role
-        ).first()
-
-        if parent_user:
-            parent_profile = ParentProfile.objects.get(user=parent_user)
-
-            if not parent_profile.otp_verified:
-                return Response(
-                    {"message": "Parent OTP not verified"},
-                    status=400
-                )
-        else:
-            # =========================
-            # 👨‍👩 CREATE NEW PARENT
-            # =========================
-            parent_user = User.objects.create(
-                email=data["parent_email"],
-                phone=data["parent_mobile"],
-                role=parent_role,
-                is_active=True
-            )
-            parent_user.set_password(data["password"])
-            parent_user.save()
-
-            parent_profile = ParentProfile.objects.create(
-                user=parent_user,
-                background=data.get("background"),
-                annual_income_range=data.get("annual_income_range"),
-                expectations_from_student=data.get("expectations_from_student"),
-            )
-
-        # =========================
-        # 👨‍🎓 CREATE STUDENT
-        # =========================
-        student_user = User.objects.create(
-            email=data["student_email"],
-            phone=data["student_mobile"],
+        # ===============================
+        # Create Lead
+        # ===============================
+        # basic_user_role, _ = Role.objects.get_or_create(name="basic_user") 
+               
+        lead = Lead.objects.create(
+            # role=basic_user_role,
             first_name=first_name,
             last_name=last_name,
-            role=student_role,
-            is_active=True
+            phone=data.get("student_mobile") or None,
+            email=data["student_email"],
+            program=data["program"],
+            study_class=data["study_class"],
+            specialization=data.get("specialization"),
+            source="website",
+            status="enquiry",
+            date=timezone.now().date()
         )
-        student_user.set_password(data["password"])
-        student_user.save()
 
-        student_profile = StudentProfile.objects.create(
+        # ===============================
+        # Create Student User
+        # ===============================
+        student_role = Role.objects.get(name="basic_user")
+
+        student_user, created = User.objects.get_or_create(
+            email=data["student_email"],
+            defaults={
+                "first_name": first_name,
+                "last_name": last_name,
+                "phone": data.get("student_mobile") or None,
+                "role": student_role,
+                "is_active": True
+            }
+        )
+
+        if created:
+            student_password = data.get("password")
+
+            if not student_password:
+                student_password = generate_password()
+
+            student_user.set_password(student_password)
+            student_user.save()
+
+        else:
+            student_user.phone = data.get("student_mobile") or None
+            student_user.first_name = first_name
+            student_user.last_name = last_name
+            student_user.save()
+
+        # ===============================
+        # Create Parent User
+        # ===============================
+        parent_role = Role.objects.get(name="parent")
+
+        parent_first, *parent_last = data.get("parent_name", "").split(" ", 1)
+        parent_last_name = parent_last[0] if parent_last else ""
+
+        parent_user, parent_created = User.objects.get_or_create(
+            email=data["parent_email"],
+            defaults={
+                "phone": data.get("parent_mobile") or None,
+                "role": parent_role,
+                "first_name": parent_first,
+                "last_name": parent_last_name,
+                "is_active": True
+            }
+        )
+
+        if parent_created:
+            parent_password = generate_password()
+            parent_user.set_password(parent_password)
+            parent_user.save()
+
+        else:
+            parent_user.phone = data.get("parent_mobile") or None
+            parent_user.first_name = parent_first
+            parent_user.last_name = parent_last_name
+            parent_user.save()
+
+        # ===============================
+        # Create Parent Profile
+        # ===============================
+        parent, parent_profile_created = ParentProfile.objects.get_or_create(
+            user=parent_user
+        )
+
+        # ===============================
+        # Assign Program to Student
+        # ===============================
+        UserProgramPackage.objects.get_or_create(
             user=student_user,
-            parent=parent_profile,
-            dob=data["dob"],
-            study_class=data["study_class"]
+            program=data["program"],
+            defaults={
+                "assigned_by": "system"
+            }
         )
-        
-        # =========================
-        # 📧 SEND LOGIN CREDENTIAL EMAIL
-        # =========================
 
-        # raw_password = data["password"]
-
-        try:
-            send_credentials_email(student_user.email, student_user.password)
-            send_credentials_email(parent_user.email, parent_user.password)
-        except Exception as e:
-            print("Email sending failed:", str(e))
-
+        # ===============================
+        # Response
+        # ===============================
         return Response(
             {
-                "message": "Student registered successfully",
-                "student_id": student_user.id,
-                "parent_id": parent_user.id,
-                "parent_profile_id": parent_profile.id
+                "message": "Registration successful",
+                "lead_id": lead.id,
+                "student_user_id": student_user.id,
+                "parent_id": parent.id
             },
-            status=201
+            status=status.HTTP_201_CREATED
         )
 
-     
+
 class SendParentOTPAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
         email = request.data.get("parent_email")
-        phone = request.data.get("parent_mobile")
 
-        if not email or not phone:
+        if not email:
             return Response(
-                {"message": "Email and phone are required"},
+                {"message": "Email is required"},
                 status=400
             )
+
+        # 🔢 Generate OTP
+        otp = generate_otp()
 
         # 🔍 Check if parent exists
         parent_user = User.objects.filter(
             email=email,
-            phone=phone,
             role__name="parent"
         ).first()
 
-        if not parent_user:
-            return Response(
-                {
-                    "message": "Parent not found",
-                    "parent_exists": False
-                },
-                status=200
-            )
+        if parent_user:
+            # ✅ Save OTP in ParentProfile
+            parent_profile = ParentProfile.objects.get(user=parent_user)
+            parent_profile.set_otp(otp)
 
-        parent_profile = ParentProfile.objects.get(user=parent_user)
+            parent_exists = True
+        else:
+            # ✅ Save OTP in session (temporary storage)
+            request.session["parent_otp"] = otp
+            request.session["parent_email"] = email
 
-        # 🔢 Generate OTP
-        otp = str(random.randint(100000, 999999))
+            parent_exists = False
 
-        # ✅ Save OTP in ParentProfile
-        parent_profile.set_otp(otp)
-
-        # 📧 Send email
+        # 📧 Send OTP Email
         send_otp_email(email, otp)
 
         return Response(
             {
-                "message": "OTP sent successfully",
-                "parent_exists": True
+                "message": "OTP sent successfully on email.",
+                "parent_exists": parent_exists
             },
             status=200
         )
         
+# class VerifyParentOTPAPIView(APIView):
+#     permission_classes = []
+
+#     def post(self, request):
+#         email = request.data.get("parent_email")
+#         otp = request.data.get("otp")
+
+#         # 🔎 Validate input
+#         if not email or not otp:
+#             return Response(
+#                 {"message": "Parent email and OTP are required"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # 🔎 Try to find existing parent user
+#         parent_user = User.objects.filter(
+#             email=email,
+#             role__name="parent"
+#         ).first()
+
+#         # ==========================================
+#         # ✅ CASE 1: Parent Account Exists
+#         # ==========================================
+#         if parent_user:
+#             try:
+#                 parent_profile = parent_user.parent_profile
+#             except ParentProfile.DoesNotExist:
+#                 return Response(
+#                     {"message": "Parent profile not found"},
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#             is_valid, message = parent_profile.verify_otp(otp)
+
+#             if not is_valid:
+#                 return Response(
+#                     {"message": message},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+#             return Response(
+#                 {
+#                     "message": "OTP verified successfully",
+#                     "parent_exists": True,
+#                     "parent_name": f"{parent_user.first_name} {parent_user.last_name}",
+#                     "parent_id": parent_profile.id
+#                 },
+#                 status=status.HTTP_200_OK
+#             )
+
+#         # ==========================================
+#         # ✅ CASE 2: Parent Account NOT Exists
+#         # ==========================================
+
+#         session_email = request.session.get("parent_email")
+#         session_otp = request.session.get("parent_otp")
+#         # session_otp_time = request.session.get("parent_otp_time")
+
+#         # if not session_email or not session_otp:
+#         #     return Response(
+#         #         {"message": "OTP session expired. Please request OTP again."},
+#         #         status=status.HTTP_400_BAD_REQUEST
+#         #     )
+
+#         # Check email match
+#         if str(session_email) != str(email):
+#             return Response(
+#                 {"message": "Invalid email"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # Check OTP match
+#         if str(session_otp) != str(otp):
+#             return Response(
+#                 {"message": "Invalid OTP"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # Optional: Check expiry (10 minutes)
+#         # if session_otp_time:
+#         #     expiry_time = session_otp_time + 600  # 10 min in seconds
+#         #     if timezone.now().timestamp() > expiry_time:
+#         #         return Response(
+#         #             {"message": "OTP expired"},
+#         #             status=status.HTTP_400_BAD_REQUEST
+#         #         )
+
+#         return Response(
+#             {
+#                 "message": "OTP verified successfully",
+#                 "parent_exists": False
+#             },
+#             status=status.HTTP_200_OK
+#         )     
+    
 class VerifyParentOTPAPIView(APIView):
     permission_classes = []
 
@@ -1662,42 +2096,63 @@ class VerifyParentOTPAPIView(APIView):
         email = request.data.get("parent_email")
         otp = request.data.get("otp")
 
+        # 🔎 Validate input
         if not email or not otp:
             return Response(
-                {"message": "Email and OTP required"},
-                status=400
+                {"message": "Parent email and OTP are required"},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
+        # 🔎 Try to find existing parent user
         parent_user = User.objects.filter(
             email=email,
             role__name="parent"
         ).first()
 
-        if not parent_user:
+        # ==========================================
+        # ✅ CASE 1: Parent Account Exists
+        # ==========================================
+        if parent_user:
+            try:
+                parent_profile = parent_user.parent_profile
+            except ParentProfile.DoesNotExist:
+                return Response(
+                    {"message": "Parent profile not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            is_valid, message = parent_profile.verify_otp(otp)
+
+            if not is_valid:
+                return Response(
+                    {"message": message},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             return Response(
-                {"message": "Parent not found"},
-                status=404
+                {
+                    "message": "OTP verified successfully",
+                    "parent_exists": True,
+                    "parent_name": f"{parent_user.first_name} {parent_user.last_name}",
+                    "parent_id": parent_profile.id
+                },
+                status=status.HTTP_200_OK
             )
 
-        parent_profile = ParentProfile.objects.get(user=parent_user)
-
-        # ✅ Verify OTP using model method
-        if not parent_profile.verify_otp(otp):
-            return Response(
-                {"message": "Invalid or expired OTP"},
-                status=400
-            )
-
-        # 🔥 Return full parent details
-        serializer = ParentDetailSerializer(parent_user)
-
+        # ==========================================
+        # ✅ CASE 2: Parent Account NOT Exists
+        # ==========================================
+        
+        # For new users, just return success
+        # The OTP validation should happen in the OTP generation/sending step
+        # Not in verification step for new users
+        
         return Response(
             {
                 "message": "OTP verified successfully",
-                "parent_exists": True,
-                "parent_details": serializer.data
+                "parent_exists": False
             },
-            status=200
+            status=status.HTTP_200_OK
         )
 
 
@@ -1795,110 +2250,24 @@ class UserJourneyAPIView(APIView):
                 "details": "No payment made yet"
             })
 
-
-
-        # # ================================
-        # # 4️⃣ EXAM + REPORT
-        # # ================================
-
-        # # EXAM_PROGRAMS = ["PG Counselling", "8-12 Aptitude Test"]
-        # EXAM_PROGRAMS = ["pg counselling", "8-12 aptitude test"]
-
-        # exam_status = "not_applicable"
-        # report_status = "not_applicable"
-        # exam_attempt = None
-
-        # if program and program.name.lower().strip() in EXAM_PROGRAMS:
-
-        #     exam_attempt = (
-        #         student.user.userexam_set
-        #         .select_related("exam")
-        #         .order_by("-created_at")
-        #         .first()
-        #     )
-
-        #     # ---- EXAM ----
-        #     if exam_attempt:
-        #         exam_status = exam_attempt.status
-
-        #         history.append({
-        #             "step": "Exam",
-        #             "status": exam_status,
-        #             "date": exam_attempt.created_at,
-        #             "details": f"{exam_attempt.exam.name} exam status: {exam_status}"
-        #         })
-        #     else:
-        #         exam_status = "not_started"
-
-        #         history.append({
-        #             "step": "Exam",
-        #             "status": "not_started",
-        #             "date": None,
-        #             "details": "Exam not started"
-        #         })
-
-        #     # ---- REPORT ----
-        #     if exam_attempt:
-        #         report = (
-        #             Report.objects
-        #             .filter(user=student.user, exam=exam_attempt.exam)
-        #             .order_by("-uploaded_at")
-        #             .first()
-        #         )
-
-        #         if report:
-        #             report_status = report.report_status
-
-        #             history.append({
-        #                 "step": "Report",
-        #                 "status": report_status,
-        #                 "date": report.uploaded_at,
-        #                 "details": f"Report status: {report_status}"
-        #             })
-        #         else:
-        #             report_status = "locked"
-
-        #             history.append({
-        #                 "step": "Report",
-        #                 "status": "locked",
-        #                 "date": None,
-        #                 "details": "Report not generated yet"
-        #             })
-        #     else:
-        #         report_status = "locked"
-
-        #         history.append({
-        #             "step": "Report",
-        #             "status": "locked",
-        #             "date": None,
-        #             "details": "Report locked until exam is attempted"
-        #         })
-
-        # else:
-        #     history.append({
-        #         "step": "Exam",
-        #         "status": "not_applicable",
-        #         "date": None,
-        #         "details": "Exam not applicable for this program"
-        #     })
-
-        #     history.append({
-        #         "step": "Report",
-        #         "status": "not_applicable",
-        #         "date": None,
-        #         "details": "Report not applicable for this program"
-        #     })
         
         # ================================
-        # 4️⃣ EXAM + REPORT (MATCH SERIALIZER LOGIC)
+        # 4️⃣ EXAM + REPORT (UPDATED LOGIC)
         # ================================
-
-        allowed_programs = ["8-12 Aptitude Test", "PG Counselling"]
 
         exam_status = "not_applicable"
         report_status = "not_applicable"
 
-        if program and program.name in allowed_programs:
+        upp = (
+            UserProgramPackage.objects
+            .filter(user=student.user)
+            .select_related("package")
+            .last()
+        )
+
+        package = upp.package if upp else None
+
+        if package and package.aptitude_test:
 
             exam_attempt = (
                 UserExam.objects
@@ -1911,11 +2280,17 @@ class UserJourneyAPIView(APIView):
             if exam_attempt:
                 exam_status = exam_attempt.status
 
+                exam_name = (
+                    exam_attempt.exam.name
+                    if exam_attempt.exam
+                    else "Aptitude Test"
+                )
+
                 history.append({
                     "step": "Exam",
                     "status": exam_status,
                     "date": exam_attempt.created_at,
-                    "details": f"{exam_attempt.exam.name} exam status: {exam_status}"
+                    "details": f"{exam_name} exam status: {exam_status}"
                 })
             else:
                 exam_status = "not_started"
@@ -1928,45 +2303,45 @@ class UserJourneyAPIView(APIView):
                 })
 
             # ---- REPORT ----
-            if exam_attempt:
-                report = (
-                    Report.objects
-                    .filter(user=student.user)
-                    .order_by("-uploaded_at")
-                    .first()
-                )
+            report = (
+                Report.objects
+                .filter(user=student.user)
+                .order_by("-uploaded_at")
+                .first()
+            )
 
-                if report:
-                    report_status = report.report_status
+            if report:
+                report_status = report.report_status
 
-                    history.append({
-                        "step": "Report",
-                        "status": report_status,
-                        "date": report.uploaded_at,
-                        "details": f"Report status: {report_status}"
-                    })
-                else:
-                    report_status = "not_uploaded"
+                history.append({
+                    "step": "Report",
+                    "status": report_status,
+                    "date": report.uploaded_at,
+                    "details": f"Report status: {report_status}"
+                })
+            else:
+                report_status = "not_received"
 
-                    history.append({
-                        "step": "Report",
-                        "status": "not_uploaded",
-                        "date": None,
-                        "details": "Report not uploaded"
-                    })
+                history.append({
+                    "step": "Report",
+                    "status": "not_received",
+                    "date": None,
+                    "details": "Report not uploaded"
+                })
+
         else:
             history.append({
                 "step": "Exam",
                 "status": "not_applicable",
                 "date": None,
-                "details": "Exam not applicable for this program"
+                "details": "Exam not applicable for this package"
             })
 
             history.append({
                 "step": "Report",
                 "status": "not_applicable",
                 "date": None,
-                "details": "Report not applicable for this program"
+                "details": "Report not applicable for this package"
             })
 
         # ================================
@@ -1994,14 +2369,36 @@ class UserJourneyAPIView(APIView):
         # ================================
         # 6️⃣ REVIEW
         # ================================
-        review_status = False  # update when review model exists
+        # review_status = False  # update when review model exists
+
+        # history.append({
+        #     "step": "Review",
+        #     "status": "completed" if review_status else "pending",
+        #     "date": None,
+        #     "details": "Review completed" if review_status else "Pending"
+        # })
+        review_status = True
 
         history.append({
             "step": "Review",
-            "status": "completed" if review_status else "pending",
+            "status": "completed",
             "date": None,
-            "details": "Review completed" if review_status else "Pending"
+            "details": "Review bypassed"
         })
+        
+        # ================================
+        # FULL ACCESS LOGIC
+        # ================================
+
+        full_access = (
+            registration_completed
+            and counselling_selected
+            and payment_status in ["partial_paid", "fully_paid"]
+            and exam_status in ["completed"]
+            and report_status in ["received_unlocked"]
+            and slot_status
+            and review_status
+        )
 
         # ================================
         # CURRENT STEP LOGIC
@@ -2017,17 +2414,17 @@ class UserJourneyAPIView(APIView):
         if payment_status in ["partial_paid", "fully_paid"]:
             current_step = 4
 
-        if exam_status in ["in_progress", "submitted", "pending_approval", "completed"]:
+        if exam_status in ["in_progress", "not_started", "pending_approval", "completed"]:
             current_step = 5
 
-        if report_status in ["unlocked", "locked"]:
+        if report_status in ["received_unlocked", "received_locked"]:
             current_step = 6
 
         if slot_status:
             current_step = 7
 
-        if review_status:
-            current_step = 8
+        # Review bypassed
+        current_step = max(current_step, 8)
 
         # ================================
         # FINAL RESPONSE
@@ -2041,7 +2438,7 @@ class UserJourneyAPIView(APIView):
                 "report": report_status,
                 "counselling_slot_booking": slot_status,
                 "review": review_status,
-                "full_access": review_status,
+                "full_access": full_access,
                 "current_step": current_step
             },
             "payment_summary": {
