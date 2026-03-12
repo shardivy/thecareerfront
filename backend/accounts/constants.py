@@ -9,5 +9,5 @@ PROGRAM_PREFIX_MAP = {
     "OCI/NRI/CIWG/PIO Engineering": "OCIENG",
     
     "Medical": "MED",
-    "8-12 Aptitude Test": "APT",
+    "Aptitude Test Counselling": "APT",
 }
