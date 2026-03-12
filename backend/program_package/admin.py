@@ -12,7 +12,7 @@ class ProgramAdmin(admin.ModelAdmin):
     
 @admin.register(Package)
 class PackageAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "program", "price", "is_active", "created_at")
+    list_display = ("id", "name", "program", "price", "aptitude_test", "is_active", "created_at")
     list_filter = ("program", "is_active")
     search_fields = ("name", "program__name")
     list_editable = ("is_active",)

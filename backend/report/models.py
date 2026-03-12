@@ -5,13 +5,14 @@ from exam.models import Exam
 
 class Report(models.Model):
     STATUSCHOICES = (
-        ('locked', 'Locked'),
-        ('unlocked', 'Unlocked'),
-        ('pending_uploaded', 'Pending Uploaded'),
+        ('not_received', 'Not Received'),
+        ('received_locked', 'Received Locked'),
+        ('received_unlocked', 'Received Unlocked'),
+        # ('pending_uploaded', 'Pending Uploaded'),
     )
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    exam = models.ForeignKey(Exam, on_delete=models.CASCADE)
+    exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
     file_path = models.FileField(upload_to='reports/', blank=True, null=True)
     report_status = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES)
     review_required = models.BooleanField(default=False)

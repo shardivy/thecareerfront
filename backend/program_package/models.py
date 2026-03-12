@@ -21,7 +21,9 @@ class Package(models.Model):
     name = models.CharField(max_length=250, blank=True, null=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField(blank=True, null=True)
+    link_url = models.URLField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    aptitude_test = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -40,7 +42,7 @@ class PackageFeature(models.Model):
 class UserProgramPackage(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     program = models.ForeignKey(Program, on_delete=models.CASCADE)
-    package = models.ForeignKey(Package, on_delete=models.CASCADE)
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
     assigned_by = models.CharField(max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
     

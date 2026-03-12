@@ -2,6 +2,7 @@ from django.shortcuts import render
 
 from django.http import FileResponse
 from django.urls import reverse
+from counselling_slot.models import Booking
 from lead_registration.models import StudentProfile
 from rest_framework.permissions import AllowAny
 from django.views.decorators.clickjacking import xframe_options_exempt
@@ -132,12 +133,15 @@ class CompletedExamReportAPIView(APIView):
             )
 
             # Latest Payment
+            print(user)
             payment = (
                 Payment.objects
                 .filter(user=user)
                 .order_by('-created_at')
                 .first()
             )
+            
+            print(f"payment for user {user.id}: {payment.status if payment else 'No payment'}")
 
             # File URL
             file_url = None
@@ -164,11 +168,12 @@ class CompletedExamReportAPIView(APIView):
                 "package_id": user_program.package.id if user_program else None,
                 "package": user_program.package.name if user_program else None,
 
-                "exam_id": report.exam.id,
-                "exam": report.exam.name,
+                "exam_id": report.exam.id if report.exam else None,
+                "exam": report.exam.name if report.exam else None,
                 "exam_status": user_exam.status if user_exam else None,
 
                 "report_status": report.report_status,
+                
                 "file_path": file_url,
                 "uploaded_at": report.uploaded_at,
 
@@ -254,9 +259,12 @@ class CompletedExamReportStudentIDAPIView(APIView):
 
                 "program_id": user_program.program.id if user_program else None,
                 "program": user_program.program.name if user_program else None,
+                
+                "package_id": user_program.package.id if user_program else None,
+                "package": user_program.package.name if user_program else None,
 
-                "exam_id": report.exam.id,
-                "exam": report.exam.name,
+                "exam_id": report.exam.id if report.exam else None,
+                "exam": report.exam.name if report.exam else None,
                 "exam_status": user_exam.status if user_exam else None,
 
                 "report_status": report.report_status,
@@ -294,15 +302,77 @@ class ReportPDFView(APIView):
     
 
         
+# class UploadReportAPIView(APIView):
+#     """
+#     Upload or replace a report file.
+#     If latest payment is fully_paid → report unlocked
+#     If partial_paid or no payment → report locked
+#     """
+#     permission_classes = [IsAuthenticated]
+
+#     def handle_upload(self, request, report_id):
+#         report = get_object_or_404(Report, id=report_id)
+#         user = report.user
+
+#         file_path = request.FILES.get("file_path")
+
+#         if not file_path:
+#             return Response(
+#                 {"message": "Report file is required"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # 🔎 Get latest payment
+#         latest_payment = (
+#             Payment.objects
+#             .filter(user=user)
+#             .order_by('-created_at')
+#             .first()
+#         )
+
+#         # ✅ Default locked
+#         report_status = "locked"
+
+#         # ✅ Unlock only if fully paid
+#         if latest_payment and latest_payment.status == "fully_paid":
+#             report_status = "unlocked"
+
+#         # Save file
+#         report.file_path = file_path
+#         report.uploaded_by = request.user
+#         report.uploaded_at = timezone.now()
+#         report.report_status = report_status
+#         report.save()
+
+#         return Response(
+#             {
+#                 "message": "Report uploaded successfully",
+#                 "report_id": report.id,
+#                 "uploaded_at": report.uploaded_at,
+#                 "report_status": report.report_status,
+#                 "payment_status": latest_payment.status if latest_payment else None
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
+#     # POST → Upload
+#     def post(self, request, report_id):
+#         return self.handle_upload(request, report_id)
+
+#     # PUT → Replace
+#     def put(self, request, report_id):
+#         return self.handle_upload(request, report_id)
+
 class UploadReportAPIView(APIView):
     """
     Upload or replace a report file.
-    If latest payment is fully_paid → report unlocked
-    If partial_paid or no payment → report locked
+    If latest payment is fully_paid → report received_unlocked
+    If partial_paid or no payment → report received_locked
     """
     permission_classes = [IsAuthenticated]
 
     def handle_upload(self, request, report_id):
+
         report = get_object_or_404(Report, id=report_id)
         user = report.user
 
@@ -323,18 +393,37 @@ class UploadReportAPIView(APIView):
         )
 
         # ✅ Default locked
-        report_status = "locked"
+        report_status = "received_locked"
 
         # ✅ Unlock only if fully paid
         if latest_payment and latest_payment.status == "fully_paid":
-            report_status = "unlocked"
+            report_status = "received_unlocked"
 
-        # Save file
+        # -------------------------
+        # Save Report
+        # -------------------------
         report.file_path = file_path
         report.uploaded_by = request.user
         report.uploaded_at = timezone.now()
         report.report_status = report_status
         report.save()
+
+        # -------------------------
+        # CREATE BOOKING IF NOT EXISTS
+        # -------------------------
+        student_profile = StudentProfile.objects.filter(
+            user=user
+        ).first()
+
+        booking = None
+
+        if student_profile:
+            booking, created = Booking.objects.get_or_create(
+                student=student_profile,
+                defaults={
+                    "status": "not_booked"
+                }
+            )
 
         return Response(
             {
@@ -342,16 +431,15 @@ class UploadReportAPIView(APIView):
                 "report_id": report.id,
                 "uploaded_at": report.uploaded_at,
                 "report_status": report.report_status,
-                "payment_status": latest_payment.status if latest_payment else None
+                "payment_status": latest_payment.status if latest_payment else None,
+                "booking_created": created if student_profile else False
             },
             status=status.HTTP_200_OK
         )
 
-    # POST → Upload
     def post(self, request, report_id):
         return self.handle_upload(request, report_id)
 
-    # PUT → Replace
     def put(self, request, report_id):
         return self.handle_upload(request, report_id)
     
@@ -447,15 +535,15 @@ class ReportStatusCountAPIView(APIView):
     def get(self, request):
         total_reports = Report.objects.count()
 
-        locked_count = Report.objects.filter(report_status='locked').count()
-        unlocked_count = Report.objects.filter(report_status='unlocked').count()
-        pending_uploaded_count = Report.objects.filter(
-            report_status='pending_uploaded'
+        received_locked_count = Report.objects.filter(report_status='received_locked').count()
+        received_unlocked_count = Report.objects.filter(report_status='received_unlocked').count()
+        not_received_count = Report.objects.filter(
+            report_status='not_received'
         ).count()
 
         return Response({
             "total_reports": total_reports,
-            "locked": locked_count,
-            "unlocked": unlocked_count,
-            "pending_uploaded": pending_uploaded_count
+            "received_locked": received_locked_count,
+            "received_unlocked": received_unlocked_count,
+            "not_received": not_received_count
         })

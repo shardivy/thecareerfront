@@ -16,6 +16,7 @@ class Payment(models.Model):
     )
     
     STATUS_CHOICE = (
+        ("not_paid", "Not Paid"),
         ("fully_paid", "Fully Paid"),
         ("partial_paid", "Partial Paid"),
         ("verification_pending", "Verification Pending"),
@@ -24,8 +25,8 @@ class Payment(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     package = models.ForeignKey(Package, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=20, decimal_places=2)
-    payment_type = models.CharField(max_length=50, choices=PAYMENTTYPE_CHOICE)
-    method = models.CharField(max_length=200, choices=METHOD_CHOICE)
+    payment_type = models.CharField(max_length=50, choices=PAYMENTTYPE_CHOICE, null=True, blank=True)
+    method = models.CharField(max_length=200, choices=METHOD_CHOICE, null=True, blank=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICE, default='verification_pending')
     payment_date = models.DateField(blank=True, null=True)
     transaction_id = models.CharField(max_length=100, blank=True, null=True)

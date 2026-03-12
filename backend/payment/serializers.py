@@ -119,23 +119,29 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         payments_qs = Payment.objects.filter(
             user=user,
             package=package
-        )
+        ).exclude(status="not_paid")
 
         if self.instance:
             payments_qs = payments_qs.exclude(id=self.instance.id)
 
-        total_paid = payments_qs.aggregate(total=Sum("amount"))["total"] or 0
+        total_paid = payments_qs.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
 
         remaining_amount = package_amount - total_paid
 
+       # 🚨 Already fully paid
         if remaining_amount <= 0:
             raise serializers.ValidationError(
-                "This package is already fully paid."
+                {"message": "You already paid the full package amount."}
             )
 
+        # 🚨 Payment exceeds package price
         if amount > remaining_amount:
             raise serializers.ValidationError(
-                f"Amount exceeds remaining balance. Remaining amount is {remaining_amount}."
+                {
+                    "message": f"You are paying more than the package amount."
+                }
             )
 
         attrs["remaining_amount"] = remaining_amount

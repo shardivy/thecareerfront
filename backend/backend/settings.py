@@ -260,6 +260,7 @@ INSTALLED_APPS = [
     'counselling_slot',
     'exam',
     'report',
+    'content',
 ]
 
 
@@ -419,6 +420,5 @@ MSG91_AUTH_KEY = config('MSG91_AUTH_KEY')
 MSG91_WHATSAPP_NUMBER = config('MSG91_WHATSAPP_NUMBER')
 MSG91_OTP_TEMPLATE_NAME = config('MSG91_OTP_TEMPLATE_NAME')
 
-
-
-
+TIME_ZONE = "Asia/Kolkata"
+USE_TZ = False

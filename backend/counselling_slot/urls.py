@@ -1,6 +1,6 @@
 from django.urls import path
 
-from counselling_slot.views import AddCounsellorAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CounsellorListAPIView, CounsellorSlotByDateAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, UpdateCounsellorStatusAPIView
+from counselling_slot.views import AddCounsellorAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
 
 
 urlpatterns = [
@@ -17,6 +17,10 @@ urlpatterns = [
     
     #  path("booking/", BookingCreateAPIView.as_view(), name="book-slot"),
      path("booking/<int:booking_id>/", BookingCreateAPIView.as_view()),
+     
+     
+     
+     
      
      
     # ==================== New Updates Below ======================================================    
@@ -50,7 +54,49 @@ urlpatterns = [
     "bookings/<int:booking_id>/mark-completed/",
     BookingMarkCompletedAPIView.as_view(),
     name="booking-mark-completed"
-)
+),
+    path("student/<int:student_id>/bookings/", StudentBookingListAPIView.as_view(), name="student-bookings"),
+    
+    path(
+    "counsellor/my-students/",
+    CounsellorStudentBookingListAPIView.as_view(),
+    name="counsellor-my-students",
+),
+    path(
+    "counsellor/completed-bookings/",
+    CounsellorCompletedStudentBookingListAPIView.as_view(),
+    name="counsellor-completed-bookings"
+),
+    # path(
+    #     "counsellor/dashbord-all/",
+    #     DashboardCounsellorCompletedStudentBookingListAPIView.as_view(),
+    #     name="counsellor-dashboard-all"
+    # ),
+    path(
+        "counsellor-bookings/",
+        AllCounsellorStudentBookingListAPIView.as_view(),
+        name="counsellor-bookings-list"
+    ),
+    path("counselling-note/create/<int:booking_id>/", CounsellingNoteCreateView.as_view()),
+    path(
+    "booking/<int:booking_id>/notes/<int:note_id>/",
+    CounsellingNoteCreateView.as_view(),
+),
+    path(
+    "counselling-note/<int:booking_id>/<int:note_id>/delete-file/<str:file_field>/",
+    CounsellingNoteFileDeleteView.as_view(),
+    name="counselling-note-file-delete",
+),
+    path(
+        "counselling-note/file/<int:note_id>/<int:file_index>/",
+        CounsellingNoteFileView.as_view(),
+        name="counselling-note-file-view",
+    ),
+    path(
+        "counsellor/dashboard-count/",
+        CounsellorDashboardCountAPIView.as_view(),
+        name="counsellor-dashboard-count"
+    ),
 
 
 

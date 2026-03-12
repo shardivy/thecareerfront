@@ -49,6 +49,7 @@ class Slot(models.Model):
     
 class Booking(models.Model):
     STATUS_CHOICES = (
+        ('not_booked', 'Not Booked'),
         ('booked', 'Booked'),
         ('rescheduled', 'Rescheduled'),
         ('completed', 'Completed'),
@@ -56,7 +57,7 @@ class Booking(models.Model):
     )
 
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='student_bookings')
-    slot = models.ForeignKey(Slot, on_delete=models.CASCADE)
+    slot = models.ForeignKey(Slot, on_delete=models.CASCADE, null=True, blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='booked')
     session_type = models.CharField(max_length=20, blank=True, null=True)
@@ -84,9 +85,14 @@ class BookingCounsellor(models.Model):
     
     
 class CounsellingNote(models.Model):
-    booking = models.ForeignKey(Booking, on_delete=models.CASCADE)
-    counsellor = models.ForeignKey(Counsellor, on_delete=models.CASCADE)
-    notes = models.TextField()
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, null=True, blank=True)
+    counsellor = models.ForeignKey(Counsellor, on_delete=models.CASCADE, null=True, blank=True)
+    notes = models.TextField(null=True, blank=True)
+    file1 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
+    file2 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
+    file3 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
+    file4 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
+    file5 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)  
     created_at = models.DateTimeField(auto_now_add=True)
 
 

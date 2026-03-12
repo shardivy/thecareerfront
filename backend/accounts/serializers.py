@@ -256,8 +256,32 @@ class StudentListSerializer(serializers.ModelSerializer):
 
 
     def get_payment_status(self, obj):
-        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
-        return payment.status if payment else "pending"
+        upp = (
+            UserProgramPackage.objects
+            .filter(user=obj.user)
+            .select_related("package")
+            .last()
+        )
+
+        if not upp or not upp.package:
+            return "not_paid"
+
+        package_price = upp.package.price or 0
+
+        # 🔥 Sum ALL payments (previous + current)
+        total_paid = (
+            Payment.objects
+            .filter(user=obj.user)
+            .aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+
+        if total_paid == 0:
+            return "not_paid"
+        elif total_paid < package_price:
+            return "partial_paid"
+        else:
+            return "fully_paid"
     
     def get_payment_type(self, obj):
         payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
@@ -314,16 +338,18 @@ class StudentListSerializer(serializers.ModelSerializer):
     #     return report.report_status if report else "not_uploaded"       #locked, unlocked 
     
     def get_report_status(self, obj):
-        # Get latest selected program
-        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        upp = (
+            UserProgramPackage.objects
+            .filter(user=obj.user)
+            .select_related("package")
+            .last()
+        )
 
-        allowed_programs = ["8-12 Aptitude Test", "PG Counselling"]
-
-        # ❌ If no program OR not allowed → not applicable
-        if not upp or not upp.program or upp.program.name not in allowed_programs:
+        # ❌ If no package OR aptitude_test False
+        if not upp or not upp.package or not upp.package.aptitude_test:
             return "not_applicable"
 
-        # ✅ If allowed program → return actual report status
+        # ✅ If aptitude_test True → return actual report status
         report = (
             Report.objects
             .filter(user=obj.user)
@@ -332,7 +358,6 @@ class StudentListSerializer(serializers.ModelSerializer):
         )
 
         return report.report_status if report else "not_uploaded"
-
 
     # def get_exam_status(self, obj):
     #     qs = UserExam.objects.filter(user=obj.user)
@@ -344,13 +369,15 @@ class StudentListSerializer(serializers.ModelSerializer):
     #         "not_started": qs.filter(status="not_started").count(),
     #     }
     def get_exam_status(self, obj):
-        # Get latest selected program
-        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        upp = (
+            UserProgramPackage.objects
+            .filter(user=obj.user)
+            .select_related("package")
+            .last()
+        )
 
-        allowed_programs = ["8-12 Aptitude Test", "PG Counselling"]
-
-        # ❌ If no program OR not allowed → return structured "not_applicable"
-        if not upp or not upp.program or upp.program.name not in allowed_programs:
+        # ❌ If no package OR aptitude_test False
+        if not upp or not upp.package or not upp.package.aptitude_test:
             return {
                 "completed": "not_applicable",
                 "in_progress": "not_applicable",
@@ -358,7 +385,7 @@ class StudentListSerializer(serializers.ModelSerializer):
                 "not_started": "not_applicable",
             }
 
-        # ✅ If allowed program → return actual counts
+        # ✅ If aptitude_test True → return actual counts
         qs = UserExam.objects.filter(user=obj.user)
 
         return {
@@ -395,9 +422,8 @@ class StudentListSerializer(serializers.ModelSerializer):
 
         # Check report
         upp = UserProgramPackage.objects.filter(user=obj.user).last()
-        allowed_programs = ["8-12 Aptitude Test", "PG Counselling"]
-
-        if upp and upp.program and upp.program.name in allowed_programs:
+        
+        if upp and upp.package and upp.package.aptitude_test:
             report = Report.objects.filter(user=obj.user).order_by("-uploaded_at").first()
             if report:
                 return "Report"

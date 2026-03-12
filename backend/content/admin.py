@@ -1,3 +1,53 @@
 from django.contrib import admin
 
-# Register your models here.
+from content.models import Content, ContentPackage
+
+# =========================
+# Content Admin
+# =========================
+@admin.register(Content)
+class ContentAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "id",
+        "title",
+        "type",
+        "category",
+        "get_programs",
+        "free_content",
+        "payment_required",
+        "is_active",
+        "created_by",
+    )
+
+    list_filter = (
+        "type",
+        "category",
+        "program",   # ✅ correct field name
+        "free_content",
+        "payment_required",
+        "is_active",
+    )
+
+    search_fields = (
+        "title",
+        "description",
+        "program__name",   # ✅ correct relation
+    )
+
+    ordering = ("-id",)
+
+    # ✅ show multiple programs
+    def get_programs(self, obj):
+        return ", ".join([p.name for p in obj.program.all()])
+
+    get_programs.short_description = "Programs" 
+# =========================
+# ContentPackage Admin
+# =========================
+@admin.register(ContentPackage)
+class ContentPackageAdmin(admin.ModelAdmin):
+
+    list_display = ("id", "content", "package")
+    search_fields = ("content__title", "package__name")
+    autocomplete_fields = ["content", "package"]
