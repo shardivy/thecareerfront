@@ -46,7 +46,7 @@ const SlotBookingList = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [notesModalOpen, setNotesModalOpen] = useState(false);
-const [selectedSession, setSelectedSession] = useState(null);
+  const [selectedSession, setSelectedSession] = useState(null);
 
   const studentId = localStorage.getItem("studentId");
 
@@ -77,10 +77,10 @@ const [selectedSession, setSelectedSession] = useState(null);
     key: s.id,
     counsellorsList: Array.isArray(s.counsellors)
       ? s.counsellors.map((c) => ({
-          id: c.counsellor?.id,
-          name: `${c.counsellor?.first_name || ""} ${c.counsellor?.last_name || ""}`,
-          role: c.role,
-        }))
+        id: c.counsellor?.id,
+        name: `${c.counsellor?.first_name || ""} ${c.counsellor?.last_name || ""}`,
+        role: c.role,
+      }))
       : [],
     mode: s.preferred_counselling_mode
       ? s.preferred_counselling_mode.charAt(0).toUpperCase() + s.preferred_counselling_mode.slice(1)
@@ -146,11 +146,11 @@ const [selectedSession, setSelectedSession] = useState(null);
   );
 
   const openGoogleMap = () => {
-  const mapUrl =
-    "https://www.google.com/maps/search/?api=1&query=Abhinav+Career+Scope+Bavdhan+Pune";
+    const mapUrl =
+      "https://www.google.com/maps/search/?api=1&query=Abhinav+Career+Scope+Bavdhan+Pune";
 
-  window.open(mapUrl, "_blank");
-};
+    window.open(mapUrl, "_blank");
+  };
 
   return (
     <div style={{ padding: screens.md ? 24 : 12 }}>
@@ -177,7 +177,7 @@ const [selectedSession, setSelectedSession] = useState(null);
               type="primary"
               icon={<PlusOutlined />}
               size="large"
-              disabled={hasActiveSession}
+               disabled={hasActiveSession || noSessionFound}
               onClick={() => {
                 setRescheduleData(null);
                 setIsModalOpen(true);
@@ -189,14 +189,18 @@ const [selectedSession, setSelectedSession] = useState(null);
         )}
       </Row>
 
-  
+
       {loading ? (
         <Text>Loading sessions...</Text>
       ) : noSessionFound ? (
         <div style={{ textAlign: "center", padding: 40 }}>
           <Empty
             description={
-              <Text type="colorTextSecondary">No counselling sessions found</Text>
+              <Text type="colorTextSecondary">
+  Counselling sessions are currently unavailable.
+  <br />
+  You will be able to book a slot once your report is unlocked.
+</Text>
             }
           />
           <div style={{ marginTop: 20 }}>
@@ -204,6 +208,7 @@ const [selectedSession, setSelectedSession] = useState(null);
               type="primary"
               icon={<PlusOutlined />}
               size="large"
+                disabled={noSessionFound}
               onClick={() => {
                 setRescheduleData(null);
                 setIsModalOpen(true);
@@ -380,36 +385,36 @@ const [selectedSession, setSelectedSession] = useState(null);
               )}
 
               {session.status === "completed" && (
-  <Row justify="end" style={{ marginTop: 24 }}>
-    <Button
-      type="primary"
-     onClick={() => {
-  const counsellor = session.counsellorsList?.[0];
-  const rawUsername = localStorage.getItem("username") || "Student";
+                <Row justify="end" style={{ marginTop: 24 }}>
+                  <Button
+                    type="primary"
+                    onClick={() => {
+                      const counsellor = session.counsellorsList?.[0];
+                      const rawUsername = localStorage.getItem("username") || "Student";
 
-const studentName = rawUsername.includes(" - ")
-  ? rawUsername.split(" - ")[1]
-  : rawUsername;
+                      const studentName = rawUsername.includes(" - ")
+                        ? rawUsername.split(" - ")[1]
+                        : rawUsername;
 
-const sessionDataForNotes = {
-  ...session,
-  studentName: studentName,
-  counsellorName: counsellor?.name || "N/A",
-  startTime: session.time?.split(" - ")[0],
-  endTime: session.time?.split(" - ")[1],
-  slot_time: session.time,
-};
+                      const sessionDataForNotes = {
+                        ...session,
+                        studentName: studentName,
+                        counsellorName: counsellor?.name || "N/A",
+                        startTime: session.time?.split(" - ")[0],
+                        endTime: session.time?.split(" - ")[1],
+                        slot_time: session.time,
+                      };
 
-  dispatch(fetchCounsellingNote(session.id)).then(() => {
-    setSelectedSession(sessionDataForNotes);
-    setNotesModalOpen(true);
-  });
-}}
-    >
-      View Session Notes
-    </Button>
-  </Row>
-)}
+                      dispatch(fetchCounsellingNote(session.id)).then(() => {
+                        setSelectedSession(sessionDataForNotes);
+                        setNotesModalOpen(true);
+                      });
+                    }}
+                  >
+                    View Session Notes
+                  </Button>
+                </Row>
+              )}
             </Card>
           ))}
         </Space>
@@ -467,21 +472,21 @@ const sessionDataForNotes = {
             </div>
           </div>
 
-  <div
-  style={{
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "10px",
-    marginTop: 16,
-  }}
->
-    <Button onClick={() => setIsLocationModalOpen(false)}>
-    Close
-  </Button>
-  <Button type="primary" onClick={openGoogleMap}>
-    📍 Open in Google Maps
-  </Button>
-</div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "10px",
+              marginTop: 16,
+            }}
+          >
+            <Button onClick={() => setIsLocationModalOpen(false)}>
+              Close
+            </Button>
+            <Button type="primary" onClick={openGoogleMap}>
+              📍 Open in Google Maps
+            </Button>
+          </div>
         </div>
       </Modal>
 
@@ -501,22 +506,22 @@ const sessionDataForNotes = {
       </Modal>
 
       <Modal
-  open={notesModalOpen}
-  onCancel={() => setNotesModalOpen(false)}
-  footer={null}
-  width={screens.md ? 900 : "100%"}
-  destroyOnClose
->
-  {selectedSession && (
-    <SessionsNotesModal
-      session={selectedSession}
-      onClose={() => setNotesModalOpen(false)}
-      isViewMode={true}
-      hideSessionDetails={true}
-      showStudentName={false}
-    />
-  )}
-</Modal>
+        open={notesModalOpen}
+        onCancel={() => setNotesModalOpen(false)}
+        footer={null}
+        width={screens.md ? 900 : "100%"}
+        destroyOnClose
+      >
+        {selectedSession && (
+          <SessionsNotesModal
+            session={selectedSession}
+            onClose={() => setNotesModalOpen(false)}
+            isViewMode={true}
+            hideSessionDetails={true}
+            showStudentName={false}
+          />
+        )}
+      </Modal>
     </div>
   );
 };
@@ -573,7 +578,7 @@ export default SlotBookingList;
 //   const [currentTime, setCurrentTime] = useState(new Date());
 //   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
 
-// const examStatus = localStorage.getItem("examCompleted"); 
+// const examStatus = localStorage.getItem("examCompleted");
 // const canBookSession = examStatus === "true" || examStatus === "completed" || examStatus === "not_applicable";
 //   const studentId = localStorage.getItem("studentId");
 

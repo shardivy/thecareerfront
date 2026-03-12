@@ -254,12 +254,12 @@ const PaymentManagement = () => {
           </Text>
         </div>
       ),
-      width: 290,
+      width: 140,
     },
 
     {
       title: "Program / Counselling Service",
-      width: 220,
+      width: 200,
       render: (_, record) => (
         <div>
           <Text strong>{record.program || "N/A"}</Text>
@@ -295,6 +295,7 @@ const PaymentManagement = () => {
 
     {
       title: "Payment Status",
+      width:100,
       dataIndex: "status",
       render: (status) => (
         <Tag color={statusColorMap[status] || "default"}>
@@ -306,6 +307,7 @@ const PaymentManagement = () => {
     },
     {
       title: "Payment Method",
+      width:100,
       dataIndex: "paymentMethod",
       render: (method) =>
         method === "-" ? <Text type="colorTextSecondary">-</Text> : <Tag>{method}</Tag>,
@@ -313,7 +315,7 @@ const PaymentManagement = () => {
     {
       title: "Payment Date",
       dataIndex: "date",
-      width: 300,
+      width: 150,
       render: (date) => {
         if (date === "-") {
           return "-";
@@ -346,11 +348,11 @@ const PaymentManagement = () => {
       dataIndex: "txn",
       render: (txn) => truncateAfterFive(txn),
     },
-   {
+{
   title: "Action",
   render: (_, record) => {
 
-    // ✅ If payment NOT PAID → show Upload button
+    // ✅ NOT PAID → Upload only
     if (record.status === "Not Paid") {
       return (
         <Button
@@ -367,7 +369,48 @@ const PaymentManagement = () => {
       );
     }
 
-    // ✅ Verification Pending → Verify button
+    // ✅ PARTIAL PAID → Upload + View + Edit
+    if (record.status === "Partial Paid") {
+      return (
+        <Space>
+          <Button
+            size="large"
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={() => {
+              setSelectedPayment(record);
+              setIsUploadModalOpen(true);
+            }}
+          >
+            Upload Payment
+          </Button>
+
+          <Button
+            size="large"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setSelectedPayment({ ...record, mode: "view" });
+              setIsModalOpen(true);
+            }}
+          >
+            View
+          </Button>
+
+          <Button
+            size="large"
+            icon={<EditOutlined />}
+            onClick={() => {
+              setSelectedPayment({ ...record, mode: "edit" });
+              setIsModalOpen(true);
+            }}
+          >
+            Edit
+          </Button>
+        </Space>
+      );
+    }
+
+    // ✅ Verification Pending → Verify
     if (record.status === "Verification Pending") {
       return (
         <Button
@@ -518,7 +561,7 @@ const PaymentManagement = () => {
               },
             }}
 
-            scroll={{ x: 1050 }}
+            scroll={{ x: "max-content" }}
             locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}
           />
         </Card>

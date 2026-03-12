@@ -379,27 +379,27 @@ const CounsellorDashboard = () => {
           setConfirmModal(false);
           setSelectedSession(null);
         }}
-        onOk={async () => {
-          if (!selectedSession?.id) return;
+      onOk={async () => {
+  if (!selectedSession?.id) return;
 
-          try {
-            await dispatch(
-              markCounsellingBookingCompleted(selectedSession.id)
-            ).unwrap();
+  try {
+    await dispatch(
+      markCounsellingBookingCompleted(selectedSession.id)
+    ).unwrap();
 
-            message.success("Session marked as completed!");
+    message.success("Session marked as completed!");
 
-            // ✅ Refresh sessions list
-            dispatch(fetchMyStudents());
+    // ✅ Refresh sessions list
+    dispatch(fetchMyStudentsNew());
 
-            // ✅ Refresh notes for that session
-            dispatch(fetchCounsellingNote(selectedSession.id));
+    // ✅ Refresh notes for that session
+    dispatch(fetchCounsellingNote(selectedSession.id));
 
-            setConfirmModal(false);
-          } catch (error) {
-            message.error(error || "Failed to mark session as completed");
-          }
-        }}
+    setConfirmModal(false);
+  } catch (error) {
+    message.error(error || "Failed to mark session as completed");
+  }
+}}
         okText="Yes, Complete"
         cancelText="Cancel"
         okButtonProps={{

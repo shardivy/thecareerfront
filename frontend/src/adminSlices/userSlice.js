@@ -150,6 +150,7 @@ const userSlice = createSlice({
             first_name: u.first_name || "",
             last_name: u.last_name || "",
             student_name: u.student_name || "",
+             aptitude_test: Boolean(u.aptitude_test),
             email: u.email || "",
             phone: u.phone || "",
             study_class: u.study_class || "",

@@ -27,7 +27,7 @@ const baseJourneySteps = [
   "Exam",
   "Report",
   "Counselling Slot Booking",
-  "Review",
+  // "Review",
   "Full Access",
 ];
 
@@ -44,7 +44,7 @@ const journeySteps =
     "Partial Report",
     "Counselling Slot Booking",
     "Full Report",
-    "Review",
+    // "Review",
     "Full Access",
   ]
 baseJourneySteps;
@@ -83,9 +83,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
       .toString()
       .trim()}`.trim();
 
-  const showExamReport =
-    user.program === "8-12 Aptitude Test" ||
-    user.program === "PG Counselling"
+const showExamReport = user?.aptitude_test === true;
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -270,7 +268,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
                 (label === "Exam" && progressData.exam === "completed") ||
               (label === "Report" && progressData.report === "received_unlocked") ||
                 (label === "Counselling Slot Booking" && progressData.counselling_slot_booking) ||
-                (label === "Review" && progressData.review) ||
+                // (label === "Review" && progressData.review) ||
                 (label === "Full Access" && progressData.full_access);
 
 
