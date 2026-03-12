@@ -6,7 +6,7 @@ services:
     build: ./backend
     container_name: staging_backend
     env_file:
-      - ./env/backend.env
+      - ./env/staging.env
     ports:
       - "8001:8000"
     depends_on:
@@ -50,7 +50,7 @@ services:
     container_name: staging_celery
     command: celery -A backend worker --loglevel=info
     env_file:
-      - ./env/backend.env
+      - ./env/staging.env
     depends_on:
       - redis
       - db
