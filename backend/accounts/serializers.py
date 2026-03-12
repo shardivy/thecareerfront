@@ -195,6 +195,7 @@ class StudentListSerializer(serializers.ModelSerializer):
     exam_status = serializers.SerializerMethodField()
     slot_status = serializers.SerializerMethodField()
     full_access = serializers.SerializerMethodField()
+    aptitude_test = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
@@ -213,6 +214,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             "package_id",
             "package_name",
             "price",
+            "aptitude_test", 
             "payment_status",
             "payment_type",
             "created_at",
@@ -227,6 +229,19 @@ class StudentListSerializer(serializers.ModelSerializer):
             "slot_status",
             "full_access",
         ]
+        
+    def get_aptitude_test(self, obj):
+        upp = (
+            UserProgramPackage.objects
+            .filter(user=obj.user)
+            .select_related("package")
+            .last()
+        )
+
+        if not upp or not upp.package:
+            return False
+
+        return upp.package.aptitude_test
         
     def get_preferred_counselling_mode(self, obj):
         return obj.preferred_counselling_mode if obj.preferred_counselling_mode else "Not Specified"

@@ -2266,6 +2266,10 @@ class UserJourneyAPIView(APIView):
         )
 
         package = upp.package if upp else None
+        
+        aptitude_test_status = False
+        if package:
+            aptitude_test_status = package.aptitude_test
 
         if package and package.aptitude_test:
 
@@ -2430,6 +2434,7 @@ class UserJourneyAPIView(APIView):
         # FINAL RESPONSE
         # ================================
         response_data = {
+            "aptitude_test": aptitude_test_status,
             "progress": {
                 "registration": registration_completed,
                 "counselling_service": counselling_selected,

@@ -29,7 +29,7 @@ from django.db.models.functions import ExtractYear
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from accounts.serializers import PermissionSerializer, RolePermissionSerializer, RoleSerializer, StudentListSerializer, UserSerializer
 from lead_registration.models import Lead, ParentProfile, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference
-from program_package.models import UserProgramPackage
+from program_package.models import Package, UserProgramPackage
 from counselling_slot.models import Booking, Counsellor
 
 from .models import PasswordResetOTP, Permission, Role, RolePermission, User
@@ -699,8 +699,8 @@ class LoginAPIView(APIView):
         if not user:
             print(f"User not found with email: {email}")
             return Response(
-                {"error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED
+                {"error": "Email not registered"},
+                status=status.HTTP_404_NOT_FOUND
             )
 
         # Debug: Print user info
@@ -714,6 +714,12 @@ class LoginAPIView(APIView):
         # 3️⃣ Password check with detailed debugging
         # ==========================
         password_valid = False
+        
+        if not user.check_password(password):
+            return Response(
+                {"error": "Incorrect password"},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
 
         # Method 1: Check with Django's check_password
         try:
@@ -787,6 +793,12 @@ class LoginAPIView(APIView):
         from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(user)
         
+        user_package = user.userprogrampackage_set.first()
+
+        aptitude_test_status = False
+
+        if user_package and user_package.package:
+            aptitude_test_status = user_package.package.aptitude_test
          
         response_data = {
             "access": str(refresh.access_token),
@@ -800,6 +812,7 @@ class LoginAPIView(APIView):
                 "phone": user.phone,
                 
             },
+            "aptitude_test": aptitude_test_status,
             "message": "Login Successfully.",
             # "debug": {
             #     "password_validation": "success",
@@ -1036,15 +1049,24 @@ class ProfileUpdateAPIView(APIView):
         # 🔹 Program & Package
         # ==========================
         if user.role and user.role.name.lower() == "student":
-            upp = UserProgramPackage.objects.filter(user=user).first()
+            
+            upp = UserProgramPackage.objects.select_related("package", "program").filter(user=user).first()
+
+            aptitude_test_status = False
 
             if upp:
+                if upp.package:
+                    aptitude_test_status = upp.package.aptitude_test
+
                 response_data.update({
                     "program_id": upp.program.id if upp.program else None,
                     "program": upp.program.name if upp.program else None,
                     "package_id": upp.package.id if upp.package else None,
-                    "package": upp.package.name if upp.package else None
+                    "package": upp.package.name if upp.package else None,
+                    "aptitude_test": aptitude_test_status
                 })
+            else:
+                response_data["aptitude_test"] = False
 
             payments = Payment.objects.filter(user=user)
             response_data["payments"] = [
