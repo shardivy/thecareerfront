@@ -346,11 +346,11 @@ const PaymentManagement = () => {
       dataIndex: "txn",
       render: (txn) => truncateAfterFive(txn),
     },
-   {
+{
   title: "Action",
   render: (_, record) => {
 
-    // ✅ If payment NOT PAID → show Upload button
+    // ✅ NOT PAID → Upload only
     if (record.status === "Not Paid") {
       return (
         <Button
@@ -367,7 +367,48 @@ const PaymentManagement = () => {
       );
     }
 
-    // ✅ Verification Pending → Verify button
+    // ✅ PARTIAL PAID → Upload + View + Edit
+    if (record.status === "Partial Paid") {
+      return (
+        <Space>
+          <Button
+            size="large"
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={() => {
+              setSelectedPayment(record);
+              setIsUploadModalOpen(true);
+            }}
+          >
+            Upload Payment
+          </Button>
+
+          <Button
+            size="large"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setSelectedPayment({ ...record, mode: "view" });
+              setIsModalOpen(true);
+            }}
+          >
+            View
+          </Button>
+
+          <Button
+            size="large"
+            icon={<EditOutlined />}
+            onClick={() => {
+              setSelectedPayment({ ...record, mode: "edit" });
+              setIsModalOpen(true);
+            }}
+          >
+            Edit
+          </Button>
+        </Space>
+      );
+    }
+
+    // ✅ Verification Pending → Verify
     if (record.status === "Verification Pending") {
       return (
         <Button
