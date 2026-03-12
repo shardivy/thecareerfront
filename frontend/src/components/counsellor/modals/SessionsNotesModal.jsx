@@ -17,6 +17,7 @@ import {
   Grid,
   Space,
 } from "antd";
+
 import {
   UserOutlined,
   CalendarOutlined,
@@ -26,21 +27,29 @@ import {
   FilePdfOutlined,
   DownloadOutlined,
 } from "@ant-design/icons";
+
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
+
 import {
   createCounsellingNote,
   updateCounsellingNote,
-  deleteCounsellingFile 
+  deleteCounsellingFile,
 } from "../../../adminSlices/counsellorSlice";
+
 import jsPDF from "jspdf";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { useBreakpoint } = Grid;
 
-const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDetails = false,  showStudentName = false }) => {
-
+const SessionsNotesModal = ({
+  session,
+  onClose,
+  isViewMode = false,
+  hideSessionDetails = false,
+  showStudentName = false,
+}) => {
   const screens = useBreakpoint();
 
   const [discussion, setDiscussion] = useState("");
@@ -52,42 +61,43 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
   const notesState = useSelector((state) => state.counsellors.notes || {});
 
   /* LOAD NOTES */
-useEffect(() => {
-  if (session?.id && notesState[session.id]) {
-    const note = notesState[session.id];
 
-    setDiscussion(note.notes || "");
+  useEffect(() => {
+    if (session?.id && notesState[session.id]) {
+      const note = notesState[session.id];
 
-    // ✅ Use the parsed file_urls array from Redux
-    const filesArray = note.file_urls || [];
+      setDiscussion(note.notes || "");
 
-   setUploadedFiles(
-  filesArray.map((file, index) => ({
-    name: file.url.split("/").pop() || `File-${index + 1}`,
-    url: file.url,
-    type: file.url.endsWith(".pdf") ? "application/pdf" : "image/*",
-    key: file.key, // store backend key
-  }))
-    );
+      const filesArray = note.file_urls || [];
 
-    // allow editing if note exists
-    setEditMode(true);
+      setUploadedFiles(
+        filesArray.map((file, index) => ({
+          name: file.url.split("/").pop() || `File-${index + 1}`,
+          url: file.url,
+          type: file.url.endsWith(".pdf") ? "application/pdf" : "image/*",
+          key: file.key,
+        }))
+      );
 
-  } else {
-    setDiscussion("");
-    setUploadedFiles([]);
-    setEditMode(true); // allow adding notes
-  }
-}, [notesState, session]);
+      setEditMode(!isViewMode);
+    } else {
+      setDiscussion("");
+      setUploadedFiles([]);
+      setEditMode(!isViewMode);
+    }
+  }, [notesState, session]);
 
   /* SESSION DATA */
+
   const sessionData = session
     ? {
         studentName: session.studentName || "N/A",
         email: session.studentEmail || "N/A",
         phone: session.studentPhone || "N/A",
         counsellorName: session.counsellorName || "N/A",
-        date: session.date ? dayjs(session.date).format("DD-MM-YYYY") : "N/A",
+        date: session.date
+          ? dayjs(session.date).format("DD-MM-YYYY")
+          : "N/A",
         time: session.slot_time || `${session.startTime} - ${session.endTime}`,
         status: session.status || "N/A",
         id: session.id,
@@ -98,9 +108,9 @@ useEffect(() => {
     !!notesState?.[session?.id]?.notes?.trim() ||
     (notesState?.[session?.id]?.file_urls?.length || 0) > 0;
 
-  /* DOWNLOAD PDF */
-  const downloadTextNotes = () => {
+  /* DOWNLOAD NOTES PDF */
 
+  const downloadTextNotes = () => {
     const pdf = new jsPDF();
 
     const pageWidth = pdf.internal.pageSize.getWidth();
@@ -126,25 +136,44 @@ useEffect(() => {
     pdf.text(splitText, 10, 110);
 
     pdf.save(`Session-${sessionData.id}-Notes.pdf`);
+  };
 
+  /* FILE DOWNLOAD */
+
+  const handleDownloadFile = async (url, name) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+
+      const downloadUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = name || "file";
+
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch {
+      message.error("Failed to download file");
+    }
   };
 
   /* FILE UPLOAD */
-  const uploadProps = {
 
+  const uploadProps = {
     multiple: true,
 
     beforeUpload: (file) => {
-
       const isAllowed =
         file.type === "application/pdf" ||
         file.type.startsWith("image/");
 
       if (!isAllowed) {
-
         message.error("Only PDF or image files allowed!");
         return Upload.LIST_IGNORE;
-
       }
 
       const fileUrl = URL.createObjectURL(file);
@@ -160,126 +189,98 @@ useEffect(() => {
       ]);
 
       return false;
-
     },
 
     showUploadList: false,
     accept: "application/pdf,image/*",
-
   };
 
-  /* REMOVE FILE */
+  /* SAVE NOTES */
 
-const handleRemoveFile = async (index) => {
-  const file = uploadedFiles[index];
-  const existingNote = notesState?.[session?.id];
+  const handleSave = async () => {
+    const formData = new FormData();
 
-  // If it's a newly uploaded file, remove locally
-  if (file.originFileObj) {
-    URL.revokeObjectURL(file.url);
-    const newFiles = [...uploadedFiles];
-    newFiles.splice(index, 1);
-    setUploadedFiles(newFiles);
-    return;
-  }
+    formData.append("notes", discussion);
 
-  // If it's an existing file from server, call API to delete
-  if (existingNote?.id && file.key) {
+    uploadedFiles.slice(0, 5).forEach((file, index) => {
+      if (file.originFileObj) {
+        formData.append(`file${index + 1}`, file.originFileObj);
+      }
+    });
+
+    const existingNote = notesState?.[session?.id];
+
     try {
-      await dispatch(
-        deleteCounsellingFile({
-          bookingId: session.id,
-          noteId: existingNote.id,
-          fileKey: file.key, // 👈 use correct key from server
-        })
-      ).unwrap();
+      if (existingNote?.id) {
+        await dispatch(
+          updateCounsellingNote({
+            bookingId: session.id,
+            noteId: existingNote.id,
+            payload: formData,
+          })
+        ).unwrap();
 
-      message.success("File deleted successfully");
+        message.success("Notes updated successfully");
+      } else {
+        await dispatch(
+          createCounsellingNote({
+            bookingId: session.id,
+            payload: formData,
+          })
+        ).unwrap();
 
-      const newFiles = [...uploadedFiles];
-      newFiles.splice(index, 1);
-      setUploadedFiles(newFiles);
+        message.success("Notes saved successfully");
+      }
 
+      onClose();
     } catch {
-      message.error("Failed to delete file");
+      message.error("Failed to save notes");
     }
-  }
-};
-
-const handleSave = async () => {
-  const formData = new FormData();
-  formData.append("notes", discussion);
-
-  // Only append NEW uploaded files
-  uploadedFiles.slice(0, 5).forEach((file, index) => {
-    if (file.originFileObj) {
-      // New uploaded file
-      formData.append(`file${index + 1}`, file.originFileObj);
-    }
-  });
-
-  const existingNote = notesState?.[session?.id];
-
-  try {
-    if (existingNote?.id) {
-      await dispatch(
-        updateCounsellingNote({
-          bookingId: session.id,
-          noteId: existingNote.id,
-          payload: formData,
-        })
-      ).unwrap();
-
-      message.success("Notes updated successfully");
-    } else {
-      await dispatch(
-        createCounsellingNote({
-          bookingId: session.id,
-          payload: formData,
-        })
-      ).unwrap();
-
-      message.success("Notes saved successfully");
-    }
-
-    onClose();
-  } catch {
-    message.error("Failed to save notes");
-  }
-};
+  };
 
   return (
     <div style={{ padding: screens.xs ? 10 : 20 }}>
 
-
-
       {/* HEADER */}
-    <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-  <Title level={screens.xs ? 5 : 4} style={{ margin: 0 }}>
-    Session Notes 
-   {showStudentName && sessionData.studentName
-  ? ` (${sessionData.studentName})`
-  : ""}
-  </Title>
 
-  <Tag color="green">{sessionData.status}</Tag>
-</Row>
+      <Row
+        justify="space-between"
+        align="middle"
+        wrap
+        style={{ marginBottom: 16, gap: screens.xs ? 8 : 0 }}
+      >
+        <Title
+          level={screens.xs ? 5 : 4}
+          style={{ margin: 0, wordBreak: "break-word" }}
+        >
+          Session Notes
+          {showStudentName && sessionData.studentName
+            ? ` (${sessionData.studentName})`
+            : ""}
+        </Title>
+
+        <Tag color="green">{sessionData.status}</Tag>
+      </Row>
 
       <Row gutter={[16, 16]}>
 
         {/* LEFT PANEL */}
+
         {!hideSessionDetails && (
           <Col xs={24} md={8}>
             <Card bordered>
 
               <div style={{ textAlign: "center", marginBottom: 16 }}>
-                <Avatar size={80} icon={<UserOutlined />} />
+                <Avatar
+                  size={screens.xs ? 60 : 80}
+                  icon={<UserOutlined />}
+                />
 
                 <Title level={5} style={{ marginTop: 10 }}>
                   {sessionData.studentName}
                 </Title>
 
-                <Text type="colorTextSecondary">{sessionData.email}</Text>
+                <Text type="secondary">{sessionData.email}</Text>
               </div>
 
               <Divider />
@@ -313,36 +314,55 @@ const handleSave = async () => {
         )}
 
         {/* RIGHT PANEL */}
+
         <Col xs={24} md={hideSessionDetails ? 24 : 16}>
           <Card bordered>
 
             <Title level={5}>Discussion Notes</Title>
 
-         {noteExists && (
-  <div style={{ textAlign: "right", marginBottom: 10 }}>
-    <Button icon={<DownloadOutlined />} onClick={downloadTextNotes}>
-      Download Notes
-    </Button>
-  </div>
-)}
+            {noteExists && (
+              <div style={{ textAlign: "right", marginBottom: 10 }}>
+                <Button
+                  icon={<DownloadOutlined />}
+                  onClick={downloadTextNotes}
+                >
+                  Download Notes
+                </Button>
+              </div>
+            )}
 
-            {(!isViewMode || editMode || !noteExists) && (
+            {isViewMode ? (
+              <div
+                style={{
+                  background: "#fafafa",
+                  border: "1px solid #f0f0f0",
+                  borderRadius: 6,
+                  padding: screens.xs ? 10 : 12,
+                  minHeight: 120,
+                  fontSize: screens.xs ? 13 : 14,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {discussion || "No notes added"}
+              </div>
+            ) : (
               <TextArea
                 rows={8}
                 value={discussion}
-                readOnly={isViewMode && !editMode && noteExists}
                 placeholder="Enter discussion notes..."
                 onChange={(e) => setDiscussion(e.target.value)}
               />
             )}
 
-            {/* FILE UPLOAD */}
-            {(!isViewMode || editMode || !noteExists) && (
+            {!isViewMode && (
               <>
                 <Divider />
 
                 <Upload {...uploadProps}>
-                  <Button icon={<UploadOutlined />}>
+                  <Button
+                    icon={<UploadOutlined />}
+                    block={screens.xs}
+                  >
                     Upload PDF / Images
                   </Button>
                 </Upload>
@@ -350,9 +370,10 @@ const handleSave = async () => {
             )}
 
             {/* FILE LIST */}
+
             <div style={{ marginTop: 15 }}>
 
-              {uploadedFiles.length === 0 && isViewMode && !editMode && (
+              {uploadedFiles.length === 0 && isViewMode && (
                 <Empty description="No files uploaded" />
               )}
 
@@ -362,27 +383,30 @@ const handleSave = async () => {
                   key={index}
                   style={{
                     display: "flex",
+                    flexDirection: screens.xs ? "column" : "row",
+                    alignItems: screens.xs ? "flex-start" : "center",
                     justifyContent: "space-between",
                     background: "#f6f6f6",
                     padding: 10,
                     borderRadius: 6,
                     marginBottom: 8,
+                    gap: 8,
                   }}
                 >
 
                   <div style={{ display: "flex", gap: 8 }}>
-
                     {file.type === "application/pdf" ? (
                       <FilePdfOutlined style={{ color: "red" }} />
                     ) : (
                       <FileImageOutlined style={{ color: "green" }} />
                     )}
 
-                    {file.name}
-
+                    <span style={{ wordBreak: "break-all" }}>
+                      {file.name}
+                    </span>
                   </div>
 
-                  <Space>
+                  <Space wrap>
 
                     <Button
                       size="small"
@@ -391,49 +415,47 @@ const handleSave = async () => {
                       Preview
                     </Button>
 
-                    {/* <Button
+                    <Button
                       size="small"
                       icon={<DownloadOutlined />}
-                      onClick={() => {
-
-                        const link = document.createElement("a");
-                        link.href = file.url;
-                        link.download = file.name;
-                        link.click();
-
-                      }}
+                      onClick={() =>
+                        handleDownloadFile(file.url, file.name)
+                      }
                     >
                       Download
-                    </Button> */}
-
-                    {(!isViewMode || editMode || !noteExists) && (
-                      <Button
-                        size="small"
-                        danger
-                        onClick={() => handleRemoveFile(index)}
-                      >
-                        Remove
-                      </Button>
-                    )}
+                    </Button>
 
                   </Space>
 
                 </div>
-
               ))}
 
             </div>
 
-            {/* ACTIONS */}
-           {/* ACTIONS - aligned right */}
-<div style={{ marginTop: 24, textAlign: "right" }}>
-  {(!isViewMode || editMode || !noteExists) && (
-    <Button type="primary" onClick={handleSave} style={{ marginRight: 8 }}>
-      {noteExists ? "Update Notes" : "Add Notes"}
-    </Button>
-  )}
-  <Button onClick={onClose}>Close</Button>
-</div>
+            {/* ACTION BUTTONS */}
+
+            <div
+              style={{
+                marginTop: 24,
+                display: "flex",
+                justifyContent: "flex-end",
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+
+              {(!isViewMode || editMode || !noteExists) && (
+                <Button
+                  type="primary"
+                  onClick={handleSave}
+                >
+                  {noteExists ? "Update Notes" : "Add Notes"}
+                </Button>
+              )}
+
+              <Button onClick={onClose}>Close</Button>
+
+            </div>
 
           </Card>
         </Col>
@@ -442,4 +464,4 @@ const handleSave = async () => {
   );
 };
 
-export default SessionNotesModal;
+export default SessionsNotesModal;

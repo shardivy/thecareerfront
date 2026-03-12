@@ -68,10 +68,10 @@ const ExamManagement = () => {
           "_blank"
         );
 
-          // 👇 immediately refetch status
-      dispatch(fetchExamStatus(studentId));
+        // 👇 immediately refetch status
+        dispatch(fetchExamStatus(studentId));
         message.success("Exam started successfully!");
-        
+
       } catch (error) {
         message.error("Failed to start exam");
       }
@@ -94,16 +94,13 @@ const ExamManagement = () => {
   const { token } = theme.useToken();
 
   // STATUS CONDITIONS
-  const showStartButton =
-    examStatus === "not_started" ||
-    examStatus === "in_progress";
+  const showStartButton = examStatus === "not_started";
 
-  const isExamStarted = examStatus === "exam_started";
+  const isInProgress = examStatus === "in_progress";
   const isPendingApproval = examStatus === "pending_approval";
   const isCompleted = examStatus === "completed";
-
   // 🔒 Lock UI when completed
-  const isExamLocked = isCompleted;
+  const isExamLocked = isCompleted || isInProgress || isPendingApproval;
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -180,28 +177,49 @@ const ExamManagement = () => {
                 Important Notice
               </Title>
 
-              <Text>
-                Please read the complete instructions before starting the exam.
-                Ensure you are using a laptop/desktop and have a stable internet
-                connection.
-              </Text>
+              {!isInProgress && !isPendingApproval && !isCompleted && (
+                <Text>
+                  Please read the complete instructions before starting the exam.
+                  Ensure you are using a laptop/desktop and have a stable internet
+                  connection.
+                </Text>
+              )}
+
+              {isInProgress && (
+                <Text>
+                  Your exam is currently in progress. Once you have completed the exam,
+                  please click the <b>"Mark as Completed"</b> button to submit it for
+                  admin approval.
+                </Text>
+              )}
+
+              {isPendingApproval && (
+                <Text>
+                  Your exam has been submitted successfully and is currently
+                  waiting for admin approval. You will be notified once the
+                  approval is completed.
+                </Text>
+              )}
 
               <Divider style={{ margin: "12px 0" }} />
 
-              <Button
-                type="primary"
-                disabled={isExamLocked}
-                onClick={() => {
-                  if (!isExamLocked) {
-                    setInstructionsMode("view");
-                    setInstructionsModalVisible(true);
-                  }
-                }}
-              >
-                View Full Instructions
-              </Button>
 
-              {isExamLocked && (
+              {!isCompleted &&
+                <Button
+                  type="primary"
+                  disabled={isExamLocked}
+                  onClick={() => {
+                    if (!isExamLocked) {
+                      setInstructionsMode("view");
+                      setInstructionsModalVisible(true);
+                    }
+                  }}
+                >
+                  View Full Instructions
+                </Button>
+              }
+
+              {isCompleted && (
                 <Text
                   type="colorTextSecondary"
                   style={{ display: "block", marginTop: 8 }}
@@ -229,10 +247,10 @@ const ExamManagement = () => {
                         isCompleted
                           ? "green"
                           : isPendingApproval
-                          ? "purple"
-                          : isExamStarted
-                          ? "orange"
-                          : "blue"
+                            ? "purple"
+                            : isInProgress
+                              ? "orange"
+                              : "blue"
                       }
                     >
                       {examStatus.replace("_", " ").toUpperCase()}
@@ -287,7 +305,7 @@ const ExamManagement = () => {
                     </Button>
                   )}
 
-                  {isExamStarted && (
+                  {isInProgress && (
                     <>
                       <Button
                         block
@@ -316,6 +334,26 @@ const ExamManagement = () => {
                       >
                         Mark as Completed
                       </Button>
+
+                      {/* New Text Link */}
+                      <Text
+                        style={{
+                          display: "block",
+                          marginTop: 10,
+                          fontSize: 13,
+                          textAlign: "center",
+                        }}
+                      >
+                        Visit the site to know more:{" "}
+                        <a
+                          href="https://abhinavcareerscope.com/"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontWeight: 600 }}
+                        >
+                          Click Here
+                        </a>
+                      </Text>
                     </>
                   )}
 

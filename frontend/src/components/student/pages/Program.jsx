@@ -403,39 +403,46 @@ const Program = () => {
                             ))}
                           </div>
 
-                          <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-                            <Button
-                              block
-                              onClick={() => {
-                                if (pkg.link_url) {
-                                  window.open(pkg.link_url, "_blank"); // open in new tab
-                                } else {
-                                  window.open("#", "_self");
-                                }
-                              }}
-                            >
-                              Learn More
-                            </Button>
+                      <div
+  style={{
+    marginTop: 20,
+    display: "flex",
+    gap: 10,
+    flexDirection: screens.xs ? "column" : "row",
+  }}
+>
+<Button
+  block
+  onClick={() => {
+    if (pkg.link_url) {
+      window.open(pkg.link_url, "_blank", "noopener,noreferrer");
+    } else {
+      window.location.href = "#";
+    }
+  }}
+>
+  Learn More
+</Button>
 
-                            <Button
-                              type="primary"
-                              block
-                              onClick={() => {
-                                navigate("/student/payment-page", {
-                                  state: {
-                                    packageId: pkg.id,
-                                    packageName: pkg.name,
-                                    packagePrice: pkg.price,
-                                     programId: pkg.program.id,
-                                    programName: selectedProgram,
-                                    isFreeUser: true
-                                  }
-                                });
-                              }}
-                            >
-                              Select Service
-                            </Button>
-                          </div>
+  <Button
+    type="primary"
+    block
+    onClick={() => {
+      navigate("/student/payment-page", {
+        state: {
+          packageId: pkg.id,
+          packageName: pkg.name,
+          packagePrice: pkg.price,
+          programId: pkg.program.id,
+          programName: selectedProgram,
+          isFreeUser: true
+        }
+      });
+    }}
+  >
+    Select Service
+  </Button>
+</div>
                         </Card>
                       </Col>
                     ))

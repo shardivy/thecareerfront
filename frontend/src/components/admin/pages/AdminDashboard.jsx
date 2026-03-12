@@ -5,7 +5,7 @@ import { Bar, Doughnut } from "react-chartjs-2";
 import { FileTextOutlined, TeamOutlined, CalendarOutlined, CreditCardOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchDashboardStats, fetchLeadStats } from "../../../adminSlices/dashboardSlice";
-
+import { getProfile } from "../../../adminSlices/profileSlice";
 import adminTheme from "../../../theme/adminTheme";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, ChartTitle, Tooltip, Legend);
@@ -18,11 +18,14 @@ const AdminDashboard = () => {
  const { stats: dashboardStats, leadStats, loading, error } =
   useSelector((state) => state.dashboard);
 
+  const { profile } = useSelector((state) => state.profile);
+
   const [chartPeriod, setChartPeriod] = useState("monthly"); // Weekly / Monthly / Yearly
 
 useEffect(() => {
   dispatch(fetchDashboardStats());
   dispatch(fetchLeadStats(chartPeriod));
+  dispatch(getProfile());
 }, [dispatch, chartPeriod]);
 
   // Loading state
@@ -340,7 +343,7 @@ const getEnquiriesData = () => {
       </Row>
 
       {/* =================== RECENT ACTIVITIES =================== */}
-      <Row style={{ marginTop: 16 }}>
+      {/* <Row style={{ marginTop: 16 }}>
         <Col xs={24}>
           <Card
             title="Recent Activity"
@@ -355,7 +358,7 @@ const getEnquiriesData = () => {
             />
           </Card>
         </Col>
-      </Row>
+      </Row> */}
     </div>
   );
 };

@@ -44,19 +44,22 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
   const liveValues = Form.useWatch([], form);
   const paymentType = Form.useWatch("payment_type", form);
   const paymentMethod = Form.useWatch("method", form);
-
+const amount = Form.useWatch("amount", form);
 
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState(null);
 
   const { activeList: programs = [], loading: programsLoading } = useSelector(
-  (state) => state.programs
-);
+    (state) => state.programs
+  );
   const activePrograms = useSelector((state) => state.programs.activeList);
 
   const { list: packages = [], loading: packagesLoading } = useSelector(
     (state) => state.packages
   );
+  const { fieldErrors = {}, error: convertError } = useSelector(
+  (state) => state.convertEnquiry
+);
 
   const { loading: addLoading, success: addSuccess, message: addMessage } =
     useSelector((state) => state.addEnquiry);
@@ -146,6 +149,21 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
     onCancel,
   ]);
 
+useEffect(() => {
+  // Map fieldErrors to AntD form
+  if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+    const fields = Object.entries(fieldErrors).map(([name, msgs]) => ({
+      name,
+      errors: Array.isArray(msgs) ? msgs : [msgs],
+    }));
+    form.setFields(fields);
+  }
+
+  // Show general error
+  if (convertError) {
+    message.error(convertError);
+  }
+}, [fieldErrors, convertError, form]);
 
   /* Reset method when payment type changes */
   useEffect(() => {
@@ -190,10 +208,10 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
       formData.append("study_class", values.study_class);
       formData.append("program", values.program);
       formData.append("package", values.package);
-         formData.append("preferred_counselling_mode", values.preferred_counselling_mode);
+      formData.append("preferred_counselling_mode", values.preferred_counselling_mode);
       formData.append("amount", values.amount);
-      formData.append("payment_type", values.payment_type);
-      formData.append("method", values.method);
+      formData.append("payment_type", values.payment_type || "");
+      formData.append("method", values.method || "");
       formData.append("transaction_id", values.transaction_id || "");
 
       if (fileList.length > 0 && fileList[0].originFileObj) {
@@ -317,15 +335,20 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                   name="phone"
                   label="Mobile Number (WhatsApp)"
                   rules={[
-                   
+                    {
+                      required: true,
+                      message: "Mobile number is required",
+                    },
                     {
                       pattern: /^[0-9]{10}$/,
                       message: "Mobile number must be exactly 10 digits",
                     },
                   ]}
-
                 >
-                  <Input maxlength={10} disabled={isConvert} />
+                  <Input
+                    maxLength={10}
+                    disabled={isConvert && enquiryData?.phone} // disable only if convert mode AND phone exists
+                  />
                 </Form.Item>
               </Col>
 
@@ -419,6 +442,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                         <Option value="Arts">Arts</Option>
                         <Option value="BBA">BBA</Option>
                         <Option value="UG">UG</Option>
+                        <Option value="PG">PG</Option>
                         <Option value="Others">Others</Option>
 
                       </Select>
@@ -441,62 +465,71 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                     </Form.Item>
                   </Col>
 
-      {isConvert && (
-  <Col xs={24} sm={12}>
-    <Form.Item
-      name="preferred_counselling_mode"
-      label="Preferred Counselling Mode"
-      rules={[
-        { required: true, message: "Please select counselling mode" },
-      ]}
-    >
-      <Select placeholder="Select Mode">
-        <Option value="online">Online</Option>
-        <Option value="offline">Offline</Option>
-      </Select>
-    </Form.Item>
-  </Col>
-)}
+                  {isConvert && (
+                    <Col xs={24} sm={12}>
+                      <Form.Item
+                        name="preferred_counselling_mode"
+                        label="Preferred Counselling Mode"
+                        rules={[
+                          { required: true, message: "Please select counselling mode" },
+                        ]}
+                      >
+                        <Select placeholder="Select Mode">
+                          <Option value="online">Online</Option>
+                          <Option value="offline">Offline</Option>
+                        </Select>
+                      </Form.Item>
+                    </Col>
+                  )}
 
-                  <Col xs={24} sm={12}>
-                    <Form.Item
-                      name="amount"
-                      label="Fees Paid"
-                      dependencies={["package"]}
-                      rules={[
-                        { required: true, message: "Please enter amount" },
-                        {
-                          validator: (_, value) => {
-                            const numericValue = Number(value);
+                <Col xs={24} sm={12}>
+  <Form.Item
+  name="amount"
+  label="Fees Paid"
+  dependencies={["package"]}
+  rules={[
+    { required: true, message: "Please enter the amount paid" },
+    {
+      validator: (_, value) => {
+        const numericValue = Number(value);
 
-                            if (!value) {
-                              return Promise.resolve();
-                            }
+        if (value === undefined || value === null || value === "") {
+          return Promise.resolve();
+        }
 
-                            if (isNaN(numericValue)) {
-                              return Promise.reject("Amount must be a number");
-                            }
+        if (isNaN(numericValue)) {
+          return Promise.reject("Amount must be a valid number");
+        }
 
-                            if (numericValue < 500) {
-                              return Promise.reject("Minimum amount should be ₹500");
-                            }
+        // Allow 0 but not negative numbers
+        if (numericValue < 0) {
+          return Promise.reject("Amount cannot be negative");
+        }
 
-                            if (numericValue > totalPackageAmount) {
-                              return Promise.reject(
-                                `Amount cannot exceed ₹${totalPackageAmount}`
-                              );
-                            }
+        // Allow only 0 OR multiples of 100
+        if (numericValue !== 0 && numericValue % 100 !== 0) {
+          return Promise.reject(
+            "Amount must be ₹0 or in multiples of ₹100 (e.g., 100, 200, 300)"
+          );
+        }
 
-                            return Promise.resolve();
-                          },
-                        },
-                      ]}
-                    >
-                      <Input type="number" min={0} />
-                    </Form.Item>
+        if (numericValue > totalPackageAmount) {
+          return Promise.reject(
+            `Amount cannot exceed ₹${totalPackageAmount}`
+          );
+        }
 
-                  </Col>
+        return Promise.resolve();
+      },
+    },
+  ]}
+>
+  <Input type="number" min={0} step={100} />
+</Form.Item>
+</Col>
 
+                {amount > 0 && (
+  <>
                   <Col xs={24} sm={12}>
                     <Form.Item
                       name="payment_type"
@@ -527,12 +560,13 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                     </Form.Item>
                   </Col>
 
+
                   {paymentMethod === "upi" && (
                     <Col xs={24} sm={12}>
                       <Form.Item
                         name="transaction_id"
                         label="Transaction ID"
-                       
+
                       >
                         <Input />
                       </Form.Item>
@@ -557,9 +591,15 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                         </Button>
                       </Upload>
                     </Form.Item>
+
+                    
                   </Col>
                 </>
+
+                
               )}
+              </>
+)}
             </Row>
             <div
               style={{

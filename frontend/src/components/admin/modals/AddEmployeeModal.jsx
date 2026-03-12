@@ -28,7 +28,7 @@ const AddEmployeeModal = ({
         firstName,
         lastName,
         email: editingEmployee.email,
-        mobile: editingEmployee.mobile,
+        phone: editingEmployee.mobile,
         program: editingEmployee.role,
       });
     } else {
@@ -43,7 +43,7 @@ const AddEmployeeModal = ({
       first_name: values.firstName,
       last_name: values.lastName,
       email: values.email,
-      mobile: values.mobile,
+      phone: values.phone,
       role: values.program,
     };
 
@@ -110,7 +110,7 @@ const AddEmployeeModal = ({
 
         <Row gutter={16}>
           <Col span={12}>
-            <Form.Item label="WhatsApp Mobile Number" name="mobile" rules={[{ required: true }]}>
+            <Form.Item label="WhatsApp Mobile Number" name="phone" rules={[{ required: true }]}>
               <Input readOnly={isView} maxLength={10} />
             </Form.Item>
           </Col>

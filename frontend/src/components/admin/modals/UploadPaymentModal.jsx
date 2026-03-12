@@ -26,7 +26,7 @@ import { fetchStudents } from "../../../adminSlices/userSlice";
 
 const { Option } = Select;
 
-const UploadPaymentModal = ({ open, onClose, onSuccess }) => {
+const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
 
@@ -80,6 +80,29 @@ useEffect(() => {
     });
   }
 }, [summaryData, form]);
+
+useEffect(() => {
+  if (open && paymentData) {
+    form.setFieldsValue({
+      student_profile: paymentData.originalData?.student_id,
+      package: paymentData.originalData?.package_id,
+      amount: paymentData.packagePrice || "",
+    });
+
+    // fetch summary if needed
+    if (
+      paymentData.originalData?.student_id &&
+      paymentData.originalData?.package_id
+    ) {
+      dispatch(
+        fetchStudentPaymentSummary({
+          studentId: paymentData.originalData.student_id,
+          packageId: paymentData.originalData.package_id,
+        })
+      );
+    }
+  }
+}, [open, paymentData, dispatch, form]);
 
   /* ================= SUBMIT ================= */
   const handleSubmit = (values) => {
@@ -247,8 +270,10 @@ const disableFutureDates = (current) => {
     <Row>
   <Col span={24}>
     <Form.Item label="Amount Due" name="amount">
-      <Input disabled />
-    </Form.Item>
+  <Input
+    disabled={paymentData?.status !== "Not Paid"}
+  />
+</Form.Item>
   </Col>
 </Row>
 

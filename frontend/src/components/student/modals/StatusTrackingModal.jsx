@@ -67,20 +67,26 @@ const StatusTrackingModal = ({ open, onClose }) => {
         status: tracker.awaiting_approval?.status
           ? "done"
           : tracker.exam_submitted?.status
-          ? "current"
-          : "pending",
+            ? "current"
+            : "pending",
       },
-      {
-        title: "Report Generation",
-        time: tracker.report_generation?.unlocked
-          ? "Report Ready"
-          : "Locked",
-        status: tracker.report_generation?.unlocked
-          ? "done"
-          : tracker.awaiting_approval?.status
-          ? "current"
-          : "pending",
-      },
+    {
+  title: "Report Generation",
+  time:
+    tracker.report_generation?.report_status === "received_unlocked"
+      ? "Unlocked"
+      : tracker.report_generation?.report_status === "received_locked"
+      ? "Locked"
+      : "Pending Upload",
+
+  status:
+    tracker.report_generation?.report_status === "received_unlocked"
+      ? "done"
+      : tracker.report_generation?.report_status === "received_locked"
+      ? "current"
+      : "pending_uploaded",
+},
+
     ];
   }, [tracker]);
 
@@ -91,23 +97,34 @@ const StatusTrackingModal = ({ open, onClose }) => {
     return <FileTextOutlined />;
   };
 
-  const getColor = (status) => {
-    if (status === "done") return "#52c41a";
-    if (status === "current") return "#1677ff";
-    return "#bfbfbf";
-  };
+const getColor = (status) => {
+  if (status === "done") return "#52c41a";
+  if (status === "current") return "#faad14";
+  if (status === "pending_uploaded") return "#bfbfbf";
+  return "#bfbfbf";
+};
+  const getTagLabel = (status) => {
+  if (status === "done") return "Completed";
+  if (status === "current") return "In Progress";
+  if (status === "pending_uploaded") return "Pending Upload";
+  return "Pending";
+};
 
   /* ---------------- CURRENT STATUS LABEL ---------------- */
-  const currentStatus =
-    tracker?.report_generation?.unlocked
-      ? "Report Generated"
-      : tracker?.awaiting_approval?.status
-      ? "Approved by Admin"
-      : tracker?.exam_submitted?.status
-      ? "Submitted - Waiting Approval"
-      : tracker?.exam_started?.status
-      ? "In Progress"
-      : "Not Started";
+const currentStatus =
+  tracker?.report_generation?.report_status === "received_unlocked"
+    ? "Report Unlocked"
+    : tracker?.report_generation?.report_status === "received_locked"
+    ? "Report Locked"
+    : tracker?.report_generation?.report_status === "not_received"
+    ? "Pending Upload"
+    : tracker?.awaiting_approval?.status
+    ? "Approved by Admin"
+    : tracker?.exam_submitted?.status
+    ? "Submitted - Waiting Approval"
+    : tracker?.exam_started?.status
+    ? "In Progress"
+    : "Not Started";
 
   return (
     <Modal
@@ -194,9 +211,9 @@ const StatusTrackingModal = ({ open, onClose }) => {
                   </Text>
 
                   {step.status === "current" && (
-                    <Tag color="blue" style={{ marginTop: 6 }}>
-                      In Progress
-                    </Tag>
+                     <Tag color={getColor(step.status)} style={{ marginTop: 6 }}>
+                    {getTagLabel(step.status)}
+                  </Tag>
                   )}
                 </div>
               </div>
@@ -226,18 +243,21 @@ const StatusTrackingModal = ({ open, onClose }) => {
                 </Tag>
               </div>
 
-              <Text
-                type="colorTextSecondary"
-                style={{
-                  display: "block",
-                  marginTop: 8,
-                  fontSize: 13,
-                }}
-              >
-                You will receive a notification once your exam
-                is approved.
-              </Text>
+              {!tracker?.awaiting_approval?.status && (
+                <Text
+                  type="colorTextSecondary"
+                  style={{
+                    display: "block",
+                    marginTop: 8,
+                    fontSize: 13,
+                  }}
+                >
+                  You will receive a notification once your exam
+                  is approved.
+                </Text>
+              )}
             </div>
+
           </>
         )}
       </div>

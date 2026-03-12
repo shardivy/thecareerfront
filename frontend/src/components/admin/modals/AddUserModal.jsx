@@ -59,16 +59,16 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
   const liveValues = Form.useWatch([], form);
   const selectedPaymentType = Form.useWatch("payment_type", form);
-
+  const amount = Form.useWatch("amount", form);
 
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
- const { activeList: programs = [], loading: programsLoading } = useSelector(
-  (state) => state.programs
-);
+  const { activeList: programs = [], loading: programsLoading } = useSelector(
+    (state) => state.programs
+  );
   const activePrograms = useSelector((state) => state.programs.activeList);
-  
+
   const { list: packages = [], loading: packagesLoading } = useSelector(
     (state) => state.packages
   );
@@ -93,6 +93,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
     "Arts",
     "BBA",
     "UG",
+    "PG",
     "Others",
   ]);
 
@@ -133,38 +134,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
     return fullName.trim();
   };
 
-  // /* ================= DEBUG USER PROP ================= */
-  // useEffect(() => {
-  //   if (open && user) {
-  //     console.log("🔍 DEBUG - User prop received in modal:");
-  //     console.log("Full user object:", user);
-  //     console.log("Original first_name:", user.first_name);
-  //     console.log("Extracted first name:", extractName(user.first_name));
-  //     console.log("Payment fields check:");
-  //     console.log("- amount:", user.amount);
-  //     console.log("- payment_type:", user.payment_type);
-  //     console.log("- method:", user.method);
-  //     console.log("- transaction_id:", user.transaction_id);
-  //     console.log("- proof_file:", user.proof_file);
-  //     console.log("- program_id:", user.program_id);
-  //     console.log("- package_id:", user.package_id);
-
-  //     // Check if the user object has the payment fields
-  //     console.log("All user keys:", Object.keys(user));
-
-  //     // Check profile object too
-  //     if (user.profile) {
-  //       console.log("Profile object:", user.profile);
-  //       console.log("Profile payment fields:");
-  //       console.log("- profile.amount:", user.profile.amount);
-  //       console.log("- profile.payment_type:", user.profile.payment_type);
-  //       console.log("- profile.method:", user.profile.method);
-  //       console.log("- profile.transaction_id:", user.profile.transaction_id);
-  //       console.log("- profile.proof_file:", user.profile.proof_file);
-  //     }
-  //   }
-  // }, [open, user]);
-
+ 
   /* ================= FETCH DATA ================= */
   useEffect(() => {
     if (open) {
@@ -213,10 +183,10 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
         phone: user.phone || "",
         study_class: user.study_class || undefined,
         preferred_counselling_mode: user.preferred_counselling_mode || undefined,
-        amount: paymentData.amount,
-        payment_type: paymentData.payment_type || undefined,
-        method: paymentData.method || undefined,
-        transaction_id: paymentData.transaction_id,
+        amount: paymentData.amount|| 0,
+        payment_type: paymentData.payment_type || "",
+        method: paymentData.method || "",
+        transaction_id: paymentData.transaction_id || "",
         program: user.program_id || undefined,
         package: user.package_id || undefined,
       };
@@ -293,11 +263,11 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
     formData.append("package", values.package);
     formData.append("preferred_counselling_mode", values.preferred_counselling_mode);
     formData.append("amount", values.amount);
-    formData.append("payment_type", values.payment_type);
-    formData.append("method", values.method);
+    formData.append("payment_type", values.payment_type || "");
+    formData.append("method", values.method || "");
 
     if (values.transaction_id) {
-      formData.append("transaction_id", values.transaction_id);
+      formData.append("transaction_id", values.transaction_id || "");
     }
 
     // ✅ FILE — Check both uploadedFile and fileList
@@ -345,11 +315,23 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
         dispatch(fetchStudents());
         onClose();
       })
-      .catch((error) => {
-        console.error("❌ Operation failed:", error);
-        console.error("❌ Error response:", error.response);
-        message.error(error.message || "Operation failed");
-      });
+     .catch((error) => {
+  console.error("❌ Operation failed:", error);
+
+  // Check if errors object exists
+  if (error.errors) {
+    // Flatten all errors into a single string
+    const messages = Object.values(error.errors)
+      .flat()
+      .join(", "); // e.g., "Phone number already exists."
+
+    message.error(messages);
+  } else if (error.message) {
+    message.error(error.message);
+  } else {
+    message.error("Operation failed");
+  }
+});
   };
 
   /* ================= HANDLE PROGRAM CHANGE ================= */
@@ -496,42 +478,56 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                   </Select>
                 </Form.Item>
               </Col>
+<Col xs={24} sm={12}>
+  <Form.Item
+    name="amount"
+    label="Fees Paid"
+    dependencies={["package"]}
+    rules={[
+      { required: true, message: "Please enter the amount paid" },
+      {
+        validator: (_, value) => {
+          const numericValue = Number(value);
 
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="amount"
-                  label="Fees Paid"
-                  rules={[
-                    { required: true, message: "Please enter amount" },
-                    {
-                      validator: (_, value) => {
-                        if (!value) return Promise.resolve();
+          if (value === undefined || value === null || value === "") {
+            return Promise.resolve();
+          }
 
-                        const numericValue = Number(value);
+          if (isNaN(numericValue)) {
+            return Promise.reject("Amount must be a valid number");
+          }
 
-                        if (isNaN(numericValue)) {
-                          return Promise.reject("Amount must be a number");
-                        }
+          if (numericValue < 0) {
+            return Promise.reject("Amount cannot be negative");
+          }
 
-                        if (numericValue < 500) {
-                          return Promise.reject("Minimum amount should be ₹500");
-                        }
+          // Allow only 0 OR multiples of 100
+          if (numericValue !== 0 && numericValue % 100 !== 0) {
+            return Promise.reject(
+              "Amount must be ₹0 or in multiples of ₹100 (e.g., 100, 200, 300)"
+            );
+          }
 
-                        if (totalPackageAmount && numericValue > totalPackageAmount) {
-                          return Promise.reject(`Amount cannot exceed ₹${totalPackageAmount}`);
-                        }
+          if (numericValue > totalPackageAmount) {
+            return Promise.reject(
+              `Amount cannot exceed ₹${totalPackageAmount}`
+            );
+          }
 
-                        return Promise.resolve();
-                      },
-                    },
-                  ]}
-                >
-                  <Input type="number" min={0} disabled={isView} />
-                </Form.Item>
+          return Promise.resolve();
+        },
+      },
+    ]}
+  >
+    <Input type="number" min={0} step={100} />
+  </Form.Item>
+</Col>
 
-              </Col>
             </Row>
 
+            
+ {amount > 0 && (
+  <>
             <Row gutter={16}>
               <Col xs={24} md={12}>
                 <Form.Item name="payment_type" label="Payment Type" rules={isView ? [] : [{ required: true }]}>
@@ -588,6 +584,8 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                 </div>
               )} */}
             </Form.Item>
+</>
+            )}
 
             {!isView && (
               <div style={{ textAlign: "right" }}>

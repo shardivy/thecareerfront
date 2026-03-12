@@ -87,3 +87,12 @@ export const fetchStudentPaymentProgressApi = async (studentId) => {
   );
   return response.data;
 };
+
+
+// ================= FETCH PENDING PAYMENT STUDENTS =================
+export const fetchPendingPaymentStudentsApi = async () => {
+  const response = await axiosInstance.get(
+    "/payment/pending-payments/"
+  );
+  return response.data;
+};

@@ -24,17 +24,20 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 
-import StudentProfileModal from "../modals/StudentProfileModal";
-import SessionNotesModal from "../modals/SessionNotesModal";
+import StudentProfileModal from "../../counsellor/modals/StudentProfileModal";
+import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchMyStudents, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
+import {
+  fetchCounsellorBookings,
+  fetchCounsellingNote
+} from "../../../adminSlices/counsellorSlice";
 import { getStudentProfile } from "../../../adminSlices/profileSlice";
 
 const { Title } = Typography;
 const { Option } = Select;
 const { useBreakpoint } = Grid;
 
-const SessionHistory = () => {
+const SessionsHistory = () => {
   const screens = useBreakpoint();
   const dispatch = useDispatch();
   const [profileModal, setProfileModal] = useState(false);
@@ -49,7 +52,7 @@ const SessionHistory = () => {
 
 
   useEffect(() => {
-    dispatch(fetchMyStudents());
+    dispatch(fetchCounsellorBookings());
   }, [dispatch]);
 
   const tableData = (students || []).map((item) => {
@@ -66,7 +69,8 @@ const SessionHistory = () => {
       date: item.date,
       startTime,
       endTime,
-       preferred_counselling_mode: preferredMode,
+   preferred_counselling_mode: preferredMode,
+
       status: item.status,
     };
   });
@@ -84,22 +88,22 @@ const SessionHistory = () => {
   const [selectedSession, setSelectedSession] = useState(null);
 
   /* ================= FILTER LOGIC ================= */
-  const filteredSessions = tableData.filter((session) => {
-    const matchesSearch = session.studentName
-      .toLowerCase()
-      .includes(searchText.toLowerCase());
+const filteredSessions = tableData.filter((session) => {
+  const matchesSearch = session.studentName
+    .toLowerCase()
+    .includes(searchText.toLowerCase());
 
-    const matchesDate = filterDate
-      ? dayjs(session.date).format("YYYY-MM-DD") ===
+  const matchesDate = filterDate
+    ? dayjs(session.date).format("YYYY-MM-DD") ===
       dayjs(filterDate).format("YYYY-MM-DD")
-      : true;
+    : true;
 
-    const matchesMode = filterMode
-  ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
-  : true;
+  const matchesMode = filterMode
+    ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
+    : true;
 
-    return matchesSearch && matchesDate && matchesMode;
-  });
+  return matchesSearch && matchesDate && matchesMode;
+});
 
   /* ================= TABLE COLUMNS ================= */
   const columns = [
@@ -127,7 +131,7 @@ const SessionHistory = () => {
 
     },
    {
-  title: "Preferred counselling Mode",
+  title: "Preferred Counselling Mode",
   dataIndex: "preferred_counselling_mode",
   key: "preferred_counselling_mode",
   render: (mode) => {
@@ -225,7 +229,7 @@ const SessionHistory = () => {
 
         {/* ================= TABLE ================= */}
         <div style={{ overflowX: "auto" }}>
-         <Table
+       <Table
   columns={columns}
   dataSource={tableData.filter((session) => {
     const matchesSearch = session.studentName
@@ -290,4 +294,4 @@ const SessionHistory = () => {
   );
 };
 
-export default SessionHistory;
+export default SessionsHistory;

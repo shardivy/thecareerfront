@@ -168,23 +168,49 @@ const UserProfileModal = ({ open, onClose, user }) => {
               {showExamReport && (
                 <Descriptions.Item label="Exam Status">
                   <Tag
-                    color={progressData.exam === "in_progress" ? token.colorPrimary : token.colorSuccess}
+                    color={
+                      progressData.exam === "completed"
+                        ? token.colorSuccess
+                        : progressData.exam === "pending_approval"
+                          ? token.colorWarning
+                          : progressData.exam === "in_progress"
+                            ? token.colorPrimary
+                            : "default"
+                    }
                   >
-                    {progressData.exam === "in_progress" ? "In Progress" : "Completed"}
+                    {progressData.exam === "completed"
+                      ? "Completed"
+                      : progressData.exam === "pending_approval"
+                        ? "Pending Approval"
+                        : progressData.exam === "in_progress"
+                          ? "In Progress"
+                          : "Not Started"}
                   </Tag>
                 </Descriptions.Item>
               )}
 
               {showExamReport && (
-                <Descriptions.Item label="Report Status">
-                  <Tag
-                    color={
-                      progressData.report === "locked" ? token.colorPrimary : token.colorSuccess
-                    }
-                  >
-                    {progressData.report || "N/A"}
-                  </Tag>
-                </Descriptions.Item>
+               <Descriptions.Item label="Report Status">
+  <Tag
+    color={
+     progressData.report === "received_locked"
+  ? token.colorPrimary
+  : progressData.report === "not_received"
+  ? token.colorWarning
+  : progressData.report === "received_unlocked"
+  ? token.colorSuccess
+  : "default"
+    }
+  >
+    {progressData.report === "received_locked"
+  ? "Received & Locked"
+  : progressData.report === "not_received"
+  ? "Not Received"
+  : progressData.report === "received_unlocked"
+  ? "Received & Unlocked"
+  : "N/A"}
+  </Tag>
+</Descriptions.Item>
               )}
             </Descriptions>
           </Col>
@@ -237,15 +263,15 @@ const UserProfileModal = ({ open, onClose, user }) => {
               const isReportStep = label === "Report";
               const isActive = stepNo === currentStep;
 
-             const isCompleted =
-  (label === "Registration" && progressData.registration) ||
-  (label === "Counselling Service Selection" && progressData.counselling_service) ||
-  (label === "Payment" && progressData.payment === "fully_paid") ||
-  (label === "Exam" && progressData.exam === "completed") ||
-  (label === "Report" && progressData.report === "unlocked") ||
-  (label === "Counselling Slot Booking" && progressData.counselling_slot_booking) ||
-  (label === "Review" && progressData.review) ||
-  (label === "Full Access" && progressData.full_access);
+              const isCompleted =
+                (label === "Registration" && progressData.registration) ||
+                (label === "Counselling Service Selection" && progressData.counselling_service) ||
+                (label === "Payment" && progressData.payment === "fully_paid") ||
+                (label === "Exam" && progressData.exam === "completed") ||
+              (label === "Report" && progressData.report === "received_unlocked") ||
+                (label === "Counselling Slot Booking" && progressData.counselling_slot_booking) ||
+                (label === "Review" && progressData.review) ||
+                (label === "Full Access" && progressData.full_access);
 
 
               // Step color
@@ -253,7 +279,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
               if (isPaymentStep && isPartialPayment) stepColor = token.colorWarning;
               else if (isCompleted) stepColor = token.colorSuccess;
               else if ((isExamStep && progressData.exam === "in_progress") ||
-                (isReportStep && progressData.report === "locked") ||
+               (isReportStep && progressData.report === "received_locked")||
                 isActive) stepColor = token.colorPrimary;
               else if (
                 (isPartialReportStep && progressData.partial_report === "locked") ||
@@ -269,7 +295,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
                 stepNo < currentStep ||
                 (isPaymentStep && isPartialPayment) ||
                 (isExamStep && progressData.exam === "in_progress") ||
-                (isReportStep && progressData.report === "locked") ||
+              (isReportStep && progressData.report === "received_locked") ||
                 isActive
               ) {
                 progressWidth = "100%";
@@ -412,7 +438,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   : item.status?.toLowerCase();
 
               const isCompleted =
-                status === "completed" || status === "fully_paid";
+                status === "completed" || status === "fully_paid" || status === "received_unlocked";
 
               const isPartial =
                 status === "partial_paid" ||

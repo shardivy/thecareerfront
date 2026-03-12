@@ -208,7 +208,7 @@ const filteredData = mappedData
     return matchesSearch && matchesStatus;
   })
   .sort((a, b) => {
-  const priorityStatuses = ["In Progress", "Exam Started"];
+  const priorityStatuses = ["In Progress", "Not Started"];
 
   if (priorityStatuses.includes(a.status) && !priorityStatuses.includes(b.status))
     return -1;
@@ -314,7 +314,7 @@ const renderStatus = (status) => {
             </>
           )}
 
-          {["In Progress", "Exam Started"].includes(record.status) && (
+          {["In Progress", "Not Started"].includes(record.status) && (
             <>
               <Button
                 type="primary"
@@ -347,9 +347,9 @@ const renderStatus = (status) => {
             </Button>
           )}
 
-          {record.status === "Not Started" && (
+          {/* {record.status === "Not Started" && (
             <Button icon={<BellOutlined />}>Send Reminder</Button>
-          )}
+          )} */}
         </Space>
       ),
     },

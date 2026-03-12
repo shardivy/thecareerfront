@@ -27,13 +27,14 @@ const AdminLogin = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  const { loading, error, success, successMessage, complete_profile ,user } = useSelector(
+  const { loading, error, success, successMessage, complete_profile, user } = useSelector(
     (state) => state.auth
   );
 
   /* ========= SUCCESS ========= */
   useEffect(() => {
     if (success && user) {
+      sessionStorage.removeItem("profileWarningShown");
       message.success(successMessage);
 
       // 🔑 ROLE-BASED REDIRECT (backend driven)
@@ -56,14 +57,18 @@ const AdminLogin = () => {
         //  case "student":
         //   navigate("/student/student-profile");
         //   break;
-          
-    case "student":
-        if (complete_profile) {
-          navigate("/student/dashboard");
-        } else {
-          navigate("/student/student-profile");
-        }
-        break;
+
+          case "basic_user":
+    navigate("/student/dashboard");
+    break;
+
+        case "student":
+          if (complete_profile) {
+            navigate("/student/dashboard");
+          } else {
+            navigate("/student/student-profile");
+          }
+          break;
 
 
         default:
@@ -83,6 +88,21 @@ const AdminLogin = () => {
   const onFinish = (values) => {
     console.log("Login Payload:", values);
     dispatch(loginUser(values)); // only email + password
+  };
+
+  const validatePassword = (_, value) => {
+    if (!value) return Promise.reject("Password is required");
+    if (value.length < 8)
+      return Promise.reject("Minimum 8 characters required");
+    // if (!/[A-Z]/.test(value))
+    //   return Promise.reject("At least one uppercase letter required");
+    if (!/[a-z]/.test(value))
+      return Promise.reject("At least one lowercase letter required");
+    // if (!/\d/.test(value))
+    //   return Promise.reject("At least one number required");
+    // if (!/[@$!%*?&]/.test(value))
+    //   return Promise.reject("At least one special character required");
+    return Promise.resolve();
   };
 
   return (
@@ -170,12 +190,36 @@ const AdminLogin = () => {
                 borderRadius: "0 24px 24px 0",
               }}
             >
+              {/* LOGO */}
+              <div style={{ marginBottom: 20 }}>
+                <img
+                  src="/Abhinav-logo.jpg"
+                  alt="Career Counselling"
+                  style={{
+                    width: 150,
+                    height: "auto",
+                    objectFit: "contain",
+                    marginBottom: 6,
+                  }}
+                />
+
+                <div
+                  style={{
+                    fontSize: 28,   // bigger like Title
+                    fontWeight: 700,
+                    color: "#1E40AF",
+                  }}
+                >
+                  Career Counselling Platform
+                </div>
+              </div>
+
               <Title level={3} style={{ marginBottom: 4 }}>
                 Login
               </Title>
 
               <Text type="colorTextSecondary">
-             Enter your credentials to access your account
+                Enter your credentials to access your account
               </Text>
 
               <Form
@@ -204,9 +248,8 @@ const AdminLogin = () => {
                 <Form.Item
                   label="Password"
                   name="password"
-                  rules={[
-                    { required: true, message: "Password is required" },
-                  ]}
+                  hasFeedback
+                  rules={[{ validator: validatePassword }]}
                 >
                   <Input.Password
                     prefix={<LockOutlined />}
@@ -252,20 +295,20 @@ const AdminLogin = () => {
                 </Button>
 
                 <Divider style={{ margin: "28px 0" }} />
-                
-                                <Text style={{ textAlign: "center", display: "block" }}>
-                                  Don’t have an student account?{" "}
-                                  <Text
-                                    type="primary"
-                                    style={{
-                                      cursor: "pointer",
-                                        color: "#1890ff",
-                                      textDecoration: "underline",
-                                    }}
-                                    onClick={() => navigate("/register")}
-                                  >
-                                    Register
-                                  </Text>
+
+                <Text style={{ textAlign: "center", display: "block" }}>
+                  Don’t have an student account?{" "}
+                  <Text
+                    type="primary"
+                    style={{
+                      cursor: "pointer",
+                      color: "#1890ff",
+                      textDecoration: "underline",
+                    }}
+                    onClick={() => navigate("/register")}
+                  >
+                    Register
+                  </Text>
                 </Text>
               </Form>
             </Col>

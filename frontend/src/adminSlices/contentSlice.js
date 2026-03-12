@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { uploadContentApi, updateContentApi, getContentListApi,getContentCountApi, deleteContentApi} from "../adminApi/contentApi";
+import { uploadContentApi, updateContentApi, getContentListApi, getContentCountApi, deleteContentApi ,incrementDownloadCountApi } from "../adminApi/contentApi";
 
 // ================= THUNK =================
 export const uploadContent = createAsyncThunk(
@@ -79,6 +79,18 @@ export const fetchContentCount = createAsyncThunk(
   }
 );
 
+// ================= INCREMENT DOWNLOAD COUNT =================
+export const incrementDownloadCount = createAsyncThunk(
+  "content/incrementDownloadCount",
+  async (id, { rejectWithValue }) => {
+    try {
+      const data = await incrementDownloadCountApi(id);
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || "Failed to increment download count");
+    }
+  }
+);
 
 // ================= SLICE =================
 const contentSlice = createSlice({
@@ -88,7 +100,7 @@ const contentSlice = createSlice({
     success: false,
     error: null,
     contentList: [],
-     contentStats: null, 
+    contentStats: null,
   },
   reducers: {
     resetContentState: (state) => {
@@ -116,10 +128,15 @@ const contentSlice = createSlice({
       .addCase(fetchContentList.pending, (state) => {
         state.loading = true;
       })
-     .addCase(fetchContentList.fulfilled, (state, action) => {
-  state.loading = false;
-  state.contentList = action.payload?.data || [];
-})
+      .addCase(fetchContentList.fulfilled, (state, action) => {
+        state.loading = false;
+
+        const list = action.payload?.data || [];
+
+        state.contentList = list.sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        );
+      })
       .addCase(fetchContentList.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -139,34 +156,51 @@ const contentSlice = createSlice({
       })
 
       // DELETE CASES
-.addCase(deleteContent.pending, (state) => {
-  state.loading = true;
-})
-.addCase(deleteContent.fulfilled, (state, action) => {
-  state.loading = false;
+      .addCase(deleteContent.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(deleteContent.fulfilled, (state, action) => {
+        state.loading = false;
 
-  // remove deleted item from state
-  state.contentList = state.contentList.filter(
-    (item) => item.id !== action.payload
-  );
-})
-.addCase(deleteContent.rejected, (state, action) => {
-  state.loading = false;
-  state.error = action.payload;
-})
+        // remove deleted item from state
+        state.contentList = state.contentList.filter(
+          (item) => item.id !== action.payload
+        );
+      })
+      .addCase(deleteContent.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
 
       // COUNT CASES
-.addCase(fetchContentCount.pending, (state) => {
-  state.loading = true;
-})
-.addCase(fetchContentCount.fulfilled, (state, action) => {
-  state.loading = false;
-  state.contentStats = action.payload?.data || action.payload;
-})
-.addCase(fetchContentCount.rejected, (state, action) => {
-  state.loading = false;
-  state.error = action.payload;
-});
+      .addCase(fetchContentCount.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchContentCount.fulfilled, (state, action) => {
+        state.loading = false;
+        state.contentStats = action.payload?.data || action.payload;
+      })
+      .addCase(fetchContentCount.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // INCREMENT DOWNLOAD COUNT
+    .addCase(incrementDownloadCount.pending, (state) => {
+      state.loading = true;
+    })
+    .addCase(incrementDownloadCount.fulfilled, (state, action) => {
+      state.loading = false;
+      // Optionally update contentStats if needed
+      if (action.payload?.id) {
+        const item = state.contentList.find(c => c.id === action.payload.id);
+        if (item) item.downloads = action.payload.downloads; // assuming API returns new count
+      }
+    })
+    .addCase(incrementDownloadCount.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
+    });
   },
 });
 

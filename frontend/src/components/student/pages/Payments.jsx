@@ -102,11 +102,13 @@ const Payments = () => {
       paidAmount: item.amount || 0,
       packagePrice: item.package_price || 0,
       status:
-        item.status === "paid" || item.status === "verified"
-          ? "Paid"
-          : item.status === "partial_paid"
-            ? "partial_paid"
-            : "not_paid",
+      item.status === "fully_paid" ||
+      item.status === "paid" ||
+      item.status === "verified"
+        ? "fully_paid"
+        : item.status === "partial_paid"
+        ? "partial_paid"
+        : "not_paid",
       paymentMethod: item.method || "-",
       date: rawDate
         ? new Date(rawDate).toLocaleDateString("en-IN")

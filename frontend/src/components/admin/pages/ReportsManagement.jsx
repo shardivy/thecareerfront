@@ -38,9 +38,9 @@ const { Option } = Select;
 
 /* ----------------- STATUS COLOR MAPS ----------------- */
 const statusColorMap = {
-  Unlocked: adminTheme.token.colorSuccess,
-  Locked: adminTheme.token.colorError,
-  "Pending Upload": adminTheme.token.colorWarning,
+  "Not Received": adminTheme.token.colorWarning,
+  "Received & Unlocked": adminTheme.token.colorSuccess,
+  "Received & Locked": adminTheme.token.colorError,
   "Review Verification Pending": adminTheme.token.colorInfo,
 };
 
@@ -57,12 +57,11 @@ const examStatusColorMap = {
 };
 
 const statusIconMap = {
-  Unlocked: <UnlockOutlined />,
-  Locked: <LockOutlined />,
-  "Pending Upload": <UploadOutlined />,
+  "Not Received": <UploadOutlined />,
+  "Received & Unlocked": <UnlockOutlined />,
+  "Received & Locked": <LockOutlined />,
   "Review Verification Pending": <FileSyncOutlined />,
 };
-
 /* ----------------- COMPONENT ----------------- */
 const ReportsManagement = () => {
   const dispatch = useDispatch();
@@ -102,18 +101,18 @@ const ReportsManagement = () => {
       icon: <FileOutlined style={{ color: adminTheme.token.colorPrimary }} />,
     },
     {
-      title: "Unlocked",
-      value: stats?.unlocked || 0,
+      title: "Received & Unocked",
+      value: stats?.received_unlocked || 0,
       icon: <UnlockOutlined style={{ color: adminTheme.token.colorSuccess }} />,
     },
     {
-      title: "Locked",
-      value: stats?.locked || 0,
+      title: "Received & Locked",
+      value: stats?.received_locked || 0,
       icon: <LockOutlined style={{ color: adminTheme.token.colorError }} />,
     },
     {
-      title: "Pending Upload",
-      value: stats?.pending_uploaded || 0,
+      title: "Not Received",
+      value: stats?.not_received || 0,
       icon: <UploadOutlined style={{ color: adminTheme.token.colorWarning }} />,
     },
     // {
@@ -133,16 +132,16 @@ const ReportsManagement = () => {
       email: item.email,
       program: item.program ?? "—",
       package:item.package ?? "—" ,
-      status:
-        item.report_status === "pending_uploaded"
-          ? "Pending Upload"
-          : item.report_status === "review_pending"
-            ? "Review Verification Pending"
-            : item.report_status === "unlocked"
-              ? "Unlocked"
-              : item.report_status === "locked"
-                ? "Locked"
-                : "Unknown",
+status:
+  item.report_status === "not_received"
+    ? "Not Received"
+    : item.report_status === "review_pending"
+    ? "Review Verification Pending"
+    : item.report_status === "received_unlocked"
+    ? "Received & Unlocked"
+    : item.report_status === "received_locked"
+    ? "Received & Locked"
+    : "Unknown",
      paymentStatus:
   item.payment_status === "fully_paid"
     ? "Fully Paid"
@@ -183,11 +182,11 @@ const filteredData = useMemo(() => {
   });
 
   /* ----------------- CUSTOM SORTING ----------------- */
-  const statusPriority = {
-    "Pending Upload": 1,
-    "Locked": 2,
-    "Unlocked": 3,
-  };
+const statusPriority = {
+  "Not Received": 1,
+  "Received & Locked": 2,
+  "Received & Unlocked": 3,
+};
 
   return filtered.sort((a, b) => {
     const priorityDiff =
@@ -198,8 +197,8 @@ const filteredData = useMemo(() => {
 
     // ✅ If same status AND status is Pending Upload or Locked
     if (
-      a.status === "Pending Upload" ||
-      a.status === "Locked"
+      a.status === "Not Received" ||
+      a.status === "Received & Locked"
     ) {
       return new Date(a.uploadedDate) - new Date(b.uploadedDate);
     }
@@ -240,7 +239,7 @@ const filteredData = useMemo(() => {
       selectedRowKeys,
       onChange: (keys) => setSelectedRowKeys(keys),
       getCheckboxProps: (record) => ({
-        disabled: record.status !== "Pending Upload",
+        disabled: record.status !== "Not Received",
       }),
     }
     : null;
@@ -315,7 +314,7 @@ const filteredData = useMemo(() => {
       title: "Actions",
       render: (_, record) => (
         <Space wrap>
-          {record.status === "Pending Upload" ? (
+      { record.status === "Not Received" ? (
             <Button
               type="primary"
               icon={<UploadOutlined />}
@@ -529,9 +528,11 @@ const filteredData = useMemo(() => {
               style={{ width: "100%" }}
               onChange={setStatusFilter}
             >
-              <Option value="Unlocked">Unlocked</Option>
-              <Option value="Locked">Locked</Option>
-              <Option value="Pending Upload">Pending Upload</Option>
+               <Option value="Not Received">Not Received</Option>
+                  <Option value="Received & Locked">Received & Locked</Option>
+              <Option value="Received & Unlocked">Received & Unlocked</Option>
+           
+             
               {/* <Option value="Review Verification Pending">
                 Review Verification Pending
               </Option> */}

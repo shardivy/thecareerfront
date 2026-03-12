@@ -5,17 +5,23 @@ import { m } from "framer-motion";
 // ---------------- CONVERT ENQUIRY / USER ----------------
 export const convertEnquiry = createAsyncThunk(
   "convertEnquiry/convert",
- async ({ id, payload }, { rejectWithValue }) => {
-  try {
-    const response = await convertEnquiryApi(id, payload);
-    return response;
-  } catch (error) {
-    return rejectWithValue(
-      error.response?.data?.message || "Failed to convert enquiry"
-    );
-  }
-}
+  async ({ id, payload }, { rejectWithValue }) => {
+    try {
+      const response = await convertEnquiryApi(id, payload);
+      return response;
+    } catch (error) {
+      // If backend sends field errors
+      if (error.response?.data?.errors) {
+        const fieldErrors = error.response.data.errors;
+        return rejectWithValue({ fieldErrors });
+      }
 
+      // fallback to general message
+      const generalError =
+        error.response?.data?.message || "Failed to convert enquiry";
+      return rejectWithValue({ generalError });
+    }
+  }
 );
 
 const convertEnquirySlice = createSlice({
@@ -23,7 +29,8 @@ const convertEnquirySlice = createSlice({
   initialState: {
     loading: false,
     success: false,
-    error: null,
+    error: null, // general error
+    fieldErrors: {}, // field-specific errors
     message: null,
   },
   reducers: {
@@ -48,9 +55,15 @@ const convertEnquirySlice = createSlice({
         state.message = action.payload.message;
       })
       // rejected
-      .addCase(convertEnquiry.rejected, (state, action) => {
+     .addCase(convertEnquiry.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
+        if (action.payload?.fieldErrors) {
+          state.fieldErrors = action.payload.fieldErrors;
+        } else if (action.payload?.generalError) {
+          state.error = action.payload.generalError;
+        } else {
+          state.error = "Failed to convert enquiry";
+        }
       });
   },
 });

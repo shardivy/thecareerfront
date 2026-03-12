@@ -125,11 +125,11 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
           <Col span={12}>
             <Text strong>Liked Subjects</Text>
             <Input
-              value={
-                student?.liked_subjects?.length
-                  ? student.liked_subjects.join(", ")
-                  : "-"
-              }
+             value={
+  student?.liked_subjects?.length
+    ? student.liked_subjects.map((s) => s.name).join(", ")
+    : "-"
+}
               disabled
             />
           </Col>
@@ -137,11 +137,11 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
           <Col span={12}>
             <Text strong>Disliked Subjects</Text>
             <Input
-              value={
-                student?.disliked_subjects?.length
-                  ? student.disliked_subjects.join(", ")
-                  : "-"
-              }
+             value={
+  student?.disliked_subjects?.length
+    ? student.disliked_subjects.map((s) => s.name).join(", ")
+    : "-"
+}
               disabled
             />
           </Col>
@@ -153,11 +153,11 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
       {/* HOBBIES */}
       <Card title="Hobbies" bordered={false}>
         <Input
-          value={
-            student?.hobbies?.length
-              ? student.hobbies.join(", ")
-              : "-"
-          }
+         value={
+  student?.hobbies?.length
+    ? student.hobbies.map((h) => h.name).join(", ")
+    : "-"
+}
           disabled
         />
       </Card>

@@ -99,6 +99,26 @@ const [mode, setMode] = useState(preferredMode);
     return true;
   });
 
+
+const isSlotExpired = (slot) => {
+  if (!selectedDate) return false;
+
+  const today = dayjs().format("YYYY-MM-DD");
+  const selected = dayjs(selectedDate).format("YYYY-MM-DD");
+
+  // Only check expiry if selected date is today
+  if (today !== selected) return false;
+
+  const now = dayjs();
+
+  const slotStart = dayjs(
+    `${selected} ${slot.start_time}`,
+    "YYYY-MM-DD hh:mm A"
+  );
+
+  return now.isAfter(slotStart);
+};
+
   // ================= CONFIRM BOOKING =================
   const handleConfirm = () => {
     if (!selectedLeadCounsellor) {
@@ -162,14 +182,25 @@ const [mode, setMode] = useState(preferredMode);
             <Card style={{ borderRadius: 16 }}>
               <Text strong>Session Mode</Text>
               <br />
-              <Radio.Group
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-                style={{ marginTop: 12, display: "flex", gap: 8 }}
-              >
-                <Radio.Button value="online"><VideoCameraOutlined /> Online</Radio.Button>
-                <Radio.Button value="offline"><EnvironmentOutlined /> Offline</Radio.Button>
-              </Radio.Group>
+             <Radio.Group
+  value={mode}
+  onChange={(e) => setMode(e.target.value)}
+  style={{ marginTop: 12, display: "flex", gap: 8 }}
+>
+  <Radio.Button
+    value="online"
+    disabled={preferredMode === "offline"}
+  >
+    <VideoCameraOutlined /> Online
+  </Radio.Button>
+
+  <Radio.Button
+    value="offline"
+    disabled={preferredMode === "online"}
+  >
+    <EnvironmentOutlined /> Offline
+  </Radio.Button>
+</Radio.Group>
             </Card>
 
             {/* Date + Counsellor */}
@@ -228,7 +259,7 @@ const [mode, setMode] = useState(preferredMode);
                       <Button
                         block
                         size="large"
-                        disabled={slot.status === "booked"} // disable only booked slots
+                        disabled={slot.status === "booked" || isSlotExpired(slot)}
                         type={selectedSlot?.id === slot.id ? "primary" : "default"} // compare objects by id
                         onClick={() => {
                           if (slot.status === "available") setSelectedSlot(slot); // store full object

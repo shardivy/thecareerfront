@@ -114,7 +114,7 @@ const PaymentManagement = () => {
     "Fully Paid": "success",
     "Partial Paid": "warning",
     "Verification Pending": "processing",
-
+      "Not Paid": "error",
   };
 
   /* ---------------- UTILITY FUNCTIONS ---------------- */
@@ -346,58 +346,76 @@ const PaymentManagement = () => {
       dataIndex: "txn",
       render: (txn) => truncateAfterFive(txn),
     },
-    {
-      title: "Action",
-      render: (_, record) => {
-        // Only show Verify button for Verification Pending
-        if (record.status === "Verification Pending") {
-          return (
-            <Button
-              size="large"
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              onClick={() => {
-                setSelectedPayment({
-                  ...record,
-                  mode: "verify",
-                  paymentDate: record.date !== "-" ? record.date : null,
-                });
-                setIsModalOpen(true);
-              }}
-            >
-              Verify
-            </Button>
-          );
-        }
+   {
+  title: "Action",
+  render: (_, record) => {
 
-        // For all other statuses, always show View + Edit
-        return (
-          <Space>
-            <Button
-              size="large"
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setSelectedPayment({ ...record, mode: "view" });
-                setIsModalOpen(true);
-              }}
-            >
-              View
-            </Button>
-
-            <Button
-              size="large"
-              icon={<EditOutlined />}
-              onClick={() => {
-                setSelectedPayment({ ...record, mode: "edit" });
-                setIsModalOpen(true);
-              }}
-            >
-              Edit
-            </Button>
-          </Space>
-        );
-      },
+    // ✅ If payment NOT PAID → show Upload button
+    if (record.status === "Not Paid") {
+      return (
+        <Button
+          size="large"
+          type="primary"
+          icon={<UploadOutlined />}
+          onClick={() => {
+            setSelectedPayment(record);
+            setIsUploadModalOpen(true);
+          }}
+        >
+          Upload Payment
+        </Button>
+      );
     }
+
+    // ✅ Verification Pending → Verify button
+    if (record.status === "Verification Pending") {
+      return (
+        <Button
+          size="large"
+          type="primary"
+          icon={<CheckCircleOutlined />}
+          onClick={() => {
+            setSelectedPayment({
+              ...record,
+              mode: "verify",
+              paymentDate: record.date !== "-" ? record.date : null,
+            });
+            setIsModalOpen(true);
+          }}
+        >
+          Verify
+        </Button>
+      );
+    }
+
+    // ✅ Other statuses → View + Edit
+    return (
+      <Space>
+        <Button
+          size="large"
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setSelectedPayment({ ...record, mode: "view" });
+            setIsModalOpen(true);
+          }}
+        >
+          View
+        </Button>
+
+        <Button
+          size="large"
+          icon={<EditOutlined />}
+          onClick={() => {
+            setSelectedPayment({ ...record, mode: "edit" });
+            setIsModalOpen(true);
+          }}
+        >
+          Edit
+        </Button>
+      </Space>
+    );
+  },
+}
   ];
 
   return (
@@ -513,11 +531,15 @@ const PaymentManagement = () => {
           onSuccess={() => dispatch(fetchPayments())}
         />
 
-        <UploadPaymentModal
-          open={isUploadModalOpen}
-          onClose={() => setIsUploadModalOpen(false)}
-          onSuccess={() => dispatch(fetchPayments())}
-        />
+      <UploadPaymentModal
+  open={isUploadModalOpen}
+  paymentData={selectedPayment}
+  onClose={() => {
+    setSelectedPayment(null);
+    setIsUploadModalOpen(false);
+  }}
+  onSuccess={() => dispatch(fetchPayments())}
+/>
       </div>
     </ConfigProvider>
   );

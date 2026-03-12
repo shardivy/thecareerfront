@@ -81,24 +81,30 @@ const employeeSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchRegisteredUsers.fulfilled, (state, action) => {
-        state.loading = false;
+     .addCase(fetchRegisteredUsers.fulfilled, (state, action) => {
+  state.loading = false;
 
-        const data = Array.isArray(action.payload)
-          ? action.payload
-          : action.payload.data || [];
+  const data = Array.isArray(action.payload)
+    ? action.payload
+    : action.payload.data || [];
 
-        state.employees = data.map((item, index) => ({
-          key: item.id || index,
-          user_id: item.user_id, // REQUIRED for update
-          name: `${item.first_name || ""} ${item.last_name || ""}`,
-          email: item.email || "",
-          mobile: item.phone || item.mobile || "",
-          role: item.role || "",
-          date: item.created_at || "",
-          Status: item.status || "Active",
-        }));
-      })
+  const employees = [];
+
+  data.forEach((item, index) => {
+    employees.unshift({
+      key: item.id || index,
+      user_id: item.user_id,
+      name: `${item.first_name || ""} ${item.last_name || ""}`,
+      email: item.email || "",
+      mobile: item.phone || item.mobile || "",
+      role: item.role || "",
+      date: item.created_at || "",
+      Status: item.status || "Active",
+    });
+  });
+
+  state.employees = employees;
+})
       .addCase(fetchRegisteredUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;

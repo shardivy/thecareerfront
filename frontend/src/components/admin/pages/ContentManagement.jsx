@@ -95,7 +95,7 @@ const publishedData = dataSource.filter((item) => !item.is_draft);
   },
   {
     title: "Total Downloads",
-    value: contentStats?.total_downloads || 0,
+    value: contentStats?.total_download || 0,
     icon: <DownloadOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
   },
   {
@@ -325,16 +325,16 @@ const getProgramDisplay = (program_details) => {
         </Space>
       ),
     },
-    {
-      title: "Downloads",
-      dataIndex: "downloads",
-      render: (d) => (
-        <Space>
-          <DownloadOutlined />
-          {d}
-        </Space>
-      ),
-    },
+   {
+  title: "Downloads",
+  dataIndex: "download_count", // ✅ use the correct API field
+  render: (count) => (
+    <Space>
+      <DownloadOutlined />
+      {count || 0} {/* fallback to 0 */}
+    </Space>
+  ),
+},
     {
       title: "Actions",
       render: (_, record) => (

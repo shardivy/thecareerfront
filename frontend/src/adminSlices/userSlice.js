@@ -202,18 +202,9 @@ const userSlice = createSlice({
               return "Not Started";
             })(),
 
-            reportStatus: (() => {
-              const status = u.report_status;
+            // ✅ FIXED REPORT STATUS
+  reportStatus: u.report_status || "received_locked",
 
-              if (!status) return "Locked";
-
-              if (status === "not_applicable") return "Not Applicable";
-
-              return status
-                .split("_")
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(" ");
-            })(),
 
             sessions: u.exam_status
               ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)

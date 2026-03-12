@@ -57,3 +57,9 @@ export const getContentCountApi = async () => {
 
   return response.data;
 };
+
+// ================= INCREMENT DOWNLOAD COUNT API =================
+export const incrementDownloadCountApi = async (id) => {
+  const response = await axiosInstance.get(`/content/download/${id}/`);
+  return response.data;
+};

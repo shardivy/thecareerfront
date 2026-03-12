@@ -12,6 +12,7 @@ import {
   Space,
   ConfigProvider,
   Badge,
+  Tag,
 } from "antd";
 import {
   UserOutlined,
@@ -63,7 +64,24 @@ const AdminLayout = () => {
   // Branding label: show 'Counsellor Dashboard' for counsellors and 'Admin Dashboard' otherwise
   const isCounsellorRole = role === "lead_counsellor" || role === "counsellor";
   const isUiUxRole = role === "ui_ux";
-  const brandingLabel = isCounsellorRole ? "Counsellor Dashboard" : isUiUxRole ? "UI/UX Dashboard" : "Admin Dashboard";
+  const brandingLabel =
+    role === "superadmin"
+      ? "Superadmin Dashboard"
+      : isCounsellorRole
+        ? "Counsellor Dashboard"
+        : isUiUxRole
+          ? "UI/UX Dashboard"
+          : "Admin Dashboard";
+
+  const roleLabelMap = {
+    superadmin: "Superadmin",
+    admin: "Admin",
+    counsellor: "Counsellor",
+    lead_counsellor: "Lead Counsellor",
+    ui_ux: "UI/UX",
+  };
+
+  const roleLabel = roleLabelMap[role] || role;
 
   // Prefer profile name after profile is loaded/updated; fall back to email
   const profile = useSelector((state) => state.profile.profile);
@@ -92,11 +110,11 @@ const AdminLayout = () => {
   }, [profileHasName, displayLabel]);
 
   /* ===================== NOTIFICATIONS ===================== */
-  const [notifications, setNotifications] = useState([
-    { id: 1, title: "New Student Registered", description: "John Doe joined today", type: "student", read: false },
-    { id: 2, title: "Payment Received", description: "Payment received from Jane Smith", type: "payment", read: false },
-  ]);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // const [notifications, setNotifications] = useState([
+  //   { id: 1, title: "New Student Registered", description: "John Doe joined today", type: "student", read: false },
+  //   { id: 2, title: "Payment Received", description: "Payment received from Jane Smith", type: "payment", read: false },
+  // ]);
+  // const unreadCount = notifications.filter((n) => !n.read).length;
 
   /* ===================== BREADCRUMB ===================== */
   const breadcrumbNameMap = {
@@ -108,8 +126,8 @@ const AdminLayout = () => {
     "/s-admin/exams": "Exams",
     "/s-admin/reportsmanagement": "Report Management",
     "/s-admin/paymentmanagement": "Payment Management",
-    "/s-admin/slotbooking": "Slot Booking Management",
-    "/s-admin/createslot": "Create Slot ",
+    "/s-admin/slotbooking": "Counselling Bookings",
+    "/s-admin/createslot": "Create Counselling Slot ",
     "/s-admin/followupManagement": "Follow Up Management",
     "/s-admin/contentManagement": "Content Management",
     "/s-admin/examManagements": "User Request List",
@@ -122,6 +140,7 @@ const AdminLayout = () => {
     "/s-admin/session-history": "Session History",
 
     "/s-admin/uiux-dashboard": "Dashboard",
+    "/s-admin/sessions-history": "Session History",
 
 
     // "/admin/leadlist": "Lead List",
@@ -250,7 +269,13 @@ const AdminLayout = () => {
         {
           key: "/s-admin/examlist",
           icon: <UnorderedListOutlined />,
-          label: "Exam List",
+          // label: "Exam List",
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Aptitude Test</div>
+              <div>List</div>
+            </div>
+          ),
           onClick: () => {
             navigate("/s-admin/examlist");
             setDrawerVisible(false);
@@ -274,7 +299,12 @@ const AdminLayout = () => {
     (role === "admin" || role === "superadmin") && {
       key: "/s-admin/reportsmanagement",
       icon: <FileTextFilled />,
-      label: "Aptitude Test Reports",
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Aptitude Test</div>
+          <div>Reports</div>
+        </div>
+      ),
       onClick: () => {
         navigate("/s-admin/reportsmanagement");
         setDrawerVisible(false);
@@ -297,7 +327,13 @@ const AdminLayout = () => {
         {
           key: "/s-admin/createslot",
           icon: <PlusCircleFilled />,
-          label: "Create Slot",
+          // label: "Create Counselling Slot",
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Create</div>
+              <div>Counselling Slot</div>
+            </div>
+          ),
           onClick: () => {
             navigate("/s-admin/createslot");
             setDrawerVisible(false);
@@ -306,7 +342,13 @@ const AdminLayout = () => {
         {
           key: "/s-admin/slotbooking",
           icon: <ClockCircleFilled />,
-          label: "Slot Booking",
+          // label: "Counselling Bookings",
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Counselling</div>
+              <div>Bookings</div>
+            </div>
+          ),
           onClick: () => {
             navigate("/s-admin/slotbooking");
             setDrawerVisible(false);
@@ -339,11 +381,11 @@ const AdminLayout = () => {
     },
 
     (role === "ui_ux") && {
-      key: "/s-admin/session-history",
+      key: "/s-admin/sessions-history",
       icon: <CalendarFilled />,
       label: "Session History",
       onClick: () => {
-        navigate("/s-admin/session-history");
+        navigate("/s-admin/sessions-history");
         setDrawerVisible(false);
       },
       style: { marginBottom: 12 },
@@ -362,20 +404,14 @@ const AdminLayout = () => {
     //   },
 
     (role === "admin" || role === "superadmin") && {
-      key: "/s-admin/userManagement",
+      key: "/s-admin/employeeList",
       icon: <TeamOutlined />,
       label: "User Management",
-      children: [
-        {
-          key: "/s-admin/employeeList",
-          icon: <UnorderedListOutlined />,
-          label: "User List",
-          onClick: () => {
-            navigate("/s-admin/employeeList");
-            setDrawerVisible(false);
-          },
-        },
-      ],
+      onClick: () => {
+        navigate("/s-admin/employeeList");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
     },
 
     //    (role === "lead_counsellor" || role === "counsellor") &&{
@@ -466,6 +502,13 @@ const AdminLayout = () => {
     </div>
   );
 
+  const getDashboardPath = () => {
+  if (role === "superadmin" || role === "admin") return "/s-admin/dashboard";
+  if (role === "counsellor" || role === "lead_counsellor") return "/s-admin/counsellor-dashboard";
+  if (role === "ui_ux") return "/s-admin/uiux-dashboard";
+  return "/s-admin/dashboard"; // fallback
+};
+
   return (
     <ConfigProvider theme={adminTheme}>
       <Layout style={{ minHeight: "100vh" }}>
@@ -483,31 +526,54 @@ const AdminLayout = () => {
           >
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
               {/* BRANDING */}
-              <div style={{ padding: "24px 16px", textAlign: "center" }}>
-                <div
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 700,
-                    color: adminTheme.token.colorTextPrimary,
-                    lineHeight: "26px",
-                  }}
-                >
-                  Career Counselling
-                </div>
+        
+{/* BRANDING */}
+<div
+  style={{
+    padding: "20px 16px",
+    textAlign: "center",
+       cursor: "pointer",
+  }}
+    onClick={() => navigate(getDashboardPath())}
+>
+  {/* LOGO */}
+  <img
+    src="/Abhinav-logo.jpg"
+    alt="Career Counselling"
+    style={{
+      width: 120,
+      height: "auto",
+      objectFit: "contain",
+      marginBottom: 8,
+    }}
+  />
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    marginTop: 6,
-                    color: adminTheme.token.colorTextTertiary,
-                    letterSpacing: "0.6px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {brandingLabel}
-                </div>
-              </div>
+  {/* TITLE */}
+  <div
+    style={{
+      fontSize: 18,
+      fontWeight: 700,
+      color: adminTheme.token.colorTextPrimary,
+      lineHeight: "24px",
+    }}
+  >
+    Career Counselling
+  </div>
+
+  {/* SUBTITLE */}
+  <div
+    style={{
+      fontSize: 11,
+      fontWeight: 500,
+      marginTop: 4,
+      color: adminTheme.token.colorTextTertiary,
+      letterSpacing: "0.6px",
+      textTransform: "uppercase",
+    }}
+  >
+    {brandingLabel}
+  </div>
+</div>
 
 
               {/* MENU - scrollable with small width scrollbar */}
@@ -554,29 +620,54 @@ const AdminLayout = () => {
             open={drawerVisible}
             onClose={() => setDrawerVisible(false)}
             closable={false}
-            title={
-              <div>
-                <div
-                  style={{
-                    fontSize: 18,
-                    fontWeight: 700,
-                    color: adminTheme.token.colorTextPrimary,
-                  }}
-                >
-                  Career Counselling
-                </div>
-                <div
-                  style={{
-                    fontSize: 12,
-                    marginTop: 4,
-                    color: adminTheme.token.colorTextTertiary,
-                    letterSpacing: "0.6px",
-                  }}
-                >
-                  {brandingLabel}
-                </div>
-              </div>
-            }
+           title={
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+        cursor: "pointer",
+    }}
+    onClick={() => {
+    navigate(getDashboardPath());
+    setDrawerVisible(false); // close drawer
+  }}
+  >
+    <img
+      src="/Abhinav-logo.jpg"
+      alt="Career Counselling"
+      style={{
+        width: 66,
+        height: "auto",
+        objectFit: "contain",
+      }}
+    />
+
+    <div>
+      <div
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          color: adminTheme.token.colorTextPrimary,
+          lineHeight: "18px",
+        }}
+      >
+        Career Counselling
+      </div>
+
+      <div
+        style={{
+          fontSize: 11,
+          marginTop: 2,
+          color: adminTheme.token.colorTextTertiary,
+          letterSpacing: "0.5px",
+        }}
+      >
+        {brandingLabel}
+      </div>
+    </div>
+  </div>
+}
             extra={
               <Button
                 type="text"
@@ -632,7 +723,16 @@ const AdminLayout = () => {
             {!screens.xs ? (
               <Breadcrumb items={breadcrumbItems} />
             ) : (
-              <Text strong style={{ fontSize: 16 }}>{brandingLabel}</Text>
+              <Text
+                strong
+                style={{
+                  fontSize: 13,
+                  lineHeight: "16px",
+                }}
+              >
+                {brandingLabel.split(" ")[0]} <br />
+                {brandingLabel.split(" ")[1]}
+              </Text>
             )}
 
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -650,7 +750,7 @@ const AdminLayout = () => {
               </Dropdown> */}
 
               <span>
-                <Badge count={unreadCount} size="small">
+                <Badge size="small">
                   <BellOutlined
                     style={{
                       fontSize: 20,
@@ -663,19 +763,43 @@ const AdminLayout = () => {
 
               {/* 👤 USER */}
               <Dropdown menu={userMenu} trigger={["click"]}>
-                <Space style={{ cursor: "pointer", alignItems: "center", gap: 8 }}>
-                  <Text
-                    strong
-                    title={displayLabel}
-                    style={{ fontSize: screens.xs ? 12 : undefined, maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                  >
-                    {screens.xs ? truncatedLabelMobile : truncatedLabel}
-                  </Text>
+                <Space style={{ cursor: "pointer", alignItems: "center", gap: 10 }}>
+
+                  <div style={{ lineHeight: "16px" }}>
+                    <Text
+                      strong
+                      title={displayLabel}
+                      style={{
+                        display: "block",
+                        fontSize: screens.xs ? 12 : 14,
+                        maxWidth: 140,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {displayLabel}
+                    </Text>
+
+                    <Tag
+                      color="blue"
+                      style={{
+                        marginTop: 2,
+                        fontSize: 10,
+                        padding: "0 6px",
+                        lineHeight: "16px",
+                      }}
+                    >
+                      {roleLabel}
+                    </Tag>
+                  </div>
+
                   <Avatar
                     size={screens.xs ? 32 : 40}
                     icon={<UserOutlined />}
                     style={{ backgroundColor: adminTheme.token.colorPrimary }}
                   />
+
                 </Space>
               </Dropdown>
 

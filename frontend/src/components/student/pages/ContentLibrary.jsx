@@ -16,9 +16,11 @@ import {
   SearchOutlined,
   InboxOutlined,
   LockOutlined,
+  DownCircleOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchContentList } from "../../../adminSlices/contentSlice";
+import { fetchContentList, incrementDownloadCount } from "../../../adminSlices/contentSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -84,11 +86,53 @@ const ContentLibrary = () => {
 
   // ================= VIEW HANDLER =================
   const handleView = (item) => {
-    if (item.accessType === "Premium") return;
+    if (item.accessType === "Premium" && !paymentCompleted) return;
 
     if (item.viewUrl) {
       window.open(item.viewUrl, "_blank");
     }
+  };
+
+
+  const paymentCompleted =
+    localStorage.getItem("paymentCompleted") === "true";
+
+
+  const handleDownload = async (url, fileName) => {
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch file");
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.setAttribute("download", fileName || "downloaded_file"); // Use passed filename or default
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      // Clean up URL object
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error("Download error:", err);
+    }
+  };
+
+  // ====================== handleDownloadClick ======================
+  const handleDownloadClick = (item) => {
+    // 1️⃣ Increment download count via API
+    dispatch(incrementDownloadCount(item.id));
+
+    // 2️⃣ Trigger actual file download
+    handleDownload(
+      item.viewUrl,
+      `${item.title?.replace(/\s+/g, "_")}.pdf`
+    );
   };
 
   return (
@@ -197,7 +241,7 @@ const ContentLibrary = () => {
                         height: "100%",
                         objectFit: "cover",
                         filter:
-                          item.accessType === "Premium"
+                          item.accessType === "Premium" && !paymentCompleted
                             ? "brightness(0.4)"
                             : "none",
                       }}
@@ -215,7 +259,7 @@ const ContentLibrary = () => {
                       {item.accessType.toUpperCase()}
                     </Tag>
 
-                    {item.accessType === "Premium" && (
+                    {item.accessType === "Premium" && !paymentCompleted && (
                       <div
                         style={{
                           position: "absolute",
@@ -291,22 +335,44 @@ const ContentLibrary = () => {
                       style={{
                         marginTop: "auto",
                         display: "flex",
-                        justifyContent: "flex-start",
+                        justifyContent: "space-between", // space between left and right
+                        alignItems: "center",
                       }}
                     >
+                      {/* Left side: View Content Button */}
                       <Button
                         type="link"
-                        disabled={item.accessType === "Premium"}
+                        disabled={item.accessType === "Premium" && !paymentCompleted}
                         style={{
                           padding: 0,
                           fontWeight: 600,
                         }}
                         onClick={() => handleView(item)}
                       >
-                        {item.accessType === "Premium"
-                          ? "Upgrade to Access →"
+                        {item.accessType === "Premium" && !paymentCompleted
+                          ? "Complete Payment to Unlock →"
                           : "View Content →"}
                       </Button>
+
+                      {/* Right side: Download Button - icon + text, only when content is unlocked and not a video */}
+                      {!(item.accessType === "Premium" && !paymentCompleted) &&
+                        item.viewUrl &&
+                        item.type !== "Video" && (
+                          <Button
+                            type="link"
+                            size="small"
+                            icon={<DownloadOutlined />}
+                            style={{
+                              fontWeight: 600,
+                              padding: "0 8px",
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                            onClick={(e) => handleDownloadClick(item, e)}
+                          >
+                            Download
+                          </Button>
+                        )}
                     </div>
                   </div>
                 </Card>

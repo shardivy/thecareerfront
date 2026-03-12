@@ -53,6 +53,7 @@ const {
   updateLoading,
   historyLoading,
   historyList,
+  remainingAmount
 } = useSelector((state) => state.payment);
 
 
@@ -467,15 +468,17 @@ const handleRejectConfirm = () => {
     
     {/* LEFT SIDE - Reject (Only for fully paid) */}
 <div style={{ display: "flex", gap: 8 }}>
-  {safeData.status === "fully_paid" && (
-    <Button
-      danger
-      onClick={handleRejectConfirm}
-      loading={verifyLoading}
-    >
-      Reject
-    </Button>
-  )}
+ {["fully_paid", "partial_paid"].includes(
+  safeData.status?.toLowerCase().replace(" ", "_")
+) && (
+  <Button
+    danger
+    onClick={handleRejectConfirm}
+    loading={verifyLoading}
+  >
+    Reject
+  </Button>
+)}
 </div>
 
 
@@ -798,11 +801,8 @@ const handleRejectConfirm = () => {
       const completedPayments =
         historyList?.filter((p) => p.status !== "not_paid") || [];
 
-      const totalRemaining = remainingPayments.reduce(
-        (sum, p) => sum + parseFloat(p.amount || 0),
-        0
-      );
-
+     const totalRemaining = remainingAmount || 0;
+     
       return (
         <>
           {/* ================= PAYMENT REMAINING ================= */}

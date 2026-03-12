@@ -134,6 +134,24 @@ const StudentProfile = () => {
     dispatch(fetchHobbies());
   }, [dispatch]);
 
+  // Show warning if profile is incomplete
+  useEffect(() => {
+    if (profile && profile.complete_profile === false) {
+      const shown = sessionStorage.getItem("profileWarningShown");
+
+      if (!shown) {
+        message.warning(
+          "Your profile is incomplete. Please update your profile to gain access to the dashboard.",
+          6
+        );
+
+        sessionStorage.setItem("profileWarningShown", "true");
+      }
+    }
+  }, [profile]);
+
+
+
   useEffect(() => {
     if (profile?.study_class) {
       const specs = specializationMap[profile.study_class] || [];
@@ -162,7 +180,8 @@ const StudentProfile = () => {
         preferred_counselling_mode: storedProfile.preferred_counselling_mode || "",
 
         specialization: storedProfile.specialization || "",
-        stream: storedProfile.program || "",
+      stream: storedProfile.stream?.stream_name || "",
+stream_id: storedProfile.stream?.stream_id || null,
         liked_subjects: storedProfile.liked_subjects
           ? storedProfile.liked_subjects.map((sub) => sub.id)
           : [],
@@ -175,16 +194,13 @@ const StudentProfile = () => {
           ? storedProfile.hobbies.map((hobby) => hobby.id)
           : [],
 
-        parent_name: storedProfile.parent_name || "",
         // Parent Mapping
+        parent_name: storedProfile.parent?.parent_name || "",
         profession: storedProfile.parent?.profession || "",
-        organization_name:
-          storedProfile.parent?.organization_name || "",
-        education_level:
-          storedProfile.parent?.education_level || "",
+        organization_name: storedProfile.parent?.organization_name || "",
+        education_level: storedProfile.parent?.education_level || "",
         background: storedProfile.parent?.background || "",
-        annual_income_range:
-          storedProfile.parent?.annual_income_range || "",
+        annual_income_range: storedProfile.parent?.annual_income_range || "",
         expectations_from_student:
           storedProfile.parent?.expectations_from_student || "",
 
@@ -267,43 +283,43 @@ const StudentProfile = () => {
         hobby_ids: profile.hobbies || [],
       };
 
-     // ✅ 1. Update
-    await dispatch(updateProfile(payload)).unwrap();
+      // ✅ 1. Update
+      await dispatch(updateProfile(payload)).unwrap();
 
-    // ✅ 2. Reload profile ONLY ONCE
-    const updatedProfile = await dispatch(getProfile()).unwrap();
+      // ✅ 2. Reload profile ONLY ONCE
+      const updatedProfile = await dispatch(getProfile()).unwrap();
 
-    // message.success("Profile updated successfully!");
+      // message.success("Profile updated successfully!");
 
-  // ✅ 3. Navigate conditionally with countdown
-    if (updatedProfile.complete_profile) {
-      let seconds = 3;
-      const key = "redirectMessage";
+      // ✅ 3. Navigate conditionally with countdown
+      if (updatedProfile.complete_profile) {
+        let seconds = 3;
+        const key = "redirectMessage";
 
-      message.success({
-        content: `Profile updated successfully! Redirecting to dashboard in ${seconds} seconds...`,
-        key,
-        duration: 0,
-      });
+        message.success({
+          content: `Profile updated successfully! Redirecting to dashboard in ${seconds} seconds...`,
+          key,
+          duration: 0,
+        });
 
-      const interval = setInterval(() => {
-        seconds -= 1;
+        const interval = setInterval(() => {
+          seconds -= 1;
 
-        if (seconds > 0) {
-          message.success({
-            content: `Profile updated successfully! Redirecting to dashboard in ${seconds} seconds...`,
-            key,
-            duration: 0,
-          });
-        } else {
-          clearInterval(interval);
-          message.destroy(key);
-          navigate("/student/dashboard");
-        }
-      }, 1000);
-    } else {
-      message.success("Profile updated successfully!");
-    }
+          if (seconds > 0) {
+            message.success({
+              content: `Profile updated successfully! Redirecting to dashboard in ${seconds} seconds...`,
+              key,
+              duration: 0,
+            });
+          } else {
+            clearInterval(interval);
+            message.destroy(key);
+            navigate("/student/dashboard");
+          }
+        }, 1000);
+      } else {
+        message.success("Profile updated successfully!");
+      }
 
     } catch (error) {
       console.error("Update error:", error);
@@ -327,63 +343,63 @@ const StudentProfile = () => {
   //     </div>
   //   );
   // }
-if (!profile) return null;
+  if (!profile) return null;
 
 
 
   return (
-   <div
-  style={{
-    padding: screens.xs ? 12 : 24,
-      position: "relative",
-    minHeight: "100vh",
-    maxWidth: 800,
-    margin: "0 auto",
-  }}
->
-
-  {/* BACK ARROW */}
-  {profile.complete_profile && (
-  <div
-    onClick={() => navigate("/student/dashboard")}
-    style={{
-      marginBottom: 16,
-      display: "inline-flex",
-      // alignItems: "center",
-      cursor: "pointer",
-      color: token.colorPrimary,
-      fontWeight: 500,
-      fontSize: 16,
-      marginLeft: -276,
-    }}
-  >
-    <ArrowLeftOutlined style={{ marginRight: 8 }} />
-    Back to Dashboard
-  </div>
-)}
-
-  {/* HEADER */}
-  <Card style={{ marginBottom: -1, background: token.colorPrimary  }}>
-    <Row
-      align="middle"
-      gutter={[16, 16]}
-      justify={screens.xs ? "center" : "start"}
+    <div
+      style={{
+        padding: screens.xs ? 12 : 24,
+        position: "relative",
+        minHeight: "100vh",
+        maxWidth: 800,
+        margin: "0 auto",
+      }}
     >
-      <Col>
-        <Avatar size={screens.xs ? 60 : 80} icon={<UserOutlined />} />
-      </Col>
 
-      <Col>
-        <Title level={3} style={{ margin: 0, color: "#fff" }}>
-          {profile.name}
-        </Title>
+      {/* BACK ARROW */}
+      {profile.complete_profile && (
+        <div
+          onClick={() => navigate("/student/dashboard")}
+          style={{
+            marginBottom: 16,
+            display: "inline-flex",
+            // alignItems: "center",
+            cursor: "pointer",
+            color: token.colorPrimary,
+            fontWeight: 500,
+            fontSize: 16,
+            marginLeft: -276,
+          }}
+        >
+          <ArrowLeftOutlined style={{ marginRight: 8 }} />
+          Back to Dashboard
+        </div>
+      )}
 
-        <Tag color="gold" icon={<CrownOutlined />}>
-          {profile.package || "Premium"}
-        </Tag>
-      </Col>
-    </Row>
-  </Card>
+      {/* HEADER */}
+      <Card style={{ marginBottom: -1, background: token.colorPrimary }}>
+        <Row
+          align="middle"
+          gutter={[16, 16]}
+          justify={screens.xs ? "center" : "start"}
+        >
+          <Col>
+            <Avatar size={screens.xs ? 60 : 80} icon={<UserOutlined />} />
+          </Col>
+
+          <Col>
+            <Title level={3} style={{ margin: 0, color: "#fff" }}>
+              {profile.name}
+            </Title>
+
+            <Tag color="gold" icon={<CrownOutlined />}>
+              {profile.package || "Premium"}
+            </Tag>
+          </Col>
+        </Row>
+      </Card>
 
 
       {/* ================= FORM SECTION ================= */}

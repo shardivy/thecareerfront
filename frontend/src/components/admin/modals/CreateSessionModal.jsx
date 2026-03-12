@@ -21,7 +21,7 @@ import {
   updateCounsellingBooking,
   markCounsellingBookingCompleted,
 } from "../../../adminSlices/counsellingBookingSlice";
-import { fetchStudents } from "../../../adminSlices/userSlice";
+import { fetchPendingPaymentStudents } from "../../../adminSlices/paymentSlice";
 import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
 import { fetchSlotsByDate } from "../../../adminSlices/counsellingSlotSlice";
 
@@ -33,20 +33,25 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
   const dispatch = useDispatch();
   const isView = mode === "view";
   const isBookingMode =
-  mode === "edit" && data?.status === "not_booked";
+    mode === "edit" && data?.status === "not_booked";
 
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [primaryCounsellorId, setPrimaryCounsellorId] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [markCompletedEnabled, setMarkCompletedEnabled] = useState(false);
   const [filter, setFilter] = useState(mode === "view" ? "Booked" : "All"); // Default filter
 
-  const students = useSelector((state) => state.users.list ?? []);
-  const studentsLoading = useSelector((state) => state.users.loading);
+  const students = useSelector(
+    (state) => state.payment.pendingStudents ?? []
+  );
 
+  const studentsLoading = useSelector(
+    (state) => state.payment.pendingStudentsLoading
+  );
   const counsellors = useSelector((state) => state.counsellors.list ?? []);
   const counsellorsLoading = useSelector((state) => state.counsellors.loading);
 
-const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? []);
+  const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? []);
   const slotsLoading = useSelector((state) => state.counsellingSlots.loading);
 
   const bookingLoading = useSelector((state) => state.counsellingBooking.loading);
@@ -54,7 +59,7 @@ const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? 
   // ================= FETCH DROPDOWNS =================
   useEffect(() => {
     if (visible && !isView) {
-      dispatch(fetchStudents());
+      dispatch(fetchPendingPaymentStudents());
       dispatch(fetchLeadCounsellors());
     }
   }, [visible, dispatch, isView]);
@@ -90,39 +95,51 @@ const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? 
 
 
   // ================= PREFILL CREATE / EDIT / VIEW =================
-useEffect(() => {
-  if (!visible || !data) return;
-  if (!students.length || !counsellors.length) return;
+  useEffect(() => {
+    if (!visible || !data) return;
+    if (!students.length || !counsellors.length) return;
 
-  const lead = data.counsellors?.find((c) => c.role === "lead");
-  const assistant = data.counsellors?.find((c) => c.role === "assistant");
+    const lead = data.counsellors?.find((c) => c.role === "lead");
+    const assistant = data.counsellors?.find((c) => c.role === "assistant");
 
-  // Determine mode for prefill (from student preference or slot)
-  const prefillMode =
-    data.student?.preferred_counselling_mode?.toLowerCase() === "online"
-      ? "Online"
-      : data.student?.preferred_counselling_mode?.toLowerCase() === "offline"
-      ? "Offline"
-      : data.slot?.mode
-      ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
-      : undefined;
+    // Determine mode for prefill (from student preference or slot)
+    const prefillMode =
+      data.student?.preferred_counselling_mode?.toLowerCase() === "online"
+        ? "Online"
+        : data.student?.preferred_counselling_mode?.toLowerCase() === "offline"
+          ? "Offline"
+          : data.slot?.mode
+            ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
+            : undefined;
 
-  form.setFieldsValue({
-    student: data.student?.id,
-    mode: prefillMode,
-    primaryCounsellor: lead
-      ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
-      : null,
-    secondaryCounsellor: assistant
-      ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
-      : null,
-    date: data.date ? dayjs(data.date) : null,
-  });
+    form.setFieldsValue({
+student: {
+  value: data.student?.id,
+  label: (
+    <div>
+      <div>
+        {data.student?.first_name || ""} {data.student?.last_name || ""}
+      </div>
+      <div style={{ fontSize: 12, color: "#888" }}>
+        {data.student?.email || ""}
+      </div>
+    </div>
+  ),
+},
+      mode: prefillMode,
+      primaryCounsellor: lead
+        ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
+        : null,
+      secondaryCounsellor: assistant
+        ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
+        : null,
+      date: data.date ? dayjs(data.date) : null,
+    });
 
-  setPrimaryCounsellorId(lead?.counsellor?.id || null);
-  setSelectedDate(data.date ? dayjs(data.date) : null);
-  setSelectedSlot(data.slot || null);
-}, [visible, data, students, counsellors, form]);
+    setPrimaryCounsellorId(lead?.counsellor?.id || null);
+    setSelectedDate(data.date ? dayjs(data.date) : null);
+    setSelectedSlot(data.slot || null);
+  }, [visible, data, students, counsellors, form]);
 
   // ================= FETCH SLOTS =================
   useEffect(() => {
@@ -154,7 +171,7 @@ useEffect(() => {
       }
 
       const payload = {
-        student_id: values.student,
+       student_id: values.student.value,
         date: values.date.format("YYYY-MM-DD"),
         slots: [selectedSlot.id],
         counsellors_data: [
@@ -171,23 +188,23 @@ useEffect(() => {
         .unwrap()
         .then(() => {
           message.success(mode === "edit" ? "Session updated successfully" : "Session booked successfully");
-           resetModal(); 
+          resetModal();
           onSave?.();
           onClose();
         })
         .catch((err) => {
-    // err could be string or object { message: "..." }
-    const errorMsg =
-      typeof err === "string" ? err :
-      err?.message ? err.message :
-      "Booking failed";
+          // err could be string or object { message: "..." }
+          const errorMsg =
+            typeof err === "string" ? err :
+              err?.message ? err.message :
+                "Booking failed";
 
-    message.error(errorMsg);
+          message.error(errorMsg);
+        });
     });
-      });
   };
 
-    /* ================= RESET FUNCTION ================= */
+  /* ================= RESET FUNCTION ================= */
   const resetModal = () => {
     form.resetFields();
     setSelectedSlot(null);
@@ -196,45 +213,65 @@ useEffect(() => {
     setFilter(mode === "view" ? "Booked" : "All");
   };
 
-// ================= MARK AS COMPLETED =================
-const handleMarkCompleted = () => {
-  if (!data?.id) return;
+  // ================= MARK AS COMPLETED =================
+  const handleMarkCompleted = () => {
+    if (!data?.id) return;
 
-  Modal.confirm({
-    title: "Mark Session as Completed",
-    content: "Are you sure you want to mark this session as completed?",
-    okText: "Yes",
-    cancelText: "No",
-    onOk: () => {
-      dispatch(markCounsellingBookingCompleted(data.id))
-        .unwrap()
-        .then(() => {
-          message.success("Session marked as completed");
-          resetModal();
-          onSave?.();
-          onClose();
-        })
-        .catch((err) => message.error(err));
-    },
-  });
-};
+    Modal.confirm({
+      title: "Mark Session as Completed",
+      content: "Are you sure you want to mark this session as completed?",
+      okText: "Yes",
+      cancelText: "No",
+      onOk: () => {
+        dispatch(markCounsellingBookingCompleted(data.id))
+          .unwrap()
+          .then(() => {
+            message.success("Session marked as completed");
+            resetModal();
+            onSave?.();
+            onClose();
+          })
+          .catch((err) => message.error(err));
+      },
+    });
+  };
 
-const isSlotExpired = (slot) => {
-  if (!selectedDate) return false;
 
-  const today = dayjs().format("YYYY-MM-DD");
-  const selected = dayjs(selectedDate).format("YYYY-MM-DD");
+  useEffect(() => {
+    if (!data?.slot || !data.date) return;
 
-  // Only check time if selected date is today
-  if (today !== selected) return false;
+    const updateButtonState = () => {
+      const sessionDate = dayjs(data.date).format("YYYY-MM-DD");
+      const slotStart = dayjs(`${sessionDate} ${data.slot.start_time}`, "YYYY-MM-DD hh:mm A");
+      const fifteenMinutesBefore = slotStart.subtract(15, "minute");
+      setMarkCompletedEnabled(dayjs().isAfter(fifteenMinutesBefore));
+    };
 
-  const slotStart = dayjs(
-    `${selected} ${slot.start_time}`,
-    "YYYY-MM-DD hh:mm A"
-  );
+    // Initial check
+    updateButtonState();
 
-  return dayjs().isAfter(slotStart);
-};
+    // Update every 30 seconds
+    const interval = setInterval(updateButtonState, 30 * 1000);
+
+
+    return () => clearInterval(interval);
+  }, [data]);
+  const isSlotExpired = (slot) => {
+    if (!selectedDate) return false;
+
+    const today = dayjs().format("YYYY-MM-DD");
+    const selected = dayjs(selectedDate).format("YYYY-MM-DD");
+
+    // Only check time if selected date is today
+    if (today !== selected) return false;
+
+    const slotStart = dayjs(
+      `${selected} ${slot.start_time}`,
+      "YYYY-MM-DD hh:mm A"
+    );
+
+    return dayjs().isAfter(slotStart);
+  };
 
   // ================= UI =================
   return (
@@ -242,152 +279,159 @@ const isSlotExpired = (slot) => {
       <Modal
         open={visible}
         width={820}
-       title={
-  isView
-    ? "View Counselling Session"
-    : isBookingMode
-    ? "Book Counselling Session"
-    : mode === "edit"
-    ? "Edit Counselling Session"
-    : "Create Counselling Session"
-}  onCancel={() => {
-  resetModal();
-  onClose();
-}}
-
- footer={
-  isView ? (
-    <Button key="close" onClick={onClose}>
-      Close
-    </Button>
-) : mode === "edit" ? (
-  <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-    
-    {/* Show Mark as Completed ONLY if not booking mode */}
-    {!isBookingMode && (
-      <Button
-        key="mark"
-        type="primary"
-        onClick={handleMarkCompleted}
-        disabled={data?.status === "completed"}
-        style={{
-          backgroundColor: "#349304",
-          borderColor: "#52c41a",
-          color: "#fff",
+        title={
+          isView
+            ? "View Counselling Session"
+            : isBookingMode
+              ? "Book Counselling Session"
+              : mode === "edit"
+                ? "Edit Counselling Session"
+                : "Create Counselling Session"
+        } onCancel={() => {
+          resetModal();
+          onClose();
         }}
+
+        footer={
+          isView ? (
+            <Button key="close" onClick={onClose}>
+              Close
+            </Button>
+          ) : mode === "edit" ? (
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+
+              {/* Show Mark as Completed ONLY if not booking mode */}
+              {!isBookingMode && (
+                <Button
+                  key="mark"
+                  type="primary"
+                  onClick={handleMarkCompleted}
+                  disabled={data?.status === "completed" || !markCompletedEnabled}
+                  style={{
+                    backgroundColor:
+                      data?.status === "completed" || !markCompletedEnabled
+                        ? "#d9d9d9" // Gray when disabled
+                        : "#349304", // Green when enabled
+                    borderColor:
+                      data?.status === "completed" || !markCompletedEnabled
+                        ? "#d9d9d9"
+                        : "#52c41a",
+                    color:
+                      data?.status === "completed" || !markCompletedEnabled
+                        ? "rgba(0,0,0,0.25)" // gray text for disabled
+                        : "#fff",
+                  }}
+                >
+                  Mark as Completed
+                </Button>
+              )}
+
+              <div style={{ marginLeft: "auto" }}>
+                <Button key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
+                  Cancel
+                </Button>
+                <Button
+                  key="submit"
+                  type="primary"
+                  loading={bookingLoading}
+                  onClick={handleSubmit}
+                >
+                  {isBookingMode ? "Book Session" : "Update"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // Create mode
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <Button key="cancel" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                key="submit"
+                type="primary"
+                loading={bookingLoading}
+                onClick={handleSubmit}
+                style={{ marginLeft: 8 }}
+              >
+                Confirm Booking
+              </Button>
+            </div>
+          )
+        }
+
+
       >
-        Mark as Completed
-      </Button>
-    )}
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={(changed, allValues) => {
 
-    <div style={{ marginLeft: "auto" }}>
-      <Button key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
-        Cancel
-      </Button>
-      <Button
-        key="submit"
-        type="primary"
-        loading={bookingLoading}
-        onClick={handleSubmit}
-      >
-        {isBookingMode ? "Book Session" : "Update"}
-      </Button>
-    </div>
-  </div>
-  ) : (
-    // Create mode
-    <div style={{ display: "flex", justifyContent: "flex-end" }}>
-      <Button key="cancel" onClick={onClose}>
-        Cancel
-      </Button>
-      <Button
-        key="submit"
-        type="primary"
-        loading={bookingLoading}
-        onClick={handleSubmit}
-        style={{ marginLeft: 8 }}
-      >
-        Confirm Booking
-      </Button>
-    </div>
-  )
-}
+            // When student changes
+            if (changed.student) {
 
+              const selectedStudent = students.find(
+                (s) => (s.student_id || s.id) === changed.student?.value
+              );
 
-      >
-       <Form
-  form={form}
-  layout="vertical"
-  onValuesChange={(changed, allValues) => {
-    // When student changes
-  if (changed.student) {
-    const selectedStudent = students.find(
-      (s) => s.id === changed.student
-    );
+              const backendMode = selectedStudent?.preferred_counselling_mode;
 
-    const backendMode = selectedStudent?.preferred_counselling_mode;
+              if (backendMode && backendMode !== "Not Specified") {
 
-    if (
-      backendMode &&
-      backendMode !== "Not Specified"
-    ) {
-      // Convert "online" -> "Online"
-      const formattedMode =
-        backendMode.charAt(0).toUpperCase() +
-        backendMode.slice(1).toLowerCase();
+                const formattedMode =
+                  backendMode.charAt(0).toUpperCase() +
+                  backendMode.slice(1).toLowerCase();
 
-      form.setFieldsValue({
-        mode: formattedMode,
-      });
-    }
-  }
+                form.setFieldsValue({
+                  mode: formattedMode,
+                });
+              }
+            }
 
-  if (changed.primaryCounsellor)
-    setPrimaryCounsellorId(changed.primaryCounsellor.value);
+            if (changed.primaryCounsellor)
+              setPrimaryCounsellorId(changed.primaryCounsellor.value);
 
-  if (changed.date)
-    setSelectedDate(changed.date);
-}}
->
+            if (changed.date)
+              setSelectedDate(changed.date);
+          }}
+        >
           {/* ================= STUDENT & MODE ================= */}
           <Row gutter={16}>
             <Col span={12}>
-             <Form.Item
-  label="Student"
-  name="student"
-  rules={[{ required: true }]}
->
-  <Select
-    disabled={isView}
-    loading={studentsLoading}
-    showSearch
-    optionFilterProp="label"
-  >
-    {students.map((s) => (
-      <Option
-        key={s.id}
-        value={s.id}
-        label={`${s.first_name} ${s.last_name} (${s.email})`}
-      >
-        <div>
-          <div strong>
-            {s.first_name} {s.last_name}
-          </div>
-          <div>
-            {s.email}
-          </div>
-        </div>
-      </Option>
-    ))}
-  </Select>
-</Form.Item>
+              <Form.Item
+                label="Student"
+                name="student"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  disabled={isView}
+                  loading={studentsLoading}
+                  showSearch
+                  optionFilterProp="label"
+                    labelInValue
+                >
+                  {students.map((s) => (
+                    <Option
+                      key={s.student_id || s.id}
+                      value={s.student_id || s.id}
+                      label={`${s.name}  (${s.email})`}
+                    >
+                      <div>
+                        <div>
+                          {s.name}
+                        </div>
+                        <div>{s.email}</div>
+                      </div>
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="Mode" name="mode" rules={[{ required: true }]}>
-               <Select disabled>
-  <Option value="Online">Online</Option>
-  <Option value="Offline">Offline</Option>
-</Select>
+                <Select disabled>
+                  <Option value="Online">Online</Option>
+                  <Option value="Offline">Offline</Option>
+                </Select>
               </Form.Item>
             </Col>
           </Row>
@@ -421,8 +465,8 @@ const isSlotExpired = (slot) => {
             <DatePicker disabled={isView} style={{ width: "100%" }} disabledDate={(d) => d && d < dayjs().startOf("day")} />
           </Form.Item>
 
-  
-           {/* ================= SLOTS ================= */}
+
+          {/* ================= SLOTS ================= */}
           <Form.Item label={<Text strong>Slot</Text>}>
             <Row gutter={[8, 8]}>
               {slotsLoading ? (
@@ -432,7 +476,7 @@ const isSlotExpired = (slot) => {
                   <Col key={slot.id}>
                     <Button
                       type={selectedSlot?.id === slot.id && slot.status === "available" ? "primary" : "default"}
-                   disabled={slot.status === "booked" || isSlotExpired(slot)}
+                      disabled={slot.status === "booked" || isSlotExpired(slot)}
                       onClick={() => {
                         if (slot.status === "available") setSelectedSlot(slot);
                       }}

@@ -41,6 +41,7 @@ import PaymentPage from "./components/student/pages/PaymentPage";
 import CounsellorDashboard from "./components/counsellor/pages/CounsellorDashboard";
 import SessionHistory from "./components/counsellor/pages/SessionHistory";
 import UiUxDashboard from "./components/ui-ux/pages/UiUxDashboard";
+import SessionsHistory from "./components/ui-ux/pages/SessionsHistory";
 
 
 
@@ -104,6 +105,8 @@ const App = () => {
           <Route path="session-history" element={<SessionHistory />} />
 
           <Route path="uiux-dashboard" element={<UiUxDashboard />} />
+          <Route path="sessions-history" element={<SessionsHistory />} />
+          
 
 
        

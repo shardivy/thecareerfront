@@ -28,7 +28,7 @@ import adminTheme from "../../../theme/adminTheme";
 import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
 import StudentProfileModal from "../modals/StudentProfileModal";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchMyStudents, fetchCounsellorDashboardCount } from "../../../adminSlices/counsellorSlice";
+import { fetchMyStudentsNew, fetchCounsellorDashboardCount, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
 import { getStudentProfile } from "../../../adminSlices/profileSlice";
 import { markCounsellingBookingCompleted } from "../../../adminSlices/counsellingBookingSlice";
 
@@ -50,7 +50,7 @@ const CounsellorDashboard = () => {
   const [locationModal, setLocationModal] = useState(false);
   const dispatch = useDispatch();
 
-  const { students, studentsLoading } = useSelector(
+  const { students, studentsLoading, notes } = useSelector(
     (state) => state.counsellors
   );
 
@@ -59,16 +59,16 @@ const CounsellorDashboard = () => {
   );
 
   const { dashboardStats, dashboardLoading } = useSelector(
-  (state) => state.counsellors
-);
+    (state) => state.counsellors
+  );
 
   useEffect(() => {
-    dispatch(fetchMyStudents());
+      dispatch(fetchMyStudentsNew());
   }, [dispatch]);
 
   useEffect(() => {
-  dispatch(fetchCounsellorDashboardCount(period));
-}, [dispatch, period]);
+    dispatch(fetchCounsellorDashboardCount(period));
+  }, [dispatch, period]);
 
 
 
@@ -88,198 +88,204 @@ const CounsellorDashboard = () => {
       endTime,
       mode: item.mode === "online" ? "Online" : "Offline",
       status: item.status,
+      preferredMode: item.preferred_counselling_mode === "online" ? "Online" : "Offline",
     };
   });
 
-const columns = [
-  {
-    title: "Sr No",
-    key: "serial",
-    width: 80,
-    render: (_, __, index) =>
-      (pagination.current - 1) * pagination.pageSize + index + 1,
-  },
-  {
-    title: "User Name",
-    dataIndex: "studentName",
-    render: (text, record) => (
-      <div>
-        <div style={{ fontWeight: 600 }}>{record.studentName}</div>
-        <div>{record.studentEmail}</div>
-      </div>
-    ),
-  },
-  {
-    title: "Date",
-    dataIndex: "date",
-    render: (date) => dayjs(date).format("DD-MM-YYYY"),
-  },
-  {
-    title: "Slot Time",
-    render: (_, record) =>
-      `${dayjs(record.startTime, "HH:mm").format("hh:mm A")} - 
-       ${dayjs(record.endTime, "HH:mm").format("hh:mm A")}`,
-  },
-  {
-    title: "Mode",
-    dataIndex: "mode",
-    render: (mode) =>
-      mode === "Online" ? (
-        <Tag color="green">Online</Tag>
-      ) : (
-        <Tag color="blue">Offline</Tag>
+  const columns = [
+    {
+      title: "Sr No",
+      key: "serial",
+      width: 80,
+      render: (_, __, index) =>
+        (pagination.current - 1) * pagination.pageSize + index + 1,
+    },
+    {
+      title: "User Name",
+      dataIndex: "studentName",
+      render: (text, record) => (
+        <div>
+          <div style={{ fontWeight: 600 }}>{record.studentName}</div>
+          <div>{record.studentEmail}</div>
+        </div>
       ),
-  },
-{
-  title: "Actions",
-  render: (_, record) => {
+    },
+    {
+      title: "Date",
+      dataIndex: "date",
+      render: (date) => dayjs(date).format("DD-MM-YYYY"),
+      width: 120,
+    },
+    {
+      title: "Slot Time",
+      render: (_, record) => `${record.startTime} - ${record.endTime}`,
+    },
+    {
+      title: "Preferred Counselling Mode",
+      dataIndex: "preferredMode",
+      width: 140,
+      render: (mode) => (
+        <div style={{ whiteSpace: "normal", lineHeight: "18px" }}>
+          {mode === "Online" ? (
+            <Tag color="green">Online</Tag>
+          ) : (
+            <Tag color="blue">Offline</Tag>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: "Actions",
+      render: (_, record) => {
 
-    const now = dayjs();
+        const now = dayjs();
 
-    const sessionStart = dayjs(
-      `${record.date} ${record.startTime}`,
-      "YYYY-MM-DD hh:mm A"
-    );
+        const sessionStart = dayjs(
+          `${record.date} ${record.startTime}`,
+          "YYYY-MM-DD hh:mm A"
+        );
 
-    const sessionEnd = dayjs(
-      `${record.date} ${record.endTime}`,
-      "YYYY-MM-DD hh:mm A"
-    );
+        const sessionEnd = dayjs(
+          `${record.date} ${record.endTime}`,
+          "YYYY-MM-DD hh:mm A"
+        );
 
-    const isJoinEnabled =
-      now.isAfter(sessionStart.subtract(5, "minute")) &&
-      now.isBefore(sessionEnd);
+        const isJoinEnabled =
+          now.isAfter(sessionStart.subtract(5, "minute")) &&
+          now.isBefore(sessionEnd);
 
-    const showCompleteButton =
-      record.status !== "completed" &&
-      now.isAfter(sessionStart.subtract(15, "minute"));
+        const showCompleteButton =
+          record.status !== "completed" &&
+          now.isAfter(sessionStart.subtract(15, "minute"));
 
-    const isSessionOver = now.isAfter(sessionEnd);
+        const isSessionOver = now.isAfter(sessionEnd);
 
-    return (
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          flexWrap: "wrap",
-          flexDirection: screens.xs ? "column" : "row",
-        }}
-      >
-
-        {/* ALWAYS SHOW PROFILE BUTTON */}
-        <Button
-          icon={<UserOutlined />}
-          onClick={() => {
-            dispatch(getStudentProfile(record.student_id))
-              .unwrap()
-              .then(() => setProfileModal(true))
-              .catch(() =>
-                message.error("Failed to load student profile")
-              );
-          }}
-        >
-          View Profile
-        </Button>
-
-        {/* ONLINE SESSION */}
-        {record.mode === "Online" && !isSessionOver && (
-          <Button
-            type="primary"
-            icon={<VideoCameraOutlined />}
-            disabled={!isJoinEnabled}
-            onClick={() => {
-              window.open(
-                "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
-                "_blank"
-              );
-            }}
-          >
-            Join
-          </Button>
-        )}
-
-        {/* OFFLINE SESSION */}
-        {record.mode === "Offline" && !isSessionOver && (
-          <Button
-            type="primary"
-            icon={<EnvironmentOutlined />}
-            onClick={() => {
-              setSelectedSession({
-                ...record,
-                location: staticLocation,
-              });
-              setLocationModal(true);
-            }}
-          >
-            Location Details
-          </Button>
-        )}
-
-        {/* SESSION COMPLETED */}
-        {record.status === "completed" && (
-          <Button
-            type="primary"
-            icon={<CheckCircleOutlined />}
-            disabled
-          >
-            Completed
-          </Button>
-        )}
-
-        {/* MARK COMPLETE */}
-        {record.status !== "completed" && showCompleteButton && (
-          <Button
-            type="primary"
-            icon={<CheckCircleOutlined />}
+        return (
+          <div
             style={{
-              backgroundColor: "#52c41a",
-              borderColor: "#52c41a",
-            }}
-            onClick={() => {
-              setSelectedSession(record);
-              setConfirmModal(true);
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              flexDirection: screens.xs ? "column" : "row",
             }}
           >
-            Mark as Complete
-          </Button>
-        )}
 
-        {/* ADD NOTES */}
-        {(isSessionOver || record.status === "completed") && (
-          <Button
-            icon={<FileTextOutlined />}
-            onClick={() => {
-              setSelectedSession(record);
-              setNotesModal(true);
-            }}
-          >
-            Add Notes
-          </Button>
-        )}
+            {/* ALWAYS SHOW PROFILE BUTTON */}
+            <Button
+              icon={<UserOutlined />}
+              onClick={() => {
+                dispatch(getStudentProfile(record.student_id))
+                  .unwrap()
+                  .then(() => setProfileModal(true))
+                  .catch(() =>
+                    message.error("Failed to load student profile")
+                  );
+              }}
+            >
+              View Profile
+            </Button>
 
-      </div>
-    );
-  },
-}
-];
+            {/* ONLINE SESSION */}
+            {record.preferredMode === "Online" && !isSessionOver && (
+              <Button
+                type="primary"
+                icon={<VideoCameraOutlined />}
+                disabled={!isJoinEnabled}
+                onClick={() => {
+                  window.open(
+                    "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
+                    "_blank"
+                  );
+                }}
+              >
+                Join
+              </Button>
+            )}
+
+            {/* OFFLINE SESSION */}
+            {record.preferredMode === "Offline" && !isSessionOver && (
+              <Button
+                type="primary"
+                icon={<EnvironmentOutlined />}
+                onClick={() => {
+                  setSelectedSession({
+                    ...record,
+                    location: staticLocation,
+                  });
+                  setLocationModal(true);
+                }}
+              >
+                Location Details
+              </Button>
+            )}
+
+            {/* SESSION COMPLETED */}
+            {record.status === "completed" && (
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                disabled
+              >
+                Completed
+              </Button>
+            )}
+
+            {/* MARK COMPLETE */}
+            {record.status !== "completed" && showCompleteButton && (
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                style={{
+                  backgroundColor: "#52c41a",
+                  borderColor: "#52c41a",
+                }}
+                onClick={() => {
+                  setSelectedSession(record);
+                  setConfirmModal(true);
+                }}
+              >
+                Mark as Complete
+              </Button>
+            )}
+
+            {/* ADD NOTES */}
+            {/* {(isSessionOver || record.status === "completed") && ( */}
+            <Button
+              icon={<FileTextOutlined />}
+              onClick={() => {
+                dispatch(fetchCounsellingNote(record.id)).then(() => {
+                  setSelectedSession(record);
+                  setNotesModal(true);
+                });
+              }}
+            >
+              View / Add Notes
+            </Button>
+            {/* )} */}
+
+          </div>
+        );
+      },
+    }
+  ];
 
   const stats = [
-  {
-    title: "Assigned Students",
-    value: dashboardStats.assignedStudents,
-    icon: <TeamOutlined />,
-  },
-  {
-    title: "Upcoming Sessions",
-    value: dashboardStats.upcomingSessions,
-    icon: <CalendarOutlined />,
-  },
-  {
-    title: "Completed Sessions",
-    value: dashboardStats.completedSessions,
-    icon: <CalendarOutlined />,
-  },
-];
+    {
+      title: "Assigned Students",
+      value: dashboardStats.assignedStudents,
+      icon: <TeamOutlined />,
+    },
+    {
+      title: "Upcoming Sessions",
+      value: dashboardStats.upcomingSessions,
+      icon: <CalendarOutlined />,
+    },
+    {
+      title: "Completed Sessions",
+      value: dashboardStats.completedSessions,
+      icon: <CalendarOutlined />,
+    },
+  ];
 
   const staticLocation = {
     officeName: "Abhinav Career Scope",
@@ -341,14 +347,14 @@ const columns = [
       {/* TABLE */}
       <Row style={{ marginTop: 30 }}>
         <Col span={24}>
-          <Card title={`Upcoming Sessions (${upcomingSessions.length})`}>
+          <Card title={`All Sessions (${upcomingSessions.length})`}>
             <div style={{ overflowX: "auto" }}>
               <Table
                 columns={columns}
                 dataSource={upcomingSessions}
                 loading={studentsLoading}
                 rowKey="id"
-                scroll={{ x: 1015 }}
+                scroll={{ x: 1150 }}
                 pagination={{
                   ...pagination,
                   total: upcomingSessions.length,
@@ -364,7 +370,7 @@ const columns = [
         </Col>
       </Row>
 
-      {/* COMPLETE MODAL */}
+
       {/* COMPLETE MODAL */}
       <Modal
         title="Confirm Completion"
@@ -383,8 +389,13 @@ const columns = [
 
             message.success("Session marked as completed!");
 
+            // ✅ Refresh sessions list
+            dispatch(fetchMyStudents());
+
+            // ✅ Refresh notes for that session
+            dispatch(fetchCounsellingNote(selectedSession.id));
+
             setConfirmModal(false);
-            setSelectedSession(null);
           } catch (error) {
             message.error(error || "Failed to mark session as completed");
           }
@@ -415,15 +426,15 @@ const columns = [
           <Button key="close" onClick={() => setLocationModal(false)}>
             Close
           </Button>,
-          <Button key="map" type="primary" onClick={() => {
-            const address = `${selectedSession.location.officeName}, ${selectedSession.location.area}, ${selectedSession.location.city}`;
-            window.open(
-              `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-              "_blank"
-            );
-          }}>
-            Open in Google Maps
-          </Button>,
+          // <Button key="map" type="primary" onClick={() => {
+          //   const address = `${selectedSession.location.officeName}, ${selectedSession.location.area}, ${selectedSession.location.city}`;
+          //   window.open(
+          //     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
+          //     "_blank"
+          //   );
+          // }}>
+          //   Open in Google Maps
+          // </Button>,
 
         ]}
       >
@@ -456,6 +467,7 @@ const columns = [
         <SessionNotesModal
           session={selectedSession}
           onClose={() => setNotesModal(false)}
+          isViewMode={!!notes?.[selectedSession?.id]}
         />
       </Modal>
 

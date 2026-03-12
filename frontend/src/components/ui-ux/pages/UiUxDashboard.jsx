@@ -1,4 +1,4 @@
-import React from "react";
+import { useEffect } from "react";
 import { Row, Col, Card, Typography, Table, Tag, Space } from "antd";
 import {
     BookOutlined,
@@ -12,11 +12,22 @@ import {
 import dayjs from "dayjs";
 
 import adminTheme from "../../../theme/adminTheme";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchContentCount } from "../../../adminSlices/contentSlice";
 
 const { Title, Text } = Typography;
 const { token } = adminTheme;
 
 const UiUxDashboard = () => {
+    const dispatch = useDispatch();
+
+    const { contentStats, loading } = useSelector((state) => state.content);
+
+    useEffect(() => {
+        dispatch(fetchContentCount());
+    }, [dispatch]);
+
+
     // ================ DUMMY DATA =================
     const dataSource = [
         {
@@ -75,28 +86,27 @@ const UiUxDashboard = () => {
     const stats = [
         {
             title: "Total Content",
-            value: dataSource.length,
+            value: contentStats?.total_content || 0,
             icon: <BookOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
         },
         {
             title: "Free Content",
-            value: dataSource.filter((i) => i.access === "Free").length,
+            value: contentStats?.free_content || 0,
             subtitle: "Accessible to all users",
             icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
         },
         {
             title: "Premium Content",
-            value: dataSource.filter((i) => i.access === "Paid").length,
+            value: contentStats?.premium_content || 0,
             subtitle: "Paid package only",
             icon: <LockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
         },
         {
             title: "Total Downloads",
-            value: dataSource.reduce((sum, i) => sum + (i.downloads || 0), 0),
+            value: contentStats?.total_download || 0,
             icon: <DownloadOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
         },
     ];
-
     // ================== RECENT UPLOADS ==================
     const recentUploads = [...dataSource]
         .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -170,9 +180,11 @@ const UiUxDashboard = () => {
             </Row>
 
             {/* STATS CARDS */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            {/* <Row gutter={[16, 16]} style={{ marginBottom: 24 }}> */}
+            <Row gutter={[32, 24]} justify="center" style={{ marginBottom: 24 }}>
                 {stats.map((item, index) => (
-                    <Col xs={24} sm={12} md={12} lg={6} key={index}>
+                    // <Col xs={24} sm={12} md={12} lg={6} key={index}>
+                    <Col xs={24} sm={12} md={12} lg={10} key={index}>
                         <Card
                             bordered={false}
                             style={{
@@ -211,7 +223,7 @@ const UiUxDashboard = () => {
             </Row>
 
             {/* RECENT UPLOADS TABLE */}
-            <Row>
+            {/* <Row>
                 <Col xs={24}>
                     <Card
                         title="Recent Uploads"
@@ -230,7 +242,7 @@ const UiUxDashboard = () => {
                         />
                     </Card>
                 </Col>
-            </Row>
+            </Row> */}
         </div>
     );
 };
