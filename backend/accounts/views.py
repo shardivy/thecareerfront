@@ -33,7 +33,7 @@ from program_package.models import UserProgramPackage
 from counselling_slot.models import Booking, Counsellor
 
 from .models import PasswordResetOTP, Permission, Role, RolePermission, User
-from .utils import  generate_otp, generate_password, generate_role_id, send_credentials_email, send_otp_email, send_password_reset_email
+from .utils import  generate_otp, generate_password, generate_role_id, send_credentials_email, send_otp_email, send_password_reset_email, send_user_credentials_email
 
 
 class RoleListCreateAPIView(APIView):
@@ -365,7 +365,7 @@ class AdminStaffRegisterAPIView(APIView):
         # -----------------------------
         # 9. ALWAYS SEND EMAIL
         # -----------------------------
-        send_credentials_email(email, password)
+        send_user_credentials_email(email, password)
 
         return Response(
             {

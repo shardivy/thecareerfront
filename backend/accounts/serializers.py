@@ -357,7 +357,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             .first()
         )
 
-        return report.report_status if report else "not_uploaded"
+        return report.report_status if report else "not_received"
 
     # def get_exam_status(self, obj):
     #     qs = UserExam.objects.filter(user=obj.user)

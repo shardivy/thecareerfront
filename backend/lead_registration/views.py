@@ -2320,11 +2320,11 @@ class UserJourneyAPIView(APIView):
                     "details": f"Report status: {report_status}"
                 })
             else:
-                report_status = "not_uploaded"
+                report_status = "not_received"
 
                 history.append({
                     "step": "Report",
-                    "status": "not_uploaded",
+                    "status": "not_received",
                     "date": None,
                     "details": "Report not uploaded"
                 })

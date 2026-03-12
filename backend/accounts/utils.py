@@ -46,36 +46,36 @@ Career Counselling Team
         fail_silently=False
     )
 
-# def send_credentials_email(email, password):
-#     subject = "Your Account Login Credentials"
+def send_user_credentials_email(email, password):
+    subject = "Your Account Login Credentials"
 
-#     message = f"""
-# Dear User,
+    message = f"""
+Dear User,
 
-# Greetings from the Career Counselling Team.
+Greetings from the Career Counselling Team.
 
-# Your account has been successfully created. Please find your login credentials below:
+Your account has been successfully created. Please find your login credentials below:
 
-# ----------------------------------------
-# Login Credentials
-# ----------------------------------------
-# Email: {email}
-# Password: {password}
-# ----------------------------------------
+----------------------------------------
+Login Credentials
+----------------------------------------
+Email: {email}
+Password: {password}
+----------------------------------------
 
-# If you have any questions or require assistance, please feel free to contact our support team.
+If you have any questions or require assistance, please feel free to contact our support team.
 
-# Best regards,  
-# Career Counselling Team
-# """
+Best regards,  
+Career Counselling Team
+"""
 
-#     send_mail(
-#         subject,
-#         message,
-#         settings.DEFAULT_FROM_EMAIL,
-#         [email],
-#         fail_silently=False
-#     )
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False
+    )
 
 
 def send_credentials_email(email, password, program_name, package_name):
