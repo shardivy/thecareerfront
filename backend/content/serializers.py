@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework import serializers
 
 from program_package.models import Package, Program
-from .models import Content
+from .models import Content, ContentPackage
 
 class ProgramSerializer(serializers.ModelSerializer):
     class Meta:
@@ -23,12 +23,14 @@ class ContentUploadSerializer(serializers.ModelSerializer):
     )
 
     # ✅ Return full program objects in GET
-    program_details = ProgramSerializer(
-        source="program",
-        many=True,
-        read_only=True
-    )
+    program_details = serializers.SerializerMethodField()
     
+    package = serializers.PrimaryKeyRelatedField(
+        queryset=Package.objects.all(),
+        many=True,
+        write_only=True,
+        required=False
+    )
     # package = serializers.SerializerMethodField()
     package_details = serializers.SerializerMethodField()
 
@@ -42,7 +44,7 @@ class ContentUploadSerializer(serializers.ModelSerializer):
             "description",
             "program",           # write
             "program_details",   # read
-            # "package",
+            "package",
             "package_details",
             "file_url",      # ✅ REAL upload field
             # "preview_url",   # ✅ URL for viewing
@@ -66,6 +68,41 @@ class ContentUploadSerializer(serializers.ModelSerializer):
 
         return representation
     
+    def create(self, validated_data):
+        programs = validated_data.pop("program", [])
+        packages = validated_data.pop("package", [])
+
+        content = Content.objects.create(**validated_data)
+
+        for program in programs:
+            for package in packages:
+                ContentPackage.objects.create(
+                    content=content,
+                    program=program,
+                    package=package
+                )
+
+        return content
+    
+    def update(self, instance, validated_data):
+        programs = validated_data.pop("program", None)
+        packages = validated_data.pop("package", None)
+
+        instance = super().update(instance, validated_data)
+
+        if programs is not None or packages is not None:
+            ContentPackage.objects.filter(content=instance).delete()
+
+            for program in programs or []:
+                for package in packages or []:
+                    ContentPackage.objects.create(
+                        content=instance,
+                        program=program,
+                        package=package
+                    )
+
+        return instance
+        
      # ✅ Show program names in response
     def get_program_names(self, obj):
         return [program.name for program in obj.programs.all()]
@@ -73,18 +110,33 @@ class ContentUploadSerializer(serializers.ModelSerializer):
     # def get_package(self, obj):
     #     packages = Package.objects.filter(program__in=obj.program.all()).distinct()
     #     return [pkg.id for pkg in packages]
-
-
-    def get_package_details(self, obj):
-        packages = Package.objects.filter(program__in=obj.program.all()).distinct()
+    
+    def get_program_details(self, obj):
+        content_packages = ContentPackage.objects.filter(
+            content=obj
+        ).select_related("program")
 
         return [
             {
-                "id": pkg.id,
-                "name": pkg.name,
-                "description": pkg.description
+                "id": cp.program.id,
+                "name": cp.program.name
             }
-            for pkg in packages
+            for cp in content_packages if cp.program
+        ]
+
+
+    def get_package_details(self, obj):
+        content_packages = ContentPackage.objects.filter(
+            content=obj
+        ).select_related("package")
+
+        return [
+            {
+                "id": cp.package.id,
+                "name": cp.package.name,
+                "description": cp.package.description
+            }
+            for cp in content_packages if cp.package
         ]
         
     def validate(self, data):

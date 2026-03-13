@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_exempt
+from django.db.models import Q
 
 from content.serializers import ContentUploadSerializer
 from .models import Content
@@ -224,3 +225,48 @@ class ContentDownloadAPIView(APIView):
             as_attachment=True,
             filename=content.file_url.name
         )
+        
+class ProgramContentAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+
+        program_id = request.GET.get("program_id")
+        package_id = request.GET.get("package_id")
+
+        contents = Content.objects.filter(is_active=True, is_draft=False)
+
+        if program_id and package_id:
+            contents = contents.filter(
+                Q(contentpackage__program_id=program_id,
+                  contentpackage__package_id=package_id)
+                |
+                Q(contentpackage__program__isnull=True)
+            )
+
+        elif program_id:
+            contents = contents.filter(
+                Q(contentpackage__program_id=program_id,
+                  contentpackage__package__isnull=True)
+                |
+                Q(contentpackage__program__isnull=True)
+            )
+
+        else:
+            contents = contents.filter(
+                contentpackage__program__isnull=True
+            )
+
+        contents = contents.distinct()
+
+        serializer = ContentUploadSerializer(
+            contents,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response({
+            "success": True,
+            "count": contents.count(),
+            "data": serializer.data
+        })

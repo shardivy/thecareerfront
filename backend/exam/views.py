@@ -179,14 +179,21 @@ class AddExamToPackageAPIView(APIView):
     
 
     def get(self, request):
+
         # ✅ Auto-create defaults first
         create_default_exams_for_all_packages()
 
-        # 🔹 Return all package exams
-        qs = PackageExam.objects.select_related("exam", "package__program").order_by("sequence_order")
-        serializer = PackageExamResponseSerializer(qs, many=True)
-        return Response(serializer.data, status=200)
+        # 🔹 Only packages with aptitude_test=True
+        qs = (
+            PackageExam.objects
+            .select_related("exam", "package__program")
+            .filter(package__aptitude_test=True)
+            .order_by("sequence_order")
+        )
 
+        serializer = PackageExamResponseSerializer(qs, many=True)
+
+        return Response(serializer.data, status=200)
 
     # 🔹 POST – create
     def post(self, request):
