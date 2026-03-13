@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
+from report.models import Report
 from lead_registration.models import StudentProfile
 from rest_framework import serializers
 
@@ -253,6 +254,7 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     slot_time = serializers.SerializerMethodField()
     mode = serializers.CharField(source="slot.mode", read_only=True)
+    report_file = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -269,7 +271,27 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             "slot_time",
             "mode",
             "status",
+            "report_file",
         ]
+        
+    def get_report_file(self, obj):
+        request = self.context.get("request")
+
+        report = (
+            Report.objects
+            .filter(user=obj.student.user)
+            .order_by("-uploaded_at")
+            .first()
+        )
+
+        if report and report.file_path:
+            pdf_url = reverse(
+                "report-pdf",
+                kwargs={"report_id": report.id}
+            )
+            return request.build_absolute_uri(pdf_url)
+
+        return None
         
     def get_student_id(self, obj):
         return obj.student.id

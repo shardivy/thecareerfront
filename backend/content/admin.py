@@ -7,13 +7,13 @@ from content.models import Content, ContentPackage
 # =========================
 @admin.register(Content)
 class ContentAdmin(admin.ModelAdmin):
-
+    
     list_display = (
         "id",
         "title",
         "type",
         "category",
-        "get_programs",
+        # "get_programs",
         "free_content",
         "payment_required",
         "is_active",
@@ -23,7 +23,7 @@ class ContentAdmin(admin.ModelAdmin):
     list_filter = (
         "type",
         "category",
-        "program",   # ✅ correct field name
+        # "program",   # ✅ correct field name
         "free_content",
         "payment_required",
         "is_active",
@@ -32,22 +32,22 @@ class ContentAdmin(admin.ModelAdmin):
     search_fields = (
         "title",
         "description",
-        "program__name",   # ✅ correct relation
+        # "program__name",   # ✅ correct relation
     )
 
     ordering = ("-id",)
 
     # ✅ show multiple programs
-    def get_programs(self, obj):
-        return ", ".join([p.name for p in obj.program.all()])
+    # def get_programs(self, obj):
+    #     return ", ".join([p.name for p in obj.program.all()])
 
-    get_programs.short_description = "Programs" 
+    # get_programs.short_description = "Programs" 
 # =========================
 # ContentPackage Admin
 # =========================
 @admin.register(ContentPackage)
 class ContentPackageAdmin(admin.ModelAdmin):
 
-    list_display = ("id", "content", "package")
-    search_fields = ("content__title", "package__name")
-    autocomplete_fields = ["content", "package"]
+    list_display = ("id", "content", "program", "package")
+    search_fields = ("content__title", "program__name", "package__name")
+    autocomplete_fields = ["content", "program", "package"]
