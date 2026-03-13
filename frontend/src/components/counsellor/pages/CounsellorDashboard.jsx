@@ -470,7 +470,7 @@ const CounsellorDashboard = () => {
           isViewMode={!!notes?.[selectedSession?.id]}
         />
       </Modal>
-
+    
       {/* PROFILE MODAL */}
       <StudentProfileModal
         open={profileModal}

@@ -13,6 +13,7 @@ import {
   Select,
   DatePicker,
   Modal,
+  Tabs,
 } from "antd";
 import {
   PlusOutlined,
@@ -32,7 +33,7 @@ import {
   fetchCounsellingSessionCount,
   deleteCounsellingBooking,
 } from "../../../adminSlices/counsellingBookingSlice";
-import { fetchLeadCounsellors ,fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
+import { fetchLeadCounsellors, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
 import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
 
 const { Title, Text } = Typography;
@@ -65,7 +66,7 @@ const SlotBooking = () => {
   const [modalMode, setModalMode] = useState("create");
   const [rescheduleData, setRescheduleData] = useState(null);
   const [counsellorFilter, setCounsellorFilter] = useState(null);
-
+  const [activeTab, setActiveTab] = useState("booked"); // default tab
 
 
   /* ================= FETCH BOOKINGS ================= */
@@ -147,30 +148,26 @@ const SlotBooking = () => {
       const text = Object.values(item).join(" ").toLowerCase();
       const modeMatch = !modeFilter || item.mode === modeFilter;
       const statusMatch = !statusFilter || item.status === statusFilter;
-      const dateMatch =
-        !dateFilter || dayjs(item.date).isSame(dateFilter, "day");
-
+      const dateMatch = !dateFilter || dayjs(item.date).isSame(dateFilter, "day");
       const counsellorMatch =
-        !counsellorFilter ||
-        item.counsellorDisplay.some((c) => c.id === counsellorFilter);
+        !counsellorFilter || item.counsellorDisplay.some((c) => c.id === counsellorFilter);
+
+      const tabMatch = activeTab === "all" ? true : item.status === activeTab;
 
       return (
         text.includes(searchText.toLowerCase()) &&
         modeMatch &&
         statusMatch &&
         dateMatch &&
-        counsellorMatch
+        counsellorMatch &&
+        tabMatch
       );
     })
     .sort((a, b) => {
-      // Booked first
       if (a.status === "booked" && b.status !== "booked") return -1;
       if (a.status !== "booked" && b.status === "booked") return 1;
-
-      // Oldest first
       return dayjs(a.date).diff(dayjs(b.date));
     });
-
 
   /* ================= DELETE HANDLER ================= */
   const handleDelete = (record) => {
@@ -305,18 +302,18 @@ const SlotBooking = () => {
         View
       </Button> */}
 
-             <Button
-  size="large"
-  type="primary"
-  onClick={() => {
-    dispatch(fetchCounsellingNote(record.id)).then(() => {
-      setSelectedSession(record);
-      setNotesModalOpen(true);
-    });
-  }}
->
- View / Add Notes
-</Button>
+              <Button
+                size="large"
+                type="primary"
+                onClick={() => {
+                  dispatch(fetchCounsellingNote(record.id)).then(() => {
+                    setSelectedSession(record);
+                    setNotesModalOpen(true);
+                  });
+                }}
+              >
+                View / Add Notes
+              </Button>
             </Space>
           );
         }
@@ -456,6 +453,7 @@ const SlotBooking = () => {
         </Col>
       </Row>
 
+
       {/* ================= STATS CARDS ================= */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         {statsCards.map((item, index) => (
@@ -481,6 +479,18 @@ const SlotBooking = () => {
           </Col>
         ))}
       </Row>
+
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        style={{ marginBottom: 16 }}
+        items={[
+          { key: "booked", label: `Booked (${dataSource.filter(d => d.status === "booked").length})` },
+          { key: "not_booked", label: `Not Booked (${dataSource.filter(d => d.status === "not_booked").length})` },
+          { key: "completed", label: `Completed (${dataSource.filter(d => d.status === "completed").length})` },
+
+        ]}
+      />
 
       {/* ================= FILTERS ================= */}
       <Card>
@@ -532,6 +542,7 @@ const SlotBooking = () => {
               style={{ width: "100%" }}
             >
               <Option value="booked">Booked</Option>
+                  <Option value="not_booked">Not Booked</Option>
               <Option value="completed">Completed</Option> {/* ✅ Added */}
             </Select>
           </Col>
@@ -544,6 +555,8 @@ const SlotBooking = () => {
           </Col>
 
         </Row>
+
+
 
 
         {/* ================= TABLE ================= */}
@@ -589,7 +602,7 @@ const SlotBooking = () => {
             onClose={() => setNotesModalOpen(false)}
             isViewMode={false} // false = add/edit mode
             hideSessionDetails={true}
-              showStudentName={true} 
+            showStudentName={true}
           />
         </Modal>
       )}

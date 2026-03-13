@@ -333,21 +333,7 @@ XLSX.utils.sheet_add_aoa(
        />
   </Col>
 
-  {/* Status Filter */}
-  <Col xs={24} sm={8} md={4}>
-    <Select
-      placeholder="Status"
-      value={statusFilter}
-      onChange={setStatusFilter}
-      allowClear
-      style={{ width: "100%" }}
-    >
-      <Option value="enquiry">Enquiry</Option>
-      <Option value="Converted">Converted</Option>
-    </Select>
-  </Col>
-
-  {/* Source Filter */}
+    {/* Source Filter */}
   <Col xs={24} sm={8} md={4}>
     <Select
       placeholder="Source"
@@ -362,6 +348,21 @@ XLSX.utils.sheet_add_aoa(
       <Option value="Walk-In">Walk-In</Option>
     </Select>
   </Col>
+
+  {/* Status Filter */}
+  <Col xs={24} sm={8} md={4}>
+    <Select
+      placeholder="Status"
+      value={statusFilter}
+      onChange={setStatusFilter}
+      allowClear
+      style={{ width: "100%" }}
+    >
+      <Option value="enquiry">Enquiry</Option>
+      <Option value="Converted">Converted</Option>
+    </Select>
+  </Col>
+
 
   {/* Date Filter */}
   <Col xs={24} sm={8} md={4}>

@@ -180,8 +180,8 @@ const StudentProfile = () => {
         preferred_counselling_mode: storedProfile.preferred_counselling_mode || "",
 
         specialization: storedProfile.specialization || "",
-      stream: storedProfile.stream?.stream_name || "",
-stream_id: storedProfile.stream?.stream_id || null,
+        stream: storedProfile.stream?.stream_name || "",
+        stream_id: storedProfile.stream?.stream_id || null,
         liked_subjects: storedProfile.liked_subjects
           ? storedProfile.liked_subjects.map((sub) => sub.id)
           : [],
@@ -359,7 +359,7 @@ stream_id: storedProfile.stream?.stream_id || null,
     >
 
       {/* BACK ARROW */}
-      {profile.complete_profile && (
+      {/* {profile.complete_profile && (
         <div
           onClick={() => navigate("/student/dashboard")}
           style={{
@@ -376,7 +376,25 @@ stream_id: storedProfile.stream?.stream_id || null,
           <ArrowLeftOutlined style={{ marginRight: 8 }} />
           Back to Dashboard
         </div>
-      )}
+      )} */}
+
+
+      {/* BACK ARROW */}
+      <div
+        onClick={() => navigate("/student/dashboard")}
+        style={{
+          marginBottom: 16,
+          display: "inline-flex",
+          cursor: "pointer",
+          color: token.colorPrimary,
+          fontWeight: 500,
+          fontSize: 16,
+          marginLeft: screens.xs ? 0 : -276, // adjust for responsiveness
+        }}
+      >
+        <ArrowLeftOutlined style={{ marginRight: 8 }} />
+        Back to Dashboard
+      </div>
 
       {/* HEADER */}
       <Card style={{ marginBottom: -1, background: token.colorPrimary }}>

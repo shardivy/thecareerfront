@@ -399,20 +399,20 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
               <Col xs={24} md={12}>
                 <Form.Item name="email" label="Email" rules={isView ? [] : emailRules}>
-                  <Input disabled={isView} />
+                  <Input disabled={isView} placeholder="Enter email address" />
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={12}>
                 <Form.Item name="phone" label="Mobile Number(Whatsapp)" rules={isView ? [] : phoneRules}>
-                  <Input disabled={isView} maxLength={10} />
+                  <Input disabled={isView} placeholder="Enter 10-digit mobile number" maxLength={10} />
                 </Form.Item>
               </Col>
 
               {/* CLASS DROPDOWN */}
               <Col xs={24} md={12}>
                 <Form.Item name="study_class" label="Class / STD" rules={isView ? [] : classRules}>
-                  <Select disabled={isView}>
+                  <Select disabled={isView} placeholder="Select class / standard">
                     {classOptions.map((cls) => (
                       <Option key={cls} value={cls}>
                         {cls}
@@ -452,7 +452,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                   rules={isView ? [] : [{ required: true, message: "Please select counselling service" }]}
                 >
                   <Select
-                    placeholder={packagesLoading ? "Loading..." : "Select service"}
+                    placeholder={packagesLoading ? "Loading..." : "Select counselling service"}
                     loading={packagesLoading}
                     allowClear
                     disabled={isView}
@@ -472,7 +472,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                   label="Preferred Counselling Mode"
                   required
                 >
-                  <Select disabled={isView} placeholder="Select mode">
+                  <Select disabled={isView} placeholder="Select counselling mode">
                     <Option value="online">Online</Option>
                     <Option value="offline">Offline</Option>
                   </Select>
@@ -530,8 +530,8 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
   <>
             <Row gutter={16}>
               <Col xs={24} md={12}>
-                <Form.Item name="payment_type" label="Payment Type" rules={isView ? [] : [{ required: true }]}>
-                  <Select disabled={isView}>
+                <Form.Item name="payment_type" label="Payment Type"  rules={isView ? [] : [{ required: true }]}>
+                  <Select disabled={isView} placeholder="Select payment type">
                     <Option value="online">Online</Option>
                     <Option value="offline">Offline</Option>
                   </Select>
@@ -540,7 +540,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
               <Col xs={24} md={12}>
                 <Form.Item name="method" label="Payment Method" rules={isView ? [] : [{ required: true }]}>
-                  <Select disabled={isView}>
+                  <Select disabled={isView} placeholder="Select payment method">
                     <Option value="upi">UPI</Option>
                     <Option value="cash">Cash</Option>
                   </Select>
@@ -553,7 +553,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                     name="transaction_id"
                     label="Transaction ID"
                   >
-                    <Input disabled={isView} />
+                    <Input disabled={isView} placeholder="Enter transaction ID" />
                   </Form.Item>
                 </Col>
               )}
