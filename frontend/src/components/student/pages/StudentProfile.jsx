@@ -15,9 +15,11 @@ import {
   theme,
   Grid,
   Spin,
+  Modal,
+  Form,
 } from "antd";
 
-import { UserOutlined, CrownOutlined, ArrowLeftOutlined } from "@ant-design/icons";
+import { UserOutlined, CrownOutlined, ArrowLeftOutlined , LockOutlined} from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -25,6 +27,7 @@ import { getProfile, updateProfile } from "../../../adminSlices/profileSlice";
 import { fetchStreams } from "../../../adminSlices/streamSlice";
 import { fetchSubjects } from "../../../adminSlices/subjectSlice";
 import { fetchHobbies } from "../../../adminSlices/hobbySlice";
+import { resetPassword } from "../../../adminSlices/resetPasswordSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -39,8 +42,17 @@ const StudentProfile = () => {
 
   const [profile, setProfile] = useState(null);
   const [specializationOptions, setSpecializationOptions] = useState([]);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+const [passwordData, setPasswordData] = useState({
+  new_password: "",
+  confirm_password: "",
+});
 
   const { profile: storedProfile, loading } = useSelector((state) => state.profile);
+  const { loading: passwordLoading } = useSelector(
+  (state) => state.resetPassword
+);
   const { streamList, loading: streamsLoading } = useSelector(
     (state) => state.streams
   );
@@ -345,6 +357,59 @@ const StudentProfile = () => {
   // }
   if (!profile) return null;
 
+  const validatePassword = (_, value) => {
+  if (!value) return Promise.reject("Password is required");
+
+  if (value.length < 8)
+    return Promise.reject("Minimum 8 characters required");
+
+  if (!/[a-z]/.test(value))
+    return Promise.reject("At least one lowercase letter required");
+
+  if (!/[A-Z]/.test(value))
+    return Promise.reject("At least one uppercase letter required");
+
+  if (!/\d/.test(value))
+    return Promise.reject("At least one number required");
+
+  return Promise.resolve();
+};
+
+
+  const handlePasswordChange = async () => {
+
+  if (!passwordData.new_password || !passwordData.confirm_password) {
+    message.error("Please fill all password fields");
+    return;
+  }
+
+  if (passwordData.new_password !== passwordData.confirm_password) {
+    message.error("Passwords do not match");
+    return;
+  }
+
+  try {
+    await dispatch(
+      resetPassword({
+        email: profile.email,
+        new_password: passwordData.new_password,
+        confirm_password: passwordData.confirm_password,
+      })
+    ).unwrap();
+
+    message.success("Password changed successfully");
+
+    setPasswordData({
+      new_password: "",
+      confirm_password: "",
+    });
+
+    setIsPasswordModalOpen(false);
+
+  } catch (err) {
+    message.error(err || "Password update failed");
+  }
+};
 
 
   return (
@@ -397,25 +462,30 @@ const StudentProfile = () => {
       </div>
 
       {/* HEADER */}
-      <Card style={{ marginBottom: -1, background: token.colorPrimary }}>
-        <Row
-          align="middle"
-          gutter={[16, 16]}
-          justify={screens.xs ? "center" : "start"}
-        >
+     <Card style={{ background: token.colorPrimary }}>
+        <Row align="middle" justify="space-between">
           <Col>
-            <Avatar size={screens.xs ? 60 : 80} icon={<UserOutlined />} />
+            <Row align="middle" gutter={16}>
+              <Avatar size={70} icon={<UserOutlined />} />
+
+              <div>
+                <Title level={3} style={{ color: "#fff", margin: 0 }}>
+                  {profile.name}
+                </Title>
+
+                <Tag icon={<CrownOutlined />} color="gold">
+                  {profile.package || "Premium"}
+                </Tag>
+              </div>
+            </Row>
           </Col>
 
-          <Col>
-            <Title level={3} style={{ margin: 0, color: "#fff" }}>
-              {profile.name}
-            </Title>
-
-            <Tag color="gold" icon={<CrownOutlined />}>
-              {profile.package || "Premium"}
-            </Tag>
-          </Col>
+          <Button
+            icon={<LockOutlined />}
+            onClick={() => setIsPasswordModalOpen(true)}
+          >
+            Change Password
+          </Button>
         </Row>
       </Card>
 
@@ -734,6 +804,66 @@ const StudentProfile = () => {
           Update Profile
         </Button>
       </Card>
+
+<Modal
+  title="Change Password"
+  open={isPasswordModalOpen}
+  onCancel={() => !passwordLoading && setIsPasswordModalOpen(false)}
+  footer={null}
+>
+  <Form layout="vertical" onFinish={handlePasswordChange}>
+    
+    <Form.Item
+      label="New Password"
+      name="new_password"
+      rules={[{ validator: validatePassword }]}
+    >
+      <Input.Password
+        prefix={<LockOutlined />}
+        placeholder="Enter new password"
+        onChange={(e) =>
+          setPasswordData((prev) => ({
+            ...prev,
+            new_password: e.target.value,
+          }))
+        }
+      />
+    </Form.Item>
+
+    <Form.Item
+      label="Confirm Password"
+      name="confirm_password"
+      dependencies={["new_password"]}
+      rules={[
+        { required: true, message: "Confirm password is required" },
+        ({ getFieldValue }) => ({
+          validator(_, value) {
+            if (!value || getFieldValue("new_password") === value) {
+              return Promise.resolve();
+            }
+            return Promise.reject("Passwords do not match");
+          },
+        }),
+      ]}
+    >
+      <Input.Password
+        prefix={<LockOutlined />}
+        placeholder="Confirm password"
+        onChange={(e) =>
+          setPasswordData((prev) => ({
+            ...prev,
+            confirm_password: e.target.value,
+          }))
+        }
+      />
+    </Form.Item>
+
+    <Button type="primary" block htmlType="submit" loading={passwordLoading}>
+      Update Password
+    </Button>
+
+  </Form>
+</Modal>
     </div>
   );
 };

@@ -427,7 +427,7 @@ student: {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Mode" name="mode" rules={[{ required: true }]}>
+              <Form.Item label="Preferred Counselling Mode" name="mode" rules={[{ required: true }]}>
                 <Select disabled>
                   <Option value="Online">Online</Option>
                   <Option value="Offline">Offline</Option>

@@ -239,7 +239,7 @@ const SlotBooking = () => {
       ),
     },
     {
-      title: "Mode",
+      title: "Preferred Counselling Mode",
       dataIndex: "modeLabel",
       width: 100,
       render: (m) => <Tag>{m}</Tag>,

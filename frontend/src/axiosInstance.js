@@ -1,9 +1,9 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  // baseURL: "http://192.168.82.38:8000/api",
+  baseURL: "http://192.168.82.38:8000/api",
 
-  baseURL: "https://staging.abhinavcareerscope.com/api",
+  // baseURL: "https://staging.abhinavcareerscope.com/api",
 
 
 });
@@ -17,7 +17,7 @@ const publicEndpoints = [
   // "/program-package/get-programs/",
   // "/lead-registeration/send-otp/",   
   // "/lead-registeration/verify-otp-register/",
-  // "/lead-registeration/student/register/",
+  // "/lead-registeration/student/      register/",
 
 ]; 
 
