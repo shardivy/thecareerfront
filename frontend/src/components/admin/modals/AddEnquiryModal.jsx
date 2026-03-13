@@ -308,7 +308,7 @@ useEffect(() => {
                   ]}
 
                 >
-                  <Input disabled={isConvert} />
+                  <Input placeholder="Enter first name" disabled={isConvert} />
                 </Form.Item>
               </Col>
 
@@ -326,7 +326,7 @@ useEffect(() => {
                   ]}
 
                 >
-                  <Input disabled={isConvert} />
+                  <Input placeholder="Enter last name" disabled={isConvert} />
                 </Form.Item>
               </Col>
 
@@ -346,6 +346,7 @@ useEffect(() => {
                   ]}
                 >
                   <Input
+                    placeholder="Enter 10-digit mobile number"
                     maxLength={10}
                     disabled={isConvert && enquiryData?.phone} // disable only if convert mode AND phone exists
                   />
@@ -362,7 +363,7 @@ useEffect(() => {
                   ]}
 
                 >
-                  <Input disabled={isConvert} />
+                  <Input placeholder="Enter email address" disabled={isConvert} />
                 </Form.Item>
               </Col>
 
@@ -373,6 +374,7 @@ useEffect(() => {
                   rules={[{ required: true }]}
                 >
                   <Select
+                    placeholder="Select program"
                     loading={programsLoading}
                     onChange={handleProgramChange}
                     disabled={isConvert}
@@ -387,8 +389,8 @@ useEffect(() => {
               </Col>
 
               <Col xs={24} sm={12}>
-                <Form.Item name="source" label="Source">
-                  <Select disabled={isConvert} rules={
+                <Form.Item name="source" label="Source" >
+                  <Select placeholder="Select source" disabled={isConvert} rules={
                     !isConvert
                       ? [{ required: true, message: "Please select source" }]
                       : []
@@ -425,10 +427,10 @@ useEffect(() => {
                   <Col xs={24} sm={12}>
                     <Form.Item
                       name="study_class"
-                      label="Class"
+                      label="Class / STD"
                       rules={[{ required: true }]}
                     >
-                      <Select>
+                      <Select placeholder="Select class / standard">
                         <Option value="8">8</Option>
                         <Option value="9">9</Option>
                         <Option value="10">10</Option>
@@ -455,7 +457,7 @@ useEffect(() => {
                       label="Counselling Services"
                       rules={[{ required: true }]}
                     >
-                      <Select loading={packagesLoading}>
+                      <Select placeholder="Select counselling service"  loading={packagesLoading}>
                         {packages.map((p) => (
                           <Option key={p.id} value={p.id}>
                             {p.name}
@@ -474,7 +476,7 @@ useEffect(() => {
                           { required: true, message: "Please select counselling mode" },
                         ]}
                       >
-                        <Select placeholder="Select Mode">
+                        <Select placeholder="Select counselling mode">
                           <Option value="online">Online</Option>
                           <Option value="offline">Offline</Option>
                         </Select>
@@ -486,6 +488,7 @@ useEffect(() => {
   <Form.Item
   name="amount"
   label="Fees Paid"
+    placeholder="Enter amount"
   dependencies={["package"]}
   rules={[
     { required: true, message: "Please enter the amount paid" },
@@ -536,7 +539,7 @@ useEffect(() => {
                       label="Payment Type"
                       rules={[{ required: true }]}
                     >
-                      <Select>
+                        <Select placeholder="Select payment type">
                         <Option value="online">Online</Option>
                         <Option value="offline">Offline</Option>
                       </Select>
@@ -547,6 +550,7 @@ useEffect(() => {
                     <Form.Item
                       name="method"
                       label="Payment Method"
+                       placeholder="Select payment method"
                       rules={[{ required: true }]}
                     >
                       <Select disabled={!paymentType}>
@@ -566,9 +570,9 @@ useEffect(() => {
                       <Form.Item
                         name="transaction_id"
                         label="Transaction ID"
-
+                      
                       >
-                        <Input />
+                        <Input placeholder="Enter transaction ID" />
                       </Form.Item>
                     </Col>
                   )}

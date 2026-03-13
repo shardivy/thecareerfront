@@ -266,21 +266,21 @@ const AdminLayout = () => {
         </div>
       ),
       children: [
-        {
-          key: "/s-admin/examlist",
-          icon: <UnorderedListOutlined />,
-          // label: "Exam List",
-          label: (
-            <div style={{ lineHeight: "20px" }}>
-              <div>Aptitude Test</div>
-              <div>List</div>
-            </div>
-          ),
-          onClick: () => {
-            navigate("/s-admin/examlist");
-            setDrawerVisible(false);
-          },
-        },
+        // {
+        //   key: "/s-admin/examlist",
+        //   icon: <UnorderedListOutlined />,
+        //   // label: "Exam List",
+        //   label: (
+        //     <div style={{ lineHeight: "20px" }}>
+        //       <div>Aptitude Test</div>
+        //       <div>List</div>
+        //     </div>
+        //   ),
+        //   onClick: () => {
+        //     navigate("/s-admin/examlist");
+        //     setDrawerVisible(false);
+        //   },
+        // },
 
         (role === "admin" || role === "superadmin") && {
           key: "/s-admin/examManagements",

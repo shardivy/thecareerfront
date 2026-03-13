@@ -17,7 +17,7 @@ const publicEndpoints = [
   // "/program-package/get-programs/",
   // "/lead-registeration/send-otp/",   
   // "/lead-registeration/verify-otp-register/",
-  // "/lead-registeration/student/register/",
+  // "/lead-registeration/student/      register/",
 
 ]; 
 

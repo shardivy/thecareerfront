@@ -648,41 +648,62 @@ const Program = () => {
                             ))}
                           </div>
 
-                          {profile?.package_id === pkg.id ? (
-                            <Button
-                              block
-                              disabled
-                              style={{
-                                marginTop: 20,
-                                backgroundColor: token.colorSuccess,
-                                color: "#fff",
-                                border: "none",
-                              }}
-                            >
-                              Selected
-                            </Button>
-                          ) : (
-                            <Button
-                              type="primary"
-                              block
-                              style={{ marginTop: 20 }}
-                              onClick={() => {
-                                // No localStorage set here - pass data through state only
-                                navigate("/student/payment-page", {
-                                  state: {
-                                    packageId: pkg.id,
-                                    packageName: pkg.name,
-                                    packagePrice: pkg.price,
-                                    programId: selectedProgram,
-                                    programName: selectedProgram,
-                                    isFreeUser: false
-                                  }
-                                });
-                              }}
-                            >
-                              Select Service
-                            </Button>
-                          )}
+                        <div
+  style={{
+    marginTop: 20,
+    display: "flex",
+    gap: 10,
+    flexDirection: screens.xs ? "column" : "row",
+  }}
+>
+  {/* Learn More Button */}
+  <Button
+    block
+    onClick={() => {
+      if (pkg.link_url) {
+        window.open(pkg.link_url, "_blank", "noopener,noreferrer");
+      } else {
+        window.location.href = "#";
+      }
+    }}
+  >
+    Learn More
+  </Button>
+
+  {/* Select / Selected Button */}
+  {profile?.package_id === pkg.id ? (
+    <Button
+      block
+      disabled
+      style={{
+        backgroundColor: token.colorSuccess,
+        color: "#fff",
+        border: "none",
+      }}
+    >
+      Selected
+    </Button>
+  ) : (
+    <Button
+      type="primary"
+      block
+      onClick={() => {
+        navigate("/student/payment-page", {
+          state: {
+            packageId: pkg.id,
+            packageName: pkg.name,
+            packagePrice: pkg.price,
+            programId: pkg.program?.id,
+            programName: selectedProgram,
+            isFreeUser: false,
+          },
+        });
+      }}
+    >
+      Select Service
+    </Button>
+  )}
+</div>
                         </Card>
                       </Col>
                     ))

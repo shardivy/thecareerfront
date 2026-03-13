@@ -42,6 +42,7 @@ import CounsellorDashboard from "./components/counsellor/pages/CounsellorDashboa
 import SessionHistory from "./components/counsellor/pages/SessionHistory";
 import UiUxDashboard from "./components/ui-ux/pages/UiUxDashboard";
 import SessionsHistory from "./components/ui-ux/pages/SessionsHistory";
+import ChangePassword from "./components/admin/pages/ChangePassword";
 
 
 
@@ -63,6 +64,7 @@ const App = () => {
         <Route path="/" element={<AdminLogin />} /> 
         <Route path="/forgotpassword" element={<ForgotPassword />} /> 
         <Route path="/resetpassword" element={<ResetPassword />} /> 
+        <Route path="/change-password" element={<ChangePassword />} />
         
 
              {/* =================== STUDENT ROUTES ===================== */}

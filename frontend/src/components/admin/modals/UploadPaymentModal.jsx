@@ -295,7 +295,7 @@ const disableFutureDates = (current) => {
     label="Payment Type"
     rules={[{ required: true, message: "Please select payment type" }]}
   >
-    <Select
+   <Select placeholder="Select payment type"
       onChange={(value) => {
         if (value === "online") {
           form.setFieldsValue({
@@ -328,7 +328,7 @@ const disableFutureDates = (current) => {
                     label="Payment Method"
                     rules={[{ required: true }]}
                   >
-                    <Select disabled={!paymentType}>
+                   <Select placeholder="Select payment method" disabled={!paymentType}>
                       {paymentType === "online" && (
                         <Option value="upi">UPI</Option>
                       )}
