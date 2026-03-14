@@ -44,6 +44,7 @@ const StudentDashboard = () => {
 
     if (profile.program) {
       localStorage.setItem("selectedProgram", profile.program);
+      localStorage.setItem("program_id", profile.program_id);
     }
 
     if (profile.package_id) {
