@@ -226,6 +226,51 @@ class ContentDownloadAPIView(APIView):
             filename=content.file_url.name
         )
         
+# class ProgramContentAPIView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get(self, request):
+
+#         program_id = request.GET.get("program_id")
+#         package_id = request.GET.get("package_id")
+
+#         contents = Content.objects.filter(is_active=True, is_draft=False)
+
+#         if program_id and package_id:
+#             contents = contents.filter(
+#                 Q(contentpackage__program_id=program_id,
+#                   contentpackage__package_id=package_id)
+#                 |
+#                 Q(contentpackage__program__isnull=True)
+#             )
+
+#         elif program_id:
+#             contents = contents.filter(
+#                 Q(contentpackage__program_id=program_id,
+#                   contentpackage__package__isnull=True)
+#                 |
+#                 Q(contentpackage__program__isnull=True)
+#             )
+
+#         else:
+#             contents = contents.filter(
+#                 contentpackage__program__isnull=True
+#             )
+
+#         contents = contents.distinct()
+
+#         serializer = ContentUploadSerializer(
+#             contents,
+#             many=True,
+#             context={"request": request}
+#         )
+
+#         return Response({
+#             "success": True,
+#             "count": contents.count(),
+#             "data": serializer.data
+#         })
+
 class ProgramContentAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -237,25 +282,32 @@ class ProgramContentAPIView(APIView):
         contents = Content.objects.filter(is_active=True, is_draft=False)
 
         if program_id and package_id:
+            # Get contents that match BOTH program AND package
+            # OR contents with no program (global content)
             contents = contents.filter(
                 Q(contentpackage__program_id=program_id,
-                  contentpackage__package_id=package_id)
-                |
-                Q(contentpackage__program__isnull=True)
+                  contentpackage__package_id=package_id) |
+                Q(contentpackage__isnull=True)  # Contents with no package at all
             )
 
         elif program_id:
+            # Get contents that match the program (with or without package)
+            # OR contents with no program (global content)
             contents = contents.filter(
-                Q(contentpackage__program_id=program_id,
-                  contentpackage__package__isnull=True)
-                |
-                Q(contentpackage__program__isnull=True)
+                Q(contentpackage__program_id=program_id) |
+                Q(contentpackage__isnull=True)  # Contents with no package at all
+            )
+            
+        elif package_id:
+            # Get contents that match the package
+            # OR contents with no package (global content)
+            contents = contents.filter(
+                Q(contentpackage__package_id=package_id) |
+                Q(contentpackage__isnull=True)
             )
 
-        else:
-            contents = contents.filter(
-                contentpackage__program__isnull=True
-            )
+        # If no filters provided, show all content
+        # (removing the restrictive contentpackage__program__isnull=True condition)
 
         contents = contents.distinct()
 

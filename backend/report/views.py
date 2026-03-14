@@ -1,3 +1,5 @@
+import os
+
 from django.shortcuts import render
 
 from django.http import FileResponse
@@ -284,21 +286,67 @@ class CompletedExamReportStudentIDAPIView(APIView):
 # =====================================================
 
 @method_decorator(xframe_options_exempt, name="dispatch")
+# class ReportPDFView(APIView):
+#     authentication_classes = []          # 🔥 skips JWT completely
+#     permission_classes = [AllowAny] 
+
+#     def get(self, request, report_id):
+#         report = get_object_or_404(Report, id=report_id)
+
+#         response = FileResponse(
+#             report.file_path.open("rb"),
+#             content_type="application/pdf"
+#         )
+#         response["Content-Disposition"] = "inline"
+#         response["X-Frame-Options"] = "ALLOWALL"
+#         return response
+
 class ReportPDFView(APIView):
     authentication_classes = []          # 🔥 skips JWT completely
     permission_classes = [AllowAny] 
 
     def get(self, request, report_id):
+        # This will return 404 if report doesn't exist
         report = get_object_or_404(Report, id=report_id)
-
-        response = FileResponse(
-            report.file_path.open("rb"),
-            content_type="application/pdf"
-        )
-        response["Content-Disposition"] = "inline"
-        response["X-Frame-Options"] = "ALLOWALL"
-        return response
-    
+        
+        # Check if file path exists
+        if not report.file_path:
+            return Response(
+                {
+                    "error": "File path not found",
+                    "message": f"No file path associated with report {report_id}"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if physical file exists
+        if not os.path.exists(report.file_path.path):
+            return Response(
+                {
+                    "error": "PDF file not found",
+                    "message": f"The PDF file for report {report_id} could not be found on the server"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Try to open and serve the file
+        try:
+            response = FileResponse(
+                report.file_path.open("rb"),
+                content_type="application/pdf"
+            )
+            response["Content-Disposition"] = "inline"
+            response["X-Frame-Options"] = "ALLOWALL"
+            return response
+            
+        except (FileNotFoundError, IOError, OSError) as e:
+            return Response(
+                {
+                    "error": "File access error",
+                    "message": f"Unable to access the PDF file: {str(e)}"
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )  
     
 
         
