@@ -9,7 +9,7 @@ from lead_registration.models import StudentProfile
 from rest_framework.permissions import AllowAny
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.utils.decorators import method_decorator
-from report.utils import get_completed_exam_report_data
+from report.utils import get_completed_exam_report_data, send_report_uploaded_email
 from payment.models import Payment
 from program_package.models import UserProgramPackage
 from rest_framework.response import Response
@@ -455,6 +455,9 @@ class UploadReportAPIView(APIView):
         report.uploaded_at = timezone.now()
         report.report_status = report_status
         report.save()
+        
+        # Send email
+        send_report_uploaded_email(user, report)
 
         # -------------------------
         # CREATE BOOKING IF NOT EXISTS

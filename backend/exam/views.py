@@ -1,6 +1,7 @@
 from datetime import timezone
 from email.utils import format_datetime
 from django.shortcuts import get_object_or_404, render
+from exam.utils import send_exam_approved_email, send_exam_rejected_email
 from counselling_slot.models import Booking
 from lead_registration.models import StudentProfile
 from django.db import transaction
@@ -311,6 +312,13 @@ class ApproveUserExamAPIView(APIView):
         user_exam.approved_by = request.user
         user_exam.completed_at = timezone.now()
         user_exam.save()
+        
+        # Send email notification
+        send_exam_approved_email(
+            user_exam.user,
+            user_exam.exam.name,
+            user_exam.completed_at
+        )
 
         # ✅ CREATE / GET REPORT
         report, _ = Report.objects.get_or_create(
@@ -382,6 +390,13 @@ class RejectUserExamAPIView(APIView):
         user_exam.rejected_by = request.user  # optional field
         user_exam.rejected_at = timezone.now()  # optional field
         user_exam.save()
+        
+        # Send email notification
+        send_exam_rejected_email(
+            user_exam.user,
+            user_exam.exam.name,
+            user_exam.rejected_at
+        )
 
         serializer = UserExamApproveResponseSerializer(user_exam)
 

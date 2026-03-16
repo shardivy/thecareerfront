@@ -25,7 +25,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from payment.models import Payment, PaymentLog
 from payment.serializers import PaymentCreateSerializer, PaymentListSerializer, PaymentLogSerializer, PaymentResponseSerializer, StudentPaymentDetailSerializer
-from payment.utils import send_payment_reject_email, send_payment_reject_whatsapp
+from payment.utils import send_payment_approved_email, send_payment_created_email, send_payment_reject_email, send_payment_reject_whatsapp, send_payment_rejected_email, send_payment_updated_email
 from program_package.models import Package, UserProgramPackage
 
 class PaymentCreateAPIView(APIView):
@@ -76,6 +76,9 @@ class PaymentCreateAPIView(APIView):
             payment = serializer.save()
             
             self.unlock_report_if_paid(payment)
+            
+        # send email
+        send_payment_created_email(payment.user, payment)
 
         # ✅ THIS IS THE KEY LINE
         response_data = PaymentResponseSerializer(
@@ -118,6 +121,9 @@ class PaymentCreateAPIView(APIView):
             payment = serializer.save()
             
             self.unlock_report_if_paid(payment)
+            
+        # send email
+        send_payment_updated_email(payment.user, payment)
 
         response_data = PaymentResponseSerializer(
             payment,
@@ -339,6 +345,14 @@ class VerifyPaymentAPIView(APIView):
                     package=payment.package,
                     defaults={'assigned_by': request.user.email}
                 )
+            
+            # Send email
+            send_payment_approved_email(
+                payment.user,
+                payment,
+                cumulative_amount,
+                package_price
+            )
 
             return Response({
                 "success": True,
@@ -354,8 +368,8 @@ class VerifyPaymentAPIView(APIView):
         elif action == 'reject':
 
             # Send notifications
-            send_payment_reject_email(payment.user.email)
-            send_payment_reject_whatsapp(payment.user.phone)
+            send_payment_rejected_email(payment.user)
+            # send_payment_reject_whatsapp(payment.user.phone)
 
             # Calculate remaining payments excluding this one
             remaining_paid = Payment.objects.filter(

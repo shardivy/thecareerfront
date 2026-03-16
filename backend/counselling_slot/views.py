@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404, render
 from backend import settings
+from counselling_slot.utils import send_booking_created_email, send_booking_updated_email
 from lead_registration.models import StudentProfile
 from counselling_slot.tasks import send_booking_cancel_notification
 from django.db.transaction import on_commit
@@ -598,6 +599,9 @@ class BookingCreateAPIView(APIView):
                     date=date,
                     status="booked"
                 )
+                
+                # Send email
+                send_booking_created_email(student.user, slots, date)
 
                 # 🔥 IMPORTANT FIX IS HERE
                 for item in counsellors:
@@ -692,6 +696,11 @@ class BookingCreateAPIView(APIView):
                         "mode": slot.mode,
                     }
                 })
+                send_booking_updated_email(
+                    student.user,
+                    slots,
+                    date
+                )
 
         return Response(
             {
