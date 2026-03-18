@@ -1,6 +1,7 @@
 from datetime import timezone
 from email.utils import format_datetime
 from django.shortcuts import get_object_or_404, render
+from counselling_slot.tasks import create_system_notification
 from exam.utils import send_exam_approved_email, send_exam_rejected_email
 from counselling_slot.models import Booking
 from lead_registration.models import StudentProfile
@@ -12,7 +13,8 @@ from rest_framework.authentication import (TokenAuthentication)
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from django.utils.timezone import is_naive, localtime, make_aware
-
+from django.db.transaction import on_commit
+from django.contrib.auth import get_user_model
 from accounts.models import User
 from accounts.permissions import IsAdmin, IsCounsellor, IsSuperAdmin
 from exam.models import Exam, UserExam
@@ -438,6 +440,32 @@ class UpdateExamToPendingApprovalAPIView(APIView):
         # 🔹 Update status
         user_exam.status = "pending_approval"
         user_exam.save()
+        
+        # =========================
+        # 🔔 SEND NOTIFICATION TO SUPERADMIN
+        # =========================
+        User = get_user_model()
+
+        student_name = f"{user.first_name} {user.last_name}"
+        exam_name = user_exam.exam.name if user_exam.exam else "Exam"
+
+        title = "Exam Approval Request"
+
+        message = (
+            f"Student {student_name} has requested approval "
+            f"for exam '{exam_name}'."
+        )
+
+        admin_users = User.objects.filter(is_superuser=True)
+
+        for admin in admin_users:
+            admin_id = admin.id  # ✅ fix lambda issue
+
+            on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+                admin_id,
+                title,
+                message
+            ))
 
         return Response(
             {

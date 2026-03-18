@@ -261,6 +261,8 @@ INSTALLED_APPS = [
     'exam',
     'report',
     'content',
+    'notification',
+    'activity',
 ]
 
 
@@ -277,6 +279,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'activity.middleware.CurrentUserMiddleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True

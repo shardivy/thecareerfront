@@ -2,6 +2,7 @@ from django.db import models
 from django.shortcuts import get_object_or_404, render
 
 from accounts.models import User
+from counselling_slot.tasks import create_system_notification
 from report.models import Report
 from lead_registration.models import StudentProfile
 from lead_registration.serializers import PaymentDetailSerializer
@@ -18,6 +19,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 import mimetypes
 import os
+from django.db.transaction import on_commit
+from django.contrib.auth import get_user_model
 
 from django.db.models import Q, Count, Sum
 from accounts.permissions import IsAdmin, IsSuperAdmin
@@ -28,11 +31,13 @@ from payment.serializers import PaymentCreateSerializer, PaymentListSerializer, 
 from payment.utils import send_payment_approved_email, send_payment_created_email, send_payment_reject_email, send_payment_reject_whatsapp, send_payment_rejected_email, send_payment_updated_email
 from program_package.models import Package, UserProgramPackage
 
+User = get_user_model()
+
 class PaymentCreateAPIView(APIView):
     """
     Create Payment (Online / Offline)
     """
-    permission_classes = [IsSuperAdmin | IsAdmin ]
+    permission_classes = [IsAuthenticated]
     
     def unlock_report_if_paid(self, payment):
         """
@@ -76,6 +81,29 @@ class PaymentCreateAPIView(APIView):
             payment = serializer.save()
             
             self.unlock_report_if_paid(payment)
+            
+            # =========================
+            # 🔔 SEND NOTIFICATION TO SUPERADMIN
+            # =========================
+            user_name = f"{payment.user.first_name} {payment.user.last_name}"
+            amount = payment.amount
+
+            title = "Payment Received"
+
+            message = (
+                f"User {user_name} has successfully made a payment of ₹{amount}."
+            )
+
+            admin_users = User.objects.filter(is_superuser=True)
+
+            for admin in admin_users:
+                admin_id = admin.id  # ✅ fix lambda issue
+
+                on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+                    admin_id,
+                    title,
+                    message
+                ))
             
         # send email
         send_payment_created_email(payment.user, payment)

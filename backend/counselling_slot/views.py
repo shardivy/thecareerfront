@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404, render
 from backend import settings
 from counselling_slot.utils import send_booking_created_email, send_booking_updated_email
 from lead_registration.models import StudentProfile
-from counselling_slot.tasks import send_booking_cancel_notification
+from counselling_slot.tasks import create_system_notification, send_booking_cancel_notification
 from django.db.transaction import on_commit
 from counselling_slot.services import get_counsellor_slots_by_date
 from rest_framework.views import APIView
@@ -256,6 +256,38 @@ class SlotCreateAPIView(APIView):
             counsellor_id=counsellor_user_id,   # ✅ USER ID
             date=date
         ).order_by("start_time")
+        
+        # =========================
+        # 🔔 SEND NOTIFICATION TO SUPERADMIN (ASYNC)
+        # =========================
+
+        from django.db.transaction import on_commit
+        from django.contrib.auth import get_user_model
+        from counselling_slot.tasks import create_system_notification
+
+        User = get_user_model()
+
+        # Counsellor name
+        counsellor_name = f"{counsellor_obj.user.first_name} {counsellor_obj.user.last_name}"
+
+        title = "New Slots Created"
+
+        message = (
+            f"Counsellor {counsellor_name} has created slots for date {date}. "
+            f"Total slots: {slots.count()}."
+        )
+
+        # Get superadmins (or staff)
+        admin_users = User.objects.filter(is_superuser=True)  # or is_staff=True
+
+        for admin in admin_users:
+            admin_id = admin.id  # ✅ fix lambda issue
+
+            on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+                admin_id,
+                title,
+                message
+            ))
 
         return Response(
             {
@@ -580,6 +612,59 @@ class BookingCreateAPIView(APIView):
     # permission_classes = [IsAdmin | IsSuperAdmin | IsCounsellor]
     permission_classes = [IsAuthenticated]
 
+    # def post(self, request):
+    #     serializer = BookingCreateSerializer(data=request.data)
+    #     serializer.is_valid(raise_exception=True)
+
+    #     student = serializer.validated_data["student_id"]
+    #     date = serializer.validated_data["date"]
+    #     slots = serializer.validated_data["slots"]
+    #     counsellors = serializer.validated_data["counsellors_data"]
+
+    #     created_bookings = []
+
+    #     with transaction.atomic():
+    #         for slot in slots:
+    #             booking = Booking.objects.create(
+    #                 student=student,
+    #                 slot=slot,
+    #                 date=date,
+    #                 status="booked"
+    #             )
+                
+    #             # Send email
+    #             send_booking_created_email(student.user, slots, date)
+
+    #             # 🔥 IMPORTANT FIX IS HERE
+    #             for item in counsellors:
+    #                 counsellor_obj = item["counsellor_id"]  # ✅ already a Counsellor instance
+
+    #                 BookingCounsellor.objects.create(
+    #                     booking=booking,
+    #                     counsellor=counsellor_obj,
+    #                     role=item["role"]
+    #                 )
+
+    #             created_bookings.append({
+    #                 "booking_id": booking.id,
+    #                 "status": booking.status,
+    #                 "slot": {
+    #                     "id": slot.id,
+    #                     "date": slot.date,
+    #                     "start_time": slot.start_time,
+    #                     "end_time": slot.end_time,
+    #                     "mode": slot.mode,
+    #                 }
+    #             })
+
+    #     return Response(
+    #         {
+    #             "message": "Booking created successfully",
+    #             "data": created_bookings
+    #         },
+    #         status=status.HTTP_201_CREATED
+    #     )
+    
     def post(self, request):
         serializer = BookingCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -593,26 +678,47 @@ class BookingCreateAPIView(APIView):
 
         with transaction.atomic():
             for slot in slots:
+
+                # ✅ Create booking
                 booking = Booking.objects.create(
                     student=student,
                     slot=slot,
                     date=date,
                     status="booked"
                 )
-                
-                # Send email
+
+                # ✅ Send email (optional)
                 send_booking_created_email(student.user, slots, date)
 
-                # 🔥 IMPORTANT FIX IS HERE
-                for item in counsellors:
-                    counsellor_obj = item["counsellor_id"]  # ✅ already a Counsellor instance
+                # ✅ Prepare notification data
+                student_name = f"{student.user.first_name} {student.user.last_name}"
 
+                title = "New Booking Created"
+
+                message = (
+                    f"Student {student_name} has created a counselling slot "
+                    f"on {date} ({slot.start_time} - {slot.end_time})."
+                )
+
+                # ✅ Send notification to all admins (ASYNC via Celery)
+                admin_users = User.objects.filter(is_staff=True)
+
+                for admin in admin_users:
+                    on_commit(lambda admin_id=admin.id: create_system_notification.delay(
+                        admin_id,
+                        title,
+                        message
+                    ))
+
+                # ✅ Assign counsellors
+                for item in counsellors:
                     BookingCounsellor.objects.create(
                         booking=booking,
-                        counsellor=counsellor_obj,
+                        counsellor=item["counsellor_id"],
                         role=item["role"]
                     )
 
+                # ✅ Response data
                 created_bookings.append({
                     "booking_id": booking.id,
                     "status": booking.status,

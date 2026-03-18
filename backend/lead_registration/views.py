@@ -437,14 +437,436 @@ class LeadListAPIView(APIView):
             )
             
             
-class AddUserAPIView(APIView):
+# class AddUserAPIView(APIView):
      
-    """
-    Creates a new student user with profile details, assigns a program and package,
-    generates login credentials, and sends them via email.
-    Only accessible to Admin and Super Admin users.
-    """
+#     """
+#     Creates a new student user with profile details, assigns a program and package,
+#     generates login credentials, and sends them via email.
+#     Only accessible to Admin and Super Admin users.
+#     """
     
+#     permission_classes = [IsAdmin | IsSuperAdmin]
+
+#     def post(self, request):
+#         serializer = AddUserSerializer(data=request.data)
+
+#         if not serializer.is_valid():
+#             return Response(
+#                 {
+#                     "message": "Validation error",
+#                     "errors": serializer.errors
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         try:
+#             with transaction.atomic():
+
+#                 # 🔹 Role & password
+#                 # student_role = Role.objects.get(name="student")
+#                 # password = generate_password()
+                
+#                 student_role = Role.objects.get(name="student")
+
+#                 # 🔹 Check if password provided in request
+#                 password = serializer.validated_data.get("password")
+
+#                 if not password:
+#                     password = generate_password()
+
+
+#                 # 🔹 Create user
+#                 # 🔹 Program-based prefix logic
+#                 program = serializer.validated_data["program"]
+#                 program_name = program.name
+
+#                 prefix = PROGRAM_PREFIX_MAP.get(program_name)
+
+#                 original_first_name = serializer.validated_data["first_name"]
+
+#                 # Avoid double prefix
+#                 if prefix and not original_first_name.startswith(prefix):
+#                     final_first_name = f"{prefix} - {original_first_name}"
+#                 else:
+#                     final_first_name = original_first_name
+
+#                 # 🔹 Create user with prefixed name
+#                 user = User.objects.create(
+#                     first_name=final_first_name,
+#                     last_name=serializer.validated_data["last_name"],
+#                     email=serializer.validated_data["email"],
+#                     phone=serializer.validated_data.get("phone") or None,
+#                     role=student_role,
+#                     is_active=True
+#                 )
+#                 user.set_password(password)
+#                 user.save()
+
+
+#                 # 🔹 Create student profile
+#                 StudentProfile.objects.create(
+#                     user=user,
+#                     study_class=serializer.validated_data.get("study_class"),
+#                     current_academic_stage=serializer.validated_data.get("current_academic_stage"),
+#                     current_academic_year=serializer.validated_data.get("current_academic_year"),
+#                     school_college=serializer.validated_data.get("school_college"),
+#                     city=serializer.validated_data.get("city"),
+#                     preferred_counselling_mode=serializer.validated_data.get(
+#                         "preferred_counselling_mode"
+#                     ),
+#                 )
+
+#                 # 🔹 Assign program & package
+#                 upp = UserProgramPackage.objects.create(
+#                     user=user,
+#                     program=serializer.validated_data["program"],
+#                     package=serializer.validated_data["package"],
+#                     assigned_by=request.user.email
+#                 )
+                
+# #++++++++++++++++++++++++++++++++ just for now and will later delete it ++++++++++++++++++++++++++++++++++++++++++
+
+#                 # # 🔹 Auto-create UserExam if aptitude_test = True
+#                 # package = serializer.validated_data["package"]
+
+#                 # if package.aptitude_test:
+
+#                 #     # Get all exam mappings for this package
+#                 #     package_exams = PackageExam.objects.filter(package_id=package.id)
+
+#                 #     if package_exams.exists():
+
+#                 #         user_exams = [
+#                 #             UserExam(
+#                 #                 user=user,
+#                 #                 exam=pe.exam,
+#                 #                 status="in_progress"
+#                 #             )
+#                 #             for pe in package_exams
+#                 #         ]
+
+#                 #         UserExam.objects.bulk_create(user_exams)
+                
+#                 # 🔹 Auto-create UserExam OR Booking based on aptitude_test
+#                 package = serializer.validated_data["package"]
+
+#                 if package.aptitude_test:
+#                     # Create UserExam
+#                     UserExam.objects.create(
+#                         user=user,
+#                         status="not_started"
+#                     )
+#                 else:
+#                     # Create Booking entry
+#                     student_profile = user.student_profile  
+
+#                     Booking.objects.create(
+#                         student=student_profile,
+#                         status="not_booked",  
+#                         # session_type="career_counselling"  
+#                     )
+# # ==========================================================================================================
+
+#                 # 🔹 Create payment (OPTIONAL)
+#                 payment = None
+#                 amount = serializer.validated_data.get("amount")
+#                 proof_file = serializer.validated_data.get("proof_file")
+
+#                 if amount is not None:
+
+#                     package_price = serializer.validated_data["package"].price
+
+#                     # 🔹 Determine payment status
+#                     if amount == 0:
+#                         payment_status = "not_paid"
+#                     elif amount < package_price:
+#                         payment_status = "partial_paid"
+#                     else:
+#                         payment_status = "fully_paid"
+
+#                     payment = Payment.objects.create(
+#                         user=user,
+#                         package=serializer.validated_data["package"],
+#                         amount=amount,
+#                         payment_type=serializer.validated_data.get("payment_type"),
+#                         method=serializer.validated_data.get("method"),
+#                         transaction_id=serializer.validated_data.get("transaction_id"),
+#                         proof_file=proof_file,
+#                         status=payment_status
+#                     )
+
+
+#                 # 🔹 Send credentials email
+#                 try:
+#                     send_credentials_email(user.email, password, program.name, package.name)
+#                 except Exception as e:
+#                     print("Email sending failed:", e)
+
+#                 # 🔹 Prepare response
+#                 response_data = UserProgramPackageResponseSerializer(upp).data
+
+#                 payment_data = None
+#                 if payment:
+#                     proof_url = None
+
+#                     if payment.proof_file:
+#                         proof_url = request.build_absolute_uri(
+#                             payment.proof_file.url
+#                         )
+
+#                     payment_data = {
+#                         "payment_id": payment.id,
+#                         "amount": payment.amount,
+#                         "payment_type": payment.payment_type,
+#                         "method": payment.method,
+#                         "transaction_id": payment.transaction_id,
+#                         "proof_file": proof_url,   # ✅ safe
+#                         "status": payment.status,
+#                         "created_at": payment.created_at
+#                     }
+
+
+#                 return Response(
+#                     {
+#                         "message": "Student created successfully and credentials sent via email",
+#                         "data": {
+#                             "id": user.id,
+#                             "first_name": user.first_name,
+#                             "last_name": user.last_name,
+#                             "study_class": serializer.validated_data.get("study_class"),
+#                             "preferred_counselling_mode": serializer.validated_data.get("preferred_counselling_mode"),
+#                             "email": user.email,
+#                             "phone": user.phone,
+#                             "program": response_data["program"],
+#                             "package": response_data["package"],
+#                             "payment": payment_data
+#                         }
+#                     },
+#                     status=status.HTTP_201_CREATED
+#                 )
+
+#         except IntegrityError as e:
+#             error = str(e).lower()
+
+#             errors = []
+
+#             if "email" in error:
+#                 errors.append("Email already exists.")
+
+#             if "phone" in error:
+#                 errors.append("Phone number already exists.")
+
+#             if "transaction_id" in error:
+#                 errors.append("Transaction ID already exists.")
+
+#             if not errors:
+#                 errors.append(str(e))
+
+        
+
+#             return Response(
+#                 {
+#                     "message": "Duplicate entry",
+#                     "errors": errors
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+
+#         except Exception as e:
+#             return Response(
+#                 {
+#                     "message": "Something went wrong while adding student",
+#                     "error": str(e)
+#                 },
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+    
+    
+
+#     def put(self, request, id):
+#         """
+#         Update student using StudentProfile ID
+#         """
+#         profile = get_object_or_404(StudentProfile, id=id)
+#         user = profile.user
+
+#         serializer = AddUserSerializer(
+#             data=request.data,
+#             partial=True,
+#             context={"user_id": user.id}
+#         )
+
+#         if not serializer.is_valid():
+#             return Response(
+#                 {
+#                     "message": "Validation error",
+#                     "errors": serializer.errors
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         try:
+#             with transaction.atomic():
+
+#                 # 🔹 Get updated program (if provided)
+#                 program = serializer.validated_data.get("program")
+#                 new_first_name = serializer.validated_data.get("first_name", user.first_name)
+
+#                 if program:
+#                     program_name = program.name
+#                     prefix = PROGRAM_PREFIX_MAP.get(program_name)
+
+#                     # 🔹 Remove old prefix if exists
+#                     if " - " in new_first_name:
+#                         new_first_name = new_first_name.split(" - ", 1)[1]
+
+#                     # 🔹 Apply new prefix
+#                     if prefix:
+#                         new_first_name = f"{prefix} - {new_first_name}"
+
+#                 # 🔹 Update User fields
+#                 user.first_name = new_first_name
+#                 user.last_name = serializer.validated_data.get("last_name", user.last_name)
+#                 user.email = serializer.validated_data.get("email", user.email)
+#                 user.phone = serializer.validated_data.get("phone") or user.phone
+#                 user.save()
+
+#                 # 🔹 Update StudentProfile
+#                 profile.study_class = serializer.validated_data.get("study_class", profile.study_class)
+#                 profile.current_academic_stage = serializer.validated_data.get(
+#                     "current_academic_stage", profile.current_academic_stage
+#                 )
+#                 profile.current_academic_year = serializer.validated_data.get(
+#                     "current_academic_year", profile.current_academic_year
+#                 )
+#                 profile.school_college = serializer.validated_data.get(
+#                     "school_college", profile.school_college
+#                 )
+#                 profile.preferred_counselling_mode = serializer.validated_data.get(
+#                     "preferred_counselling_mode", profile.preferred_counselling_mode
+#                 )
+#                 profile.city = serializer.validated_data.get("city", profile.city)
+#                 profile.save()
+
+#                 # 🔹 Update Program / Package
+#                 package = serializer.validated_data.get("package")
+
+#                 upp = UserProgramPackage.objects.filter(user=user).last()
+#                 if upp and (program or package):
+#                     upp.program = program or upp.program
+#                     upp.package = package or upp.package
+#                     upp.assigned_by = request.user.email
+#                     upp.save()
+
+#             response_data = (
+#                 UserProgramPackageResponseSerializer(upp).data if upp else None
+#             )
+            
+#             # 🔹 Fetch proof file
+#             proof_file = request.FILES.get("proof_file")
+            
+#             # 🔹 Fetch latest payment
+#             payment = Payment.objects.filter(user=user).order_by("-created_at").first()
+
+#             # if payment and proof_file:
+#             #     payment.proof_file = proof_file
+#             #     payment.status = "verification_pending"
+#             #     payment.save()
+            
+#             amount = serializer.validated_data.get("amount")
+
+#             if amount is not None and payment:
+
+#                 package_price = payment.package.price
+
+#                 # 🔹 Apply ₹500 rule ONLY if package price is greater than 0
+#                 # if package_price > 0:
+#                 #     if amount < 500:
+#                 #         return Response(
+#                 #             {"message": "Amount must be at least ₹500"},
+#                 #             status=status.HTTP_400_BAD_REQUEST
+#                 #         )
+
+#                 # 🔹 Prevent overpayment
+#                 if amount > package_price:
+#                     return Response(
+#                         {"message": f"Amount cannot exceed ₹{package_price}"},
+#                         status=status.HTTP_400_BAD_REQUEST
+#                     )
+
+#                 payment.amount = amount
+
+#                 # 🔹 Auto update status
+#                 if amount == 0:
+#                     payment_status = "not_paid"
+#                 elif amount < package_price:
+#                     payment_status = "partial_paid"
+#                 else:
+#                     payment_status = "fully_paid"
+
+#                 payment.save()
+
+#             payment_data = None
+
+#             if payment:
+#                 proof_url = None
+#                 if payment.proof_file:
+#                     proof_url = request.build_absolute_uri(payment.proof_file.url)
+
+#                 payment_data = {
+#                     "payment_id": payment.id,
+#                     "amount": payment.amount,
+#                     "payment_type": payment.payment_type,
+#                     "method": payment.method,
+#                     "transaction_id": payment.transaction_id,
+#                     "proof_file": proof_url,   # ✅ same behavior as POST
+#                     "status": payment.status,
+#                     "created_at": payment.created_at
+#                 }
+
+
+
+#             return Response(
+#                 {
+#                     "message": "Student updated successfully",
+#                     "data": {
+#                         "student_profile_id": profile.id,
+#                         "user_id": user.id,
+#                         "first_name": user.first_name,
+#                         "last_name": user.last_name,
+#                         "email": user.email,
+#                         "phone": user.phone,
+#                         "program": response_data["program"] if response_data else None,
+#                         "package": response_data["package"] if response_data else None,
+#                          "payment": payment_data 
+#                     }
+#                 },
+#                 status=status.HTTP_200_OK
+#             )
+
+#         except IntegrityError as e:
+#             return Response(
+#                 {
+#                     "message": "Duplicate entry",
+#                     "errors": ["Email or Phone already exists."]
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         except Exception as e:
+#             return Response(
+#                 {
+#                     "message": "Something went wrong while updating student",
+#                     "error": str(e)
+#                 },
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+  
+class AddUserAPIView(APIView):
+
     permission_classes = [IsAdmin | IsSuperAdmin]
 
     def post(self, request):
@@ -452,131 +874,81 @@ class AddUserAPIView(APIView):
 
         if not serializer.is_valid():
             return Response(
-                {
-                    "message": "Validation error",
-                    "errors": serializer.errors
-                },
+                {"message": "Validation error", "errors": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
             with transaction.atomic():
 
-                # 🔹 Role & password
-                # student_role = Role.objects.get(name="student")
-                # password = generate_password()
-                
-                student_role = Role.objects.get(name="student")
+                # ✅ Cache validated data
+                data = serializer.validated_data
+                program = data["program"]
+                package = data["package"]
 
-                # 🔹 Check if password provided in request
-                password = serializer.validated_data.get("password")
+                # ✅ Optimized role fetch
+                student_role = Role.objects.only("id").get(name="student")
 
-                if not password:
-                    password = generate_password()
+                # ✅ Password handling
+                password = data.get("password") or generate_password()
 
+                # ✅ Prefix logic
+                prefix = PROGRAM_PREFIX_MAP.get(program.name)
+                first_name = data["first_name"]
 
-                # 🔹 Create user
-                # 🔹 Program-based prefix logic
-                program = serializer.validated_data["program"]
-                program_name = program.name
+                if prefix and not first_name.startswith(prefix):
+                    first_name = f"{prefix} - {first_name}"
 
-                prefix = PROGRAM_PREFIX_MAP.get(program_name)
-
-                original_first_name = serializer.validated_data["first_name"]
-
-                # Avoid double prefix
-                if prefix and not original_first_name.startswith(prefix):
-                    final_first_name = f"{prefix} - {original_first_name}"
-                else:
-                    final_first_name = original_first_name
-
-                # 🔹 Create user with prefixed name
+                # ✅ Create user
                 user = User.objects.create(
-                    first_name=final_first_name,
-                    last_name=serializer.validated_data["last_name"],
-                    email=serializer.validated_data["email"],
-                    phone=serializer.validated_data.get("phone") or None,
+                    first_name=first_name,
+                    last_name=data["last_name"],
+                    email=data["email"],
+                    phone=data.get("phone") or None,
                     role=student_role,
                     is_active=True
                 )
                 user.set_password(password)
-                user.save()
+                user.save(update_fields=["password"])
 
-
-                # 🔹 Create student profile
-                StudentProfile.objects.create(
+                # ✅ Create student profile (reuse object later)
+                student_profile = StudentProfile.objects.create(
                     user=user,
-                    study_class=serializer.validated_data.get("study_class"),
-                    current_academic_stage=serializer.validated_data.get("current_academic_stage"),
-                    current_academic_year=serializer.validated_data.get("current_academic_year"),
-                    school_college=serializer.validated_data.get("school_college"),
-                    city=serializer.validated_data.get("city"),
-                    preferred_counselling_mode=serializer.validated_data.get(
-                        "preferred_counselling_mode"
-                    ),
+                    study_class=data.get("study_class"),
+                    current_academic_stage=data.get("current_academic_stage"),
+                    current_academic_year=data.get("current_academic_year"),
+                    school_college=data.get("school_college"),
+                    city=data.get("city"),
+                    preferred_counselling_mode=data.get("preferred_counselling_mode"),
                 )
 
-                # 🔹 Assign program & package
+                # ✅ Assign program & package
                 upp = UserProgramPackage.objects.create(
                     user=user,
-                    program=serializer.validated_data["program"],
-                    package=serializer.validated_data["package"],
+                    program=program,
+                    package=package,
                     assigned_by=request.user.email
                 )
-                
-#++++++++++++++++++++++++++++++++ just for now and will later delete it ++++++++++++++++++++++++++++++++++++++++++
 
-                # # 🔹 Auto-create UserExam if aptitude_test = True
-                # package = serializer.validated_data["package"]
-
-                # if package.aptitude_test:
-
-                #     # Get all exam mappings for this package
-                #     package_exams = PackageExam.objects.filter(package_id=package.id)
-
-                #     if package_exams.exists():
-
-                #         user_exams = [
-                #             UserExam(
-                #                 user=user,
-                #                 exam=pe.exam,
-                #                 status="in_progress"
-                #             )
-                #             for pe in package_exams
-                #         ]
-
-                #         UserExam.objects.bulk_create(user_exams)
-                
-                # 🔹 Auto-create UserExam OR Booking based on aptitude_test
-                package = serializer.validated_data["package"]
-
+                # ✅ Conditional logic (NO extra queries)
                 if package.aptitude_test:
-                    # Create UserExam
                     UserExam.objects.create(
                         user=user,
                         status="not_started"
                     )
                 else:
-                    # Create Booking entry
-                    student_profile = user.student_profile  
-
                     Booking.objects.create(
                         student=student_profile,
-                        status="not_booked",  
-                        # session_type="career_counselling"  
+                        status="not_booked"
                     )
-# ==========================================================================================================
 
-                # 🔹 Create payment (OPTIONAL)
+                # ✅ Payment (optimized)
                 payment = None
-                amount = serializer.validated_data.get("amount")
-                proof_file = serializer.validated_data.get("proof_file")
+                amount = data.get("amount")
 
                 if amount is not None:
+                    package_price = package.price
 
-                    package_price = serializer.validated_data["package"].price
-
-                    # 🔹 Determine payment status
                     if amount == 0:
                         payment_status = "not_paid"
                     elif amount < package_price:
@@ -586,33 +958,35 @@ class AddUserAPIView(APIView):
 
                     payment = Payment.objects.create(
                         user=user,
-                        package=serializer.validated_data["package"],
+                        package=package,
                         amount=amount,
-                        payment_type=serializer.validated_data.get("payment_type"),
-                        method=serializer.validated_data.get("method"),
-                        transaction_id=serializer.validated_data.get("transaction_id"),
-                        proof_file=proof_file,
+                        payment_type=data.get("payment_type"),
+                        method=data.get("method"),
+                        transaction_id=data.get("transaction_id"),
+                        proof_file=data.get("proof_file"),
                         status=payment_status
                     )
 
-
-                # 🔹 Send credentials email
+                # ✅ Send email (non-blocking safe)
                 try:
-                    send_credentials_email(user.email, password, program.name, package.name)
+                    send_credentials_email(
+                        user.email,
+                        password,
+                        program.name,
+                        package.name
+                    )
                 except Exception as e:
-                    print("Email sending failed:", e)
+                    print("Email failed:", e)
 
-                # 🔹 Prepare response
+                # ✅ Response
                 response_data = UserProgramPackageResponseSerializer(upp).data
 
                 payment_data = None
                 if payment:
-                    proof_url = None
-
-                    if payment.proof_file:
-                        proof_url = request.build_absolute_uri(
-                            payment.proof_file.url
-                        )
+                    proof_url = (
+                        request.build_absolute_uri(payment.proof_file.url)
+                        if payment.proof_file else None
+                    )
 
                     payment_data = {
                         "payment_id": payment.id,
@@ -620,23 +994,22 @@ class AddUserAPIView(APIView):
                         "payment_type": payment.payment_type,
                         "method": payment.method,
                         "transaction_id": payment.transaction_id,
-                        "proof_file": proof_url,   # ✅ safe
+                        "proof_file": proof_url,
                         "status": payment.status,
                         "created_at": payment.created_at
                     }
 
-
                 return Response(
                     {
-                        "message": "Student created successfully and credentials sent via email",
+                        "message": "Student created successfully",
                         "data": {
                             "id": user.id,
                             "first_name": user.first_name,
                             "last_name": user.last_name,
-                            "study_class": serializer.validated_data.get("study_class"),
-                            "preferred_counselling_mode": serializer.validated_data.get("preferred_counselling_mode"),
                             "email": user.email,
                             "phone": user.phone,
+                            "study_class": data.get("study_class"),
+                            "preferred_counselling_mode": data.get("preferred_counselling_mode"),
                             "program": response_data["program"],
                             "package": response_data["package"],
                             "payment": payment_data
@@ -647,49 +1020,33 @@ class AddUserAPIView(APIView):
 
         except IntegrityError as e:
             error = str(e).lower()
-
             errors = []
 
             if "email" in error:
                 errors.append("Email already exists.")
-
             if "phone" in error:
-                errors.append("Phone number already exists.")
-
+                errors.append("Phone already exists.")
             if "transaction_id" in error:
                 errors.append("Transaction ID already exists.")
 
-            if not errors:
-                errors.append(str(e))
-
-        
-
             return Response(
-                {
-                    "message": "Duplicate entry",
-                    "errors": errors
-                },
+                {"message": "Duplicate entry", "errors": errors or [str(e)]},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-
         except Exception as e:
             return Response(
-                {
-                    "message": "Something went wrong while adding student",
-                    "error": str(e)
-                },
+                {"message": "Something went wrong", "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    
-    
-
     def put(self, request, id):
-        """
-        Update student using StudentProfile ID
-        """
-        profile = get_object_or_404(StudentProfile, id=id)
+
+        # ✅ select_related optimization
+        profile = get_object_or_404(
+            StudentProfile.objects.select_related("user"),
+            id=id
+        )
         user = profile.user
 
         serializer = AddUserSerializer(
@@ -700,133 +1057,78 @@ class AddUserAPIView(APIView):
 
         if not serializer.is_valid():
             return Response(
-                {
-                    "message": "Validation error",
-                    "errors": serializer.errors
-                },
+                {"message": "Validation error", "errors": serializer.errors},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
             with transaction.atomic():
 
-                # 🔹 Get updated program (if provided)
-                program = serializer.validated_data.get("program")
-                new_first_name = serializer.validated_data.get("first_name", user.first_name)
+                data = serializer.validated_data
+
+                program = data.get("program")
+                package = data.get("package")
+
+                # ✅ Name logic
+                first_name = data.get("first_name", user.first_name)
 
                 if program:
-                    program_name = program.name
-                    prefix = PROGRAM_PREFIX_MAP.get(program_name)
+                    prefix = PROGRAM_PREFIX_MAP.get(program.name)
 
-                    # 🔹 Remove old prefix if exists
-                    if " - " in new_first_name:
-                        new_first_name = new_first_name.split(" - ", 1)[1]
+                    if " - " in first_name:
+                        first_name = first_name.split(" - ", 1)[1]
 
-                    # 🔹 Apply new prefix
                     if prefix:
-                        new_first_name = f"{prefix} - {new_first_name}"
+                        first_name = f"{prefix} - {first_name}"
 
-                # 🔹 Update User fields
-                user.first_name = new_first_name
-                user.last_name = serializer.validated_data.get("last_name", user.last_name)
-                user.email = serializer.validated_data.get("email", user.email)
-                user.phone = serializer.validated_data.get("phone") or user.phone
+                # ✅ Update user
+                user.first_name = first_name
+                user.last_name = data.get("last_name", user.last_name)
+                user.email = data.get("email", user.email)
+                user.phone = data.get("phone") or user.phone
                 user.save()
 
-                # 🔹 Update StudentProfile
-                profile.study_class = serializer.validated_data.get("study_class", profile.study_class)
-                profile.current_academic_stage = serializer.validated_data.get(
-                    "current_academic_stage", profile.current_academic_stage
-                )
-                profile.current_academic_year = serializer.validated_data.get(
-                    "current_academic_year", profile.current_academic_year
-                )
-                profile.school_college = serializer.validated_data.get(
-                    "school_college", profile.school_college
-                )
-                profile.preferred_counselling_mode = serializer.validated_data.get(
-                    "preferred_counselling_mode", profile.preferred_counselling_mode
-                )
-                profile.city = serializer.validated_data.get("city", profile.city)
+                # ✅ Update profile
+                profile.study_class = data.get("study_class", profile.study_class)
+                profile.current_academic_stage = data.get("current_academic_stage", profile.current_academic_stage)
+                profile.current_academic_year = data.get("current_academic_year", profile.current_academic_year)
+                profile.school_college = data.get("school_college", profile.school_college)
+                profile.city = data.get("city", profile.city)
+                profile.preferred_counselling_mode = data.get("preferred_counselling_mode", profile.preferred_counselling_mode)
                 profile.save()
 
-                # 🔹 Update Program / Package
-                package = serializer.validated_data.get("package")
+                # ✅ Optimized query
+                upp = UserProgramPackage.objects.select_related(
+                    "program", "package"
+                ).filter(user=user).last()
 
-                upp = UserProgramPackage.objects.filter(user=user).last()
                 if upp and (program or package):
                     upp.program = program or upp.program
                     upp.package = package or upp.package
                     upp.assigned_by = request.user.email
                     upp.save()
 
-            response_data = (
-                UserProgramPackageResponseSerializer(upp).data if upp else None
-            )
-            
-            # 🔹 Fetch proof file
-            proof_file = request.FILES.get("proof_file")
-            
-            # 🔹 Fetch latest payment
-            payment = Payment.objects.filter(user=user).order_by("-created_at").first()
+            response_data = UserProgramPackageResponseSerializer(upp).data if upp else None
 
-            # if payment and proof_file:
-            #     payment.proof_file = proof_file
-            #     payment.status = "verification_pending"
-            #     payment.save()
-            
-            amount = serializer.validated_data.get("amount")
-
-            if amount is not None and payment:
-
-                package_price = payment.package.price
-
-                # 🔹 Apply ₹500 rule ONLY if package price is greater than 0
-                # if package_price > 0:
-                #     if amount < 500:
-                #         return Response(
-                #             {"message": "Amount must be at least ₹500"},
-                #             status=status.HTTP_400_BAD_REQUEST
-                #         )
-
-                # 🔹 Prevent overpayment
-                if amount > package_price:
-                    return Response(
-                        {"message": f"Amount cannot exceed ₹{package_price}"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                payment.amount = amount
-
-                # 🔹 Auto update status
-                if amount == 0:
-                    payment_status = "not_paid"
-                elif amount < package_price:
-                    payment_status = "partial_paid"
-                else:
-                    payment_status = "fully_paid"
-
-                payment.save()
+            # ✅ Optimized payment fetch
+            payment = Payment.objects.filter(user=user).only(
+                "id", "amount", "status", "proof_file", "created_at", "package"
+            ).order_by("-created_at").first()
 
             payment_data = None
-
             if payment:
-                proof_url = None
-                if payment.proof_file:
-                    proof_url = request.build_absolute_uri(payment.proof_file.url)
+                proof_url = (
+                    request.build_absolute_uri(payment.proof_file.url)
+                    if payment.proof_file else None
+                )
 
                 payment_data = {
                     "payment_id": payment.id,
                     "amount": payment.amount,
-                    "payment_type": payment.payment_type,
-                    "method": payment.method,
-                    "transaction_id": payment.transaction_id,
-                    "proof_file": proof_url,   # ✅ same behavior as POST
                     "status": payment.status,
+                    "proof_file": proof_url,
                     "created_at": payment.created_at
                 }
-
-
 
             return Response(
                 {
@@ -840,30 +1142,24 @@ class AddUserAPIView(APIView):
                         "phone": user.phone,
                         "program": response_data["program"] if response_data else None,
                         "package": response_data["package"] if response_data else None,
-                         "payment": payment_data 
+                        "payment": payment_data
                     }
                 },
                 status=status.HTTP_200_OK
             )
 
-        except IntegrityError as e:
+        except IntegrityError:
             return Response(
-                {
-                    "message": "Duplicate entry",
-                    "errors": ["Email or Phone already exists."]
-                },
+                {"message": "Duplicate entry", "errors": ["Email or Phone exists"]},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         except Exception as e:
             return Response(
-                {
-                    "message": "Something went wrong while updating student",
-                    "error": str(e)
-                },
+                {"message": "Something went wrong", "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
+  
                                  
 class AdminUserFullUpdateAPIView(APIView):
     """
