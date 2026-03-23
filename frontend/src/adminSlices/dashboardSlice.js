@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getDashboardStatsApi, getLeadStatsApi } from "../adminApi/dashboardApi";
+import { getDashboardStatsApi, getLeadStatsApi , getActivityLogsApi} from "../adminApi/dashboardApi";
 
 // ==================== THUNKS ====================
 
@@ -31,6 +31,20 @@ export const fetchLeadStats = createAsyncThunk(
   }
 );
 
+export const fetchActivityLogs = createAsyncThunk(
+  "dashboard/fetchActivityLogs",
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await getActivityLogsApi();
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch activity logs"
+      );
+    }
+  }
+);
+
 // ==================== SLICE ====================
 
 const dashboardSlice = createSlice({
@@ -38,6 +52,7 @@ const dashboardSlice = createSlice({
   initialState: {
     stats: null,
     leadStats: null,
+      activities: [], 
     loading: false,
     error: null,
   },
@@ -127,7 +142,36 @@ const dashboardSlice = createSlice({
       .addCase(fetchLeadStats.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+
+      // ================= ACTIVITY LOGS =================
+.addCase(fetchActivityLogs.fulfilled, (state, action) => {
+  state.loading = false;
+
+  // ✅ Handle paginated OR direct array response
+  const activityData = Array.isArray(action.payload)
+    ? action.payload
+    : action.payload?.results || [];
+
+  state.activities = activityData.map((item, index) => ({
+    key: item.id || index + 1,
+
+    // 🔥 Customize based on your backend fields
+    activity:
+      item.message ||
+      item.description ||
+      item.activity ||
+      "No activity",
+
+    time: item.created_at
+      ? new Date(item.created_at).toLocaleString()
+      : "",
+
+    status:
+      item.status ||
+      (item.is_completed ? "Completed" : "New"),
+  }));
+});
   },
 });
 

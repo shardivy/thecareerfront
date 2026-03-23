@@ -27,6 +27,7 @@ import subjectReducer from "./adminSlices/subjectSlice";
 import hobbyReducer from "./adminSlices/hobbySlice";
 import contentReducer from "./adminSlices/contentSlice";
 import employeeReducer from "./adminSlices/employeeSlice";
+import notificationReducer from "./adminSlices/notificationSlice";
 
 
 const store = configureStore({
@@ -57,7 +58,7 @@ const store = configureStore({
         hobbies: hobbyReducer,
         content: contentReducer,
         employee: employeeReducer,
-
+        notifications: notificationReducer,
 
   },
 });

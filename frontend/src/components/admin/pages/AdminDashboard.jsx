@@ -4,7 +4,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title as Char
 import { Bar, Doughnut } from "react-chartjs-2";
 import { FileTextOutlined, TeamOutlined, CalendarOutlined, CreditCardOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchDashboardStats, fetchLeadStats } from "../../../adminSlices/dashboardSlice";
+import { fetchDashboardStats, fetchLeadStats, fetchActivityLogs } from "../../../adminSlices/dashboardSlice";
 import { getProfile } from "../../../adminSlices/profileSlice";
 import adminTheme from "../../../theme/adminTheme";
 
@@ -15,7 +15,7 @@ const { Option } = Select;
 
 const AdminDashboard = () => {
   const dispatch = useDispatch();
- const { stats: dashboardStats, leadStats, loading, error } =
+ const { stats: dashboardStats, leadStats, activities, loading, error } =
   useSelector((state) => state.dashboard);
 
   const { profile } = useSelector((state) => state.profile);
@@ -25,6 +25,7 @@ const AdminDashboard = () => {
 useEffect(() => {
   dispatch(fetchDashboardStats());
   dispatch(fetchLeadStats(chartPeriod));
+    dispatch(fetchActivityLogs()); 
   dispatch(getProfile());
 }, [dispatch, chartPeriod]);
 
@@ -187,13 +188,7 @@ const getEnquiriesData = () => {
   };
 
   // =================== RECENT ACTIVITIES ===================
-  const recentActivities = [
-    { key: 1, activity: "Priya Sharma - Payment Verified ₹15,000", time: "2 min ago", status: "Completed" },
-    { key: 2, activity: "New Enquiry - Rajesh Kumar (WhatsApp)", time: "15 min ago", status: "New" },
-    { key: 3, activity: "Session Completed - Anjali Verma", time: "1 hour ago", status: "New" },
-    { key: 4, activity: "Exam Completed - Vikram Singh", time: "2 hours ago", status: "Pending" },
-    { key: 5, activity: "Report Uploaded - Neha Patel", time: "3 hours ago", status: "Completed" },
-  ];
+const recentActivities = activities || [];
 
   const activityColumns = [
     { title: "Activity", dataIndex: "activity", key: "activity" },
@@ -343,7 +338,7 @@ const getEnquiriesData = () => {
       </Row>
 
       {/* =================== RECENT ACTIVITIES =================== */}
-      {/* <Row style={{ marginTop: 16 }}>
+      <Row style={{ marginTop: 16 }}>
         <Col xs={24}>
           <Card
             title="Recent Activity"
@@ -358,7 +353,7 @@ const getEnquiriesData = () => {
             />
           </Card>
         </Col>
-      </Row> */}
+      </Row>
     </div>
   );
 };

@@ -134,7 +134,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
     return fullName.trim();
   };
 
- 
+
   /* ================= FETCH DATA ================= */
   useEffect(() => {
     if (open) {
@@ -183,7 +183,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
         phone: user.phone || "",
         study_class: user.study_class || undefined,
         preferred_counselling_mode: user.preferred_counselling_mode || undefined,
-        amount: paymentData.amount|| 0,
+        amount: paymentData.amount || 0,
         payment_type: paymentData.payment_type || "",
         method: paymentData.method || "",
         transaction_id: paymentData.transaction_id || "",
@@ -315,23 +315,23 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
         dispatch(fetchStudents());
         onClose();
       })
-     .catch((error) => {
-  console.error("❌ Operation failed:", error);
+      .catch((error) => {
+        console.error("❌ Operation failed:", error);
 
-  // Check if errors object exists
-  if (error.errors) {
-    // Flatten all errors into a single string
-    const messages = Object.values(error.errors)
-      .flat()
-      .join(", "); // e.g., "Phone number already exists."
+        // Check if errors object exists
+        if (error.errors) {
+          // Flatten all errors into a single string
+          const messages = Object.values(error.errors)
+            .flat()
+            .join(", "); // e.g., "Phone number already exists."
 
-    message.error(messages);
-  } else if (error.message) {
-    message.error(error.message);
-  } else {
-    message.error("Operation failed");
-  }
-});
+          message.error(messages);
+        } else if (error.message) {
+          message.error(error.message);
+        } else {
+          message.error("Operation failed");
+        }
+      });
   };
 
   /* ================= HANDLE PROGRAM CHANGE ================= */
@@ -379,11 +379,14 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
       title={isEdit ? "Edit User" : isView ? "View User" : "Add User"}
       width="100%"
       style={{ maxWidth: 1100 }}
+      
     >
+      
       <Row gutter={[24, 24]}>
         {/* LEFT SIDE FORM */}
-        <Col xs={24} lg={14}>
-          <Form form={form} layout="vertical" onFinish={handleSubmit}>
+       <Col xs={24} lg={14}>
+  <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
+    <Form form={form} layout="vertical" onFinish={handleSubmit}>
             <Row gutter={16}>
               <Col xs={24} md={12}>
                 <Form.Item name="first_name" label="First Name" rules={isView ? [] : nameRules}>
@@ -478,113 +481,113 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                   </Select>
                 </Form.Item>
               </Col>
-<Col xs={24} sm={12}>
-  <Form.Item
-    name="amount"
-    label="Fees Paid"
-    dependencies={["package"]}
-    rules={[
-      { required: true, message: "Please enter the amount paid" },
-      {
-        validator: (_, value) => {
-          const numericValue = Number(value);
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="amount"
+                  label="Fees Paid"
+                  dependencies={["package"]}
+                  rules={[
+                    { required: true, message: "Please enter the amount paid" },
+                    {
+                      validator: (_, value) => {
+                        const numericValue = Number(value);
 
-          if (value === undefined || value === null || value === "") {
-            return Promise.resolve();
-          }
+                        if (value === undefined || value === null || value === "") {
+                          return Promise.resolve();
+                        }
 
-          if (isNaN(numericValue)) {
-            return Promise.reject("Amount must be a valid number");
-          }
+                        if (isNaN(numericValue)) {
+                          return Promise.reject("Amount must be a valid number");
+                        }
 
-          if (numericValue < 0) {
-            return Promise.reject("Amount cannot be negative");
-          }
+                        if (numericValue < 0) {
+                          return Promise.reject("Amount cannot be negative");
+                        }
 
-          // Allow only 0 OR multiples of 100
-          if (numericValue !== 0 && numericValue % 100 !== 0) {
-            return Promise.reject(
-              "Amount must be ₹0 or in multiples of ₹100 (e.g., 100, 200, 300)"
-            );
-          }
+                        // Allow only 0 OR multiples of 100
+                        if (numericValue !== 0 && numericValue % 100 !== 0) {
+                          return Promise.reject(
+                            "Amount must be ₹0 or in multiples of ₹100 (e.g., 100, 200, 300)"
+                          );
+                        }
 
-          if (numericValue > totalPackageAmount) {
-            return Promise.reject(
-              `Amount cannot exceed ₹${totalPackageAmount}`
-            );
-          }
+                        if (numericValue > totalPackageAmount) {
+                          return Promise.reject(
+                            `Amount cannot exceed ₹${totalPackageAmount}`
+                          );
+                        }
 
-          return Promise.resolve();
-        },
-      },
-    ]}
-  >
-    <Input type="number" min={0} step={100} />
-  </Form.Item>
-</Col>
+                        return Promise.resolve();
+                      },
+                    },
+                  ]}
+                >
+                  <Input type="number" min={0} step={100} />
+                </Form.Item>
+              </Col>
 
             </Row>
 
-            
- {amount > 0 && (
-  <>
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item name="payment_type" label="Payment Type"  rules={isView ? [] : [{ required: true }]}>
-                  <Select disabled={isView} placeholder="Select payment type">
-                    <Option value="online">Online</Option>
-                    <Option value="offline">Offline</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
 
-              <Col xs={24} md={12}>
-                <Form.Item name="method" label="Payment Method" rules={isView ? [] : [{ required: true }]}>
-                  <Select disabled={isView} placeholder="Select payment method">
-                    <Option value="upi">UPI</Option>
-                    <Option value="cash">Cash</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
+            {amount > 0 && (
+              <>
+                <Row gutter={16}>
+                  <Col xs={24} md={12}>
+                    <Form.Item name="payment_type" label="Payment Type" rules={isView ? [] : [{ required: true }]}>
+                      <Select disabled={isView} placeholder="Select payment type">
+                        <Option value="online">Online</Option>
+                        <Option value="offline">Offline</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
 
-              {selectedPaymentType === "online" && (
-                <Col xs={24}>
-                  <Form.Item
-                    name="transaction_id"
-                    label="Transaction ID"
+                  <Col xs={24} md={12}>
+                    <Form.Item name="method" label="Payment Method" rules={isView ? [] : [{ required: true }]}>
+                      <Select disabled={isView} placeholder="Select payment method">
+                        <Option value="upi">UPI</Option>
+                        <Option value="cash">Cash</Option>
+                      </Select>
+                    </Form.Item>
+                  </Col>
+
+                  {selectedPaymentType === "online" && (
+                    <Col xs={24}>
+                      <Form.Item
+                        name="transaction_id"
+                        label="Transaction ID"
+                      >
+                        <Input disabled={isView} placeholder="Enter transaction ID" />
+                      </Form.Item>
+                    </Col>
+                  )}
+
+                </Row>
+
+                <Form.Item label="Upload Receipt" name="receipt">
+                  <Upload
+                    beforeUpload={handleBeforeUpload}
+                    maxCount={1}
+                    fileList={fileList}
+                    onChange={handleFileChange}
+                    onRemove={() => {
+                      setFileList([]);
+                      setPreviewUrl(null);
+                      setUploadedFile(null);
+                      console.log("🗑️ File removed from upload");
+                    }}
+                    disabled={isView}
                   >
-                    <Input disabled={isView} placeholder="Enter transaction ID" />
-                  </Form.Item>
-                </Col>
-              )}
-
-            </Row>
-
-            <Form.Item label="Upload Receipt" name="receipt">
-              <Upload
-                beforeUpload={handleBeforeUpload}
-                maxCount={1}
-                fileList={fileList}
-                onChange={handleFileChange}
-                onRemove={() => {
-                  setFileList([]);
-                  setPreviewUrl(null);
-                  setUploadedFile(null);
-                  console.log("🗑️ File removed from upload");
-                }}
-                disabled={isView}
-              >
-                <Button icon={<UploadOutlined />} disabled={isView}>
-                  {fileList.length ? 'Change Receipt' : 'Upload Receipt'}
-                </Button>
-              </Upload>
-              {/* {uploadedFile && (
+                    <Button icon={<UploadOutlined />} disabled={isView}>
+                      {fileList.length ? 'Change Receipt' : 'Upload Receipt'}
+                    </Button>
+                  </Upload>
+                  {/* {uploadedFile && (
                 <div style={{ marginTop: 8, color: '#1890ff' }}>
                   File selected: {uploadedFile.name}
                 </div>
               )} */}
-            </Form.Item>
-</>
+                </Form.Item>
+              </>
             )}
 
             {!isView && (
@@ -595,11 +598,13 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
               </div>
             )}
           </Form>
+            </div>
         </Col>
 
         {/* RIGHT SIDE LIVE PREVIEW */}
-        <Col xs={24} lg={10}>
-          <Card title="Preview">
+       <Col xs={24} lg={10}>
+  <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
+    <Card title="Preview">
             {(!form.getFieldValue('first_name') && !previewUrl) ? (
               <Empty description="Fill the form to see preview" />
             ) : (
@@ -650,6 +655,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
               </>
             )}
           </Card>
+          </div>
         </Col>
       </Row>
     </Modal>

@@ -202,6 +202,7 @@ const disableFutureDates = (current) => {
       width={650}
       centered
     >
+       <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
       <Form
         form={form}
         layout="vertical"
@@ -433,6 +434,7 @@ const disableFutureDates = (current) => {
           </div>
         </Form.Item>
       </Form>
+      </div>
     </Modal>
   );
 };

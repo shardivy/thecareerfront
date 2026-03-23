@@ -66,34 +66,34 @@ const CreateSlot = () => {
   }, [counsellorWiseList]);
 
 
-/* ---------- DISABLE DATE LOGIC ---------- */
-const disableCreatedDates = (current) => {
-  if (!current) return false;
+  /* ---------- DISABLE DATE LOGIC ---------- */
+  const disableCreatedDates = (current) => {
+    if (!current) return false;
 
-  const today = dayjs();
+    const today = dayjs();
 
-  // ❌ Only disable past dates
-  return current.isBefore(today.startOf("day"));
-};
+    // ❌ Only disable past dates
+    return current.isBefore(today.startOf("day"));
+  };
 
-const isSlotTimePassed = (slotStartTime, slotDate) => {
-  if (!slotStartTime || !slotDate) return false;
+  const isSlotTimePassed = (slotStartTime, slotDate) => {
+    if (!slotStartTime || !slotDate) return false;
 
-  const today = dayjs().format("YYYY-MM-DD");
+    const today = dayjs().format("YYYY-MM-DD");
 
-  // Only check for today's date
-  if (slotDate !== today) return false;
+    // Only check for today's date
+    if (slotDate !== today) return false;
 
-  const now = dayjs();
+    const now = dayjs();
 
-  // Combine slot date + start time
-  const slotDateTime = dayjs(
-    `${slotDate} ${slotStartTime}`,
-    "YYYY-MM-DD hh:mm A"
-  );
+    // Combine slot date + start time
+    const slotDateTime = dayjs(
+      `${slotDate} ${slotStartTime}`,
+      "YYYY-MM-DD hh:mm A"
+    );
 
-  return now.isAfter(slotDateTime);
-};
+    return now.isAfter(slotDateTime);
+  };
 
 
   /* ---------- STATUS TOGGLE ---------- */
@@ -105,13 +105,11 @@ const isSlotTimePassed = (slotStartTime, slotDate) => {
       Modal.warning({
         title: "Cannot Deactivate Counsellor",
         centered: true,
-        content: `There ${
-          bookedSlotsCount === 1 ? "is" : "are"
-        } ${bookedSlotsCount} booked slot${
-          bookedSlotsCount > 1 ? "s" : ""
-        } on ${dayjs(item.date).format(
-          "DD MMM YYYY"
-        )}. Please go to Slot Booking and delete the booked slot(s) before making this counsellor inactive.`,
+        content: `There ${bookedSlotsCount === 1 ? "is" : "are"
+          } ${bookedSlotsCount} booked slot${bookedSlotsCount > 1 ? "s" : ""
+          } on ${dayjs(item.date).format(
+            "DD MMM YYYY"
+          )}. Please go to Slot Booking and delete the booked slot(s) before making this counsellor inactive.`,
       });
       return;
     }
@@ -119,9 +117,8 @@ const isSlotTimePassed = (slotStartTime, slotDate) => {
     Modal.confirm({
       title: "Confirm Status Change",
       centered: true,
-      content: `Are you sure you want to ${
-        checked ? "activate" : "deactivate"
-      } this counsellor on ${dayjs(item.date).format("DD MMM YYYY")}?`,
+      content: `Are you sure you want to ${checked ? "activate" : "deactivate"
+        } this counsellor on ${dayjs(item.date).format("DD MMM YYYY")}?`,
       onOk: async () => {
         await dispatch(
           updateCounsellorStatus({
@@ -146,9 +143,8 @@ const isSlotTimePassed = (slotStartTime, slotDate) => {
     Modal.confirm({
       title: "Change Slot Availability",
       centered: true,
-      content: `Are you sure you want to mark this slot as ${
-        newAvailability ? "available" : "unavailable"
-      }?`,
+      content: `Are you sure you want to mark this slot as ${newAvailability ? "available" : "unavailable"
+        }?`,
       onOk: async () => {
         await dispatch(
           updateSlotAvailability({
@@ -203,7 +199,7 @@ const isSlotTimePassed = (slotStartTime, slotDate) => {
   const normalizedList = selectedDate ? list : counsellorWiseList;
 
 
-  
+
 
   return (
     <div style={{ padding: 16 }}>
@@ -213,11 +209,11 @@ const isSlotTimePassed = (slotStartTime, slotDate) => {
 
         <Space>
           <DatePicker
-  allowClear
-  value={selectedDate ? dayjs(selectedDate) : null}
-  onChange={handleDateChange}
-  disabledDate={disableCreatedDates}
-/>
+            allowClear
+            value={selectedDate ? dayjs(selectedDate) : null}
+            onChange={handleDateChange}
+            disabledDate={disableCreatedDates}
+          />
 
 
           <Button
@@ -270,122 +266,122 @@ const isSlotTimePassed = (slotStartTime, slotDate) => {
 
                 <Divider />
 
-              <Space wrap>
-  {item.slots?.length ? (
-    item.slots.map((slot) => {
-      const isBooked = slot.status === "booked";
- const isTimePassed = isSlotTimePassed(
-  slot.start_time,
-  item.date
-);
+                <Space wrap>
+                  {item.slots?.length ? (
+                    item.slots.map((slot) => {
+                      const isBooked = slot.status === "booked";
+                      const isTimePassed = isSlotTimePassed(
+                        slot.start_time,
+                        item.date
+                      );
 
-const isButtonDisabled =
-  !item.is_active ||
-  !slot.is_available ||
-  isBooked ||
-  isTimePassed;   // ✅ NEW CONDITION
-
-
-const isEyeDisabled =
-  !item.is_active || isBooked || isTimePassed;
+                      const isButtonDisabled =
+                        !item.is_active ||
+                        !slot.is_available ||
+                        isBooked ||
+                        isTimePassed;   // ✅ NEW CONDITION
 
 
+                      const isEyeDisabled =
+                        !item.is_active || isBooked || isTimePassed;
 
-      return (
-        <Space key={slot.slot_id} size="small">
-          <Button
-            disabled={isButtonDisabled}
-            type={isBooked ? "primary" : "default"}
-            danger={isBooked}
-            style={{
-              opacity: isButtonDisabled ? 0.6 : 1,
-            }}
-          >
-            {slot.start_time} - {slot.end_time}
-          </Button>
 
-          {/* Only show eye icon if counsellor is active */}
-        {item.is_active && !isBooked && !isTimePassed && (
-            slot.is_available ? (
-              <EyeOutlined
-                style={{
-                  fontSize: 18,
-                  cursor: isEyeDisabled
-                    ? "not-allowed"
-                    : "pointer",
-                  color: "green",
-                  opacity: isEyeDisabled ? 0.5 : 1,
-                }}
-                onClick={() => {
-                  if (!isEyeDisabled) {
-                    handleAvailabilityToggle(
-                      slot,
-                      item
-                    );
-                  }
-                }}
-              />
-            ) : (
-              <EyeInvisibleOutlined
-                style={{
-                  fontSize: 18,
-                  cursor: isEyeDisabled
-                    ? "not-allowed"
-                    : "pointer",
-                  color: "gray",
-                  opacity: isEyeDisabled ? 0.5 : 1,
-                }}
-                onClick={() => {
-                  if (!isEyeDisabled) {
-                    handleAvailabilityToggle(
-                      slot,
-                      item
-                    );
-                  }
-                }}
-              />
-            )
-          )}
 
-          {/* Only show delete icon if counsellor is active and slot is available and not booked */}
-      {item.is_active && slot.is_available && !isBooked && !isTimePassed && (
+                      return (
+                        <Space key={slot.slot_id} size="small">
+                          <Button
+                            disabled={isButtonDisabled}
+                            type={isBooked ? "primary" : "default"}
+                            danger={isBooked}
+                            style={{
+                              opacity: isButtonDisabled ? 0.6 : 1,
+                            }}
+                          >
+                            {slot.start_time} - {slot.end_time}
+                          </Button>
 
-            <CloseOutlined
-              style={{
-                fontSize: 16,
-                color: "#ff4d4f",
-                cursor: "pointer",
-              }}
-              onClick={() => handleDeleteSlot(slot)}
-            />
-          )}
-        </Space>
-      );
-    })
-  ) : (
-    <Text type="secondary">
-      No slots available
-    </Text>
-  )}
-</Space>
+                          {/* Only show eye icon if counsellor is active */}
+                          {item.is_active && !isBooked && !isTimePassed && (
+                            slot.is_available ? (
+                              <EyeOutlined
+                                style={{
+                                  fontSize: 18,
+                                  cursor: isEyeDisabled
+                                    ? "not-allowed"
+                                    : "pointer",
+                                  color: "green",
+                                  opacity: isEyeDisabled ? 0.5 : 1,
+                                }}
+                                onClick={() => {
+                                  if (!isEyeDisabled) {
+                                    handleAvailabilityToggle(
+                                      slot,
+                                      item
+                                    );
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <EyeInvisibleOutlined
+                                style={{
+                                  fontSize: 18,
+                                  cursor: isEyeDisabled
+                                    ? "not-allowed"
+                                    : "pointer",
+                                  color: "gray",
+                                  opacity: isEyeDisabled ? 0.5 : 1,
+                                }}
+                                onClick={() => {
+                                  if (!isEyeDisabled) {
+                                    handleAvailabilityToggle(
+                                      slot,
+                                      item
+                                    );
+                                  }
+                                }}
+                              />
+                            )
+                          )}
+
+                          {/* Only show delete icon if counsellor is active and slot is available and not booked */}
+                          {item.is_active && slot.is_available && !isBooked && !isTimePassed && (
+
+                            <CloseOutlined
+                              style={{
+                                fontSize: 16,
+                                color: "#ff4d4f",
+                                cursor: "pointer",
+                              }}
+                              onClick={() => handleDeleteSlot(slot)}
+                            />
+                          )}
+                        </Space>
+                      );
+                    })
+                  ) : (
+                    <Text type="secondary">
+                      No slots available
+                    </Text>
+                  )}
+                </Space>
               </Card>
             </Col>
           ))}
       </Row>
 
-   <CreateSlotModal
-  open={modalOpen}
-  onCancel={() => setModalOpen(false)}
-  onSuccess={(createdDate) => {
-    setModalOpen(false);
+      <CreateSlotModal
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        onSuccess={(createdDate) => {
+          setModalOpen(false);
 
-    // 🔥 update selected date
-    setSelectedDate(createdDate);
+          // 🔥 update selected date
+          setSelectedDate(createdDate);
 
-    // 🔥 fetch newly created date data
-    dispatch(fetchSlotsForSelectedDate(createdDate));
-  }}
-/>
+          // 🔥 fetch newly created date data
+          dispatch(fetchSlotsForSelectedDate(createdDate));
+        }}
+      />
 
     </div>
   );

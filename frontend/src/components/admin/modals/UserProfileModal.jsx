@@ -95,6 +95,7 @@ const showExamReport = user?.aptitude_test === true;
         centered
         title={<Title level={4} style={{ margin: 0 }}>User Profile</Title>}
       >
+         <div style={{ maxHeight: "85vh", overflowY: "auto", paddingRight: 8 }}>
         {/* ================= DETAILS ================= */}
         <Row gutter={24}>
           <Col xs={24} md={12}>
@@ -549,6 +550,7 @@ const showExamReport = user?.aptitude_test === true;
             })}
           </div>
         )}
+        </div>
       </Modal>
     </ConfigProvider>
   );

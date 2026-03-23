@@ -262,6 +262,7 @@ const SessionsNotesModal = ({
         <Tag color="green">{sessionData.status}</Tag>
       </Row>
 
+ <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
       <Row gutter={[16, 16]}>
 
         {/* LEFT PANEL */}
@@ -460,6 +461,7 @@ const SessionsNotesModal = ({
           </Card>
         </Col>
       </Row>
+      </div>
     </div>
   );
 };

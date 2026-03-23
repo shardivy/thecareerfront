@@ -19,7 +19,7 @@ import {
   Form,
 } from "antd";
 
-import { UserOutlined, CrownOutlined, ArrowLeftOutlined , LockOutlined} from "@ant-design/icons";
+import { UserOutlined, CrownOutlined, ArrowLeftOutlined, LockOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -44,15 +44,15 @@ const StudentProfile = () => {
   const [specializationOptions, setSpecializationOptions] = useState([]);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-const [passwordData, setPasswordData] = useState({
-  new_password: "",
-  confirm_password: "",
-});
+  const [passwordData, setPasswordData] = useState({
+    new_password: "",
+    confirm_password: "",
+  });
 
   const { profile: storedProfile, loading } = useSelector((state) => state.profile);
   const { loading: passwordLoading } = useSelector(
-  (state) => state.resetPassword
-);
+    (state) => state.resetPassword
+  );
   const { streamList, loading: streamsLoading } = useSelector(
     (state) => state.streams
   );
@@ -186,6 +186,8 @@ const [passwordData, setPasswordData] = useState({
         dob: storedProfile.dob || "",
 
         study_class: storedProfile.study_class || "",
+        previous_class_percentage: storedProfile.previous_class_percentage || "",
+        board_exam_year: storedProfile.board_exam_year || "",
         current_academic_year: storedProfile.current_academic_year || "",
         school: storedProfile.school_college || "",
         city: storedProfile.city || "",
@@ -202,6 +204,11 @@ const [passwordData, setPasswordData] = useState({
           ? storedProfile.disliked_subjects.map((sub) => sub.id)
           : [],
 
+        moderate_subjects: storedProfile.moderate_subjects
+          ? storedProfile.moderate_subjects.map((sub) => sub.id)
+          : [],
+        improvement_areas: storedProfile.improvement_areas || "",
+
         hobbies: storedProfile.hobbies
           ? storedProfile.hobbies.map((hobby) => hobby.id)
           : [],
@@ -211,7 +218,9 @@ const [passwordData, setPasswordData] = useState({
         profession: storedProfile.parent?.profession || "",
         organization_name: storedProfile.parent?.organization_name || "",
         education_level: storedProfile.parent?.education_level || "",
-        background: storedProfile.parent?.background || "",
+        father_background: storedProfile.parent?.father_background || "",
+        mother_background: storedProfile.parent?.mother_background || "",
+        parent_area: storedProfile.parent?.parent_area || "", 
         annual_income_range: storedProfile.parent?.annual_income_range || "",
         expectations_from_student:
           storedProfile.parent?.expectations_from_student || "",
@@ -258,13 +267,43 @@ const [passwordData, setPasswordData] = useState({
 
   const handleSave = async () => {
     try {
-      const overlapping = profile.liked_subjects.filter(id =>
+      const overlapLikedDisliked = profile.liked_subjects.filter(id =>
         profile.disliked_subjects.includes(id)
       );
 
-      if (overlapping.length > 0) {
-        message.error("A subject cannot be both liked and disliked.");
+      const overlapLikedModerate = profile.liked_subjects.filter(id =>
+        profile.moderate_subjects.includes(id)
+      );
+
+      const overlapDislikedModerate = profile.disliked_subjects.filter(id =>
+        profile.moderate_subjects.includes(id)
+      );
+
+      if (
+        overlapLikedDisliked.length > 0 ||
+        overlapLikedModerate.length > 0 ||
+        overlapDislikedModerate.length > 0
+      ) {
+        message.error("A subject cannot be selected in multiple categories.");
         return;
+      }
+
+      const percentage = Number(profile.previous_class_percentage);
+      const year = Number(profile.board_exam_year);
+
+      // ✅ Validate ONLY if value exists
+      if (profile.previous_class_percentage) {
+        if (percentage > 100 || percentage < 0) {
+          message.error("Enter valid percentage (0–100)");
+          return;
+        }
+      }
+
+      if (profile.board_exam_year) {
+        if (year < 2000 || year > new Date().getFullYear()) {
+          message.error("Enter valid year");
+          return;
+        }
       }
       const payload = {
         study_class: profile.study_class,
@@ -272,6 +311,8 @@ const [passwordData, setPasswordData] = useState({
         current_academic_year: profile.current_academic_year,
         school_college: profile.school,
         city: profile.city,
+        previous_class_percentage: profile.previous_class_percentage,
+        board_exam_year: profile.board_exam_year,
 
         // Parent Object
         parent: {
@@ -279,7 +320,9 @@ const [passwordData, setPasswordData] = useState({
           profession: profile.profession || "",
           organization_name: profile.organization_name || "",
           education_level: profile.education_level || "",
-          background: profile.background || "",
+          father_background: profile.father_background || "",
+          mother_background: profile.mother_background || "",
+            parent_area: profile.parent_area || "",
           annual_income_range: profile.annual_income_range || "",
           expectations_from_student:
             profile.expectations_from_student || "",
@@ -292,6 +335,8 @@ const [passwordData, setPasswordData] = useState({
         // These are already ID arrays
         liked_subject_ids: profile.liked_subjects || [],
         disliked_subject_ids: profile.disliked_subjects || [],
+        moderate_subject_ids: profile.moderate_subjects || [],
+        improvement_areas: profile.improvement_areas,
         hobby_ids: profile.hobbies || [],
       };
 
@@ -335,9 +380,15 @@ const [passwordData, setPasswordData] = useState({
 
     } catch (error) {
       console.error("Update error:", error);
-      message.error(
-        error?.message || "Failed to update profile"
-      );
+
+      // ✅ If backend returns field-wise errors
+      if (typeof error === "object") {
+        Object.values(error).forEach((errMsg) => {
+          message.error(errMsg);
+        });
+      } else {
+        message.error(error || "Failed to update profile");
+      }
     }
   };
 
@@ -358,58 +409,58 @@ const [passwordData, setPasswordData] = useState({
   if (!profile) return null;
 
   const validatePassword = (_, value) => {
-  if (!value) return Promise.reject("Password is required");
+    if (!value) return Promise.reject("Password is required");
 
-  if (value.length < 8)
-    return Promise.reject("Minimum 8 characters required");
+    if (value.length < 8)
+      return Promise.reject("Minimum 8 characters required");
 
-  if (!/[a-z]/.test(value))
-    return Promise.reject("At least one lowercase letter required");
+    if (!/[a-z]/.test(value))
+      return Promise.reject("At least one lowercase letter required");
 
-  if (!/[A-Z]/.test(value))
-    return Promise.reject("At least one uppercase letter required");
+    if (!/[A-Z]/.test(value))
+      return Promise.reject("At least one uppercase letter required");
 
-  if (!/\d/.test(value))
-    return Promise.reject("At least one number required");
+    if (!/\d/.test(value))
+      return Promise.reject("At least one number required");
 
-  return Promise.resolve();
-};
+    return Promise.resolve();
+  };
 
 
   const handlePasswordChange = async () => {
 
-  if (!passwordData.new_password || !passwordData.confirm_password) {
-    message.error("Please fill all password fields");
-    return;
-  }
+    if (!passwordData.new_password || !passwordData.confirm_password) {
+      message.error("Please fill all password fields");
+      return;
+    }
 
-  if (passwordData.new_password !== passwordData.confirm_password) {
-    message.error("Passwords do not match");
-    return;
-  }
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      message.error("Passwords do not match");
+      return;
+    }
 
-  try {
-    await dispatch(
-      resetPassword({
-        email: profile.email,
-        new_password: passwordData.new_password,
-        confirm_password: passwordData.confirm_password,
-      })
-    ).unwrap();
+    try {
+      await dispatch(
+        resetPassword({
+          email: profile.email,
+          new_password: passwordData.new_password,
+          confirm_password: passwordData.confirm_password,
+        })
+      ).unwrap();
 
-    message.success("Password changed successfully");
+      message.success("Password changed successfully");
 
-    setPasswordData({
-      new_password: "",
-      confirm_password: "",
-    });
+      setPasswordData({
+        new_password: "",
+        confirm_password: "",
+      });
 
-    setIsPasswordModalOpen(false);
+      setIsPasswordModalOpen(false);
 
-  } catch (err) {
-    message.error(err || "Password update failed");
-  }
-};
+    } catch (err) {
+      message.error(err || "Password update failed");
+    }
+  };
 
 
   return (
@@ -462,7 +513,7 @@ const [passwordData, setPasswordData] = useState({
       </div>
 
       {/* HEADER */}
-     <Card style={{ background: token.colorPrimary }}>
+      <Card style={{ background: token.colorPrimary }}>
         <Row align="middle" justify="space-between">
           <Col>
             <Row align="middle" gutter={16}>
@@ -528,7 +579,7 @@ const [passwordData, setPasswordData] = useState({
               onChange={(date) =>
                 handleChange("dob", date ? date.format("YYYY-MM-DD") : "")
               }
-              disabled
+              disabled={!!profile.dob}   // 👈 key change
             />
           </Col>
 
@@ -560,7 +611,7 @@ const [passwordData, setPasswordData] = useState({
 
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={24} md={12}>
-            <Text>Class</Text>
+            <Text>Current Class</Text>
             <Select
               value={profile.study_class}
               style={{ width: "100%" }}
@@ -578,6 +629,8 @@ const [passwordData, setPasswordData] = useState({
             </Select>
           </Col>
 
+
+
           <Col xs={24} sm={24} md={12}>
             <Text>Specialization</Text>
             <Select
@@ -594,29 +647,38 @@ const [passwordData, setPasswordData] = useState({
             </Select>
           </Col>
 
-          <Col xs={24} sm={24} md={12}>
-            <Text>Stream</Text>
 
-            <Select
-              value={profile.stream}
-              style={{ width: "100%" }}
-              onChange={(v) => handleChange("stream", v)}
-            >
-              {streamList.map((stream) => (
-                <Option key={stream.id} value={stream.name}>
-                  {stream.name}
-                </Option>
-              ))}
-            </Select>
-          </Col>
-
-          <Col xs={24} sm={24} md={12}>
+          {/* <Col xs={24} sm={24} md={12}>
             <Text>Current Academic Year</Text>
             <Input
               value={profile.current_academic_year}
               onChange={(e) =>
                 handleChange("current_academic_year", e.target.value)
               }
+            />
+          </Col> */}
+
+          <Col xs={24} sm={24} md={12}>
+            <Text>Previous Class Percentage</Text>
+            <Input
+              type="number"
+              value={profile.previous_class_percentage}
+              onChange={(e) =>
+                handleChange("previous_class_percentage", e.target.value)
+              }
+              placeholder="Enter percentage"
+            />
+          </Col>
+
+          <Col xs={24} sm={24} md={12}>
+            <Text>Year of Board Exam</Text>
+            <Input
+              type="number"
+              value={profile.board_exam_year}
+              onChange={(e) =>
+                handleChange("board_exam_year", e.target.value)
+              }
+              placeholder="Enter year"
             />
           </Col>
 
@@ -634,6 +696,22 @@ const [passwordData, setPasswordData] = useState({
               value={profile.city}
               onChange={(e) => handleChange("city", e.target.value)}
             />
+          </Col>
+
+          <Col xs={24} sm={24} md={12}>
+            <Text>Suggested Stream</Text>
+
+            <Select
+              value={profile.stream}
+              style={{ width: "100%" }}
+              onChange={(v) => handleChange("stream", v)}
+            >
+              {streamList.map((stream) => (
+                <Option key={stream.id} value={stream.name}>
+                  {stream.name}
+                </Option>
+              ))}
+            </Select>
           </Col>
         </Row>
 
@@ -660,7 +738,10 @@ const [passwordData, setPasswordData] = useState({
                   <Option
                     key={subject.id}
                     value={subject.id}
-                    disabled={profile.disliked_subjects?.includes(subject.id)}
+                    disabled={
+                      profile.disliked_subjects?.includes(subject.id) ||
+                      profile.moderate_subjects?.includes(subject.id)
+                    }
                   >
                     {subject.name}
                   </Option>
@@ -685,12 +766,52 @@ const [passwordData, setPasswordData] = useState({
                   <Option
                     key={subject.id}
                     value={subject.id}
-                    disabled={profile.liked_subjects?.includes(subject.id)}
+                    disabled={
+                      profile.liked_subjects?.includes(subject.id) ||
+                      profile.moderate_subjects?.includes(subject.id)
+                    }
                   >
                     {subject.name}
                   </Option>
                 ))}
             </Select>
+          </Col>
+
+          <Col xs={24} sm={24} md={12}>
+            <Text>Moderate Subject (if any)</Text>
+            <Select
+              mode="multiple"
+              value={profile.moderate_subjects || []}
+              style={{ width: "100%" }}
+              onChange={(v) => handleChange("moderate_subjects", v)}
+              loading={subjectsLoading}
+            >
+              {Array.isArray(subjectList) &&
+                subjectList.map((subject) => (
+                  <Option
+                    key={subject.id}
+                    value={subject.id}
+                    disabled={
+                      profile.liked_subjects?.includes(subject.id) ||
+                      profile.disliked_subjects?.includes(subject.id)
+                    }
+                  >
+                    {subject.name}
+                  </Option>
+                ))}
+            </Select>
+          </Col>
+
+          <Col xs={24}>
+            <Text>Improvement Areas / Concerns</Text>
+            <TextArea
+              rows={3}
+              value={profile.improvement_areas}
+              onChange={(e) =>
+                handleChange("improvement_areas", e.target.value)
+              }
+              placeholder="Enter any improvement areas or concerns"
+            />
           </Col>
         </Row>
 
@@ -737,7 +858,7 @@ const [passwordData, setPasswordData] = useState({
             />
           </Col>
 
-          <Col xs={24} sm={24} md={12}>
+          {/* <Col xs={24} sm={24} md={12}>
             <Text>Organization</Text>
             <Input
               value={profile.organization_name}
@@ -745,8 +866,8 @@ const [passwordData, setPasswordData] = useState({
                 handleChange("organization_name", e.target.value)
               }
             />
-          </Col>
-
+          </Col> */}
+{/* 
           <Col xs={24} sm={24} md={12}>
             <Text>Education Level</Text>
             <Input
@@ -755,14 +876,13 @@ const [passwordData, setPasswordData] = useState({
                 handleChange("education_level", e.target.value)
               }
             />
-          </Col>
-
+          </Col> */}
           <Col xs={24} sm={24} md={12}>
-            <Text>Background</Text>
+            <Text>Father Background</Text>
             <Select
-              value={profile.background}
+              value={profile.father_background}
               style={{ width: "100%" }}
-              onChange={(v) => handleChange("background", v)}
+              onChange={(v) => handleChange("father_background", v)}
             >
               {["Urban", "Rural", "Semi-Urban"].map((bg) => (
                 <Option key={bg} value={bg}>
@@ -773,6 +893,30 @@ const [passwordData, setPasswordData] = useState({
           </Col>
 
           <Col xs={24} sm={24} md={12}>
+            <Text>Mother Background</Text>
+            <Select
+              value={profile.mother_background}
+              style={{ width: "100%" }}
+              onChange={(v) => handleChange("mother_background", v)}
+            >
+              {["Urban", "Rural", "Semi-Urban"].map((bg) => (
+                <Option key={bg} value={bg}>
+                  {bg}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+
+<Col xs={24} sm={24} md={12}>
+  <Text>Location (Area)</Text>
+  <Input
+    value={profile.parent_area}
+    onChange={(e) => handleChange("parent_area", e.target.value)}
+    placeholder="Enter area (e.g., Kothrud, Andheri West)"
+  />
+</Col>
+
+          {/* <Col xs={24} sm={24} md={12}>
             <Text>Annual Income Range</Text>
             <Select
               value={profile.annual_income_range}
@@ -785,10 +929,10 @@ const [passwordData, setPasswordData] = useState({
                 </Option>
               ))}
             </Select>
-          </Col>
+          </Col> */}
 
           <Col xs={24}>
-            <Text>Expectations From Student</Text>
+            <Text>Expectations From Student / Parent</Text>
             <TextArea
               rows={4}
               value={profile.expectations_from_student}
@@ -805,65 +949,65 @@ const [passwordData, setPasswordData] = useState({
         </Button>
       </Card>
 
-<Modal
-  title="Change Password"
-  open={isPasswordModalOpen}
-  onCancel={() => !passwordLoading && setIsPasswordModalOpen(false)}
-  footer={null}
->
-  <Form layout="vertical" onFinish={handlePasswordChange}>
-    
-    <Form.Item
-      label="New Password"
-      name="new_password"
-      rules={[{ validator: validatePassword }]}
-    >
-      <Input.Password
-        prefix={<LockOutlined />}
-        placeholder="Enter new password"
-        onChange={(e) =>
-          setPasswordData((prev) => ({
-            ...prev,
-            new_password: e.target.value,
-          }))
-        }
-      />
-    </Form.Item>
+      <Modal
+        title="Change Password"
+        open={isPasswordModalOpen}
+        onCancel={() => !passwordLoading && setIsPasswordModalOpen(false)}
+        footer={null}
+      >
+        <Form layout="vertical" onFinish={handlePasswordChange}>
 
-    <Form.Item
-      label="Confirm Password"
-      name="confirm_password"
-      dependencies={["new_password"]}
-      rules={[
-        { required: true, message: "Confirm password is required" },
-        ({ getFieldValue }) => ({
-          validator(_, value) {
-            if (!value || getFieldValue("new_password") === value) {
-              return Promise.resolve();
-            }
-            return Promise.reject("Passwords do not match");
-          },
-        }),
-      ]}
-    >
-      <Input.Password
-        prefix={<LockOutlined />}
-        placeholder="Confirm password"
-        onChange={(e) =>
-          setPasswordData((prev) => ({
-            ...prev,
-            confirm_password: e.target.value,
-          }))
-        }
-      />
-    </Form.Item>
+          <Form.Item
+            label="New Password"
+            name="new_password"
+            rules={[{ validator: validatePassword }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="Enter new password"
+              onChange={(e) =>
+                setPasswordData((prev) => ({
+                  ...prev,
+                  new_password: e.target.value,
+                }))
+              }
+            />
+          </Form.Item>
 
-    <Button type="primary" block htmlType="submit" loading={passwordLoading}>
-      Update Password
-    </Button>
+          <Form.Item
+            label="Confirm Password"
+            name="confirm_password"
+            dependencies={["new_password"]}
+            rules={[
+              { required: true, message: "Confirm password is required" },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue("new_password") === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject("Passwords do not match");
+                },
+              }),
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="Confirm password"
+              onChange={(e) =>
+                setPasswordData((prev) => ({
+                  ...prev,
+                  confirm_password: e.target.value,
+                }))
+              }
+            />
+          </Form.Item>
 
-  </Form>
-</Modal>
+          <Button type="primary" block htmlType="submit" loading={passwordLoading}>
+            Update Password
+          </Button>
+
+        </Form>
+      </Modal>
     </div>
   );
 };

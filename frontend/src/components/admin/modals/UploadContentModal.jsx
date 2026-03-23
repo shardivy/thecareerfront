@@ -459,6 +459,7 @@ const submitAsDraft = async () => {
       destroyOnClose
       width={800}
     >
+         <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
       <Form form={form} layout="vertical" onFinish={handleFinish}>
         {/* Title */}
         <Form.Item
@@ -825,6 +826,7 @@ const submitAsDraft = async () => {
           </Form.Item>
         </div>
       </Form>
+      </div>
     </Modal>
   );
 };

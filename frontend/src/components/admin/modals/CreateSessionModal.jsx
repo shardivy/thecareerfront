@@ -361,6 +361,8 @@ student: {
 
 
       >
+
+         <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
         <Form
           form={form}
           layout="vertical"
@@ -508,6 +510,7 @@ student: {
             )}
           </Form.Item>
         </Form>
+        </div>
       </Modal>
     </ConfigProvider>
   );

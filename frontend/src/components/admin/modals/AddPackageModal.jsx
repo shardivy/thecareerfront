@@ -75,6 +75,9 @@ const AddPackageModal = ({
       destroyOnClose
         width={600} 
     >
+
+
+        <div style={{ maxHeight: "85vh", overflowY: "auto", paddingRight: 8 }}>
       <Form layout="vertical" form={form} onFinish={handleFinish}>
 
         {/* PACKAGE NAME */}
@@ -202,6 +205,7 @@ const AddPackageModal = ({
 
 
       </Form>
+      </div>
     </Modal>
   );
 };

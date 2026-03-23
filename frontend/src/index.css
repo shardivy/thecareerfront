@@ -22,8 +22,57 @@ a:hover {
   color: #535bf2;
 }
 
+/* ===== ULTRA THIN DARK SCROLLBAR ===== */
+/* .custom-scroll {
+  scrollbar-width: thin; 
+  scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
+}
+
+/* Chrome, Edge, Safari */
+.custom-scroll::-webkit-scrollbar {
+  width: 3px; /* very thin */
+}
+
+/* Track (background) */
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 6px 0; /* 👈 makes scrollbar height feel smaller */
+}
+
+/* Thumb (scroll handle) */
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.5); /* dark */
+  border-radius: 10px;
+  min-height: 30px; /* 👈 small thumb */
+}
+
+/* Hover */
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
 
 
+.ant-modal-body {
+  max-height: 80vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.5) transparent;
+}
+
+.ant-modal-body::-webkit-scrollbar {
+  width: 3px;
+}
+
+.ant-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 6px 0;
+}
+
+.ant-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+  min-height: 30px;
+} */
 
 /* body {
   margin: 0;

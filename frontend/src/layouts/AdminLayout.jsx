@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect} from "react";
 import {
   Layout,
   Menu,
@@ -43,6 +43,7 @@ import { logout } from "../adminSlices/authSlice";
 import NotificationDropdown from "../components/student/pages/Notification";
 import { s, style } from "framer-motion/client";
 import { color } from "chart.js/helpers";
+import { fetchNotifications } from "../adminSlices/notificationSlice";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -109,12 +110,28 @@ const AdminLayout = () => {
     }
   }, [profileHasName, displayLabel]);
 
+
+
+const { list: notifications, loading } = useSelector(
+  (state) => state.notifications
+);
+
+useEffect(() => {
+  dispatch(fetchNotifications());
+
+  const interval = setInterval(() => {
+    dispatch(fetchNotifications());
+  }, 30000);
+
+  return () => clearInterval(interval);
+}, [dispatch]);
+
   /* ===================== NOTIFICATIONS ===================== */
   // const [notifications, setNotifications] = useState([
   //   { id: 1, title: "New Student Registered", description: "John Doe joined today", type: "student", read: false },
   //   { id: 2, title: "Payment Received", description: "Payment received from Jane Smith", type: "payment", read: false },
   // ]);
-  // const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   /* ===================== BREADCRUMB ===================== */
   const breadcrumbNameMap = {
@@ -738,18 +755,20 @@ const AdminLayout = () => {
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
 
               {/* 🔔 NOTIFICATIONS */}
-              {/* <Dropdown
-                trigger={["click"]}
-                dropdownRender={() => <NotificationDropdown notifications={notifications} setNotifications={setNotifications} />}
-              >
-                <span>
-                  <Badge count={unreadCount} size="small">
-                    <BellOutlined style={{ fontSize: 20, cursor: "pointer" }} />
-                  </Badge>
-                </span>
-              </Dropdown> */}
+             <Dropdown
+  trigger={["click"]}
+  dropdownRender={() => (
+    <NotificationDropdown notifications={notifications} />
+  )}
+>
+  <span>
+    <Badge count={unreadCount} size="small">
+      <BellOutlined style={{ fontSize: 20, cursor: "pointer" }} />
+    </Badge>
+  </span>
+</Dropdown>
 
-              <span>
+              {/* <span>
                 <Badge size="small">
                   <BellOutlined
                     style={{
@@ -759,7 +778,7 @@ const AdminLayout = () => {
                     }}
                   />
                 </Badge>
-              </span>
+              </span> */}
 
               {/* 👤 USER */}
               <Dropdown menu={userMenu} trigger={["click"]}>
