@@ -7,3 +7,11 @@ export const getSuperadminNotificationsApi = async () => {
   );
   return response.data;
 };
+
+// 🔔 MARK AS READ API
+export const markNotificationAsReadApi = async (id) => {
+  const response = await axiosInstance.put(
+    `/notification/superadmin/notifications/${id}/`
+  );
+  return response.data;
+};

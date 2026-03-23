@@ -187,25 +187,73 @@ const getEnquiriesData = () => {
     },
   };
 
+  const breakAfterWords = (text = "", count = 8) => {
+  const words = text.split(" ");
+  let lines = [];
+
+  for (let i = 0; i < words.length; i += count) {
+    lines.push(words.slice(i, i + count).join(" "));
+  }
+
+  return lines.join("\n");
+};
+
   // =================== RECENT ACTIVITIES ===================
-const recentActivities = activities || [];
+const formatTime = (dateString) => {
+  if (!dateString) return "-";
+
+  const now = new Date();
+  const past = new Date(dateString);
+  const diff = Math.floor((now - past) / 1000);
+
+  if (diff < 60) return "Just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+
+  return `${Math.floor(diff / 86400)} day ago`;
+};
+
+const recentActivities = (activities || []).map((item) => ({
+  key: item.id,
+
+  // ✅ Proper readable activity
+activity:
+  item.description ||
+  `${item.action?.toUpperCase()} ${item.model_name} (ID: ${item.object_id})`,
+
+  // ✅ formatted time
+  time: formatTime(item.created_at),
+
+  // ✅ status
+  status: item.action ? item.action.toUpperCase() : "UNKNOWN",
+}));
 
   const activityColumns = [
-    { title: "Activity", dataIndex: "activity", key: "activity" },
+   {
+  title: "Activity",
+  dataIndex: "activity",
+  key: "activity",
+  width:500,
+  render: (text) => (
+    <div style={{ whiteSpace: "pre-line" }}>
+      {breakAfterWords(text, 8)}
+    </div>
+  ),
+},
     { title: "Time", dataIndex: "time", key: "time" },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      render: (status) => {
-        let color =
-          status === "Completed"
-            ? adminTheme.token.colorSuccess
-            : status === "New"
-              ? adminTheme.token.colorInfo
-              : adminTheme.token.colorWarning;
-        return <Tag color={color}>{status}</Tag>;
-      },
+     render: (status) => {
+  let color = "default";
+
+  if (status.includes("CREATE")) color = "green";
+  else if (status.includes("DELETE")) color = "red";
+  else if (status.includes("UPDATE")) color = "blue";
+
+  return <Tag color={color}>{status}</Tag>;
+},
     },
   ];
 

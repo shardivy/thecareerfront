@@ -46,9 +46,9 @@ const SessionsHistory = () => {
   const { students, studentsLoading, notes } = useSelector(
     (state) => state.counsellors
   );
-  const { profile, loading: profileLoading } = useSelector(
-    (state) => state.profile
-  );
+const { studentProfile, loading: profileLoading } = useSelector(
+  (state) => state.profile
+);
 
 
   useEffect(() => {
@@ -150,6 +150,7 @@ const filteredSessions = tableData.filter((session) => {
         >
           <Button
             icon={<UserOutlined />}
+            disabled
             onClick={() => {
               dispatch(getStudentProfile(record.student_id))
                 .unwrap()
@@ -270,7 +271,7 @@ const filteredSessions = tableData.filter((session) => {
       <StudentProfileModal
         open={profileModal}
         onClose={() => setProfileModal(false)}
-        student={profile}
+        student={studentProfile}
         loading={profileLoading}
       />
 

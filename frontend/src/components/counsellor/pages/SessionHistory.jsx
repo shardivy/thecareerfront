@@ -43,9 +43,9 @@ const SessionHistory = () => {
   const { students, studentsLoading, notes } = useSelector(
     (state) => state.counsellors
   );
-  const { profile, loading: profileLoading } = useSelector(
-    (state) => state.profile
-  );
+const { studentProfile, loading: profileLoading } = useSelector(
+  (state) => state.profile
+);
 
 
   useEffect(() => {
@@ -266,7 +266,7 @@ const SessionHistory = () => {
       <StudentProfileModal
         open={profileModal}
         onClose={() => setProfileModal(false)}
-        student={profile}
+        student={studentProfile}
         loading={profileLoading}
       />
 

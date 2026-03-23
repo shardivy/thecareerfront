@@ -25,12 +25,13 @@ import {
   UploadOutlined,
   EditOutlined,
   CheckCircleOutlined,
+  BellOutlined ,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import adminTheme from "../../../theme/adminTheme";
 import PaymentProofModal from "../modals/PaymentProofModal";
 import UploadPaymentModal from "../modals/UploadPaymentModal";
-import { fetchPaymentStats, fetchPayments } from "../../../adminSlices/paymentSlice";
+import { fetchPaymentStats, fetchPayments, sendPaymentReminder} from "../../../adminSlices/paymentSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -44,6 +45,7 @@ const PaymentManagement = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+  const [reminderLoadingId, setReminderLoadingId] = useState(null);
   const dispatch = useDispatch();
 
   const { stats, statsLoading, list, listLoading } = useSelector(
@@ -233,6 +235,28 @@ const PaymentManagement = () => {
     return text.length > 5 ? `${text.slice(0, 5)}...` : text;
   };
 
+const handleSendReminder = async (record) => {
+  const studentId = record.originalData?.student_id;
+
+  setReminderLoadingId(studentId); // 👈 start loading
+
+  try {
+    await dispatch(sendPaymentReminder(studentId)).unwrap();
+
+    import("antd").then(({ message }) => {
+      message.success("Reminder sent successfully!");
+    });
+  } catch (error) {
+    import("antd").then(({ message }) => {
+      message.error("Failed to send reminder");
+    });
+  } finally {
+    setReminderLoadingId(null); // 👈 stop loading
+  }
+};
+
+
+
   /* ---------------- TABLE COLUMNS ---------------- */
   const columns = [
     {
@@ -275,7 +299,7 @@ const PaymentManagement = () => {
 
     {
       title: "Fees Paid",
-      width: 150,
+      width: 100,
       render: (_, record) => {
         const paid = record.paidAmount || 0;
         const total = record.packagePrice || 0;
@@ -343,31 +367,38 @@ const PaymentManagement = () => {
         );
       },
     },
-    {
-      title: "Transaction ID",
-      dataIndex: "txn",
-      render: (txn) => truncateAfterFive(txn),
-    },
+  
 {
   title: "Action",
   render: (_, record) => {
 
     // ✅ NOT PAID → Upload only
-    if (record.status === "Not Paid") {
-      return (
-        <Button
-          size="large"
-          type="primary"
-          icon={<UploadOutlined />}
-          onClick={() => {
-            setSelectedPayment(record);
-            setIsUploadModalOpen(true);
-          }}
-        >
-          Upload Payment
-        </Button>
-      );
-    }
+   if (record.status === "Not Paid") {
+  return (
+    <Space>
+      <Button
+        size="large"
+        type="primary"
+        icon={<UploadOutlined />}
+        onClick={() => {
+          setSelectedPayment(record);
+          setIsUploadModalOpen(true);
+        }}
+      >
+        {/* Upload Payment */}
+      </Button>
+
+      <Button
+        size="large"
+        icon={<BellOutlined />}
+        loading={reminderLoadingId === record.originalData?.student_id}
+        onClick={() => handleSendReminder(record)}
+      >
+        {/* Send Reminder */}
+      </Button>
+    </Space>
+  );
+}
 
     // ✅ PARTIAL PAID → Upload + View + Edit
     if (record.status === "Partial Paid") {
@@ -382,8 +413,16 @@ const PaymentManagement = () => {
               setIsUploadModalOpen(true);
             }}
           >
-            Upload Payment
+            {/* Upload Payment */}
           </Button>
+
+               <Button
+        size="large"
+        icon={<BellOutlined />}
+        onClick={() => handleSendReminder(record)}
+      >
+       {/* Send Reminder */}
+      </Button>
 
           <Button
             size="large"
@@ -393,7 +432,7 @@ const PaymentManagement = () => {
               setIsModalOpen(true);
             }}
           >
-            View
+            {/* View */}
           </Button>
 
           <Button
@@ -404,7 +443,7 @@ const PaymentManagement = () => {
               setIsModalOpen(true);
             }}
           >
-            Edit
+            {/* Edit */}
           </Button>
         </Space>
       );
@@ -426,7 +465,7 @@ const PaymentManagement = () => {
             setIsModalOpen(true);
           }}
         >
-          Verify
+          {/* Verify */}
         </Button>
       );
     }
@@ -442,7 +481,7 @@ const PaymentManagement = () => {
             setIsModalOpen(true);
           }}
         >
-          View
+          {/* View */}
         </Button>
 
         <Button
@@ -453,12 +492,19 @@ const PaymentManagement = () => {
             setIsModalOpen(true);
           }}
         >
-          Edit
+          {/* Edit */}
         </Button>
       </Space>
     );
   },
-}
+},
+  {
+      title: "Transaction ID",
+      dataIndex: "txn",
+      render: (txn) => truncateAfterFive(txn),
+    },
+
+
   ];
 
   return (

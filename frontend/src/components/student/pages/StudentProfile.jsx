@@ -220,7 +220,7 @@ const StudentProfile = () => {
         education_level: storedProfile.parent?.education_level || "",
         father_background: storedProfile.parent?.father_background || "",
         mother_background: storedProfile.parent?.mother_background || "",
-        parent_area: storedProfile.parent?.parent_area || "", 
+        location: storedProfile.parent?.location || "",
         annual_income_range: storedProfile.parent?.annual_income_range || "",
         expectations_from_student:
           storedProfile.parent?.expectations_from_student || "",
@@ -313,6 +313,7 @@ const StudentProfile = () => {
         city: profile.city,
         previous_class_percentage: profile.previous_class_percentage,
         board_exam_year: profile.board_exam_year,
+        dob: profile.dob, 
 
         // Parent Object
         parent: {
@@ -322,7 +323,7 @@ const StudentProfile = () => {
           education_level: profile.education_level || "",
           father_background: profile.father_background || "",
           mother_background: profile.mother_background || "",
-            parent_area: profile.parent_area || "",
+          location: profile.location || "",
           annual_income_range: profile.annual_income_range || "",
           expectations_from_student:
             profile.expectations_from_student || "",
@@ -910,8 +911,8 @@ const StudentProfile = () => {
 <Col xs={24} sm={24} md={12}>
   <Text>Location (Area)</Text>
   <Input
-    value={profile.parent_area}
-    onChange={(e) => handleChange("parent_area", e.target.value)}
+    value={profile.location}
+    onChange={(e) => handleChange("location", e.target.value)}
     placeholder="Enter area (e.g., Kothrud, Andheri West)"
   />
 </Col>

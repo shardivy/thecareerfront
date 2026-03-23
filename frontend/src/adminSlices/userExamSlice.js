@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getUserExamsApi, approveUserExamApi,  rejectUserExamApi, } from "../adminApi/examApi";
+import { getUserExamsApi, approveUserExamApi, rejectUserExamApi, } from "../adminApi/examApi";
 
 
 /* ================= THUNK ================= */
@@ -16,11 +16,24 @@ export const fetchUserExams = createAsyncThunk(
   }
 );
 
+// export const approveUserExam = createAsyncThunk(
+//   "userExams/approveUserExam",
+//   async (id, { rejectWithValue }) => {
+//     try {
+//       return await approveUserExamApi(id);
+//     } catch (error) {
+//       return rejectWithValue(
+//         error.response?.data || "Failed to approve exam"
+//       );
+//     }
+//   }
+// );
+
 export const approveUserExam = createAsyncThunk(
   "userExams/approveUserExam",
-  async (id, { rejectWithValue }) => {
+  async ({ id, description }, { rejectWithValue }) => {
     try {
-      return await approveUserExamApi(id);
+      return await approveUserExamApi(id, description);
     } catch (error) {
       return rejectWithValue(
         error.response?.data || "Failed to approve exam"
@@ -29,12 +42,11 @@ export const approveUserExam = createAsyncThunk(
   }
 );
 
-
 export const rejectUserExam = createAsyncThunk(
   "userExams/rejectUserExam",
-  async (id, { rejectWithValue }) => {
+  async ({ id, description }, { rejectWithValue }) => {
     try {
-      return await rejectUserExamApi(id);
+      return await rejectUserExamApi(id, description);
     } catch (error) {
       return rejectWithValue(
         error.response?.data || "Failed to reject exam"
@@ -42,6 +54,20 @@ export const rejectUserExam = createAsyncThunk(
     }
   }
 );
+
+
+// export const rejectUserExam = createAsyncThunk(
+//   "userExams/rejectUserExam",
+//   async (id, { rejectWithValue }) => {
+//     try {
+//       return await rejectUserExamApi(id);
+//     } catch (error) {
+//       return rejectWithValue(
+//         error.response?.data || "Failed to reject exam"
+//       );
+//     }
+//   }
+// );
 
 
 /* ================= SLICE ================= */
@@ -69,28 +95,28 @@ const userExamSlice = createSlice({
       })
 
       //  APPROVE EXAM
-    .addCase(approveUserExam.pending, (state) => {
-      state.loading = true;
-    })
-    .addCase(approveUserExam.fulfilled, (state) => {
-      state.loading = false;
-    })
-    .addCase(approveUserExam.rejected, (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
-    })
+      .addCase(approveUserExam.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(approveUserExam.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(approveUserExam.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
 
-    // REJECT EXAM
-.addCase(rejectUserExam.pending, (state) => {
-  state.loading = true;
-})
-.addCase(rejectUserExam.fulfilled, (state) => {
-  state.loading = false;
-})
-.addCase(rejectUserExam.rejected, (state, action) => {
-  state.loading = false;
-  state.error = action.payload;
-});
+      // REJECT EXAM
+      .addCase(rejectUserExam.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(rejectUserExam.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(rejectUserExam.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
 
   },
 });

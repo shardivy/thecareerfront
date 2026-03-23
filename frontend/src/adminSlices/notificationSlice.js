@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getSuperadminNotificationsApi } from "../adminApi/notificationApi";
+import { getSuperadminNotificationsApi, markNotificationAsReadApi  } from "../adminApi/notificationApi";
 
 // 🔔 Async thunk
 export const fetchNotifications = createAsyncThunk(
@@ -11,6 +11,21 @@ export const fetchNotifications = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to fetch notifications"
+      );
+    }
+  }
+);
+
+// 🔔 MARK AS READ THUNK
+export const markNotificationRead = createAsyncThunk(
+  "notifications/markNotificationRead",
+  async (id, { rejectWithValue }) => {
+    try {
+      await markNotificationAsReadApi(id);
+      return id; // return id so we update state
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to mark as read"
       );
     }
   }
@@ -28,7 +43,7 @@ const notificationSlice = createSlice({
     markAsRead: (state, action) => {
       const id = action.payload;
       const notif = state.list.find((n) => n.id === id);
-      if (notif) notif.read = true;
+      if (notif) notif.is_read = true;
     },
 
     // mark all as read
@@ -53,7 +68,17 @@ const notificationSlice = createSlice({
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+
+
+        // ✅ HANDLE MARK AS READ
+    .addCase(markNotificationRead.fulfilled, (state, action) => {
+      const id = action.payload;
+      const notif = state.list.find((n) => n.id === id);
+      if (notif) {
+        notif.is_read = true; // 👈 important (not "read")
+      }
+    });
   },
 });
 

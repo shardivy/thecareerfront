@@ -96,3 +96,11 @@ export const fetchPendingPaymentStudentsApi = async () => {
   );
   return response.data;
 };
+
+// ================= SEND PAYMENT REMINDER =================
+export const sendPaymentReminderApi = async (studentId) => {
+  const response = await axiosInstance.post(
+    `/payment/students/${studentId}/payment-reminder/`
+  );
+  return response.data;
+};

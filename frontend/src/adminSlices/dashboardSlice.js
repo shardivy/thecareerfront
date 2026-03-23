@@ -145,33 +145,19 @@ const dashboardSlice = createSlice({
       })
 
       // ================= ACTIVITY LOGS =================
+// ================= ACTIVITY LOGS =================
 .addCase(fetchActivityLogs.fulfilled, (state, action) => {
   state.loading = false;
 
-  // ✅ Handle paginated OR direct array response
-  const activityData = Array.isArray(action.payload)
-    ? action.payload
-    : action.payload?.results || [];
+  const activityData = action.payload?.data || [];
 
-  state.activities = activityData.map((item, index) => ({
-    key: item.id || index + 1,
+  // ✅ Sort by latest (newest first)
+  const sortedActivities = activityData.sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
 
-    // 🔥 Customize based on your backend fields
-    activity:
-      item.message ||
-      item.description ||
-      item.activity ||
-      "No activity",
-
-    time: item.created_at
-      ? new Date(item.created_at).toLocaleString()
-      : "",
-
-    status:
-      item.status ||
-      (item.is_completed ? "Completed" : "New"),
-  }));
-});
+  state.activities = sortedActivities;
+})
   },
 });
 

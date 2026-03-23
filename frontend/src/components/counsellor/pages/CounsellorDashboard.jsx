@@ -62,10 +62,9 @@ const CounsellorDashboard = () => {
     (state) => state.counsellors
   );
 
-  const { profile, loading: profileLoading } = useSelector(
-    (state) => state.profile
-  );
-
+const { studentProfile, loading: profileLoading } = useSelector(
+  (state) => state.profile
+);
   const { dashboardStats, dashboardLoading } = useSelector(
     (state) => state.counsellors
   );
@@ -531,7 +530,7 @@ const handleDownloadReport = async () => {
       <StudentProfileModal
         open={profileModal}
         onClose={() => setProfileModal(false)}
-        student={profile}
+       student={studentProfile} 
         loading={profileLoading}
       />
 
