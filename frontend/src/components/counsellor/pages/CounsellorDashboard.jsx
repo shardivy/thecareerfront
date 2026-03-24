@@ -515,6 +515,7 @@ const handleDownloadReport = async () => {
       <Modal
         title={`Session Notes - ${selectedSession?.studentName || ""}`}
         open={notesModal}
+        centered
         onCancel={() => setNotesModal(false)}
         footer={null}
         width={screens.xs ? "95%" : 900}
@@ -538,6 +539,7 @@ const handleDownloadReport = async () => {
 <Modal
   title={`Report - ${selectedReport?.studentName || ""}`}
   open={reportModal}
+  centered
   onCancel={() => {
     setReportModal(false);
     setSelectedReport(null);

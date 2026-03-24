@@ -279,6 +279,7 @@ const filteredSessions = tableData.filter((session) => {
       <Modal
         title={`Session Notes - ${selectedSession?.studentName || ""}`}
         open={notesOpen}
+        centered
         onCancel={() => setNotesOpen(false)}
         footer={null}
         width={screens.xs ? "100%" : screens.md ? 900 : 1200}

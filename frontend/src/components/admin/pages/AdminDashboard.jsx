@@ -22,6 +22,8 @@ const AdminDashboard = () => {
 
   const [chartPeriod, setChartPeriod] = useState("monthly"); // Weekly / Monthly / Yearly
 
+  
+   
 useEffect(() => {
   dispatch(fetchDashboardStats());
   dispatch(fetchLeadStats(chartPeriod));
@@ -162,21 +164,23 @@ const getEnquiriesData = () => {
   };
 };
 
-  const paymentComparison = {
-    labels: ["Expected Revenue", "Collected Revenue"],
-    datasets: [
-      {
-        data: [
-          dashboardStats?.payments?.total_expected || 0,
-          dashboardStats?.payments?.total_collected || 0,
-        ],
-        backgroundColor: [
-          adminTheme.token.colorPrimary,
-          adminTheme.token.colorSuccess,
-        ],
-      },
-    ],
-  };
+const collectedRevenue = dashboardStats?.payments?.total_collected || 0;
+const pendingRevenue = dashboardStats?.payments?.total_pending || 0;
+const paymentComparison = {
+  labels: ["Collected Revenue", "Pending Revenue"],
+  datasets: [
+    {
+      data: [
+        collectedRevenue,
+        pendingRevenue,
+      ],
+      backgroundColor: [
+        adminTheme.token.colorSuccess,
+        adminTheme.token.colorPrimary,
+      ],
+    },
+  ],
+};
 
   const paymentChartOptions = {
     cutout: "50%",

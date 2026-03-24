@@ -287,16 +287,16 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
-    (role === "admin" || role === "superadmin") && {
-      key: "exam-management",
-      icon: <CalendarFilled />,
-      label: (
-        <div style={{ lineHeight: "20px" }}>
-          <div>Aptitude Test</div>
-          <div>Management</div>
-        </div>
-      ),
-      children: [
+    // (role === "admin" || role === "superadmin") && {
+    //   key: "exam-management",
+    //   icon: <CalendarFilled />,
+    //   label: (
+    //     <div style={{ lineHeight: "20px" }}>
+    //       <div>Aptitude Test</div>
+    //       <div>Management</div>
+    //     </div>
+    //   ),
+    //   children: [
         // {
         //   key: "/s-admin/examlist",
         //   icon: <UnorderedListOutlined />,
@@ -313,18 +313,34 @@ const AdminLayout = () => {
         //   },
         // },
 
-        (role === "admin" || role === "superadmin") && {
-          key: "/s-admin/examManagements",
-          icon: <SolutionOutlined />,
-          label: "User Request List",
-          onClick: () => {
-            navigate("/s-admin/examManagements");
-            setDrawerVisible(false);
-          },
-        },
-      ],
-      style: { marginBottom: 12 },
-    },
+    //     (role === "admin" || role === "superadmin") && {
+    //       key: "/s-admin/examManagements",
+    //       icon: <SolutionOutlined />,
+    //       label: "User Request List",
+    //       onClick: () => {
+    //         navigate("/s-admin/examManagements");
+    //         setDrawerVisible(false);
+    //       },
+    //     },
+    //   ],
+    //   style: { marginBottom: 12 },
+    // },
+
+    (role === "admin" || role === "superadmin") && {
+  key: "/s-admin/examManagements",
+  icon: <CalendarFilled />,
+  label: (
+    <div style={{ lineHeight: "20px" }}>
+      <div>Aptitude Test</div>
+      <div>Management</div>
+    </div>
+  ),
+  onClick: () => {
+    navigate("/s-admin/examManagements");
+    setDrawerVisible(false);
+  },
+  style: { marginBottom: 12 },
+},
 
 
     (role === "admin" || role === "superadmin") && {

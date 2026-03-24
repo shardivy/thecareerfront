@@ -39,7 +39,7 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
     if (student) {
       setFormData({
 
-             // ✅ personal
+        // ✅ personal
         first_name: student.first_name || "",
         last_name: student.last_name || "",
         email: student.email || "",
@@ -64,58 +64,60 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
   };
 
   /* ================= SAVE ================= */
-const handleSave = async () => {
-  try {
-    const payload = {
-      liked_subject_ids: formData.liked_subjects,
-      disliked_subject_ids: formData.disliked_subjects,
-      moderate_subject_ids: formData.moderate_subjects,
-      improvement_areas: formData.improvement_areas,
-      hobby_ids: formData.hobbies,
-    };
+  const handleSave = async () => {
+    try {
+      const payload = {
+        liked_subject_ids: formData.liked_subjects,
+        disliked_subject_ids: formData.disliked_subjects,
+        moderate_subject_ids: formData.moderate_subjects,
+        improvement_areas: formData.improvement_areas,
+        hobby_ids: formData.hobbies,
+      };
 
-    await dispatch(
-      updateStudentProfile({
-        studentId: student.student_id,
-        data: payload,
-      })
-    ).unwrap();
+      await dispatch(
+        updateStudentProfile({
+          studentId: student.student_id,
+          data: payload,
+        })
+      ).unwrap();
 
-    message.success("Student profile updated successfully");
+      message.success("Student profile updated successfully");
 
-    setIsEdit(false);
+      setIsEdit(false);
 
-    // ✅ CLOSE MODAL HERE
-    onClose();
+      // ✅ CLOSE MODAL HERE
+      onClose();
 
-  } catch (err) {
-    message.error(err?.message || "Update failed");
-  }
-};
+    } catch (err) {
+      message.error(err?.message || "Update failed");
+    }
+  };
 
   return (
     <Modal
       title={null}
       open={open}
+      centered
       onCancel={onClose}
- footer={
-  !isEdit ? (
-    <Button type="primary" onClick={() => setIsEdit(true)}>
-      Edit
-    </Button>
-  ) : (
-    <Space>
-      <Button onClick={() => setIsEdit(false)}>
-        Cancel
-      </Button>
-      <Button type="primary" onClick={handleSave} loading={loading}>
-        Save
-      </Button>
-    </Space>
-  )
-}
+      footer={
+        !isEdit ? (
+          <Button type="primary" onClick={() => setIsEdit(true)}>
+            Edit
+          </Button>
+        ) : (
+          <Space>
+            <Button onClick={() => setIsEdit(false)}>
+              Cancel
+            </Button>
+            <Button type="primary" onClick={handleSave} loading={loading}>
+              Save
+            </Button>
+          </Space>
+        )
+      }
       width={900}
       confirmLoading={loading}
+       
     >
       {/* HEADER */}
       <div
@@ -129,7 +131,7 @@ const handleSave = async () => {
           View Student Profile
         </Title>
 
-      
+
       </div>
 
       <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
@@ -187,13 +189,24 @@ const handleSave = async () => {
 
             <Col span={12} style={{ marginTop: 15 }}>
               <Text strong>Program</Text>
-              <Input value={student?.program || "-"} disabled />
+              <Input
+                value={
+                  student?.program_packages?.length
+                    ? student.program_packages.map(p => p.program_name).join(", ")
+                    : "-"
+                }
+                disabled
+              />
             </Col>
 
             <Col span={12} style={{ marginTop: 15 }}>
-              <Text strong>Counselling Service</Text>
+              <Text strong>Package / Service</Text>
               <Input
-                value={student?.counselling_service || "-"}
+                value={
+                  student?.program_packages?.length
+                    ? student.program_packages.map(p => p.package_name).join(", ")
+                    : "-"
+                }
                 disabled
               />
             </Col>

@@ -177,7 +177,7 @@ const SlotBookingList = () => {
               type="primary"
               icon={<PlusOutlined />}
               size="large"
-               disabled={hasActiveSession || noSessionFound}
+              disabled={hasActiveSession || noSessionFound}
               onClick={() => {
                 setRescheduleData(null);
                 setIsModalOpen(true);
@@ -197,10 +197,10 @@ const SlotBookingList = () => {
           <Empty
             description={
               <Text type="colorTextSecondary">
-  Counselling sessions are currently unavailable.
-  <br />
-  You will be able to book a slot once your report is unlocked.
-</Text>
+                Counselling sessions are currently unavailable.
+                <br />
+                You will be able to book a slot once your report is unlocked.
+              </Text>
             }
           />
           <div style={{ marginTop: 20 }}>
@@ -208,7 +208,7 @@ const SlotBookingList = () => {
               type="primary"
               icon={<PlusOutlined />}
               size="large"
-                disabled={noSessionFound}
+              disabled={noSessionFound}
               onClick={() => {
                 setRescheduleData(null);
                 setIsModalOpen(true);
@@ -519,6 +519,7 @@ const SlotBookingList = () => {
             isViewMode={true}
             hideSessionDetails={true}
             showStudentName={false}
+             showActions={false}
           />
         )}
       </Modal>

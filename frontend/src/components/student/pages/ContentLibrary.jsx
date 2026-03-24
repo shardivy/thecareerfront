@@ -57,23 +57,49 @@ useEffect(() => {
 const studentPackage = Number(localStorage.getItem("selectedPackage"));
 const isFreeUser = !studentPackage;
 
+// const storedPackage = localStorage.getItem("selectedPackage");
+// const studentPackage = storedPackage ? Number(storedPackage) : null;
+
+// const isFreeUser = !studentPackage;
+
+// const transformedData =
+//   contentList
+//     ?.filter((item) => {
+//   if (item.is_draft) return false;
+
+//   // FREE USER → allow all
+//   if (isFreeUser) return true;
+
+//   // PACKAGE RESTRICTED CONTENT
+//   if (item.package_details?.length > 0) {
+//     return item.package_details.some(
+//       (pkg) => pkg.id === studentPackage
+//     );
+//   }
+
+//   return true;
+// })
+
 const transformedData =
   contentList
     ?.filter((item) => {
-  if (item.is_draft) return false;
+      if (item.is_draft) return false;
 
-  // FREE USER → allow all
-  if (isFreeUser) return true;
+      // ✅ FREE USER → show all content
+      if (isFreeUser) return true;
 
-  // PACKAGE RESTRICTED CONTENT
-  if (item.package_details?.length > 0) {
-    return item.package_details.some(
-      (pkg) => pkg.id === studentPackage
-    );
-  }
+      // ✅ PAID USER
+      if (item.free_content) return true;
 
-  return true;
-})
+      if (item.package_details?.length > 0) {
+        return item.package_details.some(
+          (pkg) => pkg.id === studentPackage
+        );
+      }
+
+      return true;
+    })
+
     ?.map((item) => {
       let accessType = "Free";
 

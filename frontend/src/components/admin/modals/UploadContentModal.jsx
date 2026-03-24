@@ -450,6 +450,7 @@ const submitAsDraft = async () => {
             : "Upload New Content"
       }
       open={open}
+      centered
       onCancel={handleClose}
       okText={viewMode ? "Close" : isEditMode ? "Update" : "Upload Content"}
       onOk={() => (!viewMode ? form.submit() : handleClose())}
