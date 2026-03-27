@@ -2,12 +2,15 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 
-def send_exam_approved_email(user, exam_name, completed_at):
+def send_exam_approved_email(user, completed_at, description=None):
     """
     Email when user's exam is approved
     """
 
     subject = "Your Exam Has Been Approved"
+    
+    description_text = description if description else "No additional remarks."
+
 
     message = f"""
 Dear {user.first_name},
@@ -15,8 +18,11 @@ Dear {user.first_name},
 Congratulations! Your exam has been successfully reviewed and approved.
 
 Exam Details:
-Exam Name: {exam_name}
+
 Completion Date: {completed_at.strftime('%d %B %Y')}
+
+Remarks from reviewer:
+{description_text}
 
 Our team will now prepare your detailed report based on your exam results.
 
@@ -36,7 +42,7 @@ Support Team
         fail_silently=True
     )
     
-def send_exam_rejected_email(user, exam_name, rejected_at):
+def send_exam_rejected_email(user, rejected_at, description=None):
     """
     Email when a user's exam is rejected and sent back to in_progress
     """
@@ -49,8 +55,11 @@ Dear {user.first_name},
 Your submitted exam has been reviewed by our team, but it requires further action before it can be approved.
 
 Exam Details:
-Exam Name: {exam_name}
+
 Review Date: {rejected_at.strftime('%d %B %Y')}
+
+Remarks from reviewer:
+{description if description else "No additional remarks."}
 
 Status Update:
 Your exam has been moved back to "In Progress".

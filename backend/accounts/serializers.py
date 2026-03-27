@@ -410,17 +410,29 @@ class StudentListSerializer(serializers.ModelSerializer):
             "not_started": qs.filter(status="not_started").count(),
         }
         
+    # def get_slot_status(self, obj):
+    #     booking = (
+    #         Booking.objects
+    #         .filter(student=obj)
+    #         .order_by("-created_at")
+    #         .first()
+    #     )
+
+    #     return booking.status if booking else "not_booked"
+    
     def get_slot_status(self, obj):
         booking = (
             Booking.objects
             .filter(student=obj)
-            .order_by("-created_at")
-            .first()
+            .first()   # fetch last DB row
         )
 
-        return booking.status if booking else "not_booked"
-    
-    
+        if not booking:
+            return "not_booked"
+
+        return booking.status
+        
+        
     def get_full_access(self, obj):
         # Check booking
         booking = Booking.objects.filter(student=obj).exists()

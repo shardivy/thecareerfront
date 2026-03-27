@@ -26,6 +26,7 @@ class UserExam(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
     status = models.CharField(max_length=200, choices=STATUS_CHOICES, default='not_started')
+    description = models.TextField(blank=True, null=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, related_name='approved_exams'

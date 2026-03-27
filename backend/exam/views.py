@@ -265,14 +265,92 @@ class UserExamListAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+# class ApproveUserExamAPIView(APIView):
+#     """
+#     Approve a user exam only if eligible.
+#     On approval:
+#         - Mark exam completed
+#         - Create report entry
+#         - Initialize booking (if student profile exists)
+#     """
+#     permission_classes = [IsAuthenticated]
+
+#     @transaction.atomic
+#     def post(self, request, pk):
+
+#         user_exam = get_object_or_404(
+#             UserExam.objects.select_related("user", "exam"),
+#             id=pk
+#         )
+
+#         # 🔴 Already completed
+#         if user_exam.status == "completed":
+#             return Response(
+#                 {"message": "Exam already approved"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # 🔴 Not eligible
+#         ALLOWED_STATUSES = [ "pending_approval", "in_progress", "not_started"]
+
+#         if user_exam.status not in ALLOWED_STATUSES:
+#             return Response(
+#                 {
+#                     "message": "Exam is not eligible for approval",
+#                     "current_status": user_exam.status
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ✅ APPROVE EXAM
+#         user_exam.status = "completed"
+#         user_exam.approved_by = request.user
+#         user_exam.completed_at = timezone.now()
+#         user_exam.save()
+        
+        
+#         # Send email notification
+#         send_exam_approved_email(
+#             user_exam.user,
+#             # user_exam.exam.name,
+#             user_exam.completed_at
+#         )
+
+#         # ✅ CREATE / GET REPORT
+#         report, _ = Report.objects.get_or_create(
+#             user=user_exam.user,
+#             exam=user_exam.exam,
+#             defaults={
+#                 "report_status": "not_received",
+#                 "review_required": False,
+#             }
+#         )
+
+#         # ✅ CREATE BOOKING (ONLY IF NOT EXISTS)
+#         # student_profile = StudentProfile.objects.filter(
+#         #     user=user_exam.user
+#         # ).first()
+
+#         # if student_profile:
+#         #     Booking.objects.get_or_create(
+#         #         student=student_profile,
+#         #         defaults={
+#         #             "status": "not_booked",
+#         #         }
+#         #     )
+
+#         serializer = UserExamApproveResponseSerializer(user_exam)
+
+#         return Response(
+#             {
+#                 "message": "Exam approved successfully and report entry created",
+#                 "data": serializer.data,
+#                 "report_id": report.id
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
 class ApproveUserExamAPIView(APIView):
-    """
-    Approve a user exam only if eligible.
-    On approval:
-        - Mark exam completed
-        - Create report entry
-        - Initialize booking (if student profile exists)
-    """
     permission_classes = [IsAuthenticated]
 
     @transaction.atomic
@@ -283,13 +361,6 @@ class ApproveUserExamAPIView(APIView):
             id=pk
         )
 
-        # # 🔴 Safety: exam must exist
-        # if not user_exam.exam:
-        #     return Response(
-        #         {"message": "Exam is not assigned to this UserExam"},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
-
         # 🔴 Already completed
         if user_exam.status == "completed":
             return Response(
@@ -298,7 +369,7 @@ class ApproveUserExamAPIView(APIView):
             )
 
         # 🔴 Not eligible
-        ALLOWED_STATUSES = [ "pending_approval", "in_progress", "not_started"]
+        ALLOWED_STATUSES = ["pending_approval", "in_progress", "not_started"]
 
         if user_exam.status not in ALLOWED_STATUSES:
             return Response(
@@ -309,17 +380,21 @@ class ApproveUserExamAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # 🔹 Get description from request
+        description = request.data.get("description")
+
         # ✅ APPROVE EXAM
         user_exam.status = "completed"
+        user_exam.description = description
         user_exam.approved_by = request.user
         user_exam.completed_at = timezone.now()
         user_exam.save()
-        
-        # Send email notification
+
+        # ✅ Send email notification
         send_exam_approved_email(
             user_exam.user,
-            user_exam.exam.name,
-            user_exam.completed_at
+            user_exam.completed_at,
+            description
         )
 
         # ✅ CREATE / GET REPORT
@@ -331,19 +406,6 @@ class ApproveUserExamAPIView(APIView):
                 "review_required": False,
             }
         )
-
-        # ✅ CREATE BOOKING (ONLY IF NOT EXISTS)
-        # student_profile = StudentProfile.objects.filter(
-        #     user=user_exam.user
-        # ).first()
-
-        # if student_profile:
-        #     Booking.objects.get_or_create(
-        #         student=student_profile,
-        #         defaults={
-        #             "status": "not_booked",
-        #         }
-        #     )
 
         serializer = UserExamApproveResponseSerializer(user_exam)
 
@@ -386,9 +448,13 @@ class RejectUserExamAPIView(APIView):
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
+            
+        # 🔹 Get description from request
+        description = request.data.get("description")
 
         # ❌ REJECT
         user_exam.status = "in_progress"
+        user_exam.description = description
         user_exam.rejected_by = request.user  # optional field
         user_exam.rejected_at = timezone.now()  # optional field
         user_exam.save()
@@ -396,7 +462,7 @@ class RejectUserExamAPIView(APIView):
         # Send email notification
         send_exam_rejected_email(
             user_exam.user,
-            user_exam.exam.name,
+            # user_exam.exam.name,
             user_exam.rejected_at
         )
 
@@ -546,6 +612,7 @@ class FetchStudentExamStatusAPIView(APIView):
                 "student_id": student.id,
                 "exam_id": user_exam.id,
                 "status": user_exam.status,
+                "description": user_exam.description,
                 # "completed_at": user_exam.completed_at,
                 "created_at": user_exam.created_at
             },

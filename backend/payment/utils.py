@@ -158,3 +158,28 @@ Support Team
         [user.email],
         fail_silently=True
     )
+
+
+def send_payment_reminder_email(user, payment):
+    subject = "Payment Reminder"
+    
+    message = f"""
+Hello {user.first_name},
+
+This is a reminder that your payment for the package "{payment.package}" is still pending.
+
+Payment Status: {payment.status}
+Amount Due: {payment.amount}
+
+Please complete your payment as soon as possible.
+
+Thank you.
+"""
+
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=False
+    )

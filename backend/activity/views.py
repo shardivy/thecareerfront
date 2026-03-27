@@ -18,6 +18,8 @@ class ActivityLogAPIView(APIView):
             "description",
             "created_at",
             "user__email"
+        ).exclude(
+            module="token_blacklist"
         )[:50]  # latest 50
 
         serializer = ActivityLogSerializer(logs, many=True)

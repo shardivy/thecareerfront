@@ -3,10 +3,10 @@ from django.db import transaction
 from counselling_slot.models import Booking, Counsellor, Slot
 
 FIXED_SLOTS = [
-    ("10:30 AM", "12:30 PM"),
-    ("12:30 PM", "02:30 PM"),
-    ("03:00 PM", "05:00 PM"),
-    ("05:00 PM", "07:00 PM"),
+    ("10:00 AM", "12:00 PM"),
+    ("12:00 PM", "02:00 PM"),
+    ("02:00 PM", "04:00 PM"),
+    ("04:00 PM", "06:00 PM"),
 ]
 
 @transaction.atomic

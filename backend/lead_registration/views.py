@@ -2647,21 +2647,67 @@ class UserJourneyAPIView(APIView):
         # ================================
         # 5️⃣ SLOT BOOKING
         # ================================
-        booking = Booking.objects.filter(student=student).first()
+        # booking = Booking.objects.filter(student=student).first()
 
-        if booking:
-            slot_status = True
+        # if booking:
+        #     slot_status = True
+        #     history.append({
+        #         "step": "Counselling Slot Booking",
+        #         "status": "completed",
+        #         "date": booking.created_at,
+        #         "details": "Slot booked"
+        #     })
+        # else:
+        #     slot_status = False
+        #     history.append({
+        #         "step": "Counselling Slot Booking",
+        #         "status": "pending",
+        #         "date": None,
+        #         "details": "Slot not booked"
+        #     })
+        
+        # ================================
+        # 5️⃣ SLOT BOOKING
+        # ================================
+
+        bookings = Booking.objects.filter(student=student)
+
+        slot_status = "not_booked"
+        booking_obj = None
+
+        # Priority logic
+        if bookings.filter(status="rescheduled").exists():
+            booking_obj = bookings.filter(status="rescheduled").order_by("-created_at").first()
+            slot_status = "rescheduled"
+
+        elif bookings.filter(status="pending").exists():
+            booking_obj = bookings.filter(status="pending").order_by("-created_at").first()
+            slot_status = "pending"
+
+        elif bookings.filter(status="booked").exists():
+            booking_obj = bookings.filter(status="booked").order_by("-created_at").first()
+            slot_status = "booked"
+
+        elif bookings.filter(status="completed").exists():
+            booking_obj = bookings.filter(status="completed").order_by("-created_at").first()
+            slot_status = "completed"
+
+        elif bookings.filter(status="cancelled").exists():
+            booking_obj = bookings.filter(status="cancelled").order_by("-created_at").first()
+            slot_status = "cancelled"
+
+
+        if booking_obj:
             history.append({
                 "step": "Counselling Slot Booking",
-                "status": "completed",
-                "date": booking.created_at,
-                "details": "Slot booked"
+                "status": slot_status,
+                "date": booking_obj.created_at,
+                "details": f"Slot status: {slot_status}"
             })
         else:
-            slot_status = False
             history.append({
                 "step": "Counselling Slot Booking",
-                "status": "pending",
+                "status": "not_booked",
                 "date": None,
                 "details": "Slot not booked"
             })
@@ -2696,7 +2742,7 @@ class UserJourneyAPIView(APIView):
             and payment_status in ["partial_paid", "fully_paid"]
             and exam_status in ["completed"]
             and report_status in ["received_unlocked"]
-            and slot_status
+            and slot_status in ["booked", "rescheduled", "completed"]
             and review_status
         )
 
@@ -2720,7 +2766,7 @@ class UserJourneyAPIView(APIView):
         if report_status in ["received_unlocked", "received_locked"]:
             current_step = 6
 
-        if slot_status:
+        if slot_status in ["not_booked", "booked", "rescheduled", "pending", "completed"]:
             current_step = 7
 
         # Review bypassed
