@@ -31,7 +31,8 @@ import CreateSessionModal from "../modals/CreateSessionModal";
 import {
   fetchCounsellingBookings,
   fetchCounsellingSessionCount,
-  deleteCounsellingBooking,
+  cancelCounsellingBooking,
+  // deleteCounsellingBooking,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchLeadCounsellors, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
 import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
@@ -127,6 +128,11 @@ const SlotBooking = () => {
         ? item.student.preferred_counselling_mode.charAt(0).toUpperCase() +
         item.student.preferred_counselling_mode.slice(1)
         : "—",
+
+      status: item.status,
+
+      // ✅ Separate property for filtering/tabs (booked + rescheduled → booked tab)
+      filterStatus: item.status === "rescheduled" ? "booked" : item.status,
     }));
   }, [data]);
 
@@ -147,12 +153,12 @@ const SlotBooking = () => {
     .filter((item) => {
       const text = Object.values(item).join(" ").toLowerCase();
       const modeMatch = !modeFilter || item.mode === modeFilter;
-      const statusMatch = !statusFilter || item.status === statusFilter;
+      const statusMatch = !statusFilter || item.filterStatus === statusFilter;
       const dateMatch = !dateFilter || dayjs(item.date).isSame(dateFilter, "day");
       const counsellorMatch =
         !counsellorFilter || item.counsellorDisplay.some((c) => c.id === counsellorFilter);
 
-      const tabMatch = activeTab === "all" ? true : item.status === activeTab;
+      const tabMatch = activeTab === "all" ? true : item.filterStatus === activeTab;
 
       return (
         text.includes(searchText.toLowerCase()) &&
@@ -164,42 +170,41 @@ const SlotBooking = () => {
       );
     })
     .sort((a, b) => {
-      if (a.status === "booked" && b.status !== "booked") return -1;
-      if (a.status !== "booked" && b.status === "booked") return 1;
+      if (a.filterStatus === "booked" && b.filterStatus !== "booked") return -1;
+      if (a.filterStatus !== "booked" && b.filterStatus === "booked") return 1;
       return dayjs(a.date).diff(dayjs(b.date));
     });
 
   /* ================= DELETE HANDLER ================= */
-  const handleDelete = (record) => {
-    Modal.confirm({
-      title: "Delete Booking?",
-      content: `Are you sure you want to delete session for ${record.studentName}?`,
-      okText: "Yes, Delete",
-      okType: "danger",
-      cancelText: "Cancel",
-      centered: true,
+const handleCancel = (record) => {
+  Modal.confirm({
+    title: "Cancel Booking?",
+    content: `Are you sure you want to cancel session for ${record.studentName}?`,
+    okText: "Yes, Cancel",
+    okType: "danger",
+    cancelText: "No",
+    centered: true,
 
-      onOk: () => {
-        return dispatch(deleteCounsellingBooking(record.id))
-          .unwrap()
-          .then(() => {
-            // Optional: refetch (not required because we already filter in slice)
-            dispatch(fetchCounsellingBookings());
-          });
-      },
-    });
-  };
+    onOk: () => {
+      return dispatch(cancelCounsellingBooking(record.id))
+        .unwrap()
+        .then(() => {
+          dispatch(fetchCounsellingBookings()); // optional refresh
+        });
+    },
+  });
+};
 
 
 
   /* ================= TABLE COLUMNS ================= */
-  const columns = [
+ const columns = useMemo(() => {
+  const baseColumns = [
     {
       title: "Sr.",
       width: 60,
-      render: (_, __, index) => {
-        return (currentPage - 1) * pageSize + index + 1;
-      },
+      render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
     },
     {
       title: "User Name",
@@ -214,17 +219,20 @@ const SlotBooking = () => {
     },
     {
       title: "Counsellors",
+      width:200,
       render: (_, r) =>
         r.counsellorDisplay.length ? (
           r.counsellorDisplay.map((c, i) => (
             <div key={i}>
               <Text strong>{c.name}</Text>
               <br />
-              <Tag color={c.type === "lead" ? "blue" : "green"}>{c.type}</Tag>
+              <Tag color={c.type === "lead" ? "blue" : "green"}>
+                {c.type}
+              </Tag>
             </div>
           ))
         ) : (
-          <Text type="colorTextSsecondary">—</Text>
+          <Text type="colorTextSecondary">—</Text>
         ),
     },
     {
@@ -255,27 +263,40 @@ const SlotBooking = () => {
         const color =
           status === "booked"
             ? "blue"
+            : status === "rescheduled"
+            ? "orange"
             : status === "completed"
-              ? "green"
-              : "default";
+            ? "green"
+            : status === "pending"
+            ? "gold"
+            : status === "cancelled"
+            ? "red"
+            : "default";
 
         return <Tag color={color}>{formatted}</Tag>;
       },
     },
+  ];
 
+  // ❌ DO NOT ADD ACTION COLUMN IF CANCELLED TAB
+  if (activeTab === "cancelled") {
+    return baseColumns;
+  }
+
+  // ✅ Add Actions column only for other tabs
+  return [
+    ...baseColumns,
     {
       title: "Actions",
       width: 160,
       render: (_, record) => {
-        // 🔵 If NOT BOOKED → Show only Book Session
         if (record.status === "not_booked") {
           return (
             <Button
               type="primary"
-              size="large"
               icon={<PlusOutlined />}
               onClick={() => {
-                setModalMode("edit");   // ✅ CHANGE HERE
+                setModalMode("edit");
                 setRescheduleData(record);
                 setIsModalOpen(true);
               }}
@@ -285,26 +306,10 @@ const SlotBooking = () => {
           );
         }
 
-
-        // 🟢 If COMPLETED → View + Add Notes
         if (record.status === "completed") {
           return (
             <Space>
-              {/* <Button
-        size="large"
-        icon={<EyeOutlined />}
-        onClick={() => {
-          setRescheduleData(record);
-          setModalMode("view");
-          setIsModalOpen(true);
-        }}
-      >
-        View
-      </Button> */}
-
               <Button
-                size="large"
-                type="primary"
                 onClick={() => {
                   dispatch(fetchCounsellingNote(record.id)).then(() => {
                     setSelectedSession(record);
@@ -314,27 +319,25 @@ const SlotBooking = () => {
               >
                 View / Add Notes
               </Button>
+
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setRescheduleData(record);
+                  setModalMode("edit");
+                  setIsModalOpen(true);
+                }}
+              >
+                Reschedule
+              </Button>
             </Space>
           );
         }
 
-        // 🔵 If BOOKED → View / Edit / Delete
         return (
-          <Space size="small">
-            {/* <Button
-          size="large"
-          icon={<EyeOutlined />}
-          onClick={() => {
-            setRescheduleData(record);
-            setModalMode("view");
-            setIsModalOpen(true);
-          }}
-        >
-          View
-        </Button> */}
-
+          <Space>
             <Button
-              size="large"
               type="primary"
               icon={<EditOutlined />}
               onClick={() => {
@@ -343,69 +346,24 @@ const SlotBooking = () => {
                 setIsModalOpen(true);
               }}
             >
-              Edit / Reschedule
+              Reschedule
             </Button>
 
-            <Button
-              size="large"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => handleDelete(record)}
-            >
-              Delete
-            </Button>
+            {record.status !== "pending" && (
+      <Button
+        danger
+        icon={<DeleteOutlined />}
+        onClick={() => handleCancel(record)}
+      >
+        Cancel
+      </Button>
+    )}
           </Space>
         );
       },
     },
-    //    {
-    //   title: "Actions",
-    //   width: 140,
-    //   render: (_, record) => (
-    //     <Space size="small">
-    //       <Button
-    //         size="large"
-    //         icon={<EyeOutlined />}
-    //         onClick={() => {
-    //           setRescheduleData(record);
-    //           setModalMode("view");
-    //           setIsModalOpen(true);
-    //         }}
-    //       >
-    //         View
-    //       </Button>
-
-    //       {/* Only show Edit if status is not completed */}
-    //       {record.status !== "completed" && (
-    //         <Button
-    //           size="large"
-    //           icon={<EditOutlined />}
-    //           type="primary"
-    //           onClick={() => {
-    //             setRescheduleData(record);
-    //             setModalMode("edit");
-    //             setIsModalOpen(true);
-    //           }}
-    //         >
-    //           Edit
-    //         </Button>
-    //       )}
-
-    //       {/* Only show Delete if status is not completed */}
-    //       {record.status !== "completed" && (
-    //         <Button
-    //           size="large"
-    //           danger
-    //           icon={<DeleteOutlined />}
-    //           onClick={() => handleDelete(record)}
-    //         >
-    //           Delete
-    //         </Button>
-    //       )}
-    //     </Space>
-    //   ),
-    // },
   ];
+}, [activeTab, currentPage, pageSize, dispatch]);
 
   return (
     <div style={{ padding: "12px" }}>
@@ -425,6 +383,7 @@ const SlotBooking = () => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
+            disabled
             block={window.innerWidth < 576}
             onClick={() => {
               setModalMode("create");
@@ -485,9 +444,17 @@ const SlotBooking = () => {
         onChange={setActiveTab}
         style={{ marginBottom: 16 }}
         items={[
-          { key: "booked", label: `Booked (${dataSource.filter(d => d.status === "booked").length})` },
           { key: "not_booked", label: `Not Booked (${dataSource.filter(d => d.status === "not_booked").length})` },
+          { key: "booked", label: `Booked / Rescheduled (${dataSource.filter(d => d.status === "booked" || d.status === "rescheduled").length})`, },
           { key: "completed", label: `Completed (${dataSource.filter(d => d.status === "completed").length})` },
+          {
+            key: "pending",
+            label: `Pending (${dataSource.filter(d => d.status === "pending").length})`
+          },
+          {
+            key: "cancelled",
+            label: `Cancelled (${dataSource.filter(d => d.status === "cancelled").length})`
+          },
 
         ]}
       />
@@ -541,9 +508,11 @@ const SlotBooking = () => {
               onChange={setStatusFilter}
               style={{ width: "100%" }}
             >
+              <Option value="not_booked">Not Booked</Option>
               <Option value="booked">Booked</Option>
-                  <Option value="not_booked">Not Booked</Option>
               <Option value="completed">Completed</Option> {/* ✅ Added */}
+              <Option value="pending">Pending</Option>
+              <Option value="cancelled">Cancelled</Option>
             </Select>
           </Col>
 

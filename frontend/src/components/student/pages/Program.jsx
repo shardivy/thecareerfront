@@ -657,18 +657,29 @@ const Program = () => {
   }}
 >
   {/* Learn More Button */}
-  <Button
+  {/* <Button
     block
     onClick={() => {
       if (pkg.link_url) {
         window.open(pkg.link_url, "_blank", "noopener,noreferrer");
       } else {
-        window.location.href = "#";
+        window.location.href = "https://abhinavcareerscope.com/";
       }
     }}
   >
     Learn More
-  </Button>
+  </Button> */}
+
+  <Button
+  block
+  onClick={() => {
+    const url = pkg?.link_url || "https://abhinavcareerscope.com/";
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  }}
+>
+  Learn More
+</Button>
 
   {/* Select / Selected Button */}
   {profile?.package_id === pkg.id ? (

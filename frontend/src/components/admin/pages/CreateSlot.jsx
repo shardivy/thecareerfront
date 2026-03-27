@@ -99,7 +99,7 @@ const CreateSlot = () => {
   /* ---------- STATUS TOGGLE ---------- */
   const handleStatusToggle = (checked, item) => {
     const bookedSlotsCount =
-      item.slots?.filter((slot) => slot.status === "booked").length || 0;
+      item.slots?.filter((slot) => slot.status === "booked" || slot.status === "rescheduled").length || 0;
 
     if (!checked && bookedSlotsCount > 0) {
       Modal.warning({
@@ -136,7 +136,7 @@ const CreateSlot = () => {
 
   /* ---------- SLOT AVAILABILITY ---------- */
   const handleAvailabilityToggle = (slot, item) => {
-    if (!item.is_active || slot.status === "booked") return;
+    if (!item.is_active || slot.status === "booked" || slot.status === "rescheduled") return;
 
     const newAvailability = !slot.is_available;
 
@@ -269,7 +269,7 @@ const CreateSlot = () => {
                 <Space wrap>
                   {item.slots?.length ? (
                     item.slots.map((slot) => {
-                      const isBooked = slot.status === "booked";
+                      const isBooked = slot.status === "booked" || slot.status === "rescheduled" ;
                       const isTimePassed = isSlotTimePassed(
                         slot.start_time,
                         item.date

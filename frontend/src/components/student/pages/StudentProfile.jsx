@@ -174,6 +174,8 @@ const StudentProfile = () => {
   // ===== Update local state when API data is loaded =====
   useEffect(() => {
     if (storedProfile) {
+      const academic = storedProfile.academic_history?.[0] || {};
+
       const formattedProfile = {
         id: storedProfile.id,
         student_id: storedProfile.student_id,
@@ -186,11 +188,21 @@ const StudentProfile = () => {
         dob: storedProfile.dob || "",
 
         study_class: storedProfile.study_class || "",
+
+        current_class_percentage: academic.current_class_percentage || "",
+
         previous_class_percentage: storedProfile.previous_class_percentage || "",
         board_exam_year: storedProfile.board_exam_year || "",
+
+        board_name: academic.board_name || "",
+
         current_academic_year: storedProfile.current_academic_year || "",
         school: storedProfile.school_college || "",
         city: storedProfile.city || "",
+
+        coaching_entrance: academic.coaching_entrance || "",
+        special_notes: academic.special_notes || "",
+
         preferred_counselling_mode: storedProfile.preferred_counselling_mode || "",
 
         specialization: storedProfile.specialization || "",
@@ -305,15 +317,40 @@ const StudentProfile = () => {
           return;
         }
       }
+
+      const currentPercentage = Number(profile.current_class_percentage);
+
+      if (profile.current_class_percentage) {
+        if (currentPercentage > 100 || currentPercentage < 0) {
+          message.error("Enter valid current class percentage (0–100)");
+          return;
+        }
+      }
       const payload = {
         study_class: profile.study_class,
         specialization: profile.specialization,
         current_academic_year: profile.current_academic_year,
         school_college: profile.school,
         city: profile.city,
+        // current_class_percentage: profile.current_class_percentage,
         previous_class_percentage: profile.previous_class_percentage,
         board_exam_year: profile.board_exam_year,
-        dob: profile.dob, 
+        // board_name: profile.board_name,
+        // coaching_entrance: profile.coaching_entrance,
+        // special_notes: profile.special_notes,
+
+        academic_history: [
+          {
+            current_class_percentage: profile.current_class_percentage,
+            // previous_class_percentage: profile.previous_class_percentage,
+            // board_exam_year: profile.board_exam_year,
+            board_name: profile.board_name,
+            coaching_entrance: profile.coaching_entrance,
+            special_notes: profile.special_notes,
+          },
+        ],
+
+        dob: profile.dob,
 
         // Parent Object
         parent: {
@@ -648,16 +685,28 @@ const StudentProfile = () => {
             </Select>
           </Col>
 
-
-          {/* <Col xs={24} sm={24} md={12}>
-            <Text>Current Academic Year</Text>
+          <Col xs={24} sm={24} md={12}>
+            <Text>Coaching / Entrance (if any)</Text>
             <Input
-              value={profile.current_academic_year}
+              value={profile.coaching_entrance}
               onChange={(e) =>
-                handleChange("current_academic_year", e.target.value)
+                handleChange("coaching_entrance", e.target.value)
               }
+              placeholder="e.g., JEE, NEET coaching"
             />
-          </Col> */}
+          </Col>
+
+          <Col xs={24} sm={24} md={12}>
+            <Text>Current Class Percentage</Text>
+            <Input
+              type="number"
+              value={profile.current_class_percentage}
+              onChange={(e) =>
+                handleChange("current_class_percentage", e.target.value)
+              }
+              placeholder="Enter current class %"
+            />
+          </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>Previous Class Percentage</Text>
@@ -667,12 +716,12 @@ const StudentProfile = () => {
               onChange={(e) =>
                 handleChange("previous_class_percentage", e.target.value)
               }
-              placeholder="Enter percentage"
+              placeholder="Enter previous class %"
             />
           </Col>
 
           <Col xs={24} sm={24} md={12}>
-            <Text>Year of Board Exam</Text>
+            <Text>Year of giving board </Text>
             <Input
               type="number"
               value={profile.board_exam_year}
@@ -684,6 +733,22 @@ const StudentProfile = () => {
           </Col>
 
           <Col xs={24} sm={24} md={12}>
+            <Text>Board Name</Text>
+            <Select
+              value={profile.board_name}
+              style={{ width: "100%" }}
+              onChange={(value) => handleChange("board_name", value)}
+              placeholder="Select Board Name"
+            >
+              {["CBSE", "ICSE", "State Board", "IB", "IGCSE", "Other"].map((board) => (
+                <Option key={board} value={board}>
+                  {board}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+
+          <Col xs={24} sm={24} md={12}>
             <Text>School / College</Text>
             <Input
               value={profile.school}
@@ -692,7 +757,7 @@ const StudentProfile = () => {
           </Col>
 
           <Col xs={24} sm={24} md={12}>
-            <Text>City</Text>
+            <Text>City / Area </Text>
             <Input
               value={profile.city}
               onChange={(e) => handleChange("city", e.target.value)}
@@ -700,7 +765,7 @@ const StudentProfile = () => {
           </Col>
 
           <Col xs={24} sm={24} md={12}>
-            <Text>Suggested Stream</Text>
+            <Text>Stream</Text>
 
             <Select
               value={profile.stream}
@@ -713,6 +778,19 @@ const StudentProfile = () => {
                 </Option>
               ))}
             </Select>
+          </Col>
+
+          <Col xs={24}>
+            <Text>Special Notes by counsellor</Text>
+            <TextArea
+              rows={3}
+              value={profile.special_notes}
+              disabled
+              onChange={(e) =>
+                handleChange("special_notes", e.target.value)
+              }
+              placeholder="Add any important notes..."
+            />
           </Col>
         </Row>
 
@@ -852,10 +930,11 @@ const StudentProfile = () => {
             />
           </Col>
           <Col xs={24} sm={24} md={12}>
-            <Text>Profession</Text>
+            <Text>Parent Profession</Text>
             <Input
               value={profile.profession}
               onChange={(e) => handleChange("profession", e.target.value)}
+              placeholder="Enter Parent Profession"
             />
           </Col>
 
@@ -868,7 +947,7 @@ const StudentProfile = () => {
               }
             />
           </Col> */}
-{/* 
+          {/* 
           <Col xs={24} sm={24} md={12}>
             <Text>Education Level</Text>
             <Input
@@ -880,42 +959,27 @@ const StudentProfile = () => {
           </Col> */}
           <Col xs={24} sm={24} md={12}>
             <Text>Father Background</Text>
-            <Select
+            <Input
               value={profile.father_background}
-              style={{ width: "100%" }}
-              onChange={(v) => handleChange("father_background", v)}
-            >
-              {["Urban", "Rural", "Semi-Urban"].map((bg) => (
-                <Option key={bg} value={bg}>
-                  {bg}
-                </Option>
-              ))}
-            </Select>
+              onChange={(e) =>
+                handleChange("father_background", e.target.value)
+              }
+              placeholder="Enter father background"
+            />
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>Mother Background</Text>
-            <Select
+            <Input
               value={profile.mother_background}
-              style={{ width: "100%" }}
-              onChange={(v) => handleChange("mother_background", v)}
-            >
-              {["Urban", "Rural", "Semi-Urban"].map((bg) => (
-                <Option key={bg} value={bg}>
-                  {bg}
-                </Option>
-              ))}
-            </Select>
+              onChange={(e) =>
+                handleChange("mother_background", e.target.value)
+              }
+              placeholder="Enter mother background"
+            />
           </Col>
 
-<Col xs={24} sm={24} md={12}>
-  <Text>Location (Area)</Text>
-  <Input
-    value={profile.location}
-    onChange={(e) => handleChange("location", e.target.value)}
-    placeholder="Enter area (e.g., Kothrud, Andheri West)"
-  />
-</Col>
+
 
           {/* <Col xs={24} sm={24} md={12}>
             <Text>Annual Income Range</Text>

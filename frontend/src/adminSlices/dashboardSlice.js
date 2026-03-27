@@ -92,7 +92,7 @@ const dashboardSlice = createSlice({
 
           sortedYears.forEach((year) => {
             labels.push(year);
-            total.push(data.yearly[year]?.enquiry || 0);
+            total.push(data.yearly[year]?.total || 0);
             converted.push(data.yearly[year]?.converted || 0);
           });
         }
@@ -115,7 +115,7 @@ const dashboardSlice = createSlice({
 
           sortedMonths.forEach((monthKey) => {
             labels.push(monthKey); // keep "Feb 2026"
-            total.push(data.monthly[monthKey]?.enquiry || 0);
+            total.push(data.monthly[monthKey]?.total || 0);
             converted.push(data.monthly[monthKey]?.converted || 0);
           });
         }
@@ -131,7 +131,7 @@ const dashboardSlice = createSlice({
 
           sortedWeeks.forEach((week) => {
             labels.push(week);
-            total.push(weeks[week]?.enquiry || 0);
+            total.push(weeks[week]?.total || 0);
             converted.push(weeks[week]?.converted || 0);
           });
         }
@@ -144,7 +144,7 @@ const dashboardSlice = createSlice({
         state.error = action.payload;
       })
 
-      // ================= ACTIVITY LOGS =================
+    
 // ================= ACTIVITY LOGS =================
 .addCase(fetchActivityLogs.fulfilled, (state, action) => {
   state.loading = false;

@@ -118,15 +118,19 @@ const AdminLayout = () => {
 
   const [localNotifications, setLocalNotifications] = useState([]);
 
-  useEffect(() => {
+useEffect(() => {
+  if (role === "admin" || role === "superadmin") {
+    // initial fetch
     dispatch(fetchNotifications());
 
+    // poll every 30s
     const interval = setInterval(() => {
       dispatch(fetchNotifications());
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [dispatch]);
+  }
+}, [dispatch, role]);
 
   useEffect(() => {
     setLocalNotifications(notifications);

@@ -93,13 +93,13 @@ const [mode, setMode] = useState(preferredMode);
   }, [selectedLeadCounsellor, selectedDate, dispatch]);
 
   // ================= SLOT FILTER =================
-  const filteredSlots = slotsByDate.filter((slot) => {
-    if (slotFilter === "available") return slot.status === "available";
-    if (slotFilter === "booked") return slot.status === "booked";
-    return true;
-  });
+  // const filteredSlots = slotsByDate.filter((slot) => {
+  //   if (slotFilter === "available") return slot.status === "available";
+  //   if (slotFilter === "booked") return slot.status === "booked";
+  //   return true;
+  // });
 
-
+  
 const isSlotExpired = (slot) => {
   if (!selectedDate) return false;
 
@@ -118,6 +118,31 @@ const isSlotExpired = (slot) => {
 
   return now.isAfter(slotStart);
 };
+
+const filteredSlots = slotsByDate.filter((slot) => {
+  const expired = isSlotExpired(slot);
+
+  const isAvailableLike =
+    (slot.status === "available" || slot.status === "pending") &&
+    slot.is_available;
+
+  const isBookedLike =
+    slot.status === "booked" ||
+    slot.status === "rescheduled" ||
+    !slot.is_available;
+
+  if (slotFilter === "all") return true;
+
+  if (slotFilter === "available") {
+    return isAvailableLike && !expired;
+  }
+
+  if (slotFilter === "booked") {
+    return isBookedLike || expired;
+  }
+
+  return true;
+});
 
   // ================= CONFIRM BOOKING =================
   const handleConfirm = () => {
@@ -259,10 +284,16 @@ const isSlotExpired = (slot) => {
                       <Button
                         block
                         size="large"
-                        disabled={slot.status === "booked" || isSlotExpired(slot)}
+                        disabled={slot.status === "booked" ||  slot.status === "rescheduled" || !slot.is_available || isSlotExpired(slot)}
                         type={selectedSlot?.id === slot.id ? "primary" : "default"} // compare objects by id
                         onClick={() => {
-                          if (slot.status === "available") setSelectedSlot(slot); // store full object
+                        if (
+  (slot.status === "available" || slot.status === "pending") &&  
+  !isSlotExpired(slot)  &&
+                            slot.is_available
+) {
+  setSelectedSlot(slot);
+}
                         }}
                         style={{
                           borderRadius: 10,

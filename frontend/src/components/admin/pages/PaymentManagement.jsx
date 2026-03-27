@@ -25,13 +25,13 @@ import {
   UploadOutlined,
   EditOutlined,
   CheckCircleOutlined,
-  BellOutlined ,
+  BellOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import adminTheme from "../../../theme/adminTheme";
 import PaymentProofModal from "../modals/PaymentProofModal";
 import UploadPaymentModal from "../modals/UploadPaymentModal";
-import { fetchPaymentStats, fetchPayments, sendPaymentReminder} from "../../../adminSlices/paymentSlice";
+import { fetchPaymentStats, fetchPayments, sendPaymentReminder } from "../../../adminSlices/paymentSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -46,6 +46,7 @@ const PaymentManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
   const [reminderLoadingId, setReminderLoadingId] = useState(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const dispatch = useDispatch();
 
   const { stats, statsLoading, list, listLoading } = useSelector(
@@ -116,7 +117,7 @@ const PaymentManagement = () => {
     "Fully Paid": "success",
     "Partial Paid": "warning",
     "Verification Pending": "processing",
-      "Not Paid": "error",
+    "Not Paid": "error",
   };
 
   /* ---------------- UTILITY FUNCTIONS ---------------- */
@@ -235,26 +236,55 @@ const PaymentManagement = () => {
     return text.length > 5 ? `${text.slice(0, 5)}...` : text;
   };
 
-const handleSendReminder = async (record) => {
-  const studentId = record.originalData?.student_id;
+  const handleSendReminder = async (record) => {
+    const studentId = record.originalData?.student_id;
 
-  setReminderLoadingId(studentId); // 👈 start loading
+    setReminderLoadingId(studentId); // 👈 start loading
 
-  try {
-    await dispatch(sendPaymentReminder(studentId)).unwrap();
+    try {
+      await dispatch(sendPaymentReminder(studentId)).unwrap();
 
-    import("antd").then(({ message }) => {
-      message.success("Reminder sent successfully!");
-    });
-  } catch (error) {
-    import("antd").then(({ message }) => {
-      message.error("Failed to send reminder");
-    });
-  } finally {
-    setReminderLoadingId(null); // 👈 stop loading
-  }
-};
+      import("antd").then(({ message }) => {
+        message.success("Reminder sent successfully!");
+      });
+    } catch (error) {
+      import("antd").then(({ message }) => {
+        message.error("Failed to send reminder");
+      });
+    } finally {
+      setReminderLoadingId(null); // 👈 stop loading
+    }
+  };
 
+
+  const handleBulkSendReminder = async () => {
+    if (selectedRowKeys.length === 0) return;
+
+    setReminderLoadingId("bulk"); // show loading for bulk
+
+    try {
+      // Get student IDs from selected rows
+      const studentIds = filteredData
+        .filter((p) => selectedRowKeys.includes(p.key))
+        .map((p) => p.originalData?.student_id)
+        .filter(Boolean);
+
+      // Send reminders for each student
+      await Promise.all(studentIds.map((id) => dispatch(sendPaymentReminder(id)).unwrap()));
+
+      import("antd").then(({ message }) => {
+        message.success(`Reminder sent to ${studentIds.length} students!`);
+      });
+
+      setSelectedRowKeys([]); // clear selection
+    } catch (error) {
+      import("antd").then(({ message }) => {
+        message.error("Failed to send reminders");
+      });
+    } finally {
+      setReminderLoadingId(null);
+    }
+  };
 
 
   /* ---------------- TABLE COLUMNS ---------------- */
@@ -319,7 +349,7 @@ const handleSendReminder = async (record) => {
 
     {
       title: "Payment Status",
-      width:100,
+      width: 100,
       dataIndex: "status",
       render: (status) => (
         <Tag color={statusColorMap[status] || "default"}>
@@ -331,7 +361,7 @@ const handleSendReminder = async (record) => {
     },
     {
       title: "Payment Method",
-      width:100,
+      width: 100,
       dataIndex: "paymentMethod",
       render: (method) =>
         method === "-" ? <Text type="colorTextSecondary">-</Text> : <Tag>{method}</Tag>,
@@ -367,138 +397,138 @@ const handleSendReminder = async (record) => {
         );
       },
     },
-  
-{
-  title: "Action",
-  render: (_, record) => {
 
-    // ✅ NOT PAID → Upload only
-   if (record.status === "Not Paid") {
-  return (
-    <Space>
-      <Button
-        size="large"
-        type="primary"
-        icon={<UploadOutlined />}
-        onClick={() => {
-          setSelectedPayment(record);
-          setIsUploadModalOpen(true);
-        }}
-      >
-        {/* Upload Payment */}
-      </Button>
+    {
+      title: "Action",
+      render: (_, record) => {
 
-      <Button
-        size="large"
-        icon={<BellOutlined />}
-        loading={reminderLoadingId === record.originalData?.student_id}
-        onClick={() => handleSendReminder(record)}
-      >
-        {/* Send Reminder */}
-      </Button>
-    </Space>
-  );
-}
+        // ✅ NOT PAID → Upload only
+        if (record.status === "Not Paid") {
+          return (
+            <Space>
+              <Button
+                size="large"
+                type="primary"
+                icon={<UploadOutlined />}
+                onClick={() => {
+                  setSelectedPayment(record);
+                  setIsUploadModalOpen(true);
+                }}
+              >
+                {/* Upload Payment */}
+              </Button>
 
-    // ✅ PARTIAL PAID → Upload + View + Edit
-    if (record.status === "Partial Paid") {
-      return (
-        <Space>
-          <Button
-            size="large"
-            type="primary"
-            icon={<UploadOutlined />}
-            onClick={() => {
-              setSelectedPayment(record);
-              setIsUploadModalOpen(true);
-            }}
-          >
-            {/* Upload Payment */}
-          </Button>
+              <Button
+                size="large"
+                icon={<BellOutlined />}
+                loading={reminderLoadingId === record.originalData?.student_id}
+                onClick={() => handleSendReminder(record)}
+              >
+                {/* Send Reminder */}
+              </Button>
+            </Space>
+          );
+        }
 
-               <Button
-        size="large"
-        icon={<BellOutlined />}
-        onClick={() => handleSendReminder(record)}
-      >
-       {/* Send Reminder */}
-      </Button>
+        // ✅ PARTIAL PAID → Upload + View + Edit
+        if (record.status === "Partial Paid") {
+          return (
+            <Space>
+              <Button
+                size="large"
+                type="primary"
+                icon={<UploadOutlined />}
+                onClick={() => {
+                  setSelectedPayment(record);
+                  setIsUploadModalOpen(true);
+                }}
+              >
+                {/* Upload Payment */}
+              </Button>
 
-          <Button
-            size="large"
-            icon={<EyeOutlined />}
-            onClick={() => {
-              setSelectedPayment({ ...record, mode: "view" });
-              setIsModalOpen(true);
-            }}
-          >
-            {/* View */}
-          </Button>
+              <Button
+                size="large"
+                icon={<BellOutlined />}
+                onClick={() => handleSendReminder(record)}
+              >
+                {/* Send Reminder */}
+              </Button>
 
-          <Button
-            size="large"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setSelectedPayment({ ...record, mode: "edit" });
-              setIsModalOpen(true);
-            }}
-          >
-            {/* Edit */}
-          </Button>
-        </Space>
-      );
-    }
+              <Button
+                size="large"
+                icon={<EyeOutlined />}
+                onClick={() => {
+                  setSelectedPayment({ ...record, mode: "view" });
+                  setIsModalOpen(true);
+                }}
+              >
+                {/* View */}
+              </Button>
 
-    // ✅ Verification Pending → Verify
-    if (record.status === "Verification Pending") {
-      return (
-        <Button
-          size="large"
-          type="primary"
-          icon={<CheckCircleOutlined />}
-          onClick={() => {
-            setSelectedPayment({
-              ...record,
-              mode: "verify",
-              paymentDate: record.date !== "-" ? record.date : null,
-            });
-            setIsModalOpen(true);
-          }}
-        >
-          {/* Verify */}
-        </Button>
-      );
-    }
+              <Button
+                size="large"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setSelectedPayment({ ...record, mode: "edit" });
+                  setIsModalOpen(true);
+                }}
+              >
+                {/* Edit */}
+              </Button>
+            </Space>
+          );
+        }
 
-    // ✅ Other statuses → View + Edit
-    return (
-      <Space>
-        <Button
-          size="large"
-          icon={<EyeOutlined />}
-          onClick={() => {
-            setSelectedPayment({ ...record, mode: "view" });
-            setIsModalOpen(true);
-          }}
-        >
-          {/* View */}
-        </Button>
+        // ✅ Verification Pending → Verify
+        if (record.status === "Verification Pending") {
+          return (
+            <Button
+              size="large"
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              onClick={() => {
+                setSelectedPayment({
+                  ...record,
+                  mode: "verify",
+                  paymentDate: record.date !== "-" ? record.date : null,
+                });
+                setIsModalOpen(true);
+              }}
+            >
+              {/* Verify */}
+            </Button>
+          );
+        }
 
-        <Button
-          size="large"
-          icon={<EditOutlined />}
-          onClick={() => {
-            setSelectedPayment({ ...record, mode: "edit" });
-            setIsModalOpen(true);
-          }}
-        >
-          {/* Edit */}
-        </Button>
-      </Space>
-    );
-  },
-},
-  {
+        // ✅ Other statuses → View + Edit
+        return (
+          <Space>
+            <Button
+              size="large"
+              icon={<EyeOutlined />}
+              onClick={() => {
+                setSelectedPayment({ ...record, mode: "view" });
+                setIsModalOpen(true);
+              }}
+            >
+              {/* View */}
+            </Button>
+
+            <Button
+              size="large"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setSelectedPayment({ ...record, mode: "edit" });
+                setIsModalOpen(true);
+              }}
+            >
+              {/* Edit */}
+            </Button>
+          </Space>
+        );
+      },
+    },
+    {
       title: "Transaction ID",
       dataIndex: "txn",
       render: (txn) => truncateAfterFive(txn),
@@ -569,7 +599,7 @@ const handleSendReminder = async (record) => {
               />
             </Col>
 
-            <Col xs={24} md={6}>
+            <Col xs={24} md={4}>
               <Select
                 placeholder="Payment Status"
                 allowClear
@@ -582,17 +612,51 @@ const handleSendReminder = async (record) => {
               </Select>
             </Col>
 
-            <Col xs={24} md={6}>
+            <Col xs={24} md={5}>
               <DatePicker
                 style={{ width: "100%" }}
                 placeholder="Select date"
                 onChange={setSelectedDate}
               />
             </Col>
+
+            {/* Send Reminder button */}
+            {/* Send Reminder button */}
+            {["Not Paid", "Partial Paid"].includes(statusFilter) && (
+              <Col xs={24} md={5}>
+                <Button
+                  type="primary"
+                  icon={<BellOutlined />}
+                  disabled={selectedRowKeys.length === 0}
+                  loading={reminderLoadingId === "bulk"}
+                  onClick={handleBulkSendReminder}
+                  style={{
+                    width: "100%",
+                    marginTop: window.innerWidth < 768 ? 8 : 0,
+                    backgroundColor: selectedRowKeys.length === 0 ? "#f5f5f5" : "#fa8c16", // gray when disabled
+                    borderColor: selectedRowKeys.length === 0 ? "#d9d9d9" : "#fa8c16",
+                    color: selectedRowKeys.length === 0 ? "rgba(0,0,0,0.25)" : "#fff",
+                  }}
+                >
+                  Send Reminder
+                </Button>
+              </Col>
+            )}
           </Row>
 
           {/* TABLE */}
           <Table
+            rowSelection={
+              ["Not Paid", "Partial Paid"].includes(statusFilter) // only enable for these statuses
+                ? {
+                  selectedRowKeys,
+                  onChange: (keys) => setSelectedRowKeys(keys),
+                  getCheckboxProps: (record) => ({
+                    disabled: !["Not Paid", "Partial Paid"].includes(record.status),
+                  }),
+                }
+                : null // no checkboxes if filter is not set
+            }
             loading={listLoading}
             columns={columns}
             dataSource={filteredData}
@@ -620,15 +684,15 @@ const handleSendReminder = async (record) => {
           onSuccess={() => dispatch(fetchPayments())}
         />
 
-      <UploadPaymentModal
-  open={isUploadModalOpen}
-  paymentData={selectedPayment}
-  onClose={() => {
-    setSelectedPayment(null);
-    setIsUploadModalOpen(false);
-  }}
-  onSuccess={() => dispatch(fetchPayments())}
-/>
+        <UploadPaymentModal
+          open={isUploadModalOpen}
+          paymentData={selectedPayment}
+          onClose={() => {
+            setSelectedPayment(null);
+            setIsUploadModalOpen(false);
+          }}
+          onSuccess={() => dispatch(fetchPayments())}
+        />
       </div>
     </ConfigProvider>
   );

@@ -25,6 +25,7 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
 
   const [isEdit, setIsEdit] = useState(false);
   const [formData, setFormData] = useState({});
+  const [specializationOptions, setSpecializationOptions] = useState([]);
   const { subjectList } = useSelector((state) => state.subjects);
   const { hobbyList } = useSelector((state) => state.hobbies);
 
@@ -37,6 +38,7 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
   /* ================= SET DATA ================= */
   useEffect(() => {
     if (student) {
+      const academic = student?.academic_history?.[0] || {};
       setFormData({
 
         // ✅ personal
@@ -51,6 +53,24 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
         moderate_subjects: student?.moderate_subjects?.map((s) => s.id) || [],
         improvement_areas: student?.improvement_areas || "",
         hobbies: student?.hobbies?.map((h) => h.id) || [],
+
+        study_class: student?.study_class || "",
+        specialization: student?.specialization || "",
+        previous_class_percentage: student?.previous_class_percentage || "",
+        board_exam_year: student?.board_exam_year || "",
+        school_college: student?.school_college || "",
+        city: student?.city || "",
+        stream: student?.stream?.stream_name || "",
+
+        coaching_entrance: academic?.coaching_entrance || "",
+        current_class_percentage: academic?.current_class_percentage || "",
+        board_name: academic?.board_name || "",
+        special_notes: academic?.special_notes || "",
+
+        parent_profession: student?.parent?.profession || "",
+        father_background: student?.parent?.father_background || "",
+        mother_background: student?.parent?.mother_background || "",
+        expectations: student?.parent?.expectations_from_student || "",
       });
     }
   }, [student]);
@@ -72,6 +92,35 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
         moderate_subject_ids: formData.moderate_subjects,
         improvement_areas: formData.improvement_areas,
         hobby_ids: formData.hobbies,
+        // coaching_entrance: formData.coaching_entrance,
+        // current_class_percentage: formData.current_class_percentage,
+        // board_name: formData.board_name,
+        // special_notes: formData.special_notes,
+
+        study_class: formData.study_class,
+        specialization: formData.specialization,
+        previous_class_percentage: formData.previous_class_percentage,
+        board_exam_year: formData.board_exam_year,
+        school_college: formData.school_college,
+        city: formData.city,
+        stream: formData.stream,
+
+        academic_history: [
+          {
+            coaching_entrance: formData.coaching_entrance,
+            current_class_percentage: formData.current_class_percentage,
+            board_name: formData.board_name,
+            special_notes: formData.special_notes,
+          },
+        ],
+
+        parent: {
+          profession: formData.parent_profession,
+          father_background: formData.father_background,
+          mother_background: formData.mother_background,
+          expectations_from_student: formData.expectations,
+        },
+
       };
 
       await dispatch(
@@ -92,6 +141,64 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
       message.error(err?.message || "Update failed");
     }
   };
+
+  useEffect(() => {
+    if (open) {
+      setIsEdit(false);
+    }
+  }, [open]);
+
+  const classOptions = [
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "Engineering",
+    "Medical",
+    "Law",
+    "Design",
+    "Commerce",
+    "Arts",
+    "BBA",
+    "UG",
+    "Others",
+  ];
+
+  const specializationMap = {
+    "11": [
+      "PCM (Physics, Chemistry, Mathematics)",
+      "PCB (Physics, Chemistry, Biology)",
+      "PCMB",
+      "Commerce",
+      "Arts / Humanities"
+    ],
+    "12": [
+      "PCM (Physics, Chemistry, Mathematics)",
+      "PCB (Physics, Chemistry, Biology)",
+      "PCMB",
+      "Commerce",
+      "Arts / Humanities"
+    ],
+    "Engineering": [
+      "Computer Science Engineering (CSE)",
+      "Information Technology (IT)",
+      "Artificial Intelligence & Machine Learning (AI/ML)",
+      "Data Science",
+      "Electronics & Telecommunication (ENTC)",
+      "Electrical Engineering",
+      "Mechanical Engineering",
+      "Civil Engineering"
+    ],
+  };
+
+  useEffect(() => {
+    if (formData.study_class) {
+      setSpecializationOptions(
+        specializationMap[formData.study_class] || []
+      );
+    }
+  }, [formData.study_class]);
 
   return (
     <Modal
@@ -117,7 +224,7 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
       }
       width={900}
       confirmLoading={loading}
-       
+
     >
       {/* HEADER */}
       <div
@@ -240,42 +347,143 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
           <Row gutter={16}>
             <Col span={12}>
               <Text strong>Current Class</Text>
-              <Input value={student?.study_class || "-"} disabled />
+              <Select
+                value={formData.study_class}
+                disabled={!isEdit}
+                style={{ width: "100%" }}
+                onChange={(value) => {
+                  handleChange("study_class", value);
+                  handleChange("specialization", undefined); // reset specialization
+                }}
+              >
+                {classOptions.map((cls) => (
+                  <Select.Option key={cls} value={cls}>
+                    {cls}
+                  </Select.Option>
+                ))}
+              </Select>
             </Col>
 
             <Col span={12}>
               <Text strong>Specialization</Text>
-              <Input value={student?.specialization || "-"} disabled />
+              <Select
+                value={formData.specialization}
+                disabled={!isEdit || specializationOptions.length === 0}
+                style={{ width: "100%" }}
+                onChange={(value) => handleChange("specialization", value)}
+              >
+                {specializationOptions.map((spec) => (
+                  <Select.Option key={spec} value={spec}>
+                    {spec}
+                  </Select.Option>
+                ))}
+              </Select>
+            </Col>
+
+            <Col span={12} style={{ marginTop: 15 }}>
+              <Text strong>Coaching / Entrance (if any)</Text>
+              <Input
+                value={
+                  isEdit
+                    ? formData.coaching_entrance
+                    : student?.academic_history?.[0]?.coaching_entrance || "-"
+                }
+                disabled={!isEdit}
+                onChange={(e) =>
+                  handleChange("coaching_entrance", e.target.value)
+                }
+              />
+            </Col>
+
+            <Col span={12} style={{ marginTop: 15 }}>
+              <Text strong>Current Class Percentage</Text>
+              <Input
+                type="number"
+                value={
+                  isEdit
+                    ? formData.current_class_percentage
+                    : student?.academic_history?.[0]?.current_class_percentage || "-"
+                }
+                disabled={!isEdit}
+                onChange={(e) =>
+                  handleChange("current_class_percentage", e.target.value)
+                }
+              />
             </Col>
 
             <Col span={12}>
               <Text strong>Previous Class Percentage</Text>
               <Input
-                value={student?.previous_class_percentage || "-"}
-                disabled
+                value={isEdit ? formData.previous_class_percentage : student?.previous_class_percentage || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("previous_class_percentage", e.target.value)}
               />
             </Col>
 
             <Col span={12} style={{ marginTop: 15 }}>
-              <Text strong>Year of Board Exam</Text>
-              <Input value={student?.board_exam_year || "-"} disabled />
+              <Text strong>Year of giving Board</Text>
+              <Input
+                value={isEdit ? formData.board_exam_year : student?.board_exam_year || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("board_exam_year", e.target.value)}
+              />
+            </Col>
+
+            <Col span={12} style={{ marginTop: 15 }}>
+              <Text strong>Board Name</Text>
+              <Input
+                value={
+                  isEdit
+                    ? formData.board_name
+                    : student?.academic_history?.[0]?.board_name || "-"
+                }
+                disabled={!isEdit}
+                onChange={(e) =>
+                  handleChange("board_name", e.target.value)
+                }
+              />
             </Col>
 
             <Col span={12} style={{ marginTop: 15 }}>
               <Text strong>School / College</Text>
-              <Input value={student?.school_college || "-"} disabled />
-            </Col>
-
-            <Col span={12} style={{ marginTop: 15 }}>
-              <Text strong>City</Text>
-              <Input value={student?.city || "-"} disabled />
-            </Col>
-
-            <Col span={12} style={{ marginTop: 15 }}>
-              <Text strong>Suggested Stream</Text>
               <Input
-                value={student?.stream?.stream_name || "-"}
-                disabled
+                value={isEdit ? formData.school_college : student?.school_college || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("school_college", e.target.value)}
+              />
+            </Col>
+
+            <Col span={12} style={{ marginTop: 15 }}>
+              <Text strong>City / Area</Text>
+              <Input
+                value={isEdit ? formData.city : student?.city || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("city", e.target.value)}
+              />
+            </Col>
+
+            <Col span={12} style={{ marginTop: 15 }}>
+              <Text strong>Subject / Stream (if any)</Text>
+              <Input
+                value={isEdit ? formData.stream : student?.stream?.stream_name || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("stream", e.target.value)}
+              />
+            </Col>
+
+            <Col span={24} style={{ marginTop: 15 }}>
+              <Text strong>Special Notes by counsellor</Text>
+              <Input.TextArea
+                rows={3}
+                value={
+                  isEdit
+                    ? formData.special_notes
+                    : student?.academic_history?.[0]?.special_notes || "-"
+                }
+                disabled={!isEdit}
+                onChange={(e) =>
+                  handleChange("special_notes", e.target.value)
+                }
               />
             </Col>
           </Row>
@@ -290,17 +498,20 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
               <Text strong>Liked Subjects</Text>
               <Select
                 mode="multiple"
-                value={
-                  isEdit
-                    ? formData.liked_subjects
-                    : student?.liked_subjects?.map((s) => s.id)
-                }
+                value={formData.liked_subjects}
                 disabled={!isEdit}
                 style={{ width: "100%" }}
                 onChange={(v) => handleChange("liked_subjects", v)}
               >
                 {subjectList?.map((sub) => (
-                  <Select.Option key={sub.id} value={sub.id}>
+                  <Select.Option
+                    key={sub.id}
+                    value={sub.id}
+                    disabled={
+                      formData.disliked_subjects?.includes(sub.id) ||
+                      formData.moderate_subjects?.includes(sub.id)
+                    }
+                  >
                     {sub.name}
                   </Select.Option>
                 ))}
@@ -311,17 +522,20 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
               <Text strong>Disliked Subjects</Text>
               <Select
                 mode="multiple"
-                value={
-                  isEdit
-                    ? formData.disliked_subjects
-                    : student?.disliked_subjects?.map((s) => s.id)
-                }
+                value={formData.disliked_subjects}
                 disabled={!isEdit}
                 style={{ width: "100%" }}
                 onChange={(v) => handleChange("disliked_subjects", v)}
               >
                 {subjectList?.map((sub) => (
-                  <Select.Option key={sub.id} value={sub.id}>
+                  <Select.Option
+                    key={sub.id}
+                    value={sub.id}
+                    disabled={
+                      formData.liked_subjects?.includes(sub.id) ||
+                      formData.moderate_subjects?.includes(sub.id)
+                    }
+                  >
                     {sub.name}
                   </Select.Option>
                 ))}
@@ -332,17 +546,20 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
               <Text strong>Moderate Subjects</Text>
               <Select
                 mode="multiple"
-                value={
-                  isEdit
-                    ? formData.moderate_subjects
-                    : student?.moderate_subjects?.map((s) => s.id)
-                }
+                value={formData.moderate_subjects}
                 disabled={!isEdit}
                 style={{ width: "100%" }}
                 onChange={(v) => handleChange("moderate_subjects", v)}
               >
                 {subjectList?.map((sub) => (
-                  <Select.Option key={sub.id} value={sub.id}>
+                  <Select.Option
+                    key={sub.id}
+                    value={sub.id}
+                    disabled={
+                      formData.liked_subjects?.includes(sub.id) ||
+                      formData.disliked_subjects?.includes(sub.id)
+                    }
+                  >
                     {sub.name}
                   </Select.Option>
                 ))}
@@ -395,45 +612,44 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
         {/* ================= PARENT DETAILS ================= */}
         <Card title="Parent Details" bordered={false}>
           <Row gutter={16}>
-            <Col span={12}>
+            {/* <Col span={12}>
               <Text strong>Parent Name</Text>
               <Input value={student?.parent?.parent_name || "-"} disabled />
+            </Col> */}
+
+            <Col span={12}>
+              <Text strong>Parent Profession</Text>
+              <Input
+                value={isEdit ? formData.parent_profession : student?.parent?.profession || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("parent_profession", e.target.value)}
+              />
             </Col>
 
             <Col span={12}>
-              <Text strong>Profession</Text>
-              <Input value={student?.parent?.profession || "-"} disabled />
-            </Col>
-
-            <Col span={12} style={{ marginTop: 15 }}>
               <Text strong>Father Background</Text>
               <Input
-                value={student?.parent?.father_background || "-"}
-                disabled
+                value={isEdit ? formData.father_background : student?.parent?.father_background || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("father_background", e.target.value)}
               />
             </Col>
 
             <Col span={12} style={{ marginTop: 15 }}>
               <Text strong>Mother Background</Text>
               <Input
-                value={student?.parent?.mother_background || "-"}
-                disabled
+                value={isEdit ? formData.mother_background : student?.parent?.mother_background || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("mother_background", e.target.value)}
               />
             </Col>
 
-            <Col span={12} style={{ marginTop: 15 }}>
-              <Text strong>Location (Area)</Text>
-              <Input value={student?.parent?.location || "-"} disabled />
-            </Col>
-
             <Col span={24} style={{ marginTop: 15 }}>
-              <Text strong>Expectations</Text>
+              <Text strong>Expectations from Student / Parent</Text>
               <Input.TextArea
-                rows={3}
-                value={
-                  student?.parent?.expectations_from_student || "-"
-                }
-                disabled
+                value={isEdit ? formData.expectations : student?.parent?.expectations_from_student || "-"}
+                disabled={!isEdit}
+                onChange={(e) => handleChange("expectations", e.target.value)}
               />
             </Col>
           </Row>

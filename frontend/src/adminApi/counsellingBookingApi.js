@@ -60,3 +60,11 @@ export const getStudentCounsellingBookingsApi = async (studentId) => {
   );
   return response.data;
 };
+
+// Cancel counselling booking 
+export const cancelCounsellingBookingApi = async (id) => {
+  const response = await axiosInstance.post(
+    `/counselling_slot/bookings/${id}/cancel/`
+  );
+  return response.data;
+};
