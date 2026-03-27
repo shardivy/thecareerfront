@@ -228,7 +228,51 @@ const ExamManagement = () => {
                 </Text>
               )}
             </Card>
+
+            <Divider style={{ margin: "12px 0" }} />
+
+            {tracker?.description && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: "14px 16px",
+                  borderRadius: 10,
+                  background: "linear-gradient(135deg, #f6ffed, #ffffff)",
+                  border: "1px solid #b7eb8f",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+                }}
+              >
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
+                  <CheckCircleOutlined
+                    style={{
+                      color: "#52c41a",
+                      fontSize: 18,
+                      marginRight: 8,
+                    }}
+                  />
+                  <Text strong style={{ fontSize: 14 }}>
+                    Admin Feedback
+                  </Text>
+                </div>
+
+                {/* Comment */}
+                <Text
+                  style={{
+                    display: "block",
+                    fontSize: 14,
+                    color: "#262626",
+                    lineHeight: "1.6",
+                  }}
+                >
+                  {tracker.description}
+                </Text>
+              </div>
+            )}
           </Col>
+
+
+
 
           {/* RIGHT SIDE CARD */}
           <Col xs={24} md={8}>

@@ -265,6 +265,8 @@ useEffect(() => {
     return current && current > dayjs().endOf("day");
   };
 
+  const isWebsiteSource =
+  enquiryData?.source?.toLowerCase() === "website";
 
   return (
     <Modal
@@ -284,8 +286,10 @@ useEffect(() => {
             : "Add Enquiry"
       }
     >
+        <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
       <Form layout="vertical" form={form} onFinish={handleSubmit}>
         <Row gutter={[16, 16]}>
+          
           {/* ================= LEFT SIDE FORM ================= */}
           <Col
             xs={24}
@@ -377,7 +381,7 @@ useEffect(() => {
                     placeholder="Select program"
                     loading={programsLoading}
                     onChange={handleProgramChange}
-                    disabled={isConvert}
+                    disabled={isConvert && !isWebsiteSource} 
                   >
                     {programs.map((p) => (
                       <Option key={p.id} value={p.id}>
@@ -711,6 +715,7 @@ useEffect(() => {
           )}
         </Row>
       </Form>
+      </div>
     </Modal>
   );
 };

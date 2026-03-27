@@ -260,6 +260,7 @@ const handleSubmit = async () => {
           : "Report Details"
       }
     >
+      <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
       {!isBulkMode && (
         <Form form={form} layout="vertical">
           <Row gutter={[16, 12]}>
@@ -412,6 +413,7 @@ const handleSubmit = async () => {
           </Button>
         </div>
       )}
+      </div>
     </Modal>
   );
 };

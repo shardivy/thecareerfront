@@ -63,3 +63,12 @@ export const incrementDownloadCountApi = async (id) => {
   const response = await axiosInstance.get(`/content/download/${id}/`);
   return response.data;
 };
+
+// ================= GET CONTENT BY PROGRAM =================
+export const getProgramContentApi = async (programId) => {
+  const response = await axiosInstance.get(
+    `/content/program-content/?program_id=${programId}`
+  );
+
+  return response.data;
+};

@@ -49,6 +49,8 @@ const SlotBookingList = () => {
   const [selectedSession, setSelectedSession] = useState(null);
 
   const studentId = localStorage.getItem("studentId");
+  const aptitudeTestCompleted =
+  (localStorage.getItem("aptitude_test") || "").toLowerCase() === "true";
 
   const sessions = useSelector((state) =>
     Array.isArray(state.counsellingBooking.data)
@@ -89,18 +91,39 @@ const SlotBookingList = () => {
     time: s.start_time && s.end_time ? `${s.start_time} - ${s.end_time}` : "N/A",
     date: s.slot_date || "N/A",
     status: s.status || "not_booked",
-    zoomLink: s.meeting_link || null,
+   zoomLink: s.meeting_link || "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
   }));
 
-  const filteredSessions = mappedSessions;
+  // const filteredSessions = mappedSessions;
+  const getPriority = (status) => {
+  if (status === "booked") return 1;
+  if (status === "rescheduled") return 2;
+  if (status === "completed") return 3;
+   if (status === "pending") return 4;
+  if (status === "cancelled") return 5;
+  return 5;
+};
+
+const filteredSessions = [...mappedSessions].sort(
+  (a, b) => getPriority(a.status) - getPriority(b.status)
+);
+
   const noSessionFound = filteredSessions.length === 0;
+const showUnavailableUI = noSessionFound && aptitudeTestCompleted;
+const showBookUI = noSessionFound && !aptitudeTestCompleted;
 
   const isNotBooked =
     filteredSessions.length === 1 && filteredSessions[0].status === "not_booked";
 
+const formatStatus = (status) => {
+  if (!status) return "";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+};
+
   const statusColor = (status) => {
     if (status === "completed") return "green";
-    if (status === "booked") return "blue";
+    if (status === "booked" ) return "blue";
+    if (status === "rescheduled") return "orange";
     if (status === "cancelled") return "red";
     return "default";
   };
@@ -142,7 +165,7 @@ const SlotBookingList = () => {
   };
 
   const hasActiveSession = filteredSessions.some(
-    (s) => s.status === "booked" || s.status === "completed"
+    (s) => s.status === "booked" ||  s.status === "rescheduled" ||  s.status === "completed" || s.status === "pending"
   );
 
   const openGoogleMap = () => {
@@ -177,7 +200,7 @@ const SlotBookingList = () => {
               type="primary"
               icon={<PlusOutlined />}
               size="large"
-               disabled={hasActiveSession || noSessionFound}
+              disabled={hasActiveSession || noSessionFound}
               onClick={() => {
                 setRescheduleData(null);
                 setIsModalOpen(true);
@@ -192,15 +215,15 @@ const SlotBookingList = () => {
 
       {loading ? (
         <Text>Loading sessions...</Text>
-      ) : noSessionFound ? (
+    ) : showUnavailableUI ? (
         <div style={{ textAlign: "center", padding: 40 }}>
           <Empty
             description={
               <Text type="colorTextSecondary">
-  Counselling sessions are currently unavailable.
-  <br />
-  You will be able to book a slot once your report is unlocked.
-</Text>
+                Counselling sessions are currently unavailable.
+                <br />
+                You will be able to book a slot once your report is unlocked.
+              </Text>
             }
           />
           <div style={{ marginTop: 20 }}>
@@ -208,7 +231,7 @@ const SlotBookingList = () => {
               type="primary"
               icon={<PlusOutlined />}
               size="large"
-                disabled={noSessionFound}
+              disabled={noSessionFound}
               onClick={() => {
                 setRescheduleData(null);
                 setIsModalOpen(true);
@@ -218,6 +241,32 @@ const SlotBookingList = () => {
             </Button>
           </div>
         </div>
+        ) : showBookUI ? (
+  <div style={{ textAlign: "center", padding: 40 }}>
+    <Empty
+      description={
+        <Text type="secondary">
+          No sessions found.
+          <br />
+          You can book your counselling session now.
+        </Text>
+      }
+    />
+
+    <div style={{ marginTop: 20 }}>
+      <Button
+        type="primary"
+        icon={<PlusOutlined />}
+        size="large"
+        onClick={() => {
+          setRescheduleData(null);
+          setIsModalOpen(true);
+        }}
+      >
+        Book Session
+      </Button>
+    </div>
+  </div>
       ) : isNotBooked ? (
         <Space direction="vertical" size={24} style={{ width: "100%" }}>
           <Card
@@ -315,7 +364,9 @@ const SlotBookingList = () => {
                     )}
                   </div>
                 </Space>
-                <Tag color={statusColor(session.status)}>{session.status}</Tag>
+       <Tag color={statusColor(session.status)}>
+  {formatStatus(session.status)}
+</Tag>
               </Row>
 
               <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
@@ -348,7 +399,7 @@ const SlotBookingList = () => {
                 </Col>
               </Row>
 
-              {session.status === "booked" && (
+             {(session.status === "booked" || session.status === "rescheduled") && (
                 <Row justify="end" style={{ marginTop: 24 }}>
                   <Space
                     wrap
@@ -519,6 +570,7 @@ const SlotBookingList = () => {
             isViewMode={true}
             hideSessionDetails={true}
             showStudentName={false}
+             showActions={false}
           />
         )}
       </Modal>

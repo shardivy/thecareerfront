@@ -450,6 +450,7 @@ const submitAsDraft = async () => {
             : "Upload New Content"
       }
       open={open}
+      centered
       onCancel={handleClose}
       okText={viewMode ? "Close" : isEditMode ? "Update" : "Upload Content"}
       onOk={() => (!viewMode ? form.submit() : handleClose())}
@@ -459,6 +460,7 @@ const submitAsDraft = async () => {
       destroyOnClose
       width={800}
     >
+         <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
       <Form form={form} layout="vertical" onFinish={handleFinish}>
         {/* Title */}
         <Form.Item
@@ -825,6 +827,7 @@ const submitAsDraft = async () => {
           </Form.Item>
         </div>
       </Form>
+      </div>
     </Modal>
   );
 };

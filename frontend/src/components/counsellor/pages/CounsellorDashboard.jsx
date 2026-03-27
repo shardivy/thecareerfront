@@ -62,10 +62,9 @@ const CounsellorDashboard = () => {
     (state) => state.counsellors
   );
 
-  const { profile, loading: profileLoading } = useSelector(
-    (state) => state.profile
-  );
-
+const { studentProfile, loading: profileLoading } = useSelector(
+  (state) => state.profile
+);
   const { dashboardStats, dashboardLoading } = useSelector(
     (state) => state.counsellors
   );
@@ -100,6 +99,7 @@ const CounsellorDashboard = () => {
       status: item.status,
       preferredMode: item.preferred_counselling_mode === "online" ? "Online" : "Offline",
       report_file: item.report_file, 
+      aptitude_test: item.aptitude_test,
     };
   });
 
@@ -240,6 +240,7 @@ const handleDownloadReport = async () => {
             </Button>
 
             {/* View Report Button - FIXED: Use record.report_file directly */}
+            {record.aptitude_test && (
             <Button
               icon={<EyeOutlined />}
               onClick={() => {
@@ -260,6 +261,7 @@ const handleDownloadReport = async () => {
             >
               View Report
             </Button>
+            )}
 
             {/* ONLINE SESSION */}
             {record.preferredMode === "Online" && !isSessionOver && (
@@ -516,6 +518,7 @@ const handleDownloadReport = async () => {
       <Modal
         title={`Session Notes - ${selectedSession?.studentName || ""}`}
         open={notesModal}
+        centered
         onCancel={() => setNotesModal(false)}
         footer={null}
         width={screens.xs ? "95%" : 900}
@@ -531,7 +534,7 @@ const handleDownloadReport = async () => {
       <StudentProfileModal
         open={profileModal}
         onClose={() => setProfileModal(false)}
-        student={profile}
+       student={studentProfile} 
         loading={profileLoading}
       />
 
@@ -539,6 +542,7 @@ const handleDownloadReport = async () => {
 <Modal
   title={`Report - ${selectedReport?.studentName || ""}`}
   open={reportModal}
+  centered
   onCancel={() => {
     setReportModal(false);
     setSelectedReport(null);

@@ -20,7 +20,7 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchContentList, incrementDownloadCount } from "../../../adminSlices/contentSlice";
+import { fetchProgramContent , fetchContentList ,incrementDownloadCount } from "../../../adminSlices/contentSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -36,38 +36,93 @@ const ContentLibrary = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 
+  
   // ================= FETCH DATA =================
-  useEffect(() => {
+useEffect(() => {
+  const programId = localStorage.getItem("program_id");
+  const studentPackage = localStorage.getItem("selectedPackage");
+
+  const isFreeUser = !programId || !studentPackage;
+
+  if (isFreeUser) {
+    // FREE USER → get all content
     dispatch(fetchContentList());
-  }, [dispatch]);
+  } else {
+    // PAID USER → get program specific content
+    dispatch(fetchProgramContent(programId));
+  }
+}, [dispatch]);
 
   // ================= TRANSFORM API DATA =================
-  const transformedData =
-    contentList
-      ?.filter((item) => !item.is_draft)
-      ?.map((item) => {
-        let accessType = "Free";
+const studentPackage = Number(localStorage.getItem("selectedPackage"));
+const isFreeUser = !studentPackage;
 
-        if (item.payment_required) {
-          accessType = "Premium";
-        }
+// const storedPackage = localStorage.getItem("selectedPackage");
+// const studentPackage = storedPackage ? Number(storedPackage) : null;
 
-        let contentType = "Article";
-        if (item.type === "video") contentType = "Video";
-        if (item.type === "pdf") contentType = "Article";
+// const isFreeUser = !studentPackage;
 
-        return {
-          id: item.id,
-          title: item.title,
-          description: item.description,
-          type: contentType,
-          accessType: accessType,
-          programs: item.program_details?.map((p) => p.name) || [],
-          viewUrl: item.video_link || item.file_url,
-          image: item.image,
-        };
-      }) || [];
+// const transformedData =
+//   contentList
+//     ?.filter((item) => {
+//   if (item.is_draft) return false;
 
+//   // FREE USER → allow all
+//   if (isFreeUser) return true;
+
+//   // PACKAGE RESTRICTED CONTENT
+//   if (item.package_details?.length > 0) {
+//     return item.package_details.some(
+//       (pkg) => pkg.id === studentPackage
+//     );
+//   }
+
+//   return true;
+// })
+
+const transformedData =
+  contentList
+    ?.filter((item) => {
+      if (item.is_draft) return false;
+
+      // ✅ FREE USER → show all content
+      if (isFreeUser) return true;
+
+      // ✅ PAID USER
+      if (item.free_content) return true;
+
+      if (item.package_details?.length > 0) {
+        return item.package_details.some(
+          (pkg) => pkg.id === studentPackage
+        );
+      }
+
+      return true;
+    })
+
+    ?.map((item) => {
+      let accessType = "Free";
+
+      if (item.payment_required) {
+        accessType = "Premium";
+      }
+
+      let contentType = "Article";
+      if (item.type === "video") contentType = "Video";
+      if (item.type === "pdf") contentType = "Article";
+
+      return {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        type: contentType,
+        accessType: accessType,
+        programs: item.program_details?.map((p) => p.name) || [],
+        viewUrl: item.video_link || item.file_url,
+        image: item.image,
+      };
+    }) || [];
+    
   // ================= FILTERING =================
   const filteredData = transformedData.filter((item) => {
     return (

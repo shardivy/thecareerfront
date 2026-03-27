@@ -503,6 +503,15 @@ const handleRejectConfirm = () => {
 }
 
     >
+
+       <div
+    className="custom-scroll"
+    style={{
+      maxHeight: "75vh",
+      overflowY: "auto",
+      paddingRight: 8,
+    }}
+  >
       {/* ================= FORM / VIEW ================= */}
       {isEdit ? (
         <Form form={form} layout="vertical">
@@ -1019,7 +1028,7 @@ const handleRejectConfirm = () => {
     })()}
   </>
 )}
-
+</div>
     </Modal>
   );
 };

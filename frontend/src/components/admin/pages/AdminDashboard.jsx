@@ -4,7 +4,7 @@ import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title as Char
 import { Bar, Doughnut } from "react-chartjs-2";
 import { FileTextOutlined, TeamOutlined, CalendarOutlined, CreditCardOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchDashboardStats, fetchLeadStats } from "../../../adminSlices/dashboardSlice";
+import { fetchDashboardStats, fetchLeadStats, fetchActivityLogs } from "../../../adminSlices/dashboardSlice";
 import { getProfile } from "../../../adminSlices/profileSlice";
 import adminTheme from "../../../theme/adminTheme";
 
@@ -15,16 +15,19 @@ const { Option } = Select;
 
 const AdminDashboard = () => {
   const dispatch = useDispatch();
- const { stats: dashboardStats, leadStats, loading, error } =
+ const { stats: dashboardStats, leadStats, activities, loading, error } =
   useSelector((state) => state.dashboard);
 
   const { profile } = useSelector((state) => state.profile);
 
   const [chartPeriod, setChartPeriod] = useState("monthly"); // Weekly / Monthly / Yearly
 
+  
+   
 useEffect(() => {
   dispatch(fetchDashboardStats());
   dispatch(fetchLeadStats(chartPeriod));
+    dispatch(fetchActivityLogs()); 
   dispatch(getProfile());
 }, [dispatch, chartPeriod]);
 
@@ -161,21 +164,23 @@ const getEnquiriesData = () => {
   };
 };
 
-  const paymentComparison = {
-    labels: ["Expected Revenue", "Collected Revenue"],
-    datasets: [
-      {
-        data: [
-          dashboardStats?.payments?.total_expected || 0,
-          dashboardStats?.payments?.total_collected || 0,
-        ],
-        backgroundColor: [
-          adminTheme.token.colorPrimary,
-          adminTheme.token.colorSuccess,
-        ],
-      },
-    ],
-  };
+const collectedRevenue = dashboardStats?.payments?.total_collected || 0;
+const pendingRevenue = dashboardStats?.payments?.total_pending || 0;
+const paymentComparison = {
+  labels: ["Collected Revenue", "Pending Revenue"],
+  datasets: [
+    {
+      data: [
+        collectedRevenue,
+        pendingRevenue,
+      ],
+      backgroundColor: [
+        adminTheme.token.colorSuccess,
+        adminTheme.token.colorPrimary,
+      ],
+    },
+  ],
+};
 
   const paymentChartOptions = {
     cutout: "50%",
@@ -186,31 +191,73 @@ const getEnquiriesData = () => {
     },
   };
 
+  const breakAfterWords = (text = "", count = 8) => {
+  const words = text.split(" ");
+  let lines = [];
+
+  for (let i = 0; i < words.length; i += count) {
+    lines.push(words.slice(i, i + count).join(" "));
+  }
+
+  return lines.join("\n");
+};
+
   // =================== RECENT ACTIVITIES ===================
-  const recentActivities = [
-    { key: 1, activity: "Priya Sharma - Payment Verified ₹15,000", time: "2 min ago", status: "Completed" },
-    { key: 2, activity: "New Enquiry - Rajesh Kumar (WhatsApp)", time: "15 min ago", status: "New" },
-    { key: 3, activity: "Session Completed - Anjali Verma", time: "1 hour ago", status: "New" },
-    { key: 4, activity: "Exam Completed - Vikram Singh", time: "2 hours ago", status: "Pending" },
-    { key: 5, activity: "Report Uploaded - Neha Patel", time: "3 hours ago", status: "Completed" },
-  ];
+const formatTime = (dateString) => {
+  if (!dateString) return "-";
+
+  const now = new Date();
+  const past = new Date(dateString);
+  const diff = Math.floor((now - past) / 1000);
+
+  if (diff < 60) return "Just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+
+  return `${Math.floor(diff / 86400)} day ago`;
+};
+
+const recentActivities = (activities || []).map((item) => ({
+  key: item.id,
+
+  // ✅ Proper readable activity
+activity:
+  item.description ||
+  `${item.action?.toUpperCase()} ${item.model_name} (ID: ${item.object_id})`,
+
+  // ✅ formatted time
+  time: formatTime(item.created_at),
+
+  // ✅ status
+  status: item.action ? item.action.toUpperCase() : "UNKNOWN",
+}));
 
   const activityColumns = [
-    { title: "Activity", dataIndex: "activity", key: "activity" },
+   {
+  title: "Activity",
+  dataIndex: "activity",
+  key: "activity",
+  width:500,
+  render: (text) => (
+    <div style={{ whiteSpace: "pre-line" }}>
+      {breakAfterWords(text, 8)}
+    </div>
+  ),
+},
     { title: "Time", dataIndex: "time", key: "time" },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
-      render: (status) => {
-        let color =
-          status === "Completed"
-            ? adminTheme.token.colorSuccess
-            : status === "New"
-              ? adminTheme.token.colorInfo
-              : adminTheme.token.colorWarning;
-        return <Tag color={color}>{status}</Tag>;
-      },
+     render: (status) => {
+  let color = "default";
+
+  if (status.includes("CREATE")) color = "green";
+  else if (status.includes("DELETE")) color = "red";
+  else if (status.includes("UPDATE")) color = "blue";
+
+  return <Tag color={color}>{status}</Tag>;
+},
     },
   ];
 
@@ -343,7 +390,7 @@ const getEnquiriesData = () => {
       </Row>
 
       {/* =================== RECENT ACTIVITIES =================== */}
-      {/* <Row style={{ marginTop: 16 }}>
+      <Row style={{ marginTop: 16 }}>
         <Col xs={24}>
           <Card
             title="Recent Activity"
@@ -358,7 +405,7 @@ const getEnquiriesData = () => {
             />
           </Card>
         </Col>
-      </Row> */}
+      </Row>
     </div>
   );
 };

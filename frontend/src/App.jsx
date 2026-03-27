@@ -43,6 +43,8 @@ import SessionHistory from "./components/counsellor/pages/SessionHistory";
 import UiUxDashboard from "./components/ui-ux/pages/UiUxDashboard";
 import SessionsHistory from "./components/ui-ux/pages/SessionsHistory";
 import ChangePassword from "./components/admin/pages/ChangePassword";
+import HHLogin from "./components/HHLogin";
+import HHRegister from "./components/HHRegister";
 
 
 
@@ -65,6 +67,10 @@ const App = () => {
         <Route path="/forgotpassword" element={<ForgotPassword />} /> 
         <Route path="/resetpassword" element={<ResetPassword />} /> 
         <Route path="/change-password" element={<ChangePassword />} />
+
+        {/* ===================== Handholding ROUTES ===================== */}
+        <Route path="/hhlogin" element={<HHLogin />} />
+        <Route path="/hhregister" element={<HHRegister />} />
         
 
              {/* =================== STUDENT ROUTES ===================== */}
@@ -108,8 +114,9 @@ const App = () => {
 
           <Route path="uiux-dashboard" element={<UiUxDashboard />} />
           <Route path="sessions-history" element={<SessionsHistory />} />
-          
 
+   
+      
 
        
           {/* <Route path="reset-password" element={<ResetPassword />} /> */}

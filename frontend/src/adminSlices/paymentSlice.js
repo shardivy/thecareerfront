@@ -8,7 +8,8 @@ import {
   fetchStudentPaymentSummaryApi,
   fetchStudentPaymentHistoryApi,
   fetchStudentPaymentProgressApi,
-  fetchPendingPaymentStudentsApi   
+  fetchPendingPaymentStudentsApi,
+  sendPaymentReminderApi  
 } from "../adminApi/paymentApi";
 
 /* ================= SUBMIT PAYMENT ================= */
@@ -154,6 +155,20 @@ export const fetchStudentPaymentProgress = createAsyncThunk(
   }
 );
 
+/* ================= SEND REMINDER ================= */
+export const sendPaymentReminder = createAsyncThunk(
+  "payment/sendReminder",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      return await sendPaymentReminderApi(studentId);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to send reminder"
+      );
+    }
+  }
+);
+
 /* ================= SLICE ================= */
 const paymentSlice = createSlice({
   name: "payment",
@@ -203,6 +218,10 @@ progressData: null,
   pendingStudentsLoading: false,
 pendingStudentsError: null,
 pendingStudents: [],
+
+reminderLoading: false,
+reminderSuccess: false,
+reminderError: null,
 
   reducers: {
     resetPaymentState: (state) => {
@@ -483,7 +502,21 @@ formattedList.sort((a, b) => {
 .addCase(fetchPendingPaymentStudents.rejected, (state, action) => {
   state.pendingStudentsLoading = false;
   state.pendingStudentsError = action.payload;
-});
+})
+
+// send reminder
+.addCase(sendPaymentReminder.pending, (state) => {
+  state.reminderLoading = true;
+  state.reminderError = null;
+})
+.addCase(sendPaymentReminder.fulfilled, (state) => {
+  state.reminderLoading = false;
+  state.reminderSuccess = true;
+})
+.addCase(sendPaymentReminder.rejected, (state, action) => {
+  state.reminderLoading = false;
+  state.reminderError = action.payload;
+})
 
 
   },

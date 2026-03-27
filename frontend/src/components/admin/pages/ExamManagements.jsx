@@ -53,84 +53,166 @@ const ExamManagements = () => {
 
   /* ================= APPROVE ================= */
   const handleApproveExam = (id) => {
+    let description = "";
+
     confirm({
       title: "Approve Exam?",
       icon: <CheckCircleOutlined style={{ color: "#52c41a" }} />,
-      content:
-        "Are you sure you want to approve this exam? The student's report will be unlocked.",
       centered: true,
+      closable: true,
       okText: "Yes, Approve",
-      okButtonProps: {
-        style: { background: "#52c41a", borderColor: "#52c41a" },
-      },
-      cancelText: "Cancel",
+
+      content: (
+        <div>
+          <p>
+            Are you sure you want to approve this exam? The student's report will be unlocked.
+          </p>
+
+          <Input.TextArea
+            rows={3}
+            placeholder="Add comment"
+            onChange={(e) => {
+              description = e.target.value;
+            }}
+            style={{ marginTop: 10 }}
+          />
+        </div>
+      ),
+
       async onOk() {
         try {
-          const res = await dispatch(approveUserExam(id)).unwrap();
+          const res = await dispatch(
+            approveUserExam({
+              id,
+              description, // ✅ send comment
+            })
+          ).unwrap();
+
           message.success(res?.message || "Exam approved successfully");
           dispatch(fetchUserExams());
         } catch (err) {
-          message.error(
-            typeof err === "string"
-              ? err
-              : err?.message || "Something went wrong"
-          );
+          message.error(err?.message || "Something went wrong");
         }
       },
     });
   };
 
   /* ================= MARK AS COMPLETE ================= */
+
+
   const handleMarkComplete = (id) => {
+    let description = ""; // ✅ rename for clarity
+
     confirm({
       title: "Mark Exam as Complete?",
       icon: <CheckCircleOutlined style={{ color: "#52c41a" }} />,
-      content:
-        "Are you sure you want to mark this exam as completed and unlock the report?",
       centered: true,
+      closable: true,
       okText: "Yes, Complete",
-      okButtonProps: {
-        style: { background: "#52c41a", borderColor: "#52c41a" },
-      },
-      cancelText: "Cancel",
+
+      content: (
+        <div>
+          <p>Are you sure you want to mark this exam as completed?</p>
+
+          <Input.TextArea
+            rows={3}
+            placeholder="Add comment"
+            onChange={(e) => {
+              description = e.target.value; // ✅ store as description
+            }}
+            style={{ marginTop: 10 }}
+          />
+        </div>
+      ),
+
       async onOk() {
         try {
-          const res = await dispatch(approveUserExam(id)).unwrap();
+          const res = await dispatch(
+            approveUserExam({
+              id,
+              description: description, // ✅ send correct key
+            })
+          ).unwrap();
+
           message.success(res?.message || "Exam marked as complete");
           dispatch(fetchUserExams());
         } catch (err) {
-          message.error(
-            typeof err === "string"
-              ? err
-              : err?.message || "Something went wrong"
-          );
+          message.error(err?.message || "Something went wrong");
         }
       },
     });
   };
 
+  // const handleMarkComplete = (id) => {
+  //   confirm({
+  //     title: "Mark Exam as Complete?",
+  //     icon: <CheckCircleOutlined style={{ color: "#52c41a" }} />,
+  //     content:
+  //       "Are you sure you want to mark this exam as completed and unlock the report?",
+  //     centered: true,
+  //     okText: "Yes, Complete",
+  //     okButtonProps: {
+  //       style: { background: "#52c41a", borderColor: "#52c41a" },
+  //     },
+  //     cancelText: "Cancel",
+  //     async onOk() {
+  //       try {
+  //         const res = await dispatch(approveUserExam(id)).unwrap();
+  //         message.success(res?.message || "Exam marked as complete");
+  //         dispatch(fetchUserExams());
+  //       } catch (err) {
+  //         message.error(
+  //           typeof err === "string"
+  //             ? err
+  //             : err?.message || "Something went wrong"
+  //         );
+  //       }
+  //     },
+  //   });
+  // };
+
   /* ================= REJECT ================= */
   const handleRejectExam = (id) => {
+    let description = "";
+
     confirm({
       title: "Reject Exam?",
       icon: <ExclamationCircleOutlined style={{ color: "#ff4d4f" }} />,
-      content:
-        "Are you sure you want to reject this exam? This action cannot be undone.",
       centered: true,
+      closable: true,
       okText: "Yes, Reject",
       okType: "danger",
-      cancelText: "Cancel",
+
+      content: (
+        <div>
+          <p>
+            Are you sure you want to reject this exam? This action cannot be undone.
+          </p>
+
+          <Input.TextArea
+            rows={3}
+            placeholder="Add rejection reason"
+            onChange={(e) => {
+              description = e.target.value;
+            }}
+            style={{ marginTop: 10 }}
+          />
+        </div>
+      ),
+
       async onOk() {
         try {
-          const res = await dispatch(rejectUserExam(id)).unwrap();
+          const res = await dispatch(
+            rejectUserExam({
+              id,
+              description, // ✅ send comment
+            })
+          ).unwrap();
+
           message.success(res?.message || "Exam rejected successfully");
           dispatch(fetchUserExams());
         } catch (err) {
-          message.error(
-            typeof err === "string"
-              ? err
-              : err?.message || "Something went wrong"
-          );
+          message.error(err?.message || "Something went wrong");
         }
       },
     });
@@ -138,18 +220,43 @@ const ExamManagements = () => {
 
   /* ================= DISAPPROVE ================= */
   const handleDisapproveExam = (id) => {
+    let description = "";
+
     confirm({
       title: "Disapprove Exam?",
       icon: <ExclamationCircleOutlined style={{ color: "#fa8c16" }} />,
-      content:
-        "Are you sure you want to disapprove this exam? The student's report will be locked again.",
       centered: true,
+      closable: true,
       okText: "Yes, Disapprove",
       okType: "danger",
       cancelText: "Cancel",
+
+      content: (
+        <div>
+          <p>
+            Are you sure you want to disapprove this exam? The student's report will be locked again.
+          </p>
+
+          <Input.TextArea
+            rows={3}
+            placeholder="Add reason for disapproval"
+            onChange={(e) => {
+              description = e.target.value;
+            }}
+            style={{ marginTop: 10 }}
+          />
+        </div>
+      ),
+
       async onOk() {
         try {
-          const res = await dispatch(rejectUserExam(id)).unwrap();
+          const res = await dispatch(
+            rejectUserExam({
+              id,
+              description, // ✅ send comment
+            })
+          ).unwrap();
+
           message.success(res?.message || "Exam disapproved successfully");
           dispatch(fetchUserExams());
         } catch (err) {
@@ -169,81 +276,81 @@ const ExamManagements = () => {
     userName: `${item.first_name} ${item.last_name}`,
     email: item.email,
     program: item.program || "-",
-      package: item.package || "-",
+    package: item.package || "-",
     status:
       item.status === "completed"
         ? "Completed"
         : item.status === "not_started"
-        ? "Not Started"
-        : item.status === "in_progress"
-        ? "In Progress"
-        : item.status === "exam_started"
-        ? "Exam Started"
-        : item.status === "rejected"
-        ? "Rejected"
-        : "Awaiting Approval",
+          ? "Not Started"
+          : item.status === "in_progress"
+            ? "In Progress"
+            : item.status === "exam_started"
+              ? "Exam Started"
+              : item.status === "rejected"
+                ? "Rejected"
+                : "Awaiting Approval",
     completedDate: item.completed_at
       ? item.completed_at.split("T")[0]
       : "-",
     approvedBy: item.approved_by
       ? {
-          name: item.approved_by,
-          role: item.approved_by_role,
-        }
+        name: item.approved_by,
+        role: item.approved_by_role,
+      }
       : null,
   }));
 
   /* ================= FILTER ================= */
-const filteredData = mappedData
-  .filter((item) => {
-    const search = searchText.toLowerCase();
-    const matchesSearch =
-      item.userName.toLowerCase().includes(search) ||
-      item.program.toLowerCase().includes(search);
+  const filteredData = mappedData
+    .filter((item) => {
+      const search = searchText.toLowerCase();
+      const matchesSearch =
+        item.userName.toLowerCase().includes(search) ||
+        item.program.toLowerCase().includes(search);
 
-    const matchesStatus = statusFilter
-      ? item.status === statusFilter
-      : true;
+      const matchesStatus = statusFilter
+        ? item.status === statusFilter
+        : true;
 
-    return matchesSearch && matchesStatus;
-  })
-  .sort((a, b) => {
-  const priorityStatuses = ["In Progress", "Not Started"];
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const priorityStatuses = ["In Progress", "Not Started"];
 
-  if (priorityStatuses.includes(a.status) && !priorityStatuses.includes(b.status))
-    return -1;
+      if (priorityStatuses.includes(a.status) && !priorityStatuses.includes(b.status))
+        return -1;
 
-  if (!priorityStatuses.includes(a.status) && priorityStatuses.includes(b.status))
-    return 1;
+      if (!priorityStatuses.includes(a.status) && priorityStatuses.includes(b.status))
+        return 1;
 
-  return 0;
-});
+      return 0;
+    });
 
   /* ================= STATUS TAG ================= */
-const renderStatus = (status) => {
-  switch (status) {
-    case "Completed":
-      return <Tag color="success">Approved</Tag>;
+  const renderStatus = (status) => {
+    switch (status) {
+      case "Completed":
+        return <Tag color="success">Approved</Tag>;
 
-    case "Awaiting Approval":
-      return <Tag color="warning">Awaiting Approval</Tag>;
+      case "Awaiting Approval":
+        return <Tag color="warning">Awaiting Approval</Tag>;
 
-    case "Exam Started":
-      return <Tag color="processing">Exam Started</Tag>;
+      case "Exam Started":
+        return <Tag color="processing">Exam Started</Tag>;
 
-    case "In Progress":
-      return <Tag color="processing">In Progress</Tag>;
+      case "In Progress":
+        return <Tag color="processing">In Progress</Tag>;
 
-    case "Rejected":
-      return <Tag color="error">Rejected</Tag>;
+      case "Rejected":
+        return <Tag color="error">Rejected</Tag>;
 
-    case "Not Started":
-      return <Tag>Not Started</Tag>;
+      case "Not Started":
+        return <Tag>Not Started</Tag>;
 
-    default:
-      return <Tag>{status}</Tag>;
-  }
-};
+      default:
+        return <Tag>{status}</Tag>;
+    }
+  };
 
   /* ================= COLUMNS ================= */
   const columns = [
@@ -264,33 +371,20 @@ const renderStatus = (status) => {
     },
     // { title: "Program", dataIndex: "program" },
     {
-  title: "Program / Counselling Service",
-  width: 250,
-  render: (_, record) => (
-    <div>
-      <Text strong>{record.program || "N/A"}</Text>
-      <br />
-      <Text type="colorTextSecondary" >
-        {record.package || "-"}
-      </Text>
-    </div>
-  ),
-},
+      title: "Program / Counselling Service",
+      width: 250,
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.program || "N/A"}</Text>
+          <br />
+          <Text type="colorTextSecondary" >
+            {record.package || "-"}
+          </Text>
+        </div>
+      ),
+    },
 
     { title: "Exam Status", dataIndex: "status", render: renderStatus },
-    { title: "Exam Completion Date", dataIndex: "completedDate" },
-    {
-      title: "Approved By",
-      render: (_, record) =>
-        record.approvedBy ? (
-          <Space direction="vertical" size={0}>
-            <Text strong>{record.approvedBy.name}</Text>
-            <Tag color="blue">{record.approvedBy.role}</Tag>
-          </Space>
-        ) : (
-          "-"
-        ),
-    },
     {
       title: "Actions",
       render: (_, record) => (
@@ -323,7 +417,7 @@ const renderStatus = (status) => {
               >
                 Mark as Complete
               </Button>
-              
+
             </>
           )}
 
@@ -352,6 +446,19 @@ const renderStatus = (status) => {
           )} */}
         </Space>
       ),
+    },
+    { title: "Exam Completion Date", dataIndex: "completedDate" },
+    {
+      title: "Approved By",
+      render: (_, record) =>
+        record.approvedBy ? (
+          <Space direction="vertical" size={0}>
+            <Text strong>{record.approvedBy.name}</Text>
+            <Tag color="blue">{record.approvedBy.role}</Tag>
+          </Space>
+        ) : (
+          "-"
+        ),
     },
   ];
 

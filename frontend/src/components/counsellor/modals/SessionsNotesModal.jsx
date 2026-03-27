@@ -49,6 +49,7 @@ const SessionsNotesModal = ({
   isViewMode = false,
   hideSessionDetails = false,
   showStudentName = false,
+   showActions = true,
 }) => {
   const screens = useBreakpoint();
 
@@ -91,17 +92,17 @@ const SessionsNotesModal = ({
 
   const sessionData = session
     ? {
-        studentName: session.studentName || "N/A",
-        email: session.studentEmail || "N/A",
-        phone: session.studentPhone || "N/A",
-        counsellorName: session.counsellorName || "N/A",
-        date: session.date
-          ? dayjs(session.date).format("DD-MM-YYYY")
-          : "N/A",
-        time: session.slot_time || `${session.startTime} - ${session.endTime}`,
-        status: session.status || "N/A",
-        id: session.id,
-      }
+      studentName: session.studentName || "N/A",
+      email: session.studentEmail || "N/A",
+      phone: session.studentPhone || "N/A",
+      counsellorName: session.counsellorName || "N/A",
+      date: session.date
+        ? dayjs(session.date).format("DD-MM-YYYY")
+        : "N/A",
+      time: session.slot_time || `${session.startTime} - ${session.endTime}`,
+      status: session.status || "N/A",
+      id: session.id,
+    }
     : {};
 
   const noteExists =
@@ -262,204 +263,207 @@ const SessionsNotesModal = ({
         <Tag color="green">{sessionData.status}</Tag>
       </Row>
 
-      <Row gutter={[16, 16]}>
+      <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
+        <Row gutter={[16, 16]}>
 
-        {/* LEFT PANEL */}
+          {/* LEFT PANEL */}
 
-        {!hideSessionDetails && (
-          <Col xs={24} md={8}>
+          {!hideSessionDetails && (
+            <Col xs={24} md={8}>
+              <Card bordered>
+
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
+                  <Avatar
+                    size={screens.xs ? 60 : 80}
+                    icon={<UserOutlined />}
+                  />
+
+                  <Title level={5} style={{ marginTop: 10 }}>
+                    {sessionData.studentName}
+                  </Title>
+
+                  <Text type="secondary">{sessionData.email}</Text>
+                </div>
+
+                <Divider />
+
+                <Space direction="vertical">
+
+                  <div>
+                    <Text strong>Mobile:</Text>
+                    <br />
+                    {sessionData.phone}
+                  </div>
+
+                  <div>
+                    <Text strong>Counsellor:</Text>
+                    <br />
+                    {sessionData.counsellorName}
+                  </div>
+
+                  <div>
+                    <CalendarOutlined /> {sessionData.date}
+                  </div>
+
+                  <div>
+                    <ClockCircleOutlined /> {sessionData.time}
+                  </div>
+
+                </Space>
+
+              </Card>
+            </Col>
+          )}
+
+          {/* RIGHT PANEL */}
+
+          <Col xs={24} md={hideSessionDetails ? 24 : 16}>
             <Card bordered>
 
-              <div style={{ textAlign: "center", marginBottom: 16 }}>
-                <Avatar
-                  size={screens.xs ? 60 : 80}
-                  icon={<UserOutlined />}
+              <Title level={5}>Discussion Notes</Title>
+
+              {noteExists && (
+                <div style={{ textAlign: "right", marginBottom: 10 }}>
+                  <Button
+                    icon={<DownloadOutlined />}
+                    onClick={downloadTextNotes}
+                  >
+                    Download Notes
+                  </Button>
+                </div>
+              )}
+
+              {isViewMode ? (
+                <div
+                  style={{
+                    background: "#fafafa",
+                    border: "1px solid #f0f0f0",
+                    borderRadius: 6,
+                    padding: screens.xs ? 10 : 12,
+                    minHeight: 120,
+                    fontSize: screens.xs ? 13 : 14,
+                    whiteSpace: "pre-wrap",
+                  }}
+                >
+                  {discussion || "No notes added"}
+                </div>
+              ) : (
+                <TextArea
+                  rows={8}
+                  value={discussion}
+                  placeholder="Enter discussion notes..."
+                  onChange={(e) => setDiscussion(e.target.value)}
                 />
+              )}
 
-                <Title level={5} style={{ marginTop: 10 }}>
-                  {sessionData.studentName}
-                </Title>
+              {!isViewMode && (
+                <>
+                  <Divider />
 
-                <Text type="secondary">{sessionData.email}</Text>
+                  <Upload {...uploadProps}>
+                    <Button
+                      icon={<UploadOutlined />}
+                      block={screens.xs}
+                    >
+                      Upload PDF / Images
+                    </Button>
+                  </Upload>
+                </>
+              )}
+
+              {/* FILE LIST */}
+
+              <div style={{ marginTop: 15 }}>
+
+                {uploadedFiles.length === 0 && isViewMode && (
+                  <Empty description="No files uploaded" />
+                )}
+
+                {uploadedFiles.map((file, index) => (
+
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      flexDirection: screens.xs ? "column" : "row",
+                      alignItems: screens.xs ? "flex-start" : "center",
+                      justifyContent: "space-between",
+                      background: "#f6f6f6",
+                      padding: 10,
+                      borderRadius: 6,
+                      marginBottom: 8,
+                      gap: 8,
+                    }}
+                  >
+
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {file.type === "application/pdf" ? (
+                        <FilePdfOutlined style={{ color: "red" }} />
+                      ) : (
+                        <FileImageOutlined style={{ color: "green" }} />
+                      )}
+
+                      <span style={{ wordBreak: "break-all" }}>
+                        {file.name}
+                      </span>
+                    </div>
+
+                    <Space wrap>
+
+                      <Button
+                        size="small"
+                        onClick={() => window.open(file.url)}
+                      >
+                        Preview
+                      </Button>
+
+                      <Button
+                        size="small"
+                        icon={<DownloadOutlined />}
+                        onClick={() =>
+                          handleDownloadFile(file.url, file.name)
+                        }
+                      >
+                        Download
+                      </Button>
+
+                    </Space>
+
+                  </div>
+                ))}
+
               </div>
 
-              <Divider />
+              {/* ACTION BUTTONS */}
 
-              <Space direction="vertical">
+              <div
+                style={{
+                  marginTop: 24,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  flexWrap: "wrap",
+                  gap: 8,
+                }}
+              >
 
-                <div>
-                  <Text strong>Mobile:</Text>
-                  <br />
-                  {sessionData.phone}
-                </div>
+                {/* {(!isViewMode || editMode || !noteExists) && ( */}
+                {showActions && (!isViewMode || editMode || !noteExists) && (
+                  <Button
+                    type="primary"
+                    onClick={handleSave}
+                  >
+                    {noteExists ? "Update Notes" : "Add Notes"}
+                  </Button>
+                )}
 
-                <div>
-                  <Text strong>Counsellor:</Text>
-                  <br />
-                  {sessionData.counsellorName}
-                </div>
+                <Button onClick={onClose}>Close</Button>
 
-                <div>
-                  <CalendarOutlined /> {sessionData.date}
-                </div>
-
-                <div>
-                  <ClockCircleOutlined /> {sessionData.time}
-                </div>
-
-              </Space>
+              </div>
 
             </Card>
           </Col>
-        )}
-
-        {/* RIGHT PANEL */}
-
-        <Col xs={24} md={hideSessionDetails ? 24 : 16}>
-          <Card bordered>
-
-            <Title level={5}>Discussion Notes</Title>
-
-            {noteExists && (
-              <div style={{ textAlign: "right", marginBottom: 10 }}>
-                <Button
-                  icon={<DownloadOutlined />}
-                  onClick={downloadTextNotes}
-                >
-                  Download Notes
-                </Button>
-              </div>
-            )}
-
-            {isViewMode ? (
-              <div
-                style={{
-                  background: "#fafafa",
-                  border: "1px solid #f0f0f0",
-                  borderRadius: 6,
-                  padding: screens.xs ? 10 : 12,
-                  minHeight: 120,
-                  fontSize: screens.xs ? 13 : 14,
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {discussion || "No notes added"}
-              </div>
-            ) : (
-              <TextArea
-                rows={8}
-                value={discussion}
-                placeholder="Enter discussion notes..."
-                onChange={(e) => setDiscussion(e.target.value)}
-              />
-            )}
-
-            {!isViewMode && (
-              <>
-                <Divider />
-
-                <Upload {...uploadProps}>
-                  <Button
-                    icon={<UploadOutlined />}
-                    block={screens.xs}
-                  >
-                    Upload PDF / Images
-                  </Button>
-                </Upload>
-              </>
-            )}
-
-            {/* FILE LIST */}
-
-            <div style={{ marginTop: 15 }}>
-
-              {uploadedFiles.length === 0 && isViewMode && (
-                <Empty description="No files uploaded" />
-              )}
-
-              {uploadedFiles.map((file, index) => (
-
-                <div
-                  key={index}
-                  style={{
-                    display: "flex",
-                    flexDirection: screens.xs ? "column" : "row",
-                    alignItems: screens.xs ? "flex-start" : "center",
-                    justifyContent: "space-between",
-                    background: "#f6f6f6",
-                    padding: 10,
-                    borderRadius: 6,
-                    marginBottom: 8,
-                    gap: 8,
-                  }}
-                >
-
-                  <div style={{ display: "flex", gap: 8 }}>
-                    {file.type === "application/pdf" ? (
-                      <FilePdfOutlined style={{ color: "red" }} />
-                    ) : (
-                      <FileImageOutlined style={{ color: "green" }} />
-                    )}
-
-                    <span style={{ wordBreak: "break-all" }}>
-                      {file.name}
-                    </span>
-                  </div>
-
-                  <Space wrap>
-
-                    <Button
-                      size="small"
-                      onClick={() => window.open(file.url)}
-                    >
-                      Preview
-                    </Button>
-
-                    <Button
-                      size="small"
-                      icon={<DownloadOutlined />}
-                      onClick={() =>
-                        handleDownloadFile(file.url, file.name)
-                      }
-                    >
-                      Download
-                    </Button>
-
-                  </Space>
-
-                </div>
-              ))}
-
-            </div>
-
-            {/* ACTION BUTTONS */}
-
-            <div
-              style={{
-                marginTop: 24,
-                display: "flex",
-                justifyContent: "flex-end",
-                flexWrap: "wrap",
-                gap: 8,
-              }}
-            >
-
-              {(!isViewMode || editMode || !noteExists) && (
-                <Button
-                  type="primary"
-                  onClick={handleSave}
-                >
-                  {noteExists ? "Update Notes" : "Add Notes"}
-                </Button>
-              )}
-
-              <Button onClick={onClose}>Close</Button>
-
-            </div>
-
-          </Card>
-        </Col>
-      </Row>
+        </Row>
+      </div>
     </div>
   );
 };

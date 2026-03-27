@@ -19,3 +19,13 @@ export const updateProfileApi = async (payload) => {
   const response = await axiosInstance.put("/profile/", payload);
   return response.data;
 };
+
+
+// ✅ NEW API (for student update - counsellor)
+export const updateStudentProfileApi = async (studentId, payload) => {
+  const response = await axiosInstance.put(
+    `/student-profile/${studentId}/`,
+    payload
+  );
+  return response.data;
+};
