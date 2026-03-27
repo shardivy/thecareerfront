@@ -24,12 +24,14 @@ class ParentProfileAdmin(admin.ModelAdmin):
         'user',
         'profession',
         'education_level',
-        'background',
+        'father_background',
+        'mother_background',
+        'location',
         'annual_income_range',
         'created_at'
     )
     search_fields = ('user__email', 'profession', 'organization_name')
-    list_filter = ('background', 'created_at')
+    list_filter = ('father_background', 'mother_background', 'location', 'created_at')
 
 
 @admin.register(Lead)
@@ -57,6 +59,10 @@ class StudentAcademicHistoryAdmin(admin.ModelAdmin):
         "academic_stage",
         "start_year",
         "end_year",
+        "board_name",
+        "coaching_entrance",
+        "current_class_percentage",
+        "special_notes",
         "is_current",
         "created_at",
     )

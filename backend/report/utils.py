@@ -1,7 +1,9 @@
+from django.conf import settings
 from payment.models import Payment
 from program_package.models import UserProgramPackage
 from report.models import Report
 from exam.models import UserExam
+from django.core.mail import send_mail
 
 
 def get_completed_exam_report_data():
@@ -52,3 +54,43 @@ def get_completed_exam_report_data():
         })
 
     return data
+
+
+def send_report_uploaded_email(user, report):
+    """
+    Send email notification when report is uploaded
+    """
+
+    subject = "Your Report Has Been Uploaded"
+
+    message = f"""
+Dear {user.first_name},
+
+Your report has been successfully uploaded.
+
+Report Details:
+Report ID: {report.id}
+Upload Date: {report.uploaded_at.strftime('%d %B %Y')}
+Report Status: {report.report_status}
+"""
+
+    if report.report_status == "received_unlocked":
+        message += "\nYour report is now available and unlocked."
+    else:
+        message += "\nYour report has been uploaded but is locked until payment is completed."
+
+    message += """
+
+Please login to the student portal to view your report.
+
+Best Regards,
+Support Team
+"""
+
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [user.email],
+        fail_silently=True
+    )

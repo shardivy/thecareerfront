@@ -2,6 +2,8 @@ from django.db import models
 from django.shortcuts import get_object_or_404, render
 
 from accounts.models import User
+from counselling_slot.models import Booking
+from counselling_slot.tasks import create_system_notification
 from report.models import Report
 from lead_registration.models import StudentProfile
 from lead_registration.serializers import PaymentDetailSerializer
@@ -18,6 +20,8 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 import mimetypes
 import os
+from django.db.transaction import on_commit
+from django.contrib.auth import get_user_model
 
 from django.db.models import Q, Count, Sum
 from accounts.permissions import IsAdmin, IsSuperAdmin
@@ -25,14 +29,16 @@ from rest_framework.permissions import IsAuthenticated
 
 from payment.models import Payment, PaymentLog
 from payment.serializers import PaymentCreateSerializer, PaymentListSerializer, PaymentLogSerializer, PaymentResponseSerializer, StudentPaymentDetailSerializer
-from payment.utils import send_payment_reject_email, send_payment_reject_whatsapp
+from payment.utils import send_payment_approved_email, send_payment_created_email, send_payment_reject_email, send_payment_reject_whatsapp, send_payment_rejected_email, send_payment_reminder_email, send_payment_updated_email
 from program_package.models import Package, UserProgramPackage
+
+User = get_user_model()
 
 class PaymentCreateAPIView(APIView):
     """
     Create Payment (Online / Offline)
     """
-    permission_classes = [IsSuperAdmin | IsAdmin ]
+    permission_classes = [IsAuthenticated]
     
     def unlock_report_if_paid(self, payment):
         """
@@ -76,6 +82,32 @@ class PaymentCreateAPIView(APIView):
             payment = serializer.save()
             
             self.unlock_report_if_paid(payment)
+            
+            # =========================
+            # 🔔 SEND NOTIFICATION TO SUPERADMIN
+            # =========================
+            user_name = f"{payment.user.first_name} {payment.user.last_name}"
+            amount = payment.amount
+
+            title = "Payment Received"
+
+            message = (
+                f"User {user_name} has successfully made a payment of ₹{amount}."
+            )
+
+            admin_users = User.objects.filter(is_superuser=True)
+
+            for admin in admin_users:
+                admin_id = admin.id  # ✅ fix lambda issue
+
+                on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+                    admin_id,
+                    title,
+                    message
+                ))
+            
+        # send email
+        send_payment_created_email(payment.user, payment)
 
         # ✅ THIS IS THE KEY LINE
         response_data = PaymentResponseSerializer(
@@ -118,6 +150,9 @@ class PaymentCreateAPIView(APIView):
             payment = serializer.save()
             
             self.unlock_report_if_paid(payment)
+            
+        # send email
+        send_payment_updated_email(payment.user, payment)
 
         response_data = PaymentResponseSerializer(
             payment,
@@ -339,6 +374,14 @@ class VerifyPaymentAPIView(APIView):
                     package=payment.package,
                     defaults={'assigned_by': request.user.email}
                 )
+            
+            # Send email
+            send_payment_approved_email(
+                payment.user,
+                payment,
+                cumulative_amount,
+                package_price
+            )
 
             return Response({
                 "success": True,
@@ -354,8 +397,8 @@ class VerifyPaymentAPIView(APIView):
         elif action == 'reject':
 
             # Send notifications
-            send_payment_reject_email(payment.user.email)
-            send_payment_reject_whatsapp(payment.user.phone)
+            send_payment_rejected_email(payment.user)
+            # send_payment_reject_whatsapp(payment.user.phone)
 
             # Calculate remaining payments excluding this one
             remaining_paid = Payment.objects.filter(
@@ -934,10 +977,110 @@ class PaymentLogListAPIView(APIView):
   
   
   
+# class StudentPaymentListAPIView(APIView):
+#     """
+#     Fetch all payments of a student using student_id
+#     """
+
+#     def get(self, request, student_id):
+#         student = get_object_or_404(StudentProfile, id=student_id)
+#         user = student.user
+
+#         payments = Payment.objects.filter(user=user).order_by("-created_at")
+
+#         # 🔹 Get program-package
+#         upp = UserProgramPackage.objects.filter(
+#             user=user
+#         ).select_related("program", "package").first()
+
+#         # 🔹 Total Paid Amount
+#         total_paid = payments.filter(
+#             status__in=["partial_paid", "fully_paid"]
+#         ).aggregate(total=Sum("amount"))["total"] or 0
+
+#         # 🔹 Package Price
+#         package_price = upp.package.price if upp and upp.package else 0
+
+#         # 🔹 Remaining Amount
+#         remaining_amount = package_price - total_paid
+
+#         # 🔹 Payment Progress %
+#         if package_price > 0:
+#             payment_progress = round((total_paid / package_price) * 100, 2)
+#         else:
+#             payment_progress = 0
+
+#         # =================================================
+#         # 🔹 Handle Payment Status Logic
+#         # =================================================
+#         if upp:
+
+#             # Case 1: Fully Paid
+#             if total_paid >= package_price:
+
+#                 # Delete pending payments
+#                 Payment.objects.filter(
+#                     user=user,
+#                     status="not_paid"
+#                 ).delete()
+
+#                 # Update latest payment to fully_paid
+#                 last_payment = Payment.objects.filter(
+#                     user=user
+#                 ).exclude(status="not_paid").order_by("-created_at").first()
+
+#                 if last_payment and last_payment.status != "fully_paid":
+#                     last_payment.status = "fully_paid"
+#                     last_payment.save()
+
+#             # Case 2: Remaining Payment
+#             elif remaining_amount > 0:
+
+#                 existing_pending = Payment.objects.filter(
+#                     user=user,
+#                     status="not_paid"
+#                 ).exists()
+
+#                 if not existing_pending:
+#                     Payment.objects.create(
+#                         user=user,
+#                         package=upp.package,
+#                         amount=remaining_amount,
+#                         payment_type=None,
+#                         method=None,
+#                         transaction_id=None,
+#                         status="not_paid"
+#                     )
+
+#         # 🔹 Refresh payments queryset
+#         payments = Payment.objects.filter(user=user).order_by("-created_at")
+
+#         serializer = PaymentDetailSerializer(
+#             payments,
+#             many=True,
+#             context={
+#                 "request": request,
+#                 "payments": payments,
+#                 "upp": upp
+#             }
+#         )
+
+#         return Response(
+#             {
+#                 "message": "Student payment list fetched successfully",
+#                 "student_id": student.id,
+#                 "user_id": user.id,
+#                 "total_payments": payments.count(),
+#                 "package_price": package_price,
+#                 "total_paid": total_paid,
+#                 "remaining_amount": max(remaining_amount, 0),
+#                 "payment_progress_percentage": payment_progress,
+#                 "data": serializer.data
+#             },
+#             status=status.HTTP_200_OK
+#         )  
+  
 class StudentPaymentListAPIView(APIView):
-    """
-    Fetch all payments of a student using student_id
-    """
 
     def get(self, request, student_id):
         student = get_object_or_404(StudentProfile, id=student_id)
@@ -945,72 +1088,22 @@ class StudentPaymentListAPIView(APIView):
 
         payments = Payment.objects.filter(user=user).order_by("-created_at")
 
-        # 🔹 Get program-package
         upp = UserProgramPackage.objects.filter(
             user=user
         ).select_related("program", "package").first()
 
-        # 🔹 Total Paid Amount
         total_paid = payments.filter(
             status__in=["partial_paid", "fully_paid"]
         ).aggregate(total=Sum("amount"))["total"] or 0
 
-        # 🔹 Package Price
         package_price = upp.package.price if upp and upp.package else 0
 
-        # 🔹 Remaining Amount
-        remaining_amount = package_price - total_paid
+        remaining_amount = max(package_price - total_paid, 0)
 
-        # 🔹 Payment Progress %
         if package_price > 0:
             payment_progress = round((total_paid / package_price) * 100, 2)
         else:
             payment_progress = 0
-
-        # =================================================
-        # 🔹 Handle Payment Status Logic
-        # =================================================
-        if upp:
-
-            # Case 1: Fully Paid
-            if total_paid >= package_price:
-
-                # Delete pending payments
-                Payment.objects.filter(
-                    user=user,
-                    status="not_paid"
-                ).delete()
-
-                # Update latest payment to fully_paid
-                last_payment = Payment.objects.filter(
-                    user=user
-                ).exclude(status="not_paid").order_by("-created_at").first()
-
-                if last_payment and last_payment.status != "fully_paid":
-                    last_payment.status = "fully_paid"
-                    last_payment.save()
-
-            # Case 2: Remaining Payment
-            elif remaining_amount > 0:
-
-                existing_pending = Payment.objects.filter(
-                    user=user,
-                    status="not_paid"
-                ).exists()
-
-                if not existing_pending:
-                    Payment.objects.create(
-                        user=user,
-                        package=upp.package,
-                        amount=remaining_amount,
-                        payment_type=None,
-                        method=None,
-                        transaction_id=None,
-                        status="not_paid"
-                    )
-
-        # 🔹 Refresh payments queryset
-        payments = Payment.objects.filter(user=user).order_by("-created_at")
 
         serializer = PaymentDetailSerializer(
             payments,
@@ -1022,23 +1115,31 @@ class StudentPaymentListAPIView(APIView):
             }
         )
 
-        return Response(
-            {
-                "message": "Student payment list fetched successfully",
-                "student_id": student.id,
-                "user_id": user.id,
-                "total_payments": payments.count(),
-                "package_price": package_price,
-                "total_paid": total_paid,
-                "remaining_amount": max(remaining_amount, 0),
-                "payment_progress_percentage": payment_progress,
-                "data": serializer.data
-            },
-            status=status.HTTP_200_OK
-        )  
-  
-  
-  
+        payment_data = list(serializer.data)
+
+        # ✅ Add remaining amount as virtual record
+        if remaining_amount > 0:
+            payment_data.insert(0, {
+                "payment_id": None,
+                "amount": remaining_amount,
+                "status": "not_paid",
+                "payment_type": None,
+                "method": None,
+                "transaction_id": None,
+                "date": None
+            })
+
+        return Response({
+            "message": "Student payment list fetched successfully",
+            "student_id": student.id,
+            "user_id": user.id,
+            "total_payments": len(payment_data),
+            "package_price": package_price,
+            "total_paid": total_paid,
+            "remaining_amount": remaining_amount,
+            "payment_progress_percentage": payment_progress,
+            "data": payment_data
+        })
         
 class StudentPaymentProgressAPIView(APIView):
     """
@@ -1270,10 +1371,68 @@ class StudentPaymentDetailAPIView(APIView):
         })
         
         
+# class PendingPaymentUsersAPIView(APIView):
+#     """
+#     Fetch the latest (last) payment record for users whose payment status
+#     is 'not_paid' or 'partial_paid'.
+#     """
+
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+
+#         users = User.objects.all()
+#         response_data = []
+
+#         for user in users:
+
+#             # Get last payment record
+#             payment = Payment.objects.filter(user=user).order_by("-created_at").first()
+
+#             if not payment:
+#                 continue
+
+#             # Only include not_paid or partial_paid
+#             if payment.status not in ["not_paid", "partial_paid"]:
+#                 continue
+
+#             package = payment.package
+#             program = package.program if package else None
+
+#             response_data.append({
+#                 "user_id": user.id,
+#                 "student_id": getattr(payment.user.student_profile, "id", None),
+#                 "name": f"{user.first_name} {user.last_name}",
+#                 "email": user.email,
+#                 "preferred_counselling_mode": getattr(user.student_profile, "preferred_counselling_mode", None),
+
+#                 "payment_id": payment.id,
+#                 "amount": payment.amount,
+#                 "status": payment.status,
+#                 "method": payment.method,
+#                 "transaction_id": payment.transaction_id,
+#                 "payment_date": payment.payment_date,
+
+#                 "program": program.name if program else None,
+#                 "package": package.name if package else None,
+#                 "package_price": package.price if package else None,
+
+#                 "created_at": payment.created_at
+#             })
+
+#         return Response(
+#             {
+#                 "success": True,
+#                 "count": len(response_data),
+#                 "data": response_data
+#             }
+#         )
+      
+      
 class PendingPaymentUsersAPIView(APIView):
     """
-    Fetch the latest (last) payment record for users whose payment status
-    is 'not_paid' or 'partial_paid'.
+    Fetch latest payment record for users whose payment status
+    is 'not_paid' or 'partial_paid' and who have not booked counselling.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1285,13 +1444,26 @@ class PendingPaymentUsersAPIView(APIView):
 
         for user in users:
 
-            # Get last payment record
+            # Check student profile
+            student = getattr(user, "student_profile", None)
+            if not student:
+                continue
+
+            # ❌ Skip users who already booked/rescheduled/completed counselling
+            booking_exists = Booking.objects.filter(
+                student=student,
+                status__in=["booked", "rescheduled", "completed"]
+            ).exists()
+
+            if booking_exists:
+                continue
+
+            # Get latest payment
             payment = Payment.objects.filter(user=user).order_by("-created_at").first()
 
             if not payment:
                 continue
 
-            # Only include not_paid or partial_paid
             if payment.status not in ["not_paid", "partial_paid"]:
                 continue
 
@@ -1300,10 +1472,10 @@ class PendingPaymentUsersAPIView(APIView):
 
             response_data.append({
                 "user_id": user.id,
-                "student_id": getattr(payment.user.student_profile, "id", None),
+                "student_id": student.id,
                 "name": f"{user.first_name} {user.last_name}",
                 "email": user.email,
-                "preferred_counselling_mode": getattr(user.student_profile, "preferred_counselling_mode", None),
+                "preferred_counselling_mode": getattr(student, "preferred_counselling_mode", None),
 
                 "payment_id": payment.id,
                 "amount": payment.amount,
@@ -1319,10 +1491,47 @@ class PendingPaymentUsersAPIView(APIView):
                 "created_at": payment.created_at
             })
 
+        return Response({
+            "success": True,
+            "count": len(response_data),
+            "data": response_data
+        })      
+      
+  
+class PaymentReminderAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, student_id):
+
+        try:
+            student = StudentProfile.objects.select_related("user").get(id=student_id)
+        except StudentProfile.DoesNotExist:
+            return Response(
+                {"error": "Student not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        payments = Payment.objects.filter(
+            user=student.user,
+            status__in=["not_paid", "partial_paid"]
+        ).select_related("package")
+
+        if not payments.exists():
+            return Response(
+                {"message": "No pending payments found"},
+                status=status.HTTP_200_OK
+            )
+
+        count = 0
+
+        for payment in payments:
+            send_payment_reminder_email(payment.user, payment)
+            count += 1
+
         return Response(
             {
-                "success": True,
-                "count": len(response_data),
-                "data": response_data
-            }
+                "message": "Payment reminder sent successfully",
+                "total_reminders_sent": count
+            },
+            status=status.HTTP_200_OK
         )

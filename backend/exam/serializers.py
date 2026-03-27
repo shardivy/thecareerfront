@@ -293,6 +293,7 @@ class UserExamApproveResponseSerializer(serializers.ModelSerializer):
             "student_name",
             "exam_name",
             "status",
+            "description",
             "completed_at",
             "approved_by",
             "approved_by_role",

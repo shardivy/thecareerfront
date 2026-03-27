@@ -1,6 +1,10 @@
 from celery import shared_task
 from django.core.mail import send_mail
 from django.conf import settings
+
+from django.utils import timezone
+from accounts.models import User
+from notification.models import Notification, NotificationLog
 # from backend.celery import app
 
 
@@ -47,3 +51,24 @@ def send_booking_cancel_notification(student_email, counsellor_emails, slot_deta
     )
 
     return "Email notification sent"
+
+# ========================================================================
+
+@shared_task
+def create_system_notification(user_id, title, message):
+
+    user = User.objects.get(id=user_id)
+
+    notification = Notification.objects.create(
+        user=user,
+        type="system",
+        title=title,
+        message=message,
+        is_sent=True
+    )
+
+    NotificationLog.objects.create(
+        notification=notification,
+        status="sent",
+        sent_at=timezone.now()
+    )
