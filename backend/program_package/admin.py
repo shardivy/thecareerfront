@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from program_package.models import Package, PackageExam, PackageFeature, Program, UserProgramPackage
+from program_package.models import Answer, CollegeListAnalysis, Package, PackageExam, PackageFeature, Program, QuestionAnswer, UserProgramPackage
 
 @admin.register(Program)
 class ProgramAdmin(admin.ModelAdmin):
@@ -12,7 +12,7 @@ class ProgramAdmin(admin.ModelAdmin):
     
 @admin.register(Package)
 class PackageAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "program", "price", "aptitude_test", "is_active", "created_at")
+    list_display = ("id", "name", "program", "price", "aptitude_test", "engineering_test_analysis", "is_active", "created_at")
     list_filter = ("program", "is_active")
     search_fields = ("name", "program__name")
     list_editable = ("is_active",)
@@ -68,3 +68,93 @@ class PackageExamAdmin(admin.ModelAdmin):
     list_editable = ("is_mandatory", "sequence_order")
     ordering = ("package", "sequence_order")
     readonly_fields = ("created_at",)
+    
+@admin.register(CollegeListAnalysis)
+class CollegeListAnalysisAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'user',
+        'question',
+        'program',
+        'package',
+        'status',
+        'assigned_by',
+        'created_at',
+    )
+
+    list_filter = (
+        'status',
+        'program',
+        'package',
+        'created_at',
+    )
+
+    search_fields = (
+        'user__email',
+        'user__first_name',
+        'user__last_name',
+        'program__name',
+        'package__name',
+    )
+
+    readonly_fields = (
+        'created_at',
+        'updated_at',
+    )
+
+    # ordering = ('-created_at',)
+
+
+@admin.register(QuestionAnswer)
+class QuestionAnswerAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'user',
+        'question',
+        'created_at',
+    )
+
+    list_filter = (
+        'created_at',
+    )
+
+    search_fields = (
+        'user__email',
+        'question',
+    )
+
+    readonly_fields = (
+        'created_at',
+        'updated_at',
+    )
+
+    # ordering = ('-created_at',)
+
+@admin.register(Answer)
+class AnswerAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "id",
+        "student",
+        "question",
+        "answer_text",
+        "created_at",
+    )
+
+    list_filter = (
+        "created_at",
+    )
+
+    search_fields = (
+        "student__user__first_name",
+        "student__user__last_name",
+        "question__question",
+        "answer_text",
+    )
+
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+
+    # ordering = ("-created_at",)

@@ -1539,45 +1539,58 @@ class CancelBookingAPIView(APIView):
             status=status.HTTP_200_OK
         )
            
+
 class SessionDashboardCountAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        period = request.GET.get("period", "monthly")  # weekly | monthly | yearly
+        period = request.GET.get("period", "monthly")
         today = now().date()
 
         bookings = Booking.objects.all()
 
-        # 🔹 Period filter
-        if period == "weekly":
+        # 🔹 Period filter using session date
+        if period == "today":
+            period_qs = bookings.filter(date=today)
+
+        elif period == "weekly":
             start_date = today - timedelta(days=today.weekday())
             end_date = start_date + timedelta(days=6)
-            period_qs = bookings.filter(date__range=[start_date, end_date])
+
+            period_qs = bookings.filter(
+                date__range=[start_date, end_date]
+            )
 
         elif period == "yearly":
-            period_qs = bookings.filter(date__year=today.year)
+            period_qs = bookings.filter(
+                date__year=today.year
+            )
 
-        else:  # monthly (default)
+        else:  # monthly
             period_qs = bookings.filter(
                 date__year=today.year,
                 date__month=today.month
             )
 
-        # 🔹 Total sessions (all time)
-        total_sessions = bookings.count()
+        # 🔹 Total sessions (exclude cancelled)
+        total_sessions = period_qs.filter(
+            status__in=["booked", "rescheduled", "pending", "completed"]
+        ).count()
 
-        # 🔹 Today
+        # 🔹 Completed sessions
+        completed_sessions = period_qs.filter(status="completed").count()
+
+        # 🔹 Pending sessions
+        pending_sessions = period_qs.filter(status="pending").count()
+
+        # 🔹 Today's sessions
         today_qs = bookings.filter(date=today)
+
         today_completed = today_qs.filter(status="completed").count()
+
         today_upcoming = today_qs.filter(
             status__in=["booked", "rescheduled"]
         ).count()
-
-        # 🔹 Period sessions
-        period_sessions = period_qs.count()
-
-        # 🔹 Completed (all time or period-based – you can choose)
-        completed_sessions = bookings.filter(status="completed").count()
 
         return Response({
             "period": period,
@@ -1590,11 +1603,13 @@ class SessionDashboardCountAPIView(APIView):
                 "upcoming": today_upcoming
             },
 
-            "period_sessions": period_sessions,
+            "pending_sessions": pending_sessions,
 
             "completed_sessions": completed_sessions
-        })
-   
+        })       
+
+
+
 FIXED_SLOTS = [
     ("10:00 AM", "12:00 PM"),
     ("12:00 PM", "02:00 PM"),
@@ -2133,12 +2148,10 @@ class CounsellorDashboardCountAPIView(APIView):
 
     def get(self, request):
 
-        period = request.query_params.get("period", "monthly")  
-        # period = weekly / monthly / yearly
+        period = request.query_params.get("period", "monthly")
 
         user = request.user
 
-        # Get Counsellor instance
         try:
             counsellor = Counsellor.objects.get(user=user)
         except Counsellor.DoesNotExist:
@@ -2146,23 +2159,13 @@ class CounsellorDashboardCountAPIView(APIView):
 
         today = timezone.now().date()
 
-        # ============================================
-        # 1️⃣ Assigned Students Count
-        # ============================================
-        assigned_students = BookingCounsellor.objects.filter(
-            counsellor=counsellor
-        ).values("booking__student").distinct().count()
-
-        # ============================================
-        # Base Booking Query For This Counsellor
-        # ============================================
+        # Base booking query (exclude cancelled)
         bookings = Booking.objects.filter(
-            bookingcounsellor__counsellor=counsellor
-        )
+            bookingcounsellor__counsellor=counsellor,
+            status__in=["booked", "rescheduled", "completed"]
+        ).distinct()
 
-        # ============================================
-        # Date Filtering
-        # ============================================
+        # Date filtering
         if period == "weekly":
             start_date = today - timezone.timedelta(days=today.weekday())
             bookings = bookings.filter(date__gte=start_date)
@@ -2174,21 +2177,18 @@ class CounsellorDashboardCountAPIView(APIView):
             )
 
         elif period == "yearly":
-            bookings = bookings.filter(
-                date__year=today.year
-            )
+            bookings = bookings.filter(date__year=today.year)
 
-        # ============================================
-        # 2️⃣ Upcoming Sessions
-        # ============================================
+        # Assigned students (unique)
+        assigned_students = bookings.values("student").distinct().count()
+
+        # Upcoming sessions
         upcoming_sessions = bookings.filter(
             date__gte=today,
             status__in=["booked", "rescheduled"]
         ).count()
 
-        # ============================================
-        # 3️⃣ Completed Sessions
-        # ============================================
+        # Completed sessions
         completed_sessions = bookings.filter(
             status="completed"
         ).count()
@@ -2199,17 +2199,6 @@ class CounsellorDashboardCountAPIView(APIView):
             "completed_sessions": completed_sessions,
             "period": period
         }, status=status.HTTP_200_OK)
-
-
-
-
-
-
-
-
-
-
-
 
 
 

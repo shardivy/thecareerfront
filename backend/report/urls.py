@@ -1,6 +1,6 @@
 from django.urls import path
 
-from report.views import CompletedExamReportAPIView, CompletedExamReportExportExcelAPIView, CompletedExamReportExportPDFAPIView, CompletedExamReportStudentIDAPIView, ReportPDFView, ReportStatusCountAPIView, UploadReportAPIView
+from report.views import CompletedExamReportAPIView, CompletedExamReportExportExcelAPIView, CompletedExamReportExportPDFAPIView, CompletedExamReportStudentIDAPIView, EngineeringReportUploadAPIView, EngineeringTestAnalysisReportAPIView, ReportPDFView, ReportStatusCountAPIView, UploadReportAPIView
 
 
 
@@ -13,5 +13,10 @@ urlpatterns = [
 
     path("export/excel/", CompletedExamReportExportExcelAPIView.as_view()),
     path("export/pdf/", CompletedExamReportExportPDFAPIView.as_view()),
+    
+    # ================= Engineering report urls =================
+    
+    path('engineering/reports/completed-exams/', EngineeringTestAnalysisReportAPIView.as_view(), name='engineering-completed-exams'),
+    path('engineering/upload/<int:report_id>/', EngineeringReportUploadAPIView.as_view(), name='engineering-report-upload'),
 
 ]

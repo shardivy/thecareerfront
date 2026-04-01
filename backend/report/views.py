@@ -11,7 +11,7 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 from django.utils.decorators import method_decorator
 from report.utils import get_completed_exam_report_data, send_report_uploaded_email
 from payment.models import Payment
-from program_package.models import UserProgramPackage
+from program_package.models import CollegeListAnalysis, UserProgramPackage
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -22,8 +22,9 @@ from reportlab.pdfgen import canvas
 from django.utils import timezone
 from openpyxl import Workbook
 from django.http import HttpResponse
+from django.db.models import Count, Q
 
-from report.serializers import CompletedExamReportSerializer
+from report.serializers import CompletedExamReportSerializer, EngineeringTestAnalysisReportSerializer
 from exam.models import UserExam
 from report.models import Report
 
@@ -95,8 +96,9 @@ from report.models import Report
 
 class CompletedExamReportAPIView(APIView):
     """
-    Fetches ALL reports (all statuses) with user, exam, program, and payment details.
+    Fetch reports EXCEPT students whose package has engineering_test_analysis = True
     """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -113,19 +115,19 @@ class CompletedExamReportAPIView(APIView):
             user = report.user
 
             # Student Profile
-            student_profile = (
-                StudentProfile.objects
-                .filter(user=user)
-                .first()
-            )
+            student_profile = StudentProfile.objects.filter(user=user).first()
 
-            # Program
+            # Program + Package
             user_program = (
                 UserProgramPackage.objects
                 .filter(user=user)
-                .select_related('program')
+                .select_related('program', 'package')
                 .first()
             )
+
+            # 🚫 Skip Engineering Test Analysis students
+            if user_program and user_program.package.engineering_test_analysis:
+                continue
 
             # Exam status
             user_exam = (
@@ -135,15 +137,12 @@ class CompletedExamReportAPIView(APIView):
             )
 
             # Latest Payment
-            print(user)
             payment = (
                 Payment.objects
                 .filter(user=user)
                 .order_by('-created_at')
                 .first()
             )
-            
-            print(f"payment for user {user.id}: {payment.status if payment else 'No payment'}")
 
             # File URL
             file_url = None
@@ -166,7 +165,7 @@ class CompletedExamReportAPIView(APIView):
 
                 "program_id": user_program.program.id if user_program else None,
                 "program": user_program.program.name if user_program else None,
-                
+
                 "package_id": user_program.package.id if user_program else None,
                 "package": user_program.package.name if user_program else None,
 
@@ -175,7 +174,7 @@ class CompletedExamReportAPIView(APIView):
                 "exam_status": user_exam.status if user_exam else None,
 
                 "report_status": report.report_status,
-                
+
                 "file_path": file_url,
                 "uploaded_at": report.uploaded_at,
 
@@ -187,8 +186,7 @@ class CompletedExamReportAPIView(APIView):
         return Response({
             "count": len(serializer.data),
             "data": serializer.data
-        })
-        
+        })     
         
 class CompletedExamReportStudentIDAPIView(APIView):
     """
@@ -580,21 +578,232 @@ class CompletedExamReportExportPDFAPIView(APIView):
         return response
     
 class ReportStatusCountAPIView(APIView):
-    
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        total_reports = Report.objects.count()
 
-        received_locked_count = Report.objects.filter(report_status='received_locked').count()
-        received_unlocked_count = Report.objects.filter(report_status='received_unlocked').count()
-        not_received_count = Report.objects.filter(
-            report_status='not_received'
-        ).count()
+        # Users who have engineering test analysis package
+        excluded_users = UserProgramPackage.objects.filter(
+            package__engineering_test_analysis=True
+        ).values_list("user_id", flat=True)
+
+        # Exclude those users' reports
+        reports = Report.objects.exclude(user_id__in=excluded_users)
+
+        stats = reports.aggregate(
+            total_reports=Count("id"),
+            received_locked=Count("id", filter=Q(report_status="received_locked")),
+            received_unlocked=Count("id", filter=Q(report_status="received_unlocked")),
+            not_received=Count("id", filter=Q(report_status="not_received")),
+        )
+
+        return Response(stats)
+        
+# ================= Engineering report views =================
+
+class EngineeringTestAnalysisReportAPIView(APIView):
+    
+    """ 
+    Fetch reports only for students whose package has engineering_test_analysis = True 
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        reports = (
+            Report.objects
+            .select_related('user', 'exam')
+            .order_by('-uploaded_at')
+        )
+
+        response_data = []
+
+        for report in reports:
+            user = report.user
+
+            student_profile = StudentProfile.objects.filter(user=user).first()
+
+            user_program = (
+                UserProgramPackage.objects
+                .filter(
+                    user=user,
+                    package__engineering_test_analysis=True
+                )
+                .select_related('program', 'package')
+                .first()
+            )
+
+            if not user_program:
+                continue
+
+            # 🔹 Fetch analysis status
+            analysis = CollegeListAnalysis.objects.filter(user=user).first()
+
+            payment = (
+                Payment.objects
+                .filter(user=user)
+                .order_by('-created_at')
+                .first()
+            )
+
+            file_url = None
+            if report.file_path:
+                pdf_url = reverse(
+                    "report-pdf",
+                    kwargs={"report_id": report.id}
+                )
+                file_url = request.build_absolute_uri(pdf_url)
+
+            response_data.append({
+                "id": report.id,
+                "user_id": user.id,
+                "student_id": student_profile.id if student_profile else None,
+
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "phone": getattr(user, "phone", None),
+
+                "program_id": user_program.program.id,
+                "program": user_program.program.name,
+
+                "package_id": user_program.package.id,
+                "package": user_program.package.name,
+
+                "analysis_status": analysis.status if analysis else None,
+
+                "report_status": report.report_status,
+                "file_path": file_url,
+                "uploaded_at": report.uploaded_at,
+
+                "payment_status": payment.status if payment else None,
+            })
+
+        serializer = EngineeringTestAnalysisReportSerializer(response_data, many=True)
 
         return Response({
-            "total_reports": total_reports,
-            "received_locked": received_locked_count,
-            "received_unlocked": received_unlocked_count,
-            "not_received": not_received_count
+            "count": len(serializer.data),
+            "data": serializer.data
         })
+
+class EngineeringReportUploadAPIView(APIView):
+    """
+    Upload or replace a report file.
+
+    Conditions:
+    1️⃣ CollegeListAnalysis status must be 'completed'
+    2️⃣ If latest payment is fully_paid → report received_unlocked
+    3️⃣ If partial_paid or no payment → report received_locked
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def handle_upload(self, request, report_id):
+
+        report = get_object_or_404(Report, id=report_id)
+        user = report.user
+
+        # ------------------------------------
+        # CHECK EXAM EXISTS
+        # ------------------------------------
+        # if not report.exam:
+        #     return Response(
+        #         {"message": "Exam not linked with this report"},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
+
+        # exam = report.exam
+
+        # ------------------------------------
+        # CHECK COLLEGE ANALYSIS STATUS
+        # ------------------------------------
+        college_analysis = CollegeListAnalysis.objects.filter(
+            user=user
+        ).order_by("-created_at").first()
+
+        if not college_analysis or college_analysis.status != "completed":
+            return Response(
+                {
+                    "message": "College list analysis is not completed. Report upload not allowed."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ------------------------------------
+        # FILE VALIDATION
+        # ------------------------------------
+        file_path = request.FILES.get("file_path")
+
+        # Only require file for POST (new upload)
+        if request.method == "POST" and not file_path:
+            return Response(
+                {"message": "Report file is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ------------------------------------
+        # GET LATEST PAYMENT
+        # ------------------------------------
+        latest_payment = (
+            Payment.objects
+            .filter(user=user)
+            .order_by('-created_at')
+            .first()
+        )
+
+        # ------------------------------------
+        # REPORT STATUS LOGIC
+        # ------------------------------------
+        report_status = "received_locked"
+
+        if latest_payment and latest_payment.status == "fully_paid":
+            report_status = "received_unlocked"
+
+        # ------------------------------------
+        # SAVE REPORT
+        # ------------------------------------
+        if file_path:
+            report.file_path = file_path
+        report.uploaded_by = request.user
+        report.uploaded_at = timezone.now()
+        report.report_status = report_status
+        report.save()
+
+        # ------------------------------------
+        # SEND EMAIL
+        # ------------------------------------
+        send_report_uploaded_email(user, report)
+
+        # ------------------------------------
+        # CREATE BOOKING IF NOT EXISTS
+        # ------------------------------------
+        student_profile = StudentProfile.objects.filter(user=user).first()
+
+        created = False
+
+        if student_profile:
+            booking, created = Booking.objects.get_or_create(
+                student=student_profile,
+                defaults={"status": "not_booked"}
+            )
+
+        return Response(
+            {
+                "message": "Report uploaded successfully",
+                "report_id": report.id,
+                "uploaded_at": report.uploaded_at,
+                "report_status": report.report_status,
+                "payment_status": latest_payment.status if latest_payment else None,
+                "college_analysis_status": college_analysis.status,
+                "booking_created": created if student_profile else False
+            },
+            status=status.HTTP_200_OK
+        )
+
+    def post(self, request, report_id):
+        return self.handle_upload(request, report_id)
+
+    def put(self, request, report_id):
+        return self.handle_upload(request, report_id)

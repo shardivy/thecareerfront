@@ -45,13 +45,7 @@ from django.contrib.auth.models import AnonymousUser
 
 ActivityLog = apps.get_model("activity", "ActivityLog")
 
-# ✅ ADD HERE
-TRACKED_MODELS = [
-    "User",
-    "StudentProfile",
-    "Booking",
-    "Payment",
-]
+
 
 
 def get_user_name(user, instance):
@@ -60,16 +54,20 @@ def get_user_name(user, instance):
         full_name = f"{user.first_name} {user.last_name}".strip() or user.email
 
         # ✅ Add role prefix
-        if hasattr(user, "role") and user.role:
-            role_name = user.role.name.lower()
+        if user and getattr(user, "is_authenticated", False):
 
-            if role_name == "super admin":
-                return f"Superadmin {full_name}"
+            full_name = f"{user.first_name} {user.last_name}".strip() or user.email
 
-            if role_name == "admin":
-                return f"Admin {full_name}"
+            if hasattr(user, "role") and user.role:
+                role_name = user.role.name.lower()
 
-        return full_name
+                if role_name == "super admin":
+                    return f"Superadmin {full_name}"
+
+                if role_name == "admin":
+                    return f"Admin {full_name}"
+
+            return full_name
 
     if hasattr(instance, "student") and instance.student:
         student = instance.student
@@ -93,8 +91,10 @@ def get_description(user, action, instance):
     user_name = get_user_name(user, instance)
 
     if model == "User" and action == "create":
-        if user and user.role and user.role.name.lower() == "super admin":
-            return f"Super Admin created student {instance.first_name} {instance.last_name}"
+        if user and getattr(user, "is_authenticated", False) and hasattr(user, "role") and user.role:
+            if user.role.name.lower() == "super admin":
+                return f"Super Admin created student {instance.first_name} {instance.last_name}"
+
         return f"{instance.first_name} {instance.last_name} registered"
 
     if model == "Booking" and action == "create":
@@ -142,7 +142,7 @@ def create_log(sender, instance, created, **kwargs):
         return
 
     # ✅ Only track selected models
-    if sender.__name__ not in TRACKED_MODELS:
+    if sender not in TRACKED_MODELS:
         return
 
     user = get_current_user()

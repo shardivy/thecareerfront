@@ -346,12 +346,25 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     def get_preferred_counselling_mode(self, obj):
         return obj.student.preferred_counselling_mode
 
-    def get_counsellor_name(self, obj):
-        counsellor = obj.bookingcounsellor_set.first()
+    # def get_counsellor_name(self, obj):
+    #     counsellor = obj.bookingcounsellor_set.first()
 
-        if counsellor:
-            return f"{counsellor.counsellor.user.first_name} {counsellor.counsellor.user.last_name}"
-        return None
+    #     if counsellor:
+    #         return f"{counsellor.counsellor.user.first_name} {counsellor.counsellor.user.last_name}"
+    #     return None
+    
+    def get_counsellor_name(self, obj):
+        counsellors = obj.bookingcounsellor_set.all()
+
+        counsellor_list = []
+        for counsellor in counsellors:
+            counsellor_list.append({
+                "counsellor_id": counsellor.counsellor.id,
+                "counsellor_name": f"{counsellor.counsellor.user.first_name} {counsellor.counsellor.user.last_name}",
+                "role": counsellor.role
+            })
+
+        return counsellor_list
 
     def get_role(self, obj):
         counsellor = obj.bookingcounsellor_set.filter(
