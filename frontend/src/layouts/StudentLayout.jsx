@@ -25,6 +25,7 @@ import {
   BookFilled,
   BellOutlined,
   CreditCardFilled,
+  FormOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import NotificationDropdown from "../components/student/pages/Notification";
@@ -76,11 +77,17 @@ export default function StudentLayout() {
     if (profile?.aptitude_test !== undefined) {
       localStorage.setItem("aptitude_test", profile.aptitude_test);
     }
+
+    if (profile?.engineering_test_analysis !== undefined) {
+      localStorage.setItem("engineering_test_analysis", profile.engineering_test_analysis);
+    }
   }, [profile]);
 
   const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
 
   const showExamAndReport = aptitudeTestFromStorage === "true";
+
+  const showEngineering = localStorage.getItem("engineering_test_analysis") === "true";
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -114,6 +121,8 @@ export default function StudentLayout() {
     "/student/student-profile": "Profile",
     "/student/payments": "Payments",
     "/student/payment-page": "Payment",
+    "/student/engineering-questionnaires": "Engineering Questionnaires",
+    "/student/analysis-report": "Analysis Report",
   };
 
   const pathSnippets = location.pathname.split("/").filter(Boolean);
@@ -165,12 +174,35 @@ export default function StudentLayout() {
     },
     style: { marginBottom: 10 },
   };
+  
+
+  const engineeringQuestionnairesItem = {
+    key: "/student/engineering-questionnaires",
+    icon: <FormOutlined />,
+    label: (
+      <div style={{ lineHeight: "20px" }}>
+        {/* <div>Engineering</div> */}
+        <div>Questionnaires</div>
+      </div>
+    ),
+    onClick: () => {
+      navigate("/student/engineering-questionnaires");
+      setDrawerVisible(false);
+    },
+    style: { marginBottom: 10 },
+  };
 
   // Insert Content Library based on user type
-  if (!hasPackage) {
-    // Free user → insert at 3rd position
-    menuItems.splice(2, 0, contentLibraryItem);
-  }
+  // if (!hasPackage) {
+  //   // Free user → insert at 3rd position
+  //   menuItems.splice(2, 0, contentLibraryItem);
+
+  //   if (showEngineering) {
+  //     menuItems.splice(3, 0, engineeringQuestionnairesItem);
+  //   }
+  // }
+
+
 
   // Package-dependent items
   if (hasPackage) {
@@ -193,6 +225,8 @@ export default function StudentLayout() {
             },
             style: { marginBottom: 18 },
           },
+
+
           {
             key: "/student/report-management",
             icon: <FileTextFilled />,
@@ -206,6 +240,27 @@ export default function StudentLayout() {
             ),
             onClick: () => {
               navigate("/student/report-management");
+              setDrawerVisible(false);
+            },
+            style: { marginBottom: 18 },
+          },
+        ]
+        : []),
+
+      ...(showEngineering ? [engineeringQuestionnairesItem] : []),
+
+      ...(showEngineering
+        ? [
+          {
+            key: "/student/analysis-report",
+            icon: <FileTextFilled />,
+            label: (
+              <div style={{ lineHeight: "20px" }}>
+                <div>Analysis Report </div>
+                            </div>
+            ),
+            onClick: () => {
+              navigate("/student/analysis-report");
               setDrawerVisible(false);
             },
             style: { marginBottom: 18 },
@@ -231,6 +286,7 @@ export default function StudentLayout() {
         style: { marginBottom: 18 },
       },
 
+      
       // Payments
       {
         key: "/student/payments",
@@ -242,14 +298,18 @@ export default function StudentLayout() {
         },
         style: { marginBottom: 12 },
       },
+
+
     ];
 
-    // Paid user → insert Content Library as 2nd last item
-    const insertIndex = packageItems.length - 1; // after Slot Booking & Payments
-    packageItems.splice(insertIndex, 0, contentLibraryItem);
 
     // Merge package items
     menuItems.push(...packageItems);
+    
+    if (hasPackage) {
+  const secondLastIndex = menuItems.length - 1; // before Payments
+  menuItems.splice(secondLastIndex, 0, contentLibraryItem);
+}
   }
 
 

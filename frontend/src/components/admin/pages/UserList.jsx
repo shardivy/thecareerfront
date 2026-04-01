@@ -25,6 +25,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   CloseCircleOutlined,
+  MinusCircleOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import UserProfileModal from "../modals/UserProfileModal";
@@ -305,6 +306,16 @@ const UserList = () => {
           icon = <CloseCircleOutlined />;
           label = "Not Received";
         }
+         else if (normalizedStatus === "not_applicable") {
+    color = "default";
+    icon = <MinusCircleOutlined />;
+    label = (
+      <>
+        Not <br />
+        Applicable
+      </>
+    );
+  }
 
         return (
           <Tag

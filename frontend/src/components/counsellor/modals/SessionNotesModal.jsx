@@ -31,7 +31,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   createCounsellingNote,
   updateCounsellingNote,
-  deleteCounsellingFile 
+  deleteCounsellingFile
 } from "../../../adminSlices/counsellorSlice";
 import jsPDF from "jspdf";
 
@@ -39,7 +39,7 @@ const { Title, Text } = Typography;
 const { TextArea } = Input;
 const { useBreakpoint } = Grid;
 
-const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDetails = false,  showStudentName = false }) => {
+const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDetails = false, showStudentName = false }) => {
 
   const screens = useBreakpoint();
 
@@ -51,47 +51,60 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
 
   const notesState = useSelector((state) => state.counsellors.notes || {});
 
+
+  const capitalizeName = (name) => {
+    if (!name) return "";
+    return name
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
   /* LOAD NOTES */
-useEffect(() => {
-  if (session?.id && notesState[session.id]) {
-    const note = notesState[session.id];
+  useEffect(() => {
+    if (session?.id && notesState[session.id]) {
+      const note = notesState[session.id];
 
-    setDiscussion(note.notes || "");
+      setDiscussion(note.notes || "");
 
-    // ✅ Use the parsed file_urls array from Redux
-    const filesArray = note.file_urls || [];
+      // ✅ Use the parsed file_urls array from Redux
+      const filesArray = note.file_urls || [];
 
-   setUploadedFiles(
-  filesArray.map((file, index) => ({
-    name: file.url.split("/").pop() || `File-${index + 1}`,
-    url: file.url,
-    type: file.url.endsWith(".pdf") ? "application/pdf" : "image/*",
-    key: file.key, // store backend key
-  }))
-    );
+      setUploadedFiles(
+        filesArray.map((file, index) => ({
+          name: file.url.split("/").pop() || `File-${index + 1}`,
+          url: file.url,
+          type: file.url.endsWith(".pdf") ? "application/pdf" : "image/*",
+          key: file.key, // store backend key
+        }))
+      );
 
-    // allow editing if note exists
-    setEditMode(true);
+      // allow editing if note exists
+      setEditMode(true);
 
-  } else {
-    setDiscussion("");
-    setUploadedFiles([]);
-    setEditMode(true); // allow adding notes
-  }
-}, [notesState, session]);
+    } else {
+      setDiscussion("");
+      setUploadedFiles([]);
+      setEditMode(true); // allow adding notes
+    }
+  }, [notesState, session]);
 
   /* SESSION DATA */
   const sessionData = session
     ? {
-        studentName: session.studentName || "N/A",
-        email: session.studentEmail || "N/A",
-        phone: session.studentPhone || "N/A",
-        counsellorName: session.counsellorName || "N/A",
-        date: session.date ? dayjs(session.date).format("DD-MM-YYYY") : "N/A",
-        time: session.slot_time || `${session.startTime} - ${session.endTime}`,
-        status: session.status || "N/A",
-        id: session.id,
-      }
+      studentName: session.studentName || "N/A",
+      email: session.studentEmail || "N/A",
+      phone: session.studentPhone || "N/A",
+    
+      counsellorList: Array.isArray(session.counsellorList)
+        ? session.counsellorList.map((c) => capitalizeName(c.counsellor_name))
+        : [],
+
+      date: session.date ? dayjs(session.date).format("DD-MM-YYYY") : "N/A",
+      time: session.slot_time || `${session.startTime} - ${session.endTime}`,
+      status: session.status || "N/A",
+      id: session.id,
+    }
     : {};
 
   const noteExists =
@@ -170,83 +183,83 @@ useEffect(() => {
 
   /* REMOVE FILE */
 
-const handleRemoveFile = async (index) => {
-  const file = uploadedFiles[index];
-  const existingNote = notesState?.[session?.id];
+  const handleRemoveFile = async (index) => {
+    const file = uploadedFiles[index];
+    const existingNote = notesState?.[session?.id];
 
-  // If it's a newly uploaded file, remove locally
-  if (file.originFileObj) {
-    URL.revokeObjectURL(file.url);
-    const newFiles = [...uploadedFiles];
-    newFiles.splice(index, 1);
-    setUploadedFiles(newFiles);
-    return;
-  }
-
-  // If it's an existing file from server, call API to delete
-  if (existingNote?.id && file.key) {
-    try {
-      await dispatch(
-        deleteCounsellingFile({
-          bookingId: session.id,
-          noteId: existingNote.id,
-          fileKey: file.key, // 👈 use correct key from server
-        })
-      ).unwrap();
-
-      message.success("File deleted successfully");
-
+    // If it's a newly uploaded file, remove locally
+    if (file.originFileObj) {
+      URL.revokeObjectURL(file.url);
       const newFiles = [...uploadedFiles];
       newFiles.splice(index, 1);
       setUploadedFiles(newFiles);
+      return;
+    }
 
+    // If it's an existing file from server, call API to delete
+    if (existingNote?.id && file.key) {
+      try {
+        await dispatch(
+          deleteCounsellingFile({
+            bookingId: session.id,
+            noteId: existingNote.id,
+            fileKey: file.key, // 👈 use correct key from server
+          })
+        ).unwrap();
+
+        message.success("File deleted successfully");
+
+        const newFiles = [...uploadedFiles];
+        newFiles.splice(index, 1);
+        setUploadedFiles(newFiles);
+
+      } catch {
+        message.error("Failed to delete file");
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    const formData = new FormData();
+    formData.append("notes", discussion);
+
+    // Only append NEW uploaded files
+    uploadedFiles.slice(0, 5).forEach((file, index) => {
+      if (file.originFileObj) {
+        // New uploaded file
+        formData.append(`file${index + 1}`, file.originFileObj);
+      }
+    });
+
+    const existingNote = notesState?.[session?.id];
+
+    try {
+      if (existingNote?.id) {
+        await dispatch(
+          updateCounsellingNote({
+            bookingId: session.id,
+            noteId: existingNote.id,
+            payload: formData,
+          })
+        ).unwrap();
+
+        message.success("Notes updated successfully");
+      } else {
+        await dispatch(
+          createCounsellingNote({
+            bookingId: session.id,
+            payload: formData,
+          })
+        ).unwrap();
+
+        message.success("Notes saved successfully");
+      }
+
+      onClose();
     } catch {
-      message.error("Failed to delete file");
+      message.error("Failed to save notes");
     }
-  }
-};
-
-const handleSave = async () => {
-  const formData = new FormData();
-  formData.append("notes", discussion);
-
-  // Only append NEW uploaded files
-  uploadedFiles.slice(0, 5).forEach((file, index) => {
-    if (file.originFileObj) {
-      // New uploaded file
-      formData.append(`file${index + 1}`, file.originFileObj);
-    }
-  });
-
-  const existingNote = notesState?.[session?.id];
-
-  try {
-    if (existingNote?.id) {
-      await dispatch(
-        updateCounsellingNote({
-          bookingId: session.id,
-          noteId: existingNote.id,
-          payload: formData,
-        })
-      ).unwrap();
-
-      message.success("Notes updated successfully");
-    } else {
-      await dispatch(
-        createCounsellingNote({
-          bookingId: session.id,
-          payload: formData,
-        })
-      ).unwrap();
-
-      message.success("Notes saved successfully");
-    }
-
-    onClose();
-  } catch {
-    message.error("Failed to save notes");
-  }
-};
+  };
 
   return (
     <div style={{ padding: screens.xs ? 10 : 20 }}>
@@ -254,145 +267,150 @@ const handleSave = async () => {
 
 
       {/* HEADER */}
-    <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-  <Title level={screens.xs ? 5 : 4} style={{ margin: 0 }}>
-    Session Notes 
-   {showStudentName && sessionData.studentName
-  ? ` (${sessionData.studentName})`
-  : ""}
-  </Title>
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+        <Title level={screens.xs ? 5 : 4} style={{ margin: 0 }}>
+          Session Notes
+          {showStudentName && sessionData.studentName
+            ? ` (${sessionData.studentName})`
+            : ""}
+        </Title>
 
-  <Tag color="green">{sessionData.status}</Tag>
-</Row>
+        <Tag color="green">{sessionData.status}</Tag>
+      </Row>
 
-    <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
-      <Row gutter={[16, 16]}>
+      <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
+        <Row gutter={[16, 16]}>
 
-        {/* LEFT PANEL */}
-        {!hideSessionDetails && (
-          <Col xs={24} md={8}>
-            <Card bordered>
+          {/* LEFT PANEL */}
+          {!hideSessionDetails && (
+            <Col xs={24} md={8}>
+              <Card bordered>
 
-              <div style={{ textAlign: "center", marginBottom: 16 }}>
-                <Avatar size={80} icon={<UserOutlined />} />
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
+                  <Avatar size={80} icon={<UserOutlined />} />
 
-                <Title level={5} style={{ marginTop: 10 }}>
-                  {sessionData.studentName}
-                </Title>
+                  <Title level={5} style={{ marginTop: 10 }}>
+                    {sessionData.studentName}
+                  </Title>
 
-                <Text type="colorTextSecondary">{sessionData.email}</Text>
-              </div>
-
-              <Divider />
-
-              <Space direction="vertical">
-
-                <div>
-                  <Text strong>Mobile:</Text>
-                  <br />
-                  {sessionData.phone}
+                  <Text type="colorTextSecondary">{sessionData.email}</Text>
                 </div>
 
-                <div>
-                  <Text strong>Counsellor:</Text>
-                  <br />
-                  {sessionData.counsellorName}
-                </div>
-
-                <div>
-                  <CalendarOutlined /> {sessionData.date}
-                </div>
-
-                <div>
-                  <ClockCircleOutlined /> {sessionData.time}
-                </div>
-
-              </Space>
-
-            </Card>
-          </Col>
-        )}
-
-        {/* RIGHT PANEL */}
-        <Col xs={24} md={hideSessionDetails ? 24 : 16}>
-          <Card bordered>
-
-            <Title level={5}>Discussion Notes</Title>
-
-         {noteExists && (
-  <div style={{ textAlign: "right", marginBottom: 10 }}>
-    <Button icon={<DownloadOutlined />} onClick={downloadTextNotes}>
-      Download Notes
-    </Button>
-  </div>
-)}
-
-            {(!isViewMode || editMode || !noteExists) && (
-              <TextArea
-                rows={8}
-                value={discussion}
-                readOnly={isViewMode && !editMode && noteExists}
-                placeholder="Enter discussion notes..."
-                onChange={(e) => setDiscussion(e.target.value)}
-              />
-            )}
-
-            {/* FILE UPLOAD */}
-            {(!isViewMode || editMode || !noteExists) && (
-              <>
                 <Divider />
 
-                <Upload {...uploadProps}>
-                  <Button icon={<UploadOutlined />}>
-                    Upload PDF / Images
-                  </Button>
-                </Upload>
-              </>
-            )}
+                <Space direction="vertical">
 
-            {/* FILE LIST */}
-            <div style={{ marginTop: 15 }}>
-
-              {uploadedFiles.length === 0 && isViewMode && !editMode && (
-                <Empty description="No files uploaded" />
-              )}
-
-              {uploadedFiles.map((file, index) => (
-
-                <div
-                  key={index}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    background: "#f6f6f6",
-                    padding: 10,
-                    borderRadius: 6,
-                    marginBottom: 8,
-                  }}
-                >
-
-                  <div style={{ display: "flex", gap: 8 }}>
-
-                    {file.type === "application/pdf" ? (
-                      <FilePdfOutlined style={{ color: "red" }} />
+                  <div>
+                    <Text strong>Mobile:</Text>
+                    <br />
+                    {sessionData.phone}
+                  </div>
+                  <div>
+                    <Text strong>Counsellor:</Text>
+                    <br />
+                    {sessionData.counsellorList.length > 0 ? (
+                      sessionData.counsellorList.map((name, index) => (
+                        <div key={index}>{name}</div>
+                      ))
                     ) : (
-                      <FileImageOutlined style={{ color: "green" }} />
+                      <span>N/A</span>
                     )}
-
-                    {file.name}
-
                   </div>
 
-               <Space wrap>
+                  <div>
+                    <CalendarOutlined /> {sessionData.date}
+                  </div>
 
-                    <Button
-                      size="small"
-                      onClick={() => window.open(file.url)}
-                    >
-                      Preview
+                  <div>
+                    <ClockCircleOutlined /> {sessionData.time}
+                  </div>
+
+                </Space>
+
+              </Card>
+            </Col>
+          )}
+
+          {/* RIGHT PANEL */}
+          <Col xs={24} md={hideSessionDetails ? 24 : 16}>
+            <Card bordered>
+
+              <Title level={5}>Discussion Notes</Title>
+
+              {noteExists && (
+                <div style={{ textAlign: "right", marginBottom: 10 }}>
+                  <Button icon={<DownloadOutlined />} onClick={downloadTextNotes}>
+                    Download Notes
+                  </Button>
+                </div>
+              )}
+
+              {(!isViewMode || editMode || !noteExists) && (
+                <TextArea
+                  rows={8}
+                  value={discussion}
+                  readOnly={isViewMode && !editMode && noteExists}
+                  placeholder="Enter discussion notes..."
+                  onChange={(e) => setDiscussion(e.target.value)}
+                />
+              )}
+
+              {/* FILE UPLOAD */}
+              {(!isViewMode || editMode || !noteExists) && (
+                <>
+                  <Divider />
+
+                  <Upload {...uploadProps}>
+                    <Button icon={<UploadOutlined />}>
+                      Upload PDF / Images
                     </Button>
+                  </Upload>
+                </>
+              )}
 
-                    {/* <Button
+              {/* FILE LIST */}
+              <div style={{ marginTop: 15 }}>
+
+                {uploadedFiles.length === 0 && isViewMode && !editMode && (
+                  <Empty description="No files uploaded" />
+                )}
+
+                {uploadedFiles.map((file, index) => (
+
+                  <div
+                    key={index}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      background: "#f6f6f6",
+                      padding: 10,
+                      borderRadius: 6,
+                      marginBottom: 8,
+                    }}
+                  >
+
+                    <div style={{ display: "flex", gap: 8 }}>
+
+                      {file.type === "application/pdf" ? (
+                        <FilePdfOutlined style={{ color: "red" }} />
+                      ) : (
+                        <FileImageOutlined style={{ color: "green" }} />
+                      )}
+
+                      {file.name}
+
+                    </div>
+
+                    <Space wrap>
+
+                      <Button
+                        size="small"
+                        onClick={() => window.open(file.url)}
+                      >
+                        Preview
+                      </Button>
+
+                      {/* <Button
                       size="small"
                       icon={<DownloadOutlined />}
                       onClick={() => {
@@ -407,39 +425,39 @@ const handleSave = async () => {
                       Download
                     </Button> */}
 
-                    {(!isViewMode || editMode || !noteExists) && (
-                      <Button
-                        size="small"
-                        danger
-                        onClick={() => handleRemoveFile(index)}
-                      >
-                        Remove
-                      </Button>
-                    )}
+                      {(!isViewMode || editMode || !noteExists) && (
+                        <Button
+                          size="small"
+                          danger
+                          onClick={() => handleRemoveFile(index)}
+                        >
+                          Remove
+                        </Button>
+                      )}
 
-                  </Space>
+                    </Space>
 
-                </div>
+                  </div>
 
-              ))}
+                ))}
 
-            </div>
+              </div>
 
-            {/* ACTIONS */}
-           {/* ACTIONS - aligned right */}
-<div style={{ marginTop: 24, textAlign: "right" }}>
-  {(!isViewMode || editMode || !noteExists) && (
-    <Button type="primary" onClick={handleSave} style={{ marginRight: 8 }}>
-      {noteExists ? "Update Notes" : "Add Notes"}
-    </Button>
-  )}
-  <Button onClick={onClose}>Close</Button>
-</div>
+              {/* ACTIONS */}
+              {/* ACTIONS - aligned right */}
+              <div style={{ marginTop: 24, textAlign: "right" }}>
+                {(!isViewMode || editMode || !noteExists) && (
+                  <Button type="primary" onClick={handleSave} style={{ marginRight: 8 }}>
+                    {noteExists ? "Update Notes" : "Add Notes"}
+                  </Button>
+                )}
+                <Button onClick={onClose}>Close</Button>
+              </div>
 
-          </Card>
-        </Col>
-        
-      </Row>
+            </Card>
+          </Col>
+
+        </Row>
       </div>
     </div>
   );

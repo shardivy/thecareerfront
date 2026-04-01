@@ -10,12 +10,15 @@ const { useToken } = theme;
 const JourneySteps = ({
   currentStep = 0,
   showExamAndReport = true,
+  engineeringTestAnalysis = false,
   isFreeUser = false,
   progressData = {},
   journeyLoading = false,
 }) => {
   const navigate = useNavigate();
   const { token } = useToken();
+
+
 
   // Define journey steps based on conditions
   const getJourneySteps = () => {
@@ -27,6 +30,10 @@ const JourneySteps = ({
 
     if (showExamAndReport) {
       steps.push("Exam", "Report");
+    }
+
+    if (engineeringTestAnalysis) {
+      steps.push("Questionnaire", "Analysis Report");
     }
 
     steps.push(
@@ -53,7 +60,17 @@ const JourneySteps = ({
         return progressData.exam === "completed";
       case "Report":
         return progressData.report === "received_unlocked";
+      case "Questionnaire":
+        return progressData.analysis === "completed" || progressData.analysis === "in_progress";
+
+      case "Analysis Report":
+        return progressData.analysis === "completed";
       case "Counselling Slot Booking":
+        return (
+          progressData.counselling_slot_booking === "booked" ||
+          progressData.counselling_slot_booking === "rescheduled" ||
+          progressData.counselling_slot_booking === "completed"
+        );
       //   return progressData.counselling_slot_booking === true;
       // case "Review":
       // return progressData.review === true;
@@ -73,6 +90,13 @@ const JourneySteps = ({
         return progressData.report === "received_locked";
       case "Payment":
         return progressData.payment === "partial_paid";
+      case "Counselling Slot Booking":
+        return progressData.counselling_slot_booking === "pending" || progressData.counselling_slot_booking === "not_booked";
+      case "Questionnaire":
+        return progressData.analysis === "in_progress";
+
+      case "Analysis Report":
+        return progressData.analysis === "in_progress";
       default:
         return false;
     }
@@ -100,8 +124,9 @@ const JourneySteps = ({
     const isPartialPayment = label === "Payment" && progressData.payment === "partial_paid";
     const isInProgress = isStepInProgress(label);
     const isActive = stepNo === currentStep + 1;
-
-    if (stepNo < currentStep + 1 || isPartialPayment || isInProgress || isActive) {
+    const isCompleted = isStepCompleted(label);
+    
+    if (stepNo < currentStep + 1 || isPartialPayment || isInProgress || isActive || isCompleted) {
       return "100%";
     }
     return "0%";
@@ -127,6 +152,12 @@ const JourneySteps = ({
         case "Report":
           navigate("/student/report-management");
           break;
+        case "Questionnaire":
+          navigate("/student/engineering-questionnaires");
+          break;
+        case "Analysis Report":
+          navigate("/student/analysis-report");
+          break;
         case "Counselling Slot Booking":
           navigate("/student/slot-booking");
           break;
@@ -151,6 +182,11 @@ const JourneySteps = ({
       return `${label} - In Progress`;
     if (label === "Report" && progressData.report === "received_locked")
       return `${label} - Locked`;
+    if (label === "Questionnaire" && progressData.analysis === "in_progress")
+      return `${label} - In Progress`;
+
+    if (label === "Analysis Report" && progressData.report === "completed")
+      return `${label} - Completed`;
     return `${label} - Pending`;
   };
 

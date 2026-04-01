@@ -16,6 +16,7 @@ import {
   Spin,
   ConfigProvider,
   message,
+  Modal,
 } from "antd";
 import {
   VideoCameraOutlined,
@@ -42,6 +43,7 @@ const [mode, setMode] = useState(preferredMode);
   const [selectedNormalCounsellor, setSelectedNormalCounsellor] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [slotFilter, setSlotFilter] = useState("all");
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
 
   // ================= REDUX STATE =================
   const students = useSelector((state) => state.users.list ?? []);
@@ -66,19 +68,37 @@ const [mode, setMode] = useState(preferredMode);
 
 
   // ================= PREFILL RESCHEDULE =================
-  useEffect(() => {
-    if (!rescheduleData) return;
+useEffect(() => {
+  if (!rescheduleData) return;
 
-    setMode(rescheduleData.mode);
-    setSelectedSlot(rescheduleData.slot || null);
-    setSelectedDate(rescheduleData.date ? dayjs(rescheduleData.date) : null);
+  setMode(rescheduleData.mode);
+  setSelectedSlot(rescheduleData.slot || null);
 
-    const lead = rescheduleData.counsellors?.find((c) => c.role === "lead");
-    const assistant = rescheduleData.counsellors?.find((c) => c.role === "assistant");
+  let parsedDate = null;
 
-    setSelectedLeadCounsellor(lead?.counsellor.id || null);
-    setSelectedNormalCounsellor(assistant?.counsellor.id || null);
-  }, [rescheduleData]);
+  if (rescheduleData.date) {
+    // Try normal parsing first
+    parsedDate = dayjs(rescheduleData.date);
+
+    // If invalid → try known formats (WITHOUT changing backend)
+    if (!parsedDate.isValid()) {
+      parsedDate = dayjs(rescheduleData.date, "DD-MM-YYYY");
+    }
+  }
+
+  // ✅ Final fallback → current date
+  if (!parsedDate || !parsedDate.isValid()) {
+    parsedDate = dayjs();
+  }
+
+  setSelectedDate(parsedDate);
+
+  const lead = rescheduleData.counsellors?.find((c) => c.role === "lead");
+  const assistant = rescheduleData.counsellors?.find((c) => c.role === "assistant");
+
+  setSelectedLeadCounsellor(lead?.counsellor.id || null);
+  setSelectedNormalCounsellor(assistant?.counsellor.id || null);
+}, [rescheduleData]);
 
   // ================= FETCH SLOTS WHEN LEAD COUNSELLOR OR DATE CHANGES =================
   useEffect(() => {
@@ -178,7 +198,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
     dispatch(action)
       .unwrap()
       .then(() => {
-        message.success(rescheduleData ? "Session updated successfully" : "Session booked successfully");
+        message.success(rescheduleData ? "Session booked successfully" : "Session booked successfully");
         closeModal();
         onSave?.();
       })
@@ -383,14 +403,49 @@ const filteredSlots = slotsByDate.filter((slot) => {
                   block
                   disabled={!selectedSlot || !selectedLeadCounsellor}
                   loading={bookingLoading}
-                  onClick={handleConfirm}
+                 onClick={() => setConfirmModalOpen(true)}
                 >
-                  {rescheduleData ? "Confirm Reschedule" : "Confirm Booking"}
+                  {/* {rescheduleData ? "Confirm Reschedule" : "Confirm Booking"} */}
+                   {rescheduleData ? "Confirm Booking" : "Confirm Booking"}
                 </Button>
               </Space>
             </Card>
           </Col>
         </Row>
+
+<Modal
+  open={confirmModalOpen}
+  onCancel={() => setConfirmModalOpen(false)}
+  onOk={() => {
+    setConfirmModalOpen(false);
+    handleConfirm();
+  }}
+  okText="Yes, I Understand"
+  cancelText="Cancel"
+  // title={rescheduleData ? "Confirm Reschedule" : "Confirm Booking"}
+    title={rescheduleData ? "Confirm Booking" : "Confirm Booking"}
+>
+  <div style={{ lineHeight: 1.6 }}>
+    <p style={{ fontWeight: "bold", color: "#cf1322" }}>
+      🛑🛑 Important 🛑🛑
+    </p>
+
+    <p>
+      <b>Please note 👇</b>
+    </p>
+
+    <p>
+      If you cancel your existing counselling slot which is booked by you for
+      any reason, it will be treated as a fresh appointment booking. You will
+      likely get a later appointment after <b>8 to 10 days</b>, and timing will
+      depend on availability 😊.
+    </p>
+
+    <p>
+      We request your support and cooperation for the same.
+    </p>
+  </div>
+</Modal>
       </div>
     </ConfigProvider>
   );

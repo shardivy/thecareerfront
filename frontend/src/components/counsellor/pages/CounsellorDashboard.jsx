@@ -92,6 +92,7 @@ const { studentProfile, loading: profileLoading } = useSelector(
       studentEmail: item.student_email,
       studentPhone: item.student_phone,       
       counsellorName: item.counsellor_name,
+        counsellorList: item.counsellor_name,
       date: item.date,
       startTime,
       endTime,

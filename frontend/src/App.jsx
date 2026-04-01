@@ -45,6 +45,11 @@ import SessionsHistory from "./components/ui-ux/pages/SessionsHistory";
 import ChangePassword from "./components/admin/pages/ChangePassword";
 import HHLogin from "./components/HHLogin";
 import HHRegister from "./components/HHRegister";
+import CollegeListAnalysis from "./components/admin/pages/CollegeListAnalysis";
+import EngineeringQuestionaries from "./components/student/pages/EngineeringQuestionaries";
+import HandholdingManagement from "./components/admin/pages/HandholdingManagement";
+import AptitudeAnalysisReports from "./components/student/pages/AptitudeAnalysisReports";
+
 
 
 
@@ -86,6 +91,8 @@ const App = () => {
           <Route path="student-profile" element={<StudentProfile />} />
           <Route path="payments" element={<StudentPayments />} />
           <Route path="payment-page" element={<PaymentPage />} />
+          <Route path="engineering-questionnaires" element={<EngineeringQuestionaries />} />
+          <Route path="analysis-report" element={<AptitudeAnalysisReports/>} />
         </Route>
 
 
@@ -106,6 +113,9 @@ const App = () => {
           <Route path="notificationManagement" element={<NotificationManagement />} />
           <Route path="profile" element={<Profile />} />
           <Route path="examlist" element={<ExamList />} />
+          <Route path="collegeListAnalysis" element={<CollegeListAnalysis />} />
+          <Route path="hhManagement" element={<HandholdingManagement />} />
+       
 
             {/* ===================== counsellor ROUTES ===================== */}
      

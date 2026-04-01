@@ -41,9 +41,10 @@ const journeySteps =
     "Payment",
     "Exam",
     "Report",
-    "Partial Report",
+    "Questionnaire",
+    "Analysis Report",
     "Counselling Slot Booking",
-    "Full Report",
+
     // "Review",
     "Full Access",
   ]
@@ -56,6 +57,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
   const dispatch = useDispatch();
   const { journey, journeyLoading } = useSelector((state) => state.users);
 
+const engineeringTestAnalysis = journey?.engineering_test_analysis;
 
 
   useEffect(() => {
@@ -76,6 +78,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
 
   const currentStep = progressData.current_step || 1;
   const isPartialPayment = progressData.payment === "partial_paid";
+  const isJourneyCompleted = progressData.full_access === true;
 
   const displayName =
     (user.name && user.name.toString().trim()) ||
@@ -245,13 +248,13 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   return null;
                 }
 
-                // Only Engineering should see Partial & Full Report
-                if (
-                  user.program !== "Engineering" &&
-                  (label === "Partial Report" || label === "Full Report")
-                ) {
-                  return null;
-                }
+                // ✅ SHOW Questionnaire & Analysis Report ONLY if flag is true
+             if (
+  !engineeringTestAnalysis &&
+  (label === "Questionnaire" || label === "Analysis Report")
+) {
+  return null;
+}
 
 
 
@@ -268,6 +271,12 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   (label === "Payment" && progressData.payment === "fully_paid") ||
                   (label === "Exam" && progressData.exam === "completed") ||
                   (label === "Report" && progressData.report === "received_unlocked") ||
+                    (label === "Questionnaire" &&
+    (progressData.analysis === "completed" || progressData.analysis === "in_progress")) ||
+
+  (label === "Analysis Report" &&
+    progressData.analysis === "completed") ||
+
                   (label === "Counselling Slot Booking" &&
                     ["booked", "rescheduled", "completed"].includes(
                       progressData.counselling_slot_booking
@@ -294,6 +303,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
                 // Connector width
                 let progressWidth = "0%";
                 if (
+                   isJourneyCompleted ||
                   stepNo < currentStep ||
                   (isPaymentStep && isPartialPayment) ||
                   (isExamStep && progressData.exam === "in_progress") ||
@@ -411,9 +421,9 @@ const UserProfileModal = ({ open, onClose, user }) => {
                     const status = item.status?.toLowerCase();
 
                     if (!status || status === "pending") return false;
-                   if (item.step === "Counselling Slot Booking" && status === "not_booked") {
-    return false;
-  }
+                    if (item.step === "Counselling Slot Booking" && status === "not_booked") {
+                      return false;
+                    }
                     if (item.step === "Exam" && progressData.exam === "not_applicable") {
                       return false;
                     }
