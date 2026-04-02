@@ -292,6 +292,7 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     mode = serializers.CharField(source="slot.mode", read_only=True)
     report_file = serializers.SerializerMethodField()
     aptitude_test = serializers.SerializerMethodField()
+    engineering_test_analysis = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -310,6 +311,7 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             "status",
             "report_file",
             "aptitude_test",
+            "engineering_test_analysis",
         ]
         
     def get_report_file(self, obj):
@@ -386,6 +388,14 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
         return UserProgramPackage.objects.filter(
             user=student_user,
             package__aptitude_test=True
+        ).exists()
+        
+    def get_engineering_test_analysis(self, obj):
+        student_user = obj.student.user
+
+        return UserProgramPackage.objects.filter(
+            user=student_user,
+            package__engineering_test_analysis=True
         ).exists()
     
 class CounsellingNoteSerializer(serializers.ModelSerializer):

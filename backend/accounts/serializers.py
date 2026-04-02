@@ -4,7 +4,7 @@ from accounts.models import Permission, Role, RolePermission, User
 from exam.models import UserExam
 from lead_registration.models import StudentProfile
 from payment.models import Payment
-from program_package.models import PackageExam, UserProgramPackage
+from program_package.models import CollegeListAnalysis, PackageExam, UserProgramPackage
 from counselling_slot.models import Booking
 from report.models import Report
 from django.urls import reverse
@@ -175,8 +175,9 @@ class StudentListSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source="user.first_name")
     last_name = serializers.CharField(source="user.last_name")
     email = serializers.EmailField(source="user.email")
-    phone = serializers.CharField(source="user.phone")
+    phone = serializers.CharField(source="user.phone")  
     preferred_counselling_mode = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(read_only=True)
     program_id = serializers.SerializerMethodField()
     program_name = serializers.SerializerMethodField()
     package_id = serializers.SerializerMethodField()
@@ -184,7 +185,7 @@ class StudentListSerializer(serializers.ModelSerializer):
     price = serializers.SerializerMethodField()
     payment_status = serializers.SerializerMethodField()
     payment_type = serializers.SerializerMethodField()
-    created_at = serializers.DateTimeField()
+    # created_at = serializers.DateTimeField()
     method = serializers.SerializerMethodField()
     transaction_id = serializers.SerializerMethodField()
     amount = serializers.SerializerMethodField()
@@ -193,6 +194,7 @@ class StudentListSerializer(serializers.ModelSerializer):
     # is_report_locked = serializers.SerializerMethodField()
     report_status = serializers.SerializerMethodField()
     exam_status = serializers.SerializerMethodField()
+    analysis_status = serializers.SerializerMethodField()
     slot_status = serializers.SerializerMethodField()
     full_access = serializers.SerializerMethodField()
     aptitude_test = serializers.SerializerMethodField()
@@ -206,6 +208,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             "email",
             "phone",
             "preferred_counselling_mode",
+            "created_at",
             "study_class",
             "current_academic_stage",
             "city",
@@ -217,7 +220,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             "aptitude_test", 
             "payment_status",
             "payment_type",
-            "created_at",
+            # "created_at",
             "method",
             "transaction_id",
             "amount",
@@ -226,6 +229,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             # "is_report_locked",
             "report_status",
             "exam_status",
+            "analysis_status",
             "slot_status",
             "full_access",
         ]
@@ -302,9 +306,9 @@ class StudentListSerializer(serializers.ModelSerializer):
         payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
         return payment.payment_type if payment else None
     
-    def get_created_at(self, obj):
-        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
-        return payment.created_at if payment else None
+    # def get_created_at(self, obj):
+    #     payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+    #     return payment.created_at if payment else None
     
     def get_method(self, obj):
         payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
@@ -409,6 +413,31 @@ class StudentListSerializer(serializers.ModelSerializer):
             "pending_approval": qs.filter(status="pending_approval").count(),
             "not_started": qs.filter(status="not_started").count(),
         }
+    
+    def get_analysis_status(self, obj):
+        upp = (
+            UserProgramPackage.objects
+            .filter(user=obj.user)
+            .select_related("package")
+            .last()
+        )
+
+        # ❌ Not applicable
+        if not upp or not upp.package or not upp.package.engineering_test_analysis:
+            return "not_applicable"
+
+        # ✅ Fetch from CollegeListAnalysis
+        analysis = (
+            CollegeListAnalysis.objects
+            .filter(user=obj.user)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not analysis:
+            return "not_started"
+
+        return analysis.status
         
     # def get_slot_status(self, obj):
     #     booking = (

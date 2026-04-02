@@ -307,8 +307,10 @@ class CollegeListAnalysisSerializer(serializers.ModelSerializer):
             .order_by("-uploaded_at")
             .first()
         )
+        if not report or not report.report_status:
+            return "not_received"
 
-        return report.report_status if report else None
+        return report.report_status 
     
 class QuestionAnswerSerializer(serializers.ModelSerializer):
 
