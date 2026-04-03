@@ -1,6 +1,6 @@
 from django.urls import path
 
-from report.views import CompletedExamReportAPIView, CompletedExamReportExportExcelAPIView, CompletedExamReportExportPDFAPIView, CompletedExamReportStudentIDAPIView, EngineeringReportUploadAPIView, EngineeringTestAnalysisReportAPIView, ReportPDFView, ReportStatusCountAPIView, UploadReportAPIView
+from report.views import CompletedExamReportAPIView, CompletedExamReportExportExcelAPIView, CompletedExamReportExportPDFAPIView, CompletedExamReportStudentIDAPIView, EngineeringReportUploadAPIView, EngineeringTestAnalysisReportAPIView, GetReviewStatusAPIView, ReportPDFView, ReportStatusCountAPIView, ReviewStartByStudentAPIView, SubmitReviewAPIView, UploadReportAPIView
 
 
 
@@ -19,4 +19,11 @@ urlpatterns = [
     path('engineering/reports/completed-exams/', EngineeringTestAnalysisReportAPIView.as_view(), name='engineering-completed-exams'),
     path('engineering/upload/<int:report_id>/', EngineeringReportUploadAPIView.as_view(), name='engineering-report-upload'),
 
+
+    # =================== New API for Report Review =================
+    
+    path('review/start-by-student/', ReviewStartByStudentAPIView.as_view(), name='review-start-by-student'),
+    path('review/submit/<int:review_id>/', SubmitReviewAPIView.as_view(), name='submit-review'),
+    path('review/status/<int:student_id>/', GetReviewStatusAPIView.as_view(), name='review-status'),
+    
 ]

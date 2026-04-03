@@ -29,6 +29,7 @@ from program_package.models import CollegeListAnalysis, PackageExam, Program, Us
 from report.models import Report, Review
 
 
+
 logger = logging.getLogger('lead_registration')
 
 # # class StudentRegisterAPIView(APIView):
@@ -3105,17 +3106,45 @@ class UserJourneyAPIView(APIView):
                 "details": "Slot not booked"
             })
 
+        # # ================================
+        # # 6️⃣ REVIEW
+        # # ================================
+        # review_status = True
+
+        # history.append({
+        #     "step": "Review",
+        #     "status": "completed",
+        #     "date": None,
+        #     "details": "Review bypassed"
+        # })
         # ================================
         # 6️⃣ REVIEW
         # ================================
-        review_status = True
+        review = (
+            Review.objects
+            .filter(user=student.user)
+            .order_by("-created_at")
+            .first()
+        )
 
-        history.append({
-            "step": "Review",
-            "status": "completed",
-            "date": None,
-            "details": "Review bypassed"
-        })
+        if review:
+            review_status = review.review_status
+
+            history.append({
+                "step": "Review",
+                "status": review.review_status,
+                "date": review.created_at,
+                "details": f"Review status: {review.review_status}"
+            })
+        else:
+            review_status = "not_submitted"
+
+            history.append({
+                "step": "Review",
+                "status": "not_submitted",
+                "date": None,
+                "details": "Review not submitted yet"
+            })
 
         # ================================
         # FULL ACCESS

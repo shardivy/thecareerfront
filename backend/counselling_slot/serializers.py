@@ -428,26 +428,32 @@ class CounsellingNoteSerializer(serializers.ModelSerializer):
 
         return note
 
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
+class CounsellorBookingSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    email = serializers.EmailField(source="student.user.email")
+    phone = serializers.CharField(source="student.user.phone")
+    preferred_mode = serializers.CharField(source="student.preferred_counselling_mode")
+    slot_date = serializers.DateField(source="slot.date")
+    start_time = serializers.CharField(source="slot.start_time")
+    end_time = serializers.CharField(source="slot.end_time")
 
-    #     request = self.context.get("request")
+    class Meta:
+        model = Booking
+        fields = [
+            "id",
+            "student_name",
+            "email",
+            "phone",
+            "preferred_mode",
+            "status",
+            "slot_date",
+            "start_time",
+            "end_time",
+            "created_at",
+        ]
 
-    #     representation["booking_id"] = instance.booking.id if instance.booking else None
-
-    #     file_urls = []
-
-    #     file_fields = ["file1", "file2", "file3", "file4", "file5"]
-
-    #     for field in file_fields:
-    #         file = getattr(instance, field)
-
-    #         if file and request:
-    #             file_urls.append(request.build_absolute_uri(file.url))
-
-    #     representation["file_urls"] = file_urls
-
-    #     return representation
+    def get_student_name(self, obj):
+        return f"{obj.student.user.first_name} {obj.student.user.last_name}"
 
 
 

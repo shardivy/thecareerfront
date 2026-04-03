@@ -32,13 +32,22 @@ class Review(models.Model):
         ('certificate', 'Certificate'),
         ('paid_doc', 'Paid Document'),
     )
+    STATUSCHOICES = (
+        ('not_submitted', 'Not Submitted'),
+        ('in_process', 'In Process'),
+        ('pending_approval', 'Pending Approval'),
+        ('submitted', 'Submitted'),
+    )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    related_type = models.CharField(max_length=20, choices=RELATED_TYPE_CHOICES)
-    related_id = models.PositiveIntegerField()
-    review_text = models.TextField()
-    rating = models.IntegerField()
+    related_type = models.CharField(max_length=20, choices=RELATED_TYPE_CHOICES, null=True, blank=True)
+    
+    review_status = models.CharField(max_length=20, choices=STATUSCHOICES, default='not_submitted')
+    related_id = models.PositiveIntegerField(null=True, blank=True)
+    review_text = models.TextField(null=True, blank=True)
+    rating = models.IntegerField(null=True, blank=True)
     is_shared = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 

@@ -26,7 +26,7 @@ from django.db.models import Count, Q
 
 from report.serializers import CompletedExamReportSerializer, EngineeringTestAnalysisReportSerializer
 from exam.models import UserExam
-from report.models import Report
+from report.models import Report, Review
 
 # class CompletedExamReportAPIView(APIView):
 #     """
@@ -807,3 +807,100 @@ class EngineeringReportUploadAPIView(APIView):
 
     def put(self, request, report_id):
         return self.handle_upload(request, report_id)
+    
+    
+# ======================= Review APIView =======================
+
+class ReviewStartByStudentAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        student_id = request.data.get("student_id")
+
+        if not student_id:
+            return Response(
+                {"message": "student_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ✅ Get student
+        try:
+            student = StudentProfile.objects.get(id=student_id)
+        except StudentProfile.DoesNotExist:
+            return Response(
+                {"message": "Student not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ✅ Create review using linked user
+        review = Review.objects.create(
+            user=student.user,   # ✅ CORRECT
+            review_status='in_process'
+        )
+
+        return Response({
+            "message": "Review created and started successfully",
+            "review_id": review.id,
+            "review_status": review.review_status
+        }, status=status.HTTP_201_CREATED)
+        
+class SubmitReviewAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, review_id):
+        try:
+            review = Review.objects.get(id=review_id)
+        except Review.DoesNotExist:
+            return Response(
+                {"message": "Review not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ✅ Only allow transition from in_process → submitted
+        if review.review_status != 'in_process':
+            return Response({
+                "message": f"Cannot submit review in '{review.review_status}' state"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # ✅ Update fields (optional)
+        review.review_text = request.data.get("review_text", review.review_text)
+        review.rating = request.data.get("rating", review.rating)
+
+        # ✅ Change status
+        review.review_status = 'submitted'
+        review.save()
+
+        return Response({
+            "message": "Review submitted successfully",
+            "review_id": review.id,
+            "review_status": review.review_status
+        }, status=status.HTTP_200_OK)
+        
+class GetReviewStatusAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+        # ✅ Get student
+        try:
+            student = StudentProfile.objects.get(id=student_id)
+        except StudentProfile.DoesNotExist:
+            return Response(
+                {"message": "Student not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ✅ Get latest review
+        review = Review.objects.filter(user=student.user).order_by("-updated_at").first()
+
+        if not review:
+            return Response({
+                "message": "No review found",
+                "review_status": "not_submitted"
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "review_id": review.id,
+            "review_status": review.review_status,
+            # "rating": review.rating,
+            # "review_text": review.review_text
+        }, status=status.HTTP_200_OK)

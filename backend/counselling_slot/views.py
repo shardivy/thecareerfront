@@ -13,6 +13,8 @@ from django.db import transaction
 from collections import defaultdict
 from datetime import timedelta
 from django.utils.timezone import now
+from calendar import monthrange
+from django.db.models import Count
 
 from datetime import datetime
 from django.utils import timezone
@@ -30,7 +32,7 @@ from accounts.models import User
 from django.db import IntegrityError
 from accounts.permissions import IsAdmin, IsCounsellor, IsSuperAdmin
 from counselling_slot.models import Booking, BookingCounsellor, CounsellingNote, CounsellingNote, Counsellor, Slot
-from counselling_slot.serializers import AddCounsellorSerializer, BookingCreateSerializer, BookingReadSerializer, CounsellingNoteSerializer, CounsellorListSerializer, CounsellorResponseSerializer, CounsellorStudentBookingSerializer, LeadCounsellorUserSerializer, SlotCreateSerializer, SlotResponseSerializer, SlotUpdateSerializer, StudentBookingSerializer, UserBasicSerializer
+from counselling_slot.serializers import AddCounsellorSerializer, BookingCreateSerializer, BookingReadSerializer, CounsellingNoteSerializer, CounsellorBookingSerializer, CounsellorListSerializer, CounsellorResponseSerializer, CounsellorStudentBookingSerializer, LeadCounsellorUserSerializer, SlotCreateSerializer, SlotResponseSerializer, SlotUpdateSerializer, StudentBookingSerializer, UserBasicSerializer
  
 # ============================ New Code Below =========================
 
@@ -2200,13 +2202,133 @@ class CounsellorDashboardCountAPIView(APIView):
             "period": period
         }, status=status.HTTP_200_OK)
 
+class CounsellorMonthAPIView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        try:
+            year = int(request.GET.get("year"))
+            month = int(request.GET.get("month"))
+        except (TypeError, ValueError):
+            return Response({
+                "success": False,
+                "message": "Invalid year or month parameters"
+            }, status=400)
 
+        start_date = datetime(year, month, 1).date()
+        end_day = monthrange(year, month)[1]
+        end_date = datetime(year, month, end_day).date()
 
+        # STEP 1: Get ALL bookings via BookingCounsellor with optimized queries
+        booking_links = BookingCounsellor.objects.select_related(
+            "booking__student__user",
+            "booking__slot",
+            "counsellor__user"
+        ).filter(
+            booking__slot__date__range=[start_date, end_date],
+            booking__status__in=["booked", "rescheduled"]
+        ).exclude(
+            booking__slot__isnull=True  # Use exclude instead of filter with isnull=False
+        )
 
+        # Debug: Print query info (remove in production)
+        print(f"Found {booking_links.count()} booking links for period {start_date} to {end_date}")
+        
+        # STEP 2: DATA MAP (date → counsellor → bookings)
+        data_map = defaultdict(lambda: defaultdict(list))
+        
+        # Store counsellor objects to avoid repeated DB queries
+        counsellor_cache = {}
 
+        for link in booking_links:
+            booking = link.booking
+            slot = booking.slot
+            
+            if not slot:  # Skip if slot is None
+                continue
+                
+            counsellor = link.counsellor
+            
+            # Cache counsellor object
+            if counsellor.id not in counsellor_cache:
+                counsellor_cache[counsellor.id] = counsellor
+            
+            date = slot.date
+            
+            # Get student name safely
+            student_name = "Unknown"
+            if booking.student and booking.student.user:
+                student_name = f"{booking.student.user.first_name} {booking.student.user.last_name}".strip()
+                if not student_name:
+                    student_name = booking.student.user.email or "No Name"
+            
+            data_map[date][counsellor.id].append({
+                "booking_id": booking.id,
+                "student_name": student_name,
+                "student_email": booking.student.user.email if booking.student and booking.student.user else "N/A",
+                "preferred_mode": booking.student.preferred_counselling_mode if booking.student else "Not specified",
+                "status": booking.status,
+                "start_time": slot.start_time,
+                "end_time": slot.end_time,
+                "slot_mode": slot.mode,  # Added slot mode
+                "meeting_link": booking.meeting_link,  # Added meeting link
+            })
 
+        # STEP 3: FINAL RESPONSE
+        response_data = []
 
+        for day in range(1, end_day + 1):
+            current_date = datetime(year, month, day).date()
+            
+            counsellors_data = []
+            
+            # Get counsellors for this date
+            for counsellor_id, bookings_list in data_map.get(current_date, {}).items():
+                counsellor = counsellor_cache.get(counsellor_id)
+                
+                if not counsellor:
+                    try:
+                        counsellor = Counsellor.objects.select_related("user").get(id=counsellor_id)
+                        counsellor_cache[counsellor_id] = counsellor
+                    except ObjectDoesNotExist:
+                        continue
+                
+                counsellor_name = "Unknown"
+                if counsellor.user:
+                    counsellor_name = f"{counsellor.user.first_name} {counsellor.user.last_name}".strip()
+                    if not counsellor_name:
+                        counsellor_name = counsellor.user.email or f"Counsellor {counsellor_id}"
+                
+                # Sort bookings by start_time if available
+                bookings_list_sorted = sorted(bookings_list, key=lambda x: x.get('start_time', ''))
+                
+                counsellors_data.append({
+                    "counsellor_id": counsellor.id,
+                    "counsellor_name": counsellor_name,
+                    "total_bookings": len(bookings_list_sorted),
+                    "bookings": bookings_list_sorted
+                })
+            
+            # Sort counsellors by name
+            counsellors_data.sort(key=lambda x: x['counsellor_name'])
+            
+            total_bookings = sum(c["total_bookings"] for c in counsellors_data)
+            
+            response_data.append({
+                "date": current_date,
+                "total_counsellors": len(counsellors_data),
+                "total_bookings": total_bookings,
+                "counsellors": counsellors_data
+            })
+
+        return Response({
+            "success": True,
+            "data": response_data,
+            "debug_info": {  # Optional: remove in production
+                "total_booking_links_found": booking_links.count(),
+                "date_range": f"{start_date} to {end_date}"
+            }
+        })
 
 
 
