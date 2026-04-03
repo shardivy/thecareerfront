@@ -62,6 +62,7 @@ const CollegeListAnalysis = () => {
     const [pageSize, setPageSize] = useState(5);
     const [reportFilter, setReportFilter] = useState(null);
 
+
     const [form] = Form.useForm();
 
     const dispatch = useDispatch();
@@ -108,7 +109,7 @@ const CollegeListAnalysis = () => {
     const renderStatus = (status) => {
         const statusMap = {
             completed: { color: "success", label: "Completed" },
-            pending: { color: "warning", label: "Pending" },
+            in_progress: { color: "processing", label: "In Progress" },
             rejected: { color: "error", label: "Rejected" },
             not_started: { color: "default", label: "Not Started" },
         };
@@ -176,10 +177,14 @@ const CollegeListAnalysis = () => {
             email.includes(searchText.toLowerCase());
 
         const matchesReport =
-            !reportFilter || item?.report_status === reportFilter; // ✅ NEW
+            !reportFilter || item?.report_status === reportFilter;
 
-        return matchesSearch && matchesReport;
+        const matchesStatus =
+            !statusFilter || item?.analysis_status === statusFilter; // ✅ ADD THIS
+
+        return matchesSearch && matchesReport && matchesStatus; // ✅ include it
     });
+
     /* ================= HANDLERS ================= */
 
     const openAddModal = () => {
@@ -260,7 +265,7 @@ const CollegeListAnalysis = () => {
         {
             title: "Sr. No",
             width: 90,
-            render: (_, __, index) => index + 1,
+            render: (_, __, index) => (currentPage - 1) * pageSize + index + 1
         },
         {
             title: "Question",
@@ -304,7 +309,7 @@ const CollegeListAnalysis = () => {
         {
             title: "Sr. No",
             width: 60,
-            render: (_, __, index) => index + 1,
+            render: (_, __, index) => (currentPage - 1) * pageSize + index + 1,
         },
 
         /* 🔹 NAME + EMAIL */
@@ -409,7 +414,7 @@ const CollegeListAnalysis = () => {
     const analysisColumns = [
         {
             title: "Sr. No",
-            render: (_, __, index) => index + 1,
+            render: (_, __, index) => (currentPage - 1) * pageSize + index + 1
         },
         {
             title: "Username / Email",
@@ -610,8 +615,8 @@ const CollegeListAnalysis = () => {
                                     placeholder="Questionnaire Status"
                                     allowClear
                                     options={[
-                                        { label: "Pending", value: "pending" },
                                         { label: "Not Started", value: "not_started" },
+                                        { label: "In Progress", value: "in_progress" },
                                         { label: "Completed", value: "completed" },
                                     ]}
                                 />
@@ -620,20 +625,42 @@ const CollegeListAnalysis = () => {
                     )}
 
                     {activeTab === "analysis" && (
-                        <Col xs={24} sm={12} md={6}>
-                            <Select
-                                value={reportFilter}
-                                onChange={(value) => setReportFilter(value)}
-                                style={{ width: "100%" }}
-                                placeholder="Filter by Report Status"
-                                allowClear
-                                options={[
-                                    { label: "Not Received", value: "not_received" },
-                                    { label: "Received & Unlocked", value: "received_unlocked" },
-                                    { label: "Received & Locked", value: "received_locked" },
-                                ]}
-                            />
-                        </Col>
+                        <>
+
+                            {/* ✅ QUESTIONNAIRE STATUS */}
+                            <Col xs={24} sm={12} md={6}>
+                                <Select
+                                    value={statusFilter}
+                                    onChange={(value) => setStatusFilter(value)}
+                                    style={{ width: "100%" }}
+                                    placeholder="Questionnaire Status"
+                                    allowClear
+                                    options={[
+                                        { label: "Not Started", value: "not_started" },
+                                        { label: "In Progress", value: "in_progress" },
+                                        { label: "Completed", value: "completed" },
+                                    ]}
+                                />
+                            </Col>
+
+                            {/* REPORT STATUS */}
+                            <Col xs={24} sm={12} md={6}>
+                                <Select
+                                    value={reportFilter}
+                                    onChange={(value) => setReportFilter(value)}
+                                    style={{ width: "100%" }}
+                                    placeholder="Report Status"
+                                    allowClear
+                                    options={[
+                                        { label: "Not Received", value: "not_received" },
+                                        { label: "Received & Unlocked", value: "received_unlocked" },
+                                        { label: "Received & Locked", value: "received_locked" },
+                                    ]}
+                                />
+                            </Col>
+
+
+                        </>
                     )}
 
                     {/* ➕ ADD BUTTON */}
@@ -716,6 +743,7 @@ const CollegeListAnalysis = () => {
                 mode={reportMode}
                 onSuccess={() => {
                     dispatch(fetchCollegeAnalysis());
+                    dispatch(fetchCompletedReports());
                 }}
             />
         </div>

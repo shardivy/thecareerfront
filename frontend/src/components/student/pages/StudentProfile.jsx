@@ -886,6 +886,7 @@ const StudentProfile = () => {
             <TextArea
               rows={3}
               value={profile.improvement_areas}
+              disabled
               onChange={(e) =>
                 handleChange("improvement_areas", e.target.value)
               }

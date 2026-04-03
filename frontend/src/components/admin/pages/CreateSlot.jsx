@@ -18,9 +18,11 @@ import {
   EyeInvisibleOutlined,
   EyeOutlined,
   PlusOutlined,
+  CalendarOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 
 import {
   fetchSlotsCounsellorWise,
@@ -36,6 +38,7 @@ const { Title, Text } = Typography;
 
 const CreateSlot = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const { list, counsellorWiseList, loading } = useSelector(
     (state) => state.counsellingSlots
@@ -208,11 +211,20 @@ const CreateSlot = () => {
         <Title level={4}>Manage Counselling Slots</Title>
 
         <Space>
+
+          <Button
+            icon={<CalendarOutlined />}
+            onClick={() => navigate("/s-admin/scheduler")}
+          >
+            {/* View Scheduler */}
+          </Button>
+
           <DatePicker
             allowClear
             value={selectedDate ? dayjs(selectedDate) : null}
             onChange={handleDateChange}
             disabledDate={disableCreatedDates}
+            style={{ width: 150, padding: 9 }}
           />
 
 
@@ -269,7 +281,7 @@ const CreateSlot = () => {
                 <Space wrap>
                   {item.slots?.length ? (
                     item.slots.map((slot) => {
-                      const isBooked = slot.status === "booked" || slot.status === "rescheduled" ;
+                      const isBooked = slot.status === "booked" || slot.status === "rescheduled";
                       const isTimePassed = isSlotTimePassed(
                         slot.start_time,
                         item.date

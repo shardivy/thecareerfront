@@ -101,6 +101,8 @@ const { studentProfile, loading: profileLoading } = useSelector(
       preferredMode: item.preferred_counselling_mode === "online" ? "Online" : "Offline",
       report_file: item.report_file, 
       aptitude_test: item.aptitude_test,
+      engineering_test_analysis: item.engineering_test_analysis,
+      
     };
   });
 
@@ -241,7 +243,7 @@ const handleDownloadReport = async () => {
             </Button>
 
             {/* View Report Button - FIXED: Use record.report_file directly */}
-            {record.aptitude_test && (
+          {(record.aptitude_test || record.engineering_test_analysis) && (
             <Button
               icon={<EyeOutlined />}
               onClick={() => {

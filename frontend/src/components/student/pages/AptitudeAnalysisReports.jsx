@@ -84,6 +84,13 @@ const handleDownload = async (url) => {
     });
   };
 
+
+  useEffect(() => {
+  if (reports && reports.length > 0) {
+    // Example: store first report status
+    localStorage.setItem("report_status", reports[0].report_status);
+  }
+}, [reports]);
   /* ---------------- REPORT CARD ---------------- */
 
   const ReportCard = ({ title, locked, reason, report }) => (
@@ -155,6 +162,15 @@ const handleDownload = async (url) => {
           >
             Download PDF
           </Button>
+{/* 
+                   <Button
+            block
+            icon={<StarOutlined />}
+            type="primary"
+            onClick={handleReviewRedirect}
+          >
+            Submit Review
+          </Button> */}
         </>
       ) : reason === "payment" ? (
         <Alert

@@ -65,7 +65,7 @@ const EngineeringQuestionnaireModal = ({
     dispatch(submitAnswers(payload))
       .unwrap()
       .then(() => {
-        message.success("Submitted successfully!");
+        // message.success("Submitted successfully!");
 
         // ✅ CALL HERE
         dispatch(fetchCollegeAnalysis());
@@ -99,7 +99,7 @@ const EngineeringQuestionnaireModal = ({
     dispatch(submitAnswers(payload))
       .unwrap()
       .then(() => {
-        message.success("Progress saved");
+        // message.success("Progress saved");
 
         // optional: refresh list
         dispatch(fetchCollegeAnalysis());
@@ -131,7 +131,7 @@ const EngineeringQuestionnaireModal = ({
     >
       {/* HEADER */}
       <div style={{ marginBottom: 12 }}>
-        <Text type="secondary">
+        <Text type="colorTextSecondary">
           Page {page + 1} of {totalPages}
         </Text>
       </div>

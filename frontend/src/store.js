@@ -30,6 +30,7 @@ import employeeReducer from "./adminSlices/employeeSlice";
 import notificationReducer from "./adminSlices/notificationSlice";
 import questionReducer from "./adminSlices/questionSlice";
 import collegeAnalysisReducer from "./adminSlices/collegeAnalysisSlice";
+import reviewReducer from "./adminSlices/reviewSlice";
 
 
 const store = configureStore({
@@ -63,6 +64,7 @@ const store = configureStore({
         notifications: notificationReducer,
         questions: questionReducer,
         collegeAnalysis: collegeAnalysisReducer,
+        review: reviewReducer,
 
   },
 });

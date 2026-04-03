@@ -6,7 +6,8 @@ import {
   createSlotsApi,
   updateCounsellorStatusApi,
   getSlotsForSelectedDateApi,
-    updateSlotAvailabilityApi,
+  updateSlotAvailabilityApi,
+  getCounsellorBookingsApi,
 } from "../adminApi/counsellingSlotApi";
 
 
@@ -116,6 +117,18 @@ export const updateSlotAvailability = createAsyncThunk(
   }
 );
 
+// ✅ FETCH COUNSELLOR BOOKINGS FOR SCHEDULER
+export const fetchSlotsCounsellorWiseScheduler = createAsyncThunk(
+  "counsellingSlots/fetchSlotsCounsellorWiseScheduler",
+  async ({ year, month }, { rejectWithValue }) => {
+    try {
+      const data = await getCounsellorBookingsApi(year, month);
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || "Error");
+    }
+  }
+);
 
 const counsellingSlotSlice = createSlice({
   name: "counsellingSlots",
@@ -276,7 +289,45 @@ const counsellingSlotSlice = createSlice({
   }));
 
   state.loading = false;
-});
+})
+
+.addCase(fetchSlotsCounsellorWiseScheduler.pending, (state) => {
+        state.loading = true;
+      })
+.addCase(fetchSlotsCounsellorWiseScheduler.fulfilled, (state, action) => {
+  state.loading = false;
+
+  const normalized = [];
+
+  action.payload.forEach((day) => {
+    day.counsellors.forEach((c) => {
+      normalized.push({
+        date: day.date,
+        counsellor_id: c.counsellor_id,
+        counsellor_name: c.counsellor_name,
+
+        // ✅ SORTED SLOTS
+        slots: sortSlotsAsc(
+          c.bookings.map((b) => ({
+            slot_id: b.booking_id,
+            start_time: b.start_time,
+            end_time: b.end_time,
+            status: b.status,
+            student_name: b.student_name,
+            student_email: b.student_email,
+            preferred_mode: b.preferred_mode,
+          }))
+        ),
+      });
+    });
+  });
+
+  state.counsellorWiseList = normalized;
+})
+      .addCase(fetchSlotsCounsellorWiseScheduler.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
 
 
 

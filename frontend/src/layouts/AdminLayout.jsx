@@ -164,6 +164,7 @@ useEffect(() => {
     "/s-admin/paymentmanagement": "Payment Management",
     "/s-admin/slotbooking": "Counselling Bookings",
     "/s-admin/createslot": "Create Counselling Slot ",
+    "/s-admin/scheduler": "Scheduler",
     "/s-admin/followupManagement": "Follow Up Management",
     "/s-admin/contentManagement": "Content Management",
     "/s-admin/examManagements": "User Request List",
@@ -180,6 +181,7 @@ useEffect(() => {
     "/s-admin/sessions-history": "Session History",
 
     "/s-admin/hhManagement": "Handholding Management",
+
 
 
     // "/admin/leadlist": "Lead List",

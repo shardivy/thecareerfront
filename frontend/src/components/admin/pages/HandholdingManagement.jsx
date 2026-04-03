@@ -31,7 +31,10 @@ import {
 import HHSessionModal from "../modals/HHSessionModal";
 import { title } from "framer-motion/client";
 import HHUserProfileModal from "../modals/HHUserProfileModal";
-import ConvertHHUserModal from "../modals/ConvertHHUserModal";
+import EditHHUserModal from "../modals/EditHHUserModal";
+import CertificateTemplateModal from "../modals/CertificateTemplateModal";
+import HHSessionBookingModal from "../modals/HHSessionBookingModal";
+import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -52,8 +55,13 @@ const HandholdingManagement = () => {
   const [certificationFilter, setCertificationFilter] = useState("");
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [convertModalOpen, setConvertModalOpen] = useState(false);
-const [editingUser, setEditingUser] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [certificateModalOpen, setCertificateModalOpen] = useState(false);
+  const [selectedCertificateUser, setSelectedCertificateUser] = useState(null);
+  const [bookingModalOpen, setBookingModalOpen] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [bookingMode, setBookingMode] = useState("create"); // create | edit | view
+  const [generateModalOpen, setGenerateModalOpen] = useState(false);
 
   /* ================= PAGINATION STATE ================= */
   const [sessionPagination, setSessionPagination] = useState({
@@ -61,9 +69,16 @@ const [editingUser, setEditingUser] = useState(null);
     pageSize: 5,
   });
 
-  const handleEdit = (record) => {
-    setEditingSession(record);
-    setModalOpen(true);
+  const handleEditBooking = (record) => {
+    setSelectedBooking(record);
+    setBookingMode("edit");   // 🔥 IMPORTANT
+    setBookingModalOpen(true);
+  };
+
+  const handleViewBooking = (record) => {
+    setSelectedBooking(record);
+    setBookingMode("view");
+    setBookingModalOpen(true);
   };
 
   const handleDeleteClick = (record) => {
@@ -347,19 +362,25 @@ const [editingUser, setEditingUser] = useState(null);
             >
               View
             </Button>
-          <Button
-  icon={<EditOutlined />}
-  onClick={() => {
-    setEditingUser(record);   // ✅ pass user data
-    setConvertModalOpen(true);
-  }}
->
-  Edit
-</Button>
+            <Button
+              icon={<EditOutlined />}
+              onClick={() => {
+                setSelectedUser(record);   // ✅ store user
+                setEditModalOpen(true);    // ✅ open edit modal
+              }}
+            >
+              Edit
+            </Button>
 
             {/* ✅ SHOW ONLY IF COMPLETED */}
             {isCompleted && (
-              <Button type="primary">
+              <Button
+                type="primary"
+                onClick={() => {
+                  setSelectedCertificateUser(record); // ✅ correct user
+                  setCertificateModalOpen(true);      // ✅ open modal
+                }}
+              >
                 Issue Certificate
               </Button>
             )}
@@ -424,6 +445,83 @@ const [editingUser, setEditingUser] = useState(null);
     item.email.toLowerCase().includes(certificateSearch.toLowerCase())
   );
 
+  const bookingsData = [
+    {
+      id: 1,
+      name: "Rahul Sharma",
+      email: "rahul@gmail.com",
+      session: "Session 1",
+      date: "2026-04-03",
+      time: "10:00 AM - 11:00 AM",
+      status: "booked",
+    },
+    {
+      id: 2,
+      name: "Priya Singh",
+      email: "priya@gmail.com",
+      session: "Session 2",
+      date: "2026-04-04",
+      time: "12:00 PM - 01:00 PM",
+      status: "rescheduled",
+    },
+  ];
+
+  const bookingColumns = [
+    {
+      title: "Sr No",
+      render: (_, __, index) => index + 1,
+    },
+    {
+      title: "User",
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.name}</Text>
+          <div>{record.email}</div>
+        </div>
+      ),
+    },
+    {
+      title: "Session",
+      dataIndex: "session",
+    },
+    {
+      title: "Date",
+      dataIndex: "date",
+    },
+    {
+      title: "Time",
+      dataIndex: "time",
+    },
+    {
+      title: "Status",
+      render: (_, record) => (
+        <Tag color={record.status === "booked" ? "green" : "orange"}>
+          {record.status === "booked" ? "Booked" : "Rescheduled"}
+        </Tag>
+      ),
+    },
+    {
+      title: "Actions",
+      render: (_, record) => (
+        <Space>
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => handleViewBooking(record)}
+          >
+            View
+          </Button>
+
+          <Button
+            icon={<EditOutlined />}
+            onClick={() => handleEditBooking(record)}
+          >
+            Edit
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <div>
       {/* HEADER */}
@@ -473,9 +571,13 @@ const [editingUser, setEditingUser] = useState(null);
         activeKey={activeTab}
         onChange={setActiveTab}
         items={[
-          { key: "sessions", label: "Session Template" },
+
           { key: "users", label: "Handholding Users" },
+          { key: "sessions", label: "Session Template" },
+          { key: "bookings", label: "Booked / Rescheduled" },
           { key: "certificates", label: "Certification" },
+
+
         ]}
       />
 
@@ -585,29 +687,179 @@ const [editingUser, setEditingUser] = useState(null);
         )}
 
         {/* CERTIFICATES */}
-        {activeTab === "certificates" && (
+    {activeTab === "certificates" && (
+  <>
+    {/* ================= TOP STATUS CARDS ================= */}
+    <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
+      
+      {/* Pending */}
+      <Col xs={24} md={8}>
+        <Card
+          style={{
+            borderRadius: 16,
+            background: "#fff7e6",
+            border: "1px solid #ffe7ba",
+          }}
+        >
+          <Space direction="vertical">
+            <Space>
+              <TrophyOutlined style={{ color: "#d97706", fontSize: 18 }} />
+              <Text strong>Pending Generation</Text>
+            </Space>
+
+            <Title level={2} style={{ margin: 0 }}>1</Title>
+
+            <Text type="colorTextSecondary">
+              Students awaiting certificates
+            </Text>
+
+           <Button block style={{ marginTop: 10 }} onClick={() => setGenerateModalOpen(true)}>
+  Generate Certificates
+</Button>
+          </Space>
+        </Card>
+      </Col>
+
+      {/* Ready */}
+      <Col xs={24} md={8}>
+        <Card
+          style={{
+            borderRadius: 16,
+            background: "#f0f5ff",
+            border: "1px solid #d6e4ff",
+          }}
+        >
+          <Space direction="vertical">
+            <Space>
+              <CheckCircleOutlined style={{ color: "#2563eb", fontSize: 18 }} />
+              <Text strong>Ready to Issue</Text>
+            </Space>
+
+            <Title level={2} style={{ margin: 0 }}>1</Title>
+
+            <Text type="colorTextSecondary">
+              Certificates ready for delivery
+            </Text>
+
+            <Button block style={{ marginTop: 10 }}>
+              Issue Certificates
+            </Button>
+          </Space>
+        </Card>
+      </Col>
+
+      {/* Issued */}
+      <Col xs={24} md={8}>
+        <Card
+          style={{
+            borderRadius: 16,
+            background: "#f6ffed",
+            border: "1px solid #b7eb8f",
+          }}
+        >
+          <Space direction="vertical">
+            <Space>
+              <CheckCircleOutlined style={{ color: "#16a34a", fontSize: 18 }} />
+              <Text strong>Issued</Text>
+            </Space>
+
+            <Title level={2} style={{ margin: 0 }}>1</Title>
+
+            <Text type="colorTextSecondary">
+              Successfully delivered
+            </Text>
+
+            <Button block style={{ marginTop: 10 }}>
+              View All
+            </Button>
+          </Space>
+        </Card>
+      </Col>
+    </Row>
+
+    {/* ================= CERTIFICATE TEMPLATES ================= */}
+    <Card
+      title="Certificate Templates"
+      style={{ borderRadius: 16 }}
+    >
+      <Row gutter={[16, 16]}>
+        
+        {/* Template 1 */}
+        <Col xs={24} md={12}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: 12,
+              border: "1px solid #f0f0f0",
+            }}
+          >
+            <Space
+              direction="vertical"
+              style={{ width: "100%" }}
+            >
+              <Row justify="space-between">
+                <Text strong>Career Discovery Certificate</Text>
+                <Tag color="green">Active</Tag>
+              </Row>
+
+              <Text type="colorTextSecondary">
+                Standard certificate for career discovery program completion
+              </Text>
+
+              <Button type="primary">
+                Use Template
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+
+        {/* Template 2 */}
+        <Col xs={24} md={12}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: 12,
+              border: "1px solid #f0f0f0",
+            }}
+          >
+            <Space direction="vertical" style={{ width: "100%" }}>
+              <Row justify="space-between">
+                <Text strong>Professional Skills Certificate</Text>
+                <Tag color="green">Active</Tag>
+              </Row>
+
+              <Text type="colorTextSecondary">
+                Certificate for professional development program completion
+              </Text>
+
+              <Button type="primary">
+                Use Template
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+
+      </Row>
+    </Card>
+  </>
+)}
+
+        {/* BOOKINGS TAB */}
+        {activeTab === "bookings" && (
           <>
             <Row style={{ marginBottom: 16 }} gutter={10}>
               <Col xs={24} md={12}>
                 <Input
-                  placeholder="Search certificate user..."
+                  placeholder="Search bookings..."
                   prefix={<SearchOutlined />}
-                  value={certificateSearch}
-                  onChange={(e) => setCertificateSearch(e.target.value)}
                   allowClear
                 />
-              </Col>
-
-              <Col xs={24} md={12} style={{ textAlign: "right" }}>
-                <Button type="primary" icon={<PlusOutlined />}>
-                  Issue Certificate
-                </Button>
               </Col>
             </Row>
 
             <Table
-              columns={certificateColumns}
-              dataSource={filteredCertificates}
+              columns={bookingColumns}
+              dataSource={bookingsData}
               rowKey="id"
               scroll={{ x: "max-content" }}
             />
@@ -658,15 +910,50 @@ const [editingUser, setEditingUser] = useState(null);
         user={selectedUser}
       />
 
-      <ConvertHHUserModal
-  open={convertModalOpen}
-  onCancel={() => {
-    setConvertModalOpen(false);
-    setEditingUser(null);
-  }}
-  enquiryData={editingUser}   // ✅ reuse same prop
-  isEdit={!!editingUser}      // optional flag
+      <EditHHUserModal
+        open={editModalOpen}
+        onCancel={() => setEditModalOpen(false)}
+        userData={selectedUser}
+        onSubmit={(formData) => {
+          dispatch(updateHHUser(formData));
+        }}
+      />
+
+      <CertificateTemplateModal
+        open={certificateModalOpen}
+        onClose={() => setCertificateModalOpen(false)}
+        onSelect={(template) => {
+          console.log("Selected Template:", template);
+          console.log("User:", selectedCertificateUser);
+
+          message.success(`Certificate issued using ${template.name}`);
+
+          setCertificateModalOpen(false);
+        }}
+      />
+
+      <GenerateCertificateModal
+  open={generateModalOpen}
+  onClose={() => setGenerateModalOpen(false)}
+  templates={[
+    { id: 1, name: "Career Discovery Certificate", description: "Standard certificate for career discovery program completion" },
+    { id: 2, name: "Professional Skills Certificate", description: "Certificate for professional development program completion" },
+  ]}
+  students={users.filter(u => u.completedSessions === u.totalSessions)} // only completed users
 />
+
+      <HHSessionBookingModal
+        visible={bookingModalOpen}
+        onClose={() => {
+          setBookingModalOpen(false);
+          setSelectedBooking(null);
+        }}
+        mode={bookingMode}   // 🔥 edit / view / create
+        data={selectedBooking}  // 🔥 pass selected row
+        onSave={() => {
+          message.success("Booking updated");
+        }}
+      />
 
       <Modal
         title="Delete Session"

@@ -1,4 +1,4 @@
-import React from "react";
+import { useState } from "react";
 import {
     Modal,
     Typography,
@@ -10,11 +10,15 @@ import {
     theme,
     Button,
 } from "antd";
+import HHSessionBookingModal from "../modals/HHSessionBookingModal";
 
 const { Title, Text } = Typography;
 
 const HHUserProfileModal = ({ open, onClose, user }) => {
     const { token } = theme.useToken();
+
+    const [bookingModalOpen, setBookingModalOpen] = useState(false);
+const [selectedSessionData, setSelectedSessionData] = useState(null);
 
     if (!user) return null;
 
@@ -334,13 +338,24 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
                                                 <Button
                                                     size="small"
                                                     type="primary"
-                                                    onClick={() => {
-                                                        // 👉 Navigate or trigger booking
-                                                        console.log("Book session clicked for", stepNo);
+                                                   onClick={() => {
+    setSelectedSessionData({
+        student: {
+            id: user.id,
+            first_name: user.name,
+            email: user.email,
+            preferred_counselling_mode: user.preferred_counselling_mode,
+        },
+        status: "not_booked",   // 🔥 VERY IMPORTANT
+        counsellors: [],
+        slot: null,
+        date: null,
+    });
 
-                                                        // Example:
-                                                        // navigate("/student/slot-booking");
-                                                    }}
+    setBookingModalOpen(true);
+}}
+
+                                                       
                                                 >
                                                     Book Session
                                                 </Button>
@@ -377,6 +392,15 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
                     })}
                 </div>
             </div>
+
+            <HHSessionBookingModal
+    visible={bookingModalOpen}
+    onClose={() => setBookingModalOpen(false)}
+    onSave={() => {
+      }}
+    mode="edit"   
+    data={selectedSessionData}
+/>
         </Modal>
     );
 };

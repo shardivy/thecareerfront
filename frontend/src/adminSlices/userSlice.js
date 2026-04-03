@@ -6,6 +6,7 @@ import {
   deleteUserApi,
   fetchStudentJourneyApi
 } from "../adminApi/userApi";
+import create from "@ant-design/icons/lib/components/IconFont";
 
 /* ===================== THUNKS ===================== */
 
@@ -225,6 +226,9 @@ journeyStatus: u.full_access
       .join(" ")
   : "Payment",
 
+
+ analysis_status: u.analysis_status,
+ created_at: u.created_at,
 
             // Include all payment fields in profile for easy access
             profile: {

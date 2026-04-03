@@ -49,6 +49,8 @@ import CollegeListAnalysis from "./components/admin/pages/CollegeListAnalysis";
 import EngineeringQuestionaries from "./components/student/pages/EngineeringQuestionaries";
 import HandholdingManagement from "./components/admin/pages/HandholdingManagement";
 import AptitudeAnalysisReports from "./components/student/pages/AptitudeAnalysisReports";
+import SchedulerPage from "./components/admin/pages/SchedulerPage";
+import WriteReview from "./components/student/pages/WriteReview";
 
 
 
@@ -93,6 +95,7 @@ const App = () => {
           <Route path="payment-page" element={<PaymentPage />} />
           <Route path="engineering-questionnaires" element={<EngineeringQuestionaries />} />
           <Route path="analysis-report" element={<AptitudeAnalysisReports/>} />
+          <Route path="write-review" element={<WriteReview />} />
         </Route>
 
 
@@ -115,6 +118,9 @@ const App = () => {
           <Route path="examlist" element={<ExamList />} />
           <Route path="collegeListAnalysis" element={<CollegeListAnalysis />} />
           <Route path="hhManagement" element={<HandholdingManagement />} />
+          <Route path="scheduler" element={<SchedulerPage />} />
+       
+          
        
 
             {/* ===================== counsellor ROUTES ===================== */}

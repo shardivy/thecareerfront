@@ -67,7 +67,7 @@ const handleStart = () => {
       }
 
       setModalOpen(true);
-      message.success("Questionnaire started!");
+      // message.success("Questionnaire started!");
 
       dispatch(fetchCollegeAnalysisStatus(studentId)); // ✅ correct
     })

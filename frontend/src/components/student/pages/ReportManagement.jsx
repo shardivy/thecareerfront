@@ -384,6 +384,15 @@ const handleView = (url) => {
           >
             Download PDF
           </Button>
+
+          {/* <Button
+  block
+  icon={<StarOutlined />}
+  type="primary"
+  onClick={handleReviewRedirect}
+>
+  Submit Review
+</Button> */}
         </>
       ) : reason === "payment" ? (
         <Alert

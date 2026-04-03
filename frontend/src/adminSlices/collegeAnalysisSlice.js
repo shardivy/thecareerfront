@@ -221,11 +221,20 @@ const collegeAnalysisSlice = createSlice({
         state.loading = false;
 
         // ✅ Update that specific record
-        const updated = action.payload.data;
+        const updated = action.payload;
 
-        state.requests = state.requests.map((item) =>
-          item.id === updated.id ? updated : item
-        );
+       state.requests = state.requests.map((item) =>
+  item.id === updated.id
+    ? {
+        ...item,
+        report_status: updated.report_status,
+        payment_status: updated.payment_status,
+        uploaded_at: updated.uploaded_at,
+        status: updated.college_analysis_status,
+        
+      }
+    : item
+);
       })
       .addCase(uploadAnalysisReport.rejected, (state, action) => {
         state.loading = false;
