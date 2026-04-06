@@ -62,9 +62,16 @@ const HandholdingManagement = () => {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookingMode, setBookingMode] = useState("create"); // create | edit | view
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [certificateMode, setCertificateMode] = useState("issue"); // "issue" | "preview"
+  const [issuedModalOpen, setIssuedModalOpen] = useState(false);
 
   /* ================= PAGINATION STATE ================= */
   const [sessionPagination, setSessionPagination] = useState({
+    current: 1,
+    pageSize: 5,
+  });
+
+  const [issuedPagination, setIssuedPagination] = useState({
     current: 1,
     pageSize: 5,
   });
@@ -85,6 +92,8 @@ const HandholdingManagement = () => {
     setSelectedSession(record);
     setDeleteModalOpen(true);
   };
+
+
 
   const confirmDelete = () => {
     setSessions((prev) =>
@@ -123,6 +132,13 @@ const HandholdingManagement = () => {
 
     setModalOpen(false);
     setEditingSession(null);
+  };
+
+  const handlePreview = (record) => {
+    // Example URL (change based on your backend route)
+    const url = `/certificate-preview/${record.id}`;
+
+    window.open(url, "_blank");
   };
 
   /* ================= STATS ================= */
@@ -270,6 +286,11 @@ const HandholdingManagement = () => {
     },
   ];
 
+  // ✅ NOW it's safe
+  const issuedUsers = users.filter(
+    (u) => u.certificationStatus === "issued"
+  );
+
   const userColumns = [
     {
       title: "Sr No",
@@ -365,7 +386,7 @@ const HandholdingManagement = () => {
             <Button
               icon={<EditOutlined />}
               onClick={() => {
-                setSelectedUser(record);   // ✅ store user
+                setSelectedUser(record);
                 setEditModalOpen(true);    // ✅ open edit modal
               }}
             >
@@ -378,7 +399,8 @@ const HandholdingManagement = () => {
                 type="primary"
                 onClick={() => {
                   setSelectedCertificateUser(record); // ✅ correct user
-                  setCertificateModalOpen(true);      // ✅ open modal
+                  setCertificateModalOpen(true);
+                  setCertificateMode("issue");
                 }}
               >
                 Issue Certificate
@@ -520,6 +542,42 @@ const HandholdingManagement = () => {
         </Space>
       ),
     },
+  ];
+
+  const issuedColumns = [
+    {
+      title: "Sr No",
+      render: (_, __, index) =>
+        (issuedPagination.current - 1) * issuedPagination.pageSize + index + 1,
+    },
+    {
+      title: "User",
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.name}</Text>
+          <div style={{ color: "#888" }}>{record.email}</div>
+        </div>
+      ),
+    },
+    {
+      title: "Sessions",
+      render: (_, record) => (
+        <Text>
+          {record.completedSessions}/{record.totalSessions}
+        </Text>
+      ),
+    },
+    {
+      title: "Action",
+      render: (_, record) => (
+        <Button
+          icon={<EyeOutlined />}
+          onClick={() => handlePreview(record)}
+        >
+          View
+        </Button>
+      ),
+    }
   ];
 
   return (
@@ -687,162 +745,246 @@ const HandholdingManagement = () => {
         )}
 
         {/* CERTIFICATES */}
-    {activeTab === "certificates" && (
-  <>
-    {/* ================= TOP STATUS CARDS ================= */}
-    <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-      
-      {/* Pending */}
-      <Col xs={24} md={8}>
-        <Card
-          style={{
-            borderRadius: 16,
-            background: "#fff7e6",
-            border: "1px solid #ffe7ba",
-          }}
-        >
-          <Space direction="vertical">
-            <Space>
-              <TrophyOutlined style={{ color: "#d97706", fontSize: 18 }} />
-              <Text strong>Pending Generation</Text>
-            </Space>
+        {activeTab === "certificates" && (
+          <>
+            {/* ================= TOP STATUS CARDS ================= */}
+            <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
 
-            <Title level={2} style={{ margin: 0 }}>1</Title>
+              {/* Pending */}
+              <Col xs={24} md={8}>
+                <Card
+                  style={{
+                    borderRadius: 16,
+                    background: "#fff7e6",
+                    border: "1px solid #ffe7ba",
+                  }}
+                >
+                  <Space direction="vertical">
+                    <Space>
+                      <TrophyOutlined style={{ color: "#d97706", fontSize: 18 }} />
+                      <Text strong>Pending Generation</Text>
+                    </Space>
 
-            <Text type="colorTextSecondary">
-              Students awaiting certificates
-            </Text>
+                    <Title level={2} style={{ margin: 0 }}>1</Title>
 
-           <Button block style={{ marginTop: 10 }} onClick={() => setGenerateModalOpen(true)}>
-  Generate Certificates
-</Button>
-          </Space>
-        </Card>
-      </Col>
+                    <Text type="colorTextSecondary">
+                      Students awaiting certificates
+                    </Text>
 
-      {/* Ready */}
-      <Col xs={24} md={8}>
-        <Card
-          style={{
-            borderRadius: 16,
-            background: "#f0f5ff",
-            border: "1px solid #d6e4ff",
-          }}
-        >
-          <Space direction="vertical">
-            <Space>
-              <CheckCircleOutlined style={{ color: "#2563eb", fontSize: 18 }} />
-              <Text strong>Ready to Issue</Text>
-            </Space>
+                    <Button block style={{ marginTop: 10 }} onClick={() => setGenerateModalOpen(true)}>
+                      Generate Certificates
+                    </Button>
+                  </Space>
+                </Card>
+              </Col>
 
-            <Title level={2} style={{ margin: 0 }}>1</Title>
+              {/* Ready */}
+              <Col xs={24} md={8}>
+                <Card
+                  style={{
+                    borderRadius: 16,
+                    background: "#f0f5ff",
+                    border: "1px solid #d6e4ff",
+                  }}
+                >
+                  <Space direction="vertical">
+                    <Space>
+                      <CheckCircleOutlined style={{ color: "#2563eb", fontSize: 18 }} />
+                      <Text strong>Ready to Issue</Text>
+                    </Space>
 
-            <Text type="colorTextSecondary">
-              Certificates ready for delivery
-            </Text>
+                    <Title level={2} style={{ margin: 0 }}>1</Title>
 
-            <Button block style={{ marginTop: 10 }}>
-              Issue Certificates
-            </Button>
-          </Space>
-        </Card>
-      </Col>
+                    <Text type="colorTextSecondary">
+                      Certificates ready for delivery
+                    </Text>
 
-      {/* Issued */}
-      <Col xs={24} md={8}>
-        <Card
-          style={{
-            borderRadius: 16,
-            background: "#f6ffed",
-            border: "1px solid #b7eb8f",
-          }}
-        >
-          <Space direction="vertical">
-            <Space>
-              <CheckCircleOutlined style={{ color: "#16a34a", fontSize: 18 }} />
-              <Text strong>Issued</Text>
-            </Space>
+                    {/* Spacer to maintain card height */}
+                    <div style={{ height: 42, marginTop: 10 }}></div>
+                  </Space>
+                </Card>
+              </Col>
 
-            <Title level={2} style={{ margin: 0 }}>1</Title>
+              {/* Issued */}
+              <Col xs={24} md={8}>
+                <Card
+                  style={{
+                    borderRadius: 16,
+                    background: "#f6ffed",
+                    border: "1px solid #b7eb8f",
+                  }}
+                >
+                  <Space direction="vertical">
+                    <Space>
+                      <CheckCircleOutlined style={{ color: "#16a34a", fontSize: 18 }} />
+                      <Text strong>Issued</Text>
+                    </Space>
 
-            <Text type="colorTextSecondary">
-              Successfully delivered
-            </Text>
+                    <Title level={2} style={{ margin: 0 }}>
+                      {issuedUsers.length}
+                    </Title>
 
-            <Button block style={{ marginTop: 10 }}>
-              View All
-            </Button>
-          </Space>
-        </Card>
-      </Col>
-    </Row>
+                    <Text type="colorTextSecondary">
+                      Successfully delivered
+                    </Text>
 
-    {/* ================= CERTIFICATE TEMPLATES ================= */}
-    <Card
-      title="Certificate Templates"
-      style={{ borderRadius: 16 }}
-    >
-      <Row gutter={[16, 16]}>
-        
-        {/* Template 1 */}
-        <Col xs={24} md={12}>
-          <Card
-            hoverable
-            style={{
-              borderRadius: 12,
-              border: "1px solid #f0f0f0",
-            }}
-          >
-            <Space
-              direction="vertical"
-              style={{ width: "100%" }}
+                    <Button
+                      block
+                      style={{ marginTop: 10 }}
+                      onClick={() => setIssuedModalOpen(true)}
+                    >
+                      View All
+                    </Button>
+                  </Space>
+                </Card>
+              </Col>
+            </Row>
+
+            {/* ================= CERTIFICATE TEMPLATES ================= */}
+
+
+            <Card
+              title={
+                <div style={{ fontSize: screens.xs ? 16 : 18, fontWeight: 600 }}>
+                  🎓 Certificate Templates
+                </div>
+              }
+              bodyStyle={{
+                padding: screens.xs ? 8 : 20,   // 🔥 reduce internal padding
+              }}
+              style={{
+                borderRadius: 20,
+                border: "none",
+                background: "linear-gradient(135deg, #f9fafb, #eef2ff)",
+                padding: 0, // ❗ remove extra outer padding
+              }}
             >
-              <Row justify="space-between">
-                <Text strong>Career Discovery Certificate</Text>
-                <Tag color="green">Active</Tag>
+              <Row gutter={[16, 16]}>
+                {[
+                  {
+                    name: "Career Discovery Certificate",
+                    desc: "Standard certificate for career discovery program completion",
+                    color: "#6366f1",
+                  },
+                  {
+                    name: "Professional Skills Certificate",
+                    desc: "Certificate for professional development program completion",
+                    color: "#10b981",
+                  },
+                ].map((item, index) => (
+                  <Col xs={24} sm={24} md={12} key={index}>
+                    <Card
+                      hoverable
+                      style={{
+                        borderRadius: 18,
+                        overflow: "hidden",
+                        border: "none",
+                        background: "#ffffffcc",
+                        backdropFilter: "blur(10px)",
+                        boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+                        transition: "all 0.3s ease",
+                      }}
+                      bodyStyle={{ padding: screens.xs ? 10 : 20 }}
+                    >
+                      {/* TOP STRIP */}
+                      <div
+                        style={{
+                          height: 5,
+                          background: item.color,
+                          borderRadius: 10,
+                          marginBottom: 10,
+                        }}
+                      />
+
+                      <Space direction="vertical" style={{ width: "100%" }}>
+
+                        {/* HEADER */}
+                        <Row justify="space-between" align="middle">
+                          <Text strong style={{ fontSize: screens.xs ? 14 : 16 }}>
+                            {item.name}
+                          </Text>
+
+                          <Tag
+                            color="success"
+                            style={{
+                              borderRadius: 20,
+                              padding: screens.xs ? "1px 8px" : "4px 10px",
+                              fontSize: screens.xs ? 10 : 12,
+                            }}
+                          >
+                            Active
+                          </Tag>
+                        </Row>
+
+                        {/* DESCRIPTION */}
+                        <Text
+                          style={{
+                            color: "#6b7280",
+                            fontSize: screens.xs ? 12 : 13,
+                          }}
+                        >
+                          {item.desc}
+                        </Text>
+
+                        {/* PREVIEW BOX */}
+                        <div
+                          style={{
+                            height: screens.xs ? 90 : 120,
+                            borderRadius: 10,
+                            background:
+                              "linear-gradient(135deg, #eef2ff, #f0fdf4)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: 500,
+                            color: "#555",
+                            fontSize: screens.xs ? 12 : 14,
+                            marginTop: 8,
+                          }}
+                        >
+                          📄 Preview
+                        </div>
+
+                        {/* ACTION BUTTONS */}
+                        <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
+                          <Col xs={24} sm={12}>
+                            <Button
+                              block
+                              icon={<EyeOutlined />}
+                              size={screens.xs ? "middle" : "default"}
+                              onClick={() => {
+                                message.info(`Previewing ${item.name}`);
+                              }}
+                            >
+                              Preview
+                            </Button>
+                          </Col>
+
+                          <Col xs={24} sm={12}>
+                            <Button
+                              type="primary"
+                              block
+                              size={screens.xs ? "middle" : "default"}
+                              onClick={() => {
+                                message.success(`Using ${item.name}`);
+                              }}
+                              style={{
+                                background: item.color,
+                                border: "none",
+                              }}
+                            >
+                              Use Template
+                            </Button>
+                          </Col>
+                        </Row>
+                      </Space>
+                    </Card>
+                  </Col>
+                ))}
               </Row>
-
-              <Text type="colorTextSecondary">
-                Standard certificate for career discovery program completion
-              </Text>
-
-              <Button type="primary">
-                Use Template
-              </Button>
-            </Space>
-          </Card>
-        </Col>
-
-        {/* Template 2 */}
-        <Col xs={24} md={12}>
-          <Card
-            hoverable
-            style={{
-              borderRadius: 12,
-              border: "1px solid #f0f0f0",
-            }}
-          >
-            <Space direction="vertical" style={{ width: "100%" }}>
-              <Row justify="space-between">
-                <Text strong>Professional Skills Certificate</Text>
-                <Tag color="green">Active</Tag>
-              </Row>
-
-              <Text type="colorTextSecondary">
-                Certificate for professional development program completion
-              </Text>
-
-              <Button type="primary">
-                Use Template
-              </Button>
-            </Space>
-          </Card>
-        </Col>
-
-      </Row>
-    </Card>
-  </>
-)}
+            </Card>
+          </>
+        )}
 
         {/* BOOKINGS TAB */}
         {activeTab === "bookings" && (
@@ -923,24 +1065,56 @@ const HandholdingManagement = () => {
         open={certificateModalOpen}
         onClose={() => setCertificateModalOpen(false)}
         onSelect={(template) => {
-          console.log("Selected Template:", template);
-          console.log("User:", selectedCertificateUser);
-
-          message.success(`Certificate issued using ${template.name}`);
-
+          if (certificateMode === "issue") {
+            message.success(`Certificate issued using ${template.name}`);
+          }
           setCertificateModalOpen(false);
         }}
+        showSelectButton={certificateMode === "issue"} // ✅ dynamic
       />
 
       <GenerateCertificateModal
-  open={generateModalOpen}
-  onClose={() => setGenerateModalOpen(false)}
-  templates={[
-    { id: 1, name: "Career Discovery Certificate", description: "Standard certificate for career discovery program completion" },
-    { id: 2, name: "Professional Skills Certificate", description: "Certificate for professional development program completion" },
-  ]}
-  students={users.filter(u => u.completedSessions === u.totalSessions)} // only completed users
-/>
+        open={generateModalOpen}
+        onClose={() => setGenerateModalOpen(false)}
+        templates={[
+          {
+            id: 1,
+            name: "Career Discovery Certificate",
+            description: "Standard certificate",
+            preview: "/cert1.png",
+          },
+          {
+            id: 2,
+            name: "Professional Skills Certificate",
+            description: "Professional program",
+            preview: "/cert2.png",
+          },
+          {
+            id: 2,
+            name: "Professional Skills Certificate",
+            description: "Professional program",
+            preview: "/cert3.png",
+          },
+        ]}
+        students={users.filter(u => u.completedSessions === u.totalSessions)} // only completed users
+      />
+
+      <Modal
+        title="Issued Certificates"
+        open={issuedModalOpen}
+        onCancel={() => setIssuedModalOpen(false)}
+        footer={null}
+        width={800}
+        centered
+      >
+        <Table
+          columns={issuedColumns}
+          dataSource={issuedUsers}
+          rowKey="id"
+          pagination={issuedPagination}
+          onChange={(pag) => setIssuedPagination(pag)}
+        />
+      </Modal>
 
       <HHSessionBookingModal
         visible={bookingModalOpen}

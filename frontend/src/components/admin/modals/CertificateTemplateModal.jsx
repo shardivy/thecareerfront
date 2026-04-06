@@ -21,7 +21,7 @@ const templates = [
   },
 ];
 
-const CertificateTemplateModal = ({ open, onClose, onSelect }) => {
+const CertificateTemplateModal = ({ open, onClose, onSelect, showSelectButton = true }) => {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   return (
@@ -55,17 +55,15 @@ const CertificateTemplateModal = ({ open, onClose, onSelect }) => {
             >
               <Title level={5}>{tpl.name}</Title>
 
-              <Button
-                type={
-                  selectedTemplate?.id === tpl.id
-                    ? "primary"
-                    : "default"
-                }
-                block
-                onClick={() => onSelect(tpl)}
-              >
-                Select
-              </Button>
+              {showSelectButton && (
+                <Button
+                  type={selectedTemplate?.id === tpl.id ? "primary" : "default"}
+                  block
+                  onClick={() => onSelect(tpl)}
+                >
+                  Select
+                </Button>
+              )}
             </Card>
           </Col>
         ))}

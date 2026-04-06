@@ -51,7 +51,11 @@ import HandholdingManagement from "./components/admin/pages/HandholdingManagemen
 import AptitudeAnalysisReports from "./components/student/pages/AptitudeAnalysisReports";
 import SchedulerPage from "./components/admin/pages/SchedulerPage";
 import WriteReview from "./components/student/pages/WriteReview";
-
+import HandholdingLayout from "./layouts/HandholdingLayout";
+import HandholdingDashboard from "./components/hh-users/pages/HandholdingDashboard";
+import HhSession from "./components/hh-users/pages/HhSession";
+import HhPayments from "./components/hh-users/pages/HhPayments";
+import HhCertificates from "./components/hh-users/pages/HhCertificates";
 
 
 
@@ -131,14 +135,17 @@ const App = () => {
           <Route path="uiux-dashboard" element={<UiUxDashboard />} />
           <Route path="sessions-history" element={<SessionsHistory />} />
 
-   
-      
-
-       
-          {/* <Route path="reset-password" element={<ResetPassword />} /> */}
-
         </Route>
        
+
+          {/* ===================== HH User ROUTES ===================== */}
+
+          <Route path="/handholding" element={<HandholdingLayout />}>
+              <Route path="dashboard" element={<HandholdingDashboard />} />
+              <Route path="sessions" element={<HhSession />} />
+              <Route path="payments" element={<HhPayments />} />
+              <Route path="certificates" element={<HhCertificates />} />
+          </Route>
 
       </Routes>
     </BrowserRouter>
