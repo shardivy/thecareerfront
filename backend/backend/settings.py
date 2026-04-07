@@ -264,6 +264,7 @@ INSTALLED_APPS = [
     'notification',
     # 'activity',
     "activity.apps.ActivityConfig",
+    'event',
 ]
 
 
