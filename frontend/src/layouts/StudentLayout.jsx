@@ -197,15 +197,9 @@ export default function StudentLayout() {
     style: { marginBottom: 10 },
   };
 
-  // Insert Content Library based on user type
-  // if (!hasPackage) {
-  //   // Free user → insert at 3rd position
-  //   menuItems.splice(2, 0, contentLibraryItem);
-
-  //   if (showEngineering) {
-  //     menuItems.splice(3, 0, engineeringQuestionnairesItem);
-  //   }
-  // }
+  if (isBasicUser || !hasPackage) {
+    menuItems.push(contentLibraryItem);
+  }
 
   const writeReviewItem = {
     key: "/student/write-review",
@@ -333,15 +327,10 @@ export default function StudentLayout() {
     // Merge package items
     menuItems.push(...packageItems);
 
-    if (hasPackage) {
-      if (isBasicUser) {
-        // 👉 Basic user → always push at LAST
-        menuItems.push(contentLibraryItem);
-      } else {
-        // 👉 Paid user → place before Payments
-        const secondLastIndex = menuItems.length - 1;
-        menuItems.splice(secondLastIndex, 0, contentLibraryItem);
-      }
+    if (!isBasicUser) {
+      // Paid user → place before Payments
+      const secondLastIndex = menuItems.length - 1;
+      menuItems.splice(secondLastIndex, 0, contentLibraryItem);
     }
   }
 

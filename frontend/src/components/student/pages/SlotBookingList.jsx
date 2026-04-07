@@ -32,6 +32,7 @@ import {
   deleteCounsellingBooking,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
+import { fetchStudentJourney } from "../../../adminSlices/userSlice";
 import SessionsNotesModal from "../../counsellor/modals/SessionsNotesModal";
 
 const { Title, Text } = Typography;
@@ -51,9 +52,8 @@ const SlotBookingList = () => {
   const studentId = localStorage.getItem("studentId");
   const aptitudeTestCompleted =
     (localStorage.getItem("aptitude_test") || "").toLowerCase() === "true";
-
-  const reportStatus = localStorage.getItem("report_status");
-  const isReportUnlocked = reportStatus === "received_unlocked";
+  const engineeringTestAnalysisEnabled =
+    (localStorage.getItem("engineering_test_analysis") || "").toLowerCase() === "true";
 
   const sessions = useSelector((state) =>
     Array.isArray(state.counsellingBooking.data)
@@ -62,10 +62,14 @@ const SlotBookingList = () => {
   );
 
   const loading = useSelector((state) => state.counsellingBooking.loading);
+  const { journey } = useSelector((state) => state.users);
+
+  const isReportUnlocked = journey?.progress?.report === "received_unlocked";
 
   useEffect(() => {
     if (studentId) {
       dispatch(fetchStudentCounsellingBookings(studentId));
+      dispatch(fetchStudentJourney(studentId));
     }
   }, [dispatch, studentId]);
 
@@ -117,6 +121,10 @@ const SlotBookingList = () => {
 
   const isNotBooked =
     filteredSessions.length === 1 && filteredSessions[0].status === "not_booked";
+  const shouldBlockBookingUntilReportUnlock =
+    isNotBooked &&
+    (aptitudeTestCompleted || engineeringTestAnalysisEnabled) &&
+    !isReportUnlocked;
 
   const formatStatus = (status) => {
     if (!status) return "";
@@ -177,6 +185,19 @@ const SlotBookingList = () => {
 
     window.open(mapUrl, "_blank");
   };
+
+  const notBookedMessage = shouldBlockBookingUntilReportUnlock ? (
+    <>
+      Your Analysis report is not unlocked yet.
+      <br />
+      <b>You will be able to book a session once your report is unlocked.</b>
+    </>
+  ) : (
+    <>
+      You have not booked a session yet. Please click the
+      <b> Book Session </b> button below.
+    </>
+  );
 
   return (
     <div style={{ padding: screens.md ? 24 : 12 }}>
@@ -323,26 +344,13 @@ const SlotBookingList = () => {
 
             <Divider />
             <div style={{ textAlign: "center", marginTop: 10 }}>
-             <Text type="colorTextSecondary">
-  {!isReportUnlocked ? (
-    <>
-      Your Analysis report is not unlocked yet.
-      <br />
-      <b>You will be able to book a session once your report is unlocked.</b>
-    </>
-  ) : (
-    <>
-      You have not booked a session yet. Please click the
-      <b> Book Session </b> button below.
-    </>
-  )}
-</Text>
+              <Text type="colorTextSecondary">{notBookedMessage}</Text>
               <div style={{ marginTop: 20 }}>
                 <Button
                   type="primary"
                   icon={<PlusOutlined />}
                   size="large"
-                    disabled={!isReportUnlocked}
+                  disabled={shouldBlockBookingUntilReportUnlock}
                   onClick={() => {
                     setRescheduleData(filteredSessions[0]);
                     setIsModalOpen(true);

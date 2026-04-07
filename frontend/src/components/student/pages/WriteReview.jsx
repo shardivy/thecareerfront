@@ -243,7 +243,7 @@ useEffect(() => {
     borderRadius: 12,
     fontWeight: "bold",
     fontSize: 16,
-    background: "linear-gradient(135deg, #02062f, #2193b0)",
+    background: "linear-gradient(135deg, #1E40AF, #022933)",
     color: "#fff",
     border: "none",
     boxShadow: "0 8px 20px rgba(33, 147, 176, 0.3)",

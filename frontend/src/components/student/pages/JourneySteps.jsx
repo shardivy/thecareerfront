@@ -38,7 +38,7 @@ const JourneySteps = ({
 
     steps.push(
       "Counselling Slot Booking",
-      // "Review",
+      "Review",
       "Full Access"
     );
 
@@ -72,10 +72,11 @@ const JourneySteps = ({
           progressData.counselling_slot_booking === "completed"
         );
       //   return progressData.counselling_slot_booking === true;
-      // case "Review":
-      // return progressData.review === true;
+      case "Review":
+        return progressData.review === true || progressData.review === "submitted";
+
       case "Full Access":
-        return progressData.full_access === true;
+        return progressData.full_access === true || progressData.full_access === "submitted";
       default:
         return false;
     }
@@ -97,6 +98,9 @@ const JourneySteps = ({
 
       case "Analysis Report":
         return progressData.analysis === "in_progress";
+
+      case "Review":
+        return progressData.review === "in_process";
       default:
         return false;
     }
@@ -125,7 +129,7 @@ const JourneySteps = ({
     const isInProgress = isStepInProgress(label);
     const isActive = stepNo === currentStep + 1;
     const isCompleted = isStepCompleted(label);
-    
+
     if (stepNo < currentStep + 1 || isPartialPayment || isInProgress || isActive || isCompleted) {
       return "100%";
     }
@@ -161,9 +165,9 @@ const JourneySteps = ({
         case "Counselling Slot Booking":
           navigate("/student/slot-booking");
           break;
-        // case "Review":
-        //   navigate("/student/report-management");
-        //   break;
+        case "Review":
+          navigate("/student/write-review");
+          break;
         case "Full Access":
           navigate("/student/dashboard");
           break;
@@ -187,8 +191,20 @@ const JourneySteps = ({
 
     if (label === "Analysis Report" && progressData.report === "completed")
       return `${label} - Completed`;
-    return `${label} - Pending`;
+
+    if (label === "Review") {
+      if (progressData.review === "in_process")
+        return `${label} - In Progress`;
+
+      if (progressData.review === "not_submitted")
+        return `${label} - Pending`;
+    }
+
+    if (label === "Review" && progressData.review === true)
+      return `${label} - Completed`;
   };
+
+
 
   // Free user static view
   if (isFreeUser) {
