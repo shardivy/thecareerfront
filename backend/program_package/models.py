@@ -1,6 +1,7 @@
 from django.db import models
 
 from accounts.models import User
+from django.conf import settings
 from exam.models import Exam
 
 class Program(models.Model):
@@ -24,6 +25,7 @@ class Package(models.Model):
     link_url = models.URLField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     aptitude_test = models.BooleanField(default=False)
+    engineering_test_analysis = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -64,4 +66,81 @@ class PackageExam(models.Model):
     def __str__(self):
         return f"{self.package} - {self.exam} (Order {self.sequence_order})"
     
+class QuestionAnswer(models.Model):
 
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='question_answers'
+    )
+
+    question = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Question by {self.user}"
+    
+class CollegeListAnalysis(models.Model):
+
+    STATUS_CHOICES = [
+        ('not_started', 'Not Started'),
+        ('in_progress', 'In Progress'),
+        # ('pending_approval', 'Pending Approval'),
+        ('completed', 'Completed'),
+        
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='college_analysis',
+        
+    )
+    question = models.ForeignKey(
+        QuestionAnswer,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+
+
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.CASCADE
+    )
+
+    package = models.ForeignKey(
+        Package,
+        on_delete=models.CASCADE
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='not_started'
+    )
+
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_college_analysis',
+        
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class Answer(models.Model):
+    student = models.ForeignKey("lead_registration.StudentProfile", on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey(QuestionAnswer, on_delete=models.CASCADE, related_name='answers')
+    answer_text = models.TextField(null=True, blank=True)
+    is_draft = models.BooleanField(default=True) 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Answer to {self.question} by {self.question.user}"

@@ -1080,7 +1080,8 @@ class ProfileUpdateAPIView(APIView):
                     "program": upp.program.name if upp.program else None,
                     "package_id": upp.package.id if upp.package else None,
                     "package": upp.package.name if upp.package else None,
-                    "aptitude_test": aptitude_test_status
+                    "aptitude_test": aptitude_test_status,
+                    "engineering_test_analysis": upp.package.engineering_test_analysis 
                 })
             else:
                 response_data["aptitude_test"] = False

@@ -292,7 +292,9 @@ INSTALLED_APPS = [
     'report',
     'content',
     'notification',
-    'activity',
+    # 'activity',
+    "activity.apps.ActivityConfig",
+    'event',
 ]
 
 

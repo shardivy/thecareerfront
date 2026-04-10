@@ -625,10 +625,12 @@ class ExamTrackerAPIView(APIView):
     permission_classes = [IsAuthenticated]
     
     def format_datetime(dt):
-        if not dt:
+        if dt is None:
             return None
+
         if is_naive(dt):
             dt = make_aware(dt)
+
         return localtime(dt).strftime("%Y-%m-%d %H:%M")
 
     def get(self, request, student_id):
@@ -681,7 +683,7 @@ class ExamTrackerAPIView(APIView):
             },
             "exam_submitted": {
                 "status": exam_submitted_status,
-                "date": format_datetime(user_exam.completed_at) if exam_submitted_status else None
+                "date": format_datetime(user_exam.completed_at) if exam_submitted_status and user_exam.completed_at else None
             },
             "awaiting_approval": {
                 "status": awaiting_approval_status
