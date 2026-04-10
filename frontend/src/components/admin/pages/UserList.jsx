@@ -25,6 +25,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   CloseCircleOutlined,
+  MinusCircleOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import UserProfileModal from "../modals/UserProfileModal";
@@ -130,6 +131,7 @@ const UserList = () => {
       // "Review": user.review || "-",
       "Slot Status": user.slotStatus || "-",
       "Journey Status": user.journeyStatus || "-",
+      "Questionnaire Status": user.analysis_status || "-",
 
     }));
 
@@ -305,6 +307,16 @@ const UserList = () => {
           icon = <CloseCircleOutlined />;
           label = "Not Received";
         }
+         else if (normalizedStatus === "not_applicable") {
+    color = "default";
+    icon = <MinusCircleOutlined />;
+    label = (
+      <>
+        Not <br />
+        Applicable
+      </>
+    );
+  }
 
         return (
           <Tag
@@ -322,6 +334,62 @@ const UserList = () => {
         );
       },
     },
+{
+  title: "Questionnaire Status",
+  width: 150,
+  dataIndex: "analysis_status",
+  key: "analysis_status",
+  render: (status, record) => {
+    console.log("analysis_status:", record.analysis_status);
+
+    const normalized = status?.toLowerCase()?.trim();
+
+    let color = "default";
+    let icon = <ClockCircleOutlined />;
+    let label = "—";
+
+    if (normalized === "completed") {
+      color = "success";
+      icon = <CheckCircleOutlined />;
+      label = "Completed";
+    } 
+    else if (normalized === "not_started") {
+      color = "default"; // ⚪ neutral
+      icon = <MinusCircleOutlined />; // ⭕ different icon
+      label = "Not Started";
+    } 
+    else if (normalized === "in_progress") {
+      color = "processing"; // 🔵 different from warning
+      icon = <ClockCircleOutlined />;
+      label = "In Progress";
+    } 
+    // else if (normalized === "not_completed") {
+    //   color = "warning"; // 🟡 separate meaning
+    //   icon = <CloseCircleOutlined />;
+    //   label = "Not Completed";
+    // } 
+    else if (normalized === "not_applicable") {
+      color = "default";
+      icon = <MinusCircleOutlined />;
+      label = (
+        <>
+          Not <br />
+          Applicable
+        </>
+      );
+    }
+
+    return (
+      <Tag
+        icon={icon}
+        color={color}
+        style={{ textAlign: "center", lineHeight: "16px" }}
+      >
+        {label}
+      </Tag>
+    );
+  },
+},
     // {
     //   title: "Review",
     //   dataIndex: "review",
@@ -419,6 +487,14 @@ const UserList = () => {
         </Space>
       ),
     },
+    {
+  title: "Created At",
+  dataIndex: "created_at",
+  key: "created_at",
+  width: 150,
+  render: (date) =>
+    date ? dayjs(date).format("DD MMM YYYY, hh:mm A") : "—",
+},
   ];
 
   // ADD USER HANDLER

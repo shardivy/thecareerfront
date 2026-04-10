@@ -82,6 +82,9 @@ const StudentDashboard = () => {
   // Show exam & report only if aptitude_test = true
   const showExamAndReport = aptitudeTestFromStorage === "true";
 
+  const engineeringTestAnalysis =
+  localStorage.getItem("engineering_test_analysis") === "true";
+
   /* ================= FETCH JOURNEY (ONLY FOR PAID USERS) ================= */
   useEffect(() => {
     if (!isFreeUser && profile?.student_id) {
@@ -99,9 +102,17 @@ const StudentDashboard = () => {
       : 0;
 
   // Adjust step index if exam/report are not part of the journey
+  // if (!showExamAndReport && currentStep > 2) {
+  //   currentStep = currentStep - 2;
+  // }
+
   if (!showExamAndReport && currentStep > 2) {
-    currentStep = currentStep - 2;
-  }
+  currentStep = currentStep - 2;
+}
+
+if (!engineeringTestAnalysis && currentStep > 2) {
+  currentStep = currentStep - 2;
+}
 
   useEffect(() => {
     if (progressData) {
@@ -262,6 +273,7 @@ const StudentDashboard = () => {
           <JourneySteps
             currentStep={currentStep}
             showExamAndReport={showExamAndReport}
+            engineeringTestAnalysis={engineeringTestAnalysis} 
             progressData={progressData}
             journeyLoading={journeyLoading}
           />

@@ -35,6 +35,7 @@ import {
   PhoneFilled,
   NotificationFilled,
   AppstoreFilled,
+  BarChartOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
@@ -163,6 +164,7 @@ useEffect(() => {
     "/s-admin/paymentmanagement": "Payment Management",
     "/s-admin/slotbooking": "Counselling Bookings",
     "/s-admin/createslot": "Create Counselling Slot ",
+    "/s-admin/scheduler": "Scheduler",
     "/s-admin/followupManagement": "Follow Up Management",
     "/s-admin/contentManagement": "Content Management",
     "/s-admin/examManagements": "User Request List",
@@ -170,12 +172,16 @@ useEffect(() => {
     "/s-admin/employeeList": "User List",
     "/s-admin/notificationManagement": "Notification Management",
     "/s-admin/settings": "Settings",
+    "/s-admin/collegeListAnalysis" : "College List Analysis",
 
     "/s-admin/counsellor-dashboard": "Dashboard",
     "/s-admin/session-history": "Session History",
 
     "/s-admin/uiux-dashboard": "Dashboard",
     "/s-admin/sessions-history": "Session History",
+
+    "/s-admin/hhManagement": "Handholding Management",
+
 
 
     // "/admin/leadlist": "Lead List",
@@ -464,6 +470,33 @@ useEffect(() => {
       },
       style: { marginBottom: 12 },
     },
+
+    (role === "admin" || role === "superadmin") && {
+  key: "/s-admin/collegeListAnalysis",
+  icon: <BarChartOutlined />, 
+  label: "College List Analysis",
+  onClick: () => {
+    navigate("/s-admin/collegeListAnalysis");
+    setDrawerVisible(false);
+  },
+  style: { marginBottom: 12 },
+},
+
+(role === "admin" || role === "superadmin") && {
+  key: "/s-admin/hhManagement",
+  icon: <SolutionOutlined />, // you can change icon
+  label: (
+    <div style={{ lineHeight: "20px" }}>
+      <div>Handholding</div>
+      <div>Management</div>
+    </div>
+  ),
+  onClick: () => {
+    navigate("/s-admin/hhManagement");
+    setDrawerVisible(false);
+  },
+  style: { marginBottom: 12 },
+},
 
     //    (role === "lead_counsellor" || role === "counsellor") &&{
     //   key: "/admin/leadlist",

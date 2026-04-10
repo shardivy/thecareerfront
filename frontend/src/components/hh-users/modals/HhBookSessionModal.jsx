@@ -34,7 +34,7 @@ import { bookCounsellingSlot, updateCounsellingBooking } from "../../../adminSli
 
 const { Title, Text } = Typography;
 
-const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
+const HhBookSessionModal = ({ open, onClose, session, onConfirm, rescheduleData }) => {
   const dispatch = useDispatch();
 const preferredMode = localStorage.getItem("preferredCounsellingMode") || "online";
 const [mode, setMode] = useState(preferredMode);
@@ -199,8 +199,8 @@ const filteredSlots = slotsByDate.filter((slot) => {
       .unwrap()
       .then(() => {
         message.success(rescheduleData ? "Session booked successfully" : "Session booked successfully");
-        closeModal();
-        onSave?.();
+        onClose?.();
+        onConfirm?.(selectedSlot);
       })
       .catch((err) => message.error(err));
   };
@@ -212,13 +212,22 @@ const filteredSlots = slotsByDate.filter((slot) => {
   const selectedNormalData = selectedNormalCounsellor ? getCounsellorById(selectedNormalCounsellor) : null;
 
   return (
-    <ConfigProvider>
-      <div style={{ padding: "16px 12px" }}>
-        <Title level={3}>{rescheduleData ? "Reschedule Counselling Session" : "Book Counselling Session"}</Title>
-        <Text type="colorTextSecondary">
-          {rescheduleData ? "Update your session date and time" : "Select your preferred date, counsellor and time slot"}
-        </Text>
-        <Divider />
+    <Modal
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      width={970}
+      maskClosable={true}
+      centered
+      title={null}
+    >
+      <ConfigProvider>
+        <div style={{ padding: "16px 12px" }}>
+          <Title level={3}>{rescheduleData ? "Reschedule Counselling Session" : "Book Counselling Session"}</Title>
+          <Text type="colorTextSecondary">
+            {rescheduleData ? "Update your session date and time" : "Select your preferred date, counsellor and time slot"}
+          </Text>
+          <Divider />
 
         <Row gutter={[24, 24]}>
           {/* LEFT SECTION */}
@@ -448,7 +457,8 @@ const filteredSlots = slotsByDate.filter((slot) => {
 </Modal>
       </div>
     </ConfigProvider>
+  </Modal>
   );
 };
 
-export default BookSessionModal;
+export default HhBookSessionModal;

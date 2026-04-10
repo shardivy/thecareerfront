@@ -91,8 +91,8 @@ const SlotBooking = () => {
       icon: <ClockCircleOutlined />,
     },
     {
-      title: `${statsPeriod.charAt(0).toUpperCase() + statsPeriod.slice(1)} Sessions`,
-      value: stats?.period_sessions ?? 0,
+      title: `Pending Sessions`,
+      value: stats?.pending_sessions ?? 0,
       icon: <CalendarOutlined />,
     },
     {

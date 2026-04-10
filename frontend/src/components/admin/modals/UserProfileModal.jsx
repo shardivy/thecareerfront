@@ -19,6 +19,24 @@ import { fetchStudentJourney } from "../../../adminSlices/userSlice";
 
 const { Title, Text } = Typography;
 
+const formatDisplayDate = (value) => {
+  if (!value) return "—";
+
+  const parsedDate = new Date(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(parsedDate);
+};
+
 /* ---------------- JOURNEY STEPS ---------------- */
 const baseJourneySteps = [
   "Registration",
@@ -27,7 +45,7 @@ const baseJourneySteps = [
   "Exam",
   "Report",
   "Counselling Slot Booking",
-  // "Review",
+  "Review",
   "Full Access",
 ];
 
@@ -41,10 +59,11 @@ const journeySteps =
     "Payment",
     "Exam",
     "Report",
-    "Partial Report",
+    "Questionnaire",
+    "Analysis Report",
     "Counselling Slot Booking",
-    "Full Report",
-    // "Review",
+
+    "Review",
     "Full Access",
   ]
 baseJourneySteps;
@@ -56,6 +75,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
   const dispatch = useDispatch();
   const { journey, journeyLoading } = useSelector((state) => state.users);
 
+const engineeringTestAnalysis = journey?.engineering_test_analysis;
 
 
   useEffect(() => {
@@ -71,11 +91,12 @@ const UserProfileModal = ({ open, onClose, user }) => {
   const progressData = journey?.progress || {};
   const historyData = journey?.history || [];
   const paymentSummary = journey?.payment_summary || {};
-  const payments = paymentSummary.payments || [];
+  const payments = paymentSummary.all_payments || paymentSummary.payments || [];
   const lastPaymentStatus = paymentSummary?.last_payment?.status || null;
 
   const currentStep = progressData.current_step || 1;
   const isPartialPayment = progressData.payment === "partial_paid";
+  const isJourneyCompleted = progressData.full_access === true;
 
   const displayName =
     (user.name && user.name.toString().trim()) ||
@@ -245,13 +266,13 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   return null;
                 }
 
-                // Only Engineering should see Partial & Full Report
-                if (
-                  user.program !== "Engineering" &&
-                  (label === "Partial Report" || label === "Full Report")
-                ) {
-                  return null;
-                }
+                // ✅ SHOW Questionnaire & Analysis Report ONLY if flag is true
+             if (
+  !engineeringTestAnalysis &&
+  (label === "Questionnaire" || label === "Analysis Report")
+) {
+  return null;
+}
 
 
 
@@ -268,11 +289,17 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   (label === "Payment" && progressData.payment === "fully_paid") ||
                   (label === "Exam" && progressData.exam === "completed") ||
                   (label === "Report" && progressData.report === "received_unlocked") ||
+                    (label === "Questionnaire" &&
+    (progressData.analysis === "completed" || progressData.analysis === "in_progress")) ||
+
+  (label === "Analysis Report" &&
+    progressData.analysis === "completed") ||
+
                   (label === "Counselling Slot Booking" &&
                     ["booked", "rescheduled", "completed"].includes(
                       progressData.counselling_slot_booking
                     )) ||
-                  // (label === "Review" && progressData.review) ||
+                (label === "Review" &&(progressData.review === true || progressData.review === "submitted")) ||
                   (label === "Full Access" && progressData.full_access);
 
 
@@ -280,9 +307,12 @@ const UserProfileModal = ({ open, onClose, user }) => {
                 let stepColor = token.colorBorder;
                 if (isPaymentStep && isPartialPayment) stepColor = token.colorWarning;
                 else if (isCompleted) stepColor = token.colorSuccess;
-                else if ((isExamStep && progressData.exam === "in_progress") ||
+                else if (
+                  (isExamStep && progressData.exam === "in_progress") ||
                   (isReportStep && progressData.report === "received_locked") ||
-                  isActive) stepColor = token.colorPrimary;
+                  (label === "Review" && progressData.review === "in_process") ||
+                  isActive
+                ) stepColor = token.colorPrimary;
                 else if (
                   (isPartialReportStep && progressData.partial_report === "locked") ||
                   (isFullReportStep && progressData.full_report === "locked")
@@ -294,10 +324,14 @@ const UserProfileModal = ({ open, onClose, user }) => {
                 // Connector width
                 let progressWidth = "0%";
                 if (
+                   isJourneyCompleted ||
                   stepNo < currentStep ||
                   (isPaymentStep && isPartialPayment) ||
                   (isExamStep && progressData.exam === "in_progress") ||
                   (isReportStep && progressData.report === "received_locked") ||
+
+                  (label === "Review" && (progressData.review === "in_process" || progressData.review === "submitted")) ||
+                  (label === "Full Access" && progressData.full_access === "submitted") ||
                   isActive
                 ) {
                   progressWidth = "100%";
@@ -411,15 +445,19 @@ const UserProfileModal = ({ open, onClose, user }) => {
                     const status = item.status?.toLowerCase();
 
                     if (!status || status === "pending") return false;
-                   if (item.step === "Counselling Slot Booking" && status === "not_booked") {
-    return false;
-  }
+                    if (item.step === "Counselling Slot Booking" && status === "not_booked") {
+                      return false;
+                    }
                     if (item.step === "Exam" && progressData.exam === "not_applicable") {
                       return false;
                     }
                     if (item.step === "Report" && progressData.report === "not_applicable") {
                       return false;
                     }
+
+                    if (item.step === "Review" && status === "not_submitted") {
+                    return false;
+          }
                     if (
                       !showExamReport &&
                       (item.step === "Exam" || item.step === "Report")
@@ -443,13 +481,19 @@ const UserProfileModal = ({ open, onClose, user }) => {
                     : item.status?.toLowerCase();
 
                 const isCompleted =
-                  status === "completed" || status === "fully_paid" || status === "received_unlocked" || status === "rescheduled" || status == "booked";
+                  status === "completed" || 
+                  status === "fully_paid" || 
+                  status === "received_unlocked" ||
+                  status === "rescheduled" || 
+                  status == "booked" ||
+                  status === "submitted"; 
 
                 const isPartial =
                   status === "partial_paid" ||
                   status === "partially_paid" ||
                   status === "partial";
 
+                const isInProgress = status === "in_process";
                 const isRescheduled = status === "rescheduled";
 
                 return (
@@ -468,7 +512,9 @@ const UserProfileModal = ({ open, onClose, user }) => {
                             ? token.colorWarning
                             : isRescheduled
                               ? token.colorInfo   // 🔥 or use custom like "#722ed1"
-                              : token.colorBorder,
+                              : isInProgress
+                                ? token.colorPrimary
+                                : token.colorBorder,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -497,16 +543,22 @@ const UserProfileModal = ({ open, onClose, user }) => {
 
                         <Col>
                           <Tag
-                            color={isCompleted ? "success" : isPartial ? "warning" : isRescheduled
-                              ? "processing"   // 🔥 nice blue effect
-                              : "default"}
+                            color={
+                              isCompleted
+                                ? "success"
+                                : isPartial
+                                  ? "warning"
+                                  : isRescheduled || isInProgress
+                                    ? "processing"
+                                    : "default"
+                            }
                           >
                             {status?.replace("_", " ").toUpperCase()}
                           </Tag>
                         </Col>
                       </Row>
 
-                      {item.step === "Payment" ? (
+                      {/* {item.step === "Payment" ? (
                         <div style={{ marginTop: 10 }}>
                           {payments.map((pay, i) => (
                             <div
@@ -533,6 +585,42 @@ const UserProfileModal = ({ open, onClose, user }) => {
                             </div>
                           ))}
                         </div>
+                      ) : ( */}
+                      {item.step === "Payment" ? (
+                        <div style={{ marginTop: 10 }}>
+                          {(payments.length > 0
+                            ? payments
+                            : paymentSummary?.last_payment
+                              ? [paymentSummary.last_payment]
+                              : []
+                          ).map((pay, i) => (
+                            <div
+                              key={pay?.payment_id || i}
+                              style={{
+                                padding: "8px 12px",
+                                marginTop: 6,
+                                borderRadius: 8,
+                                background: "#fafafa",
+                                border: `1px solid ${token.colorBorder}`,
+                                fontSize: 14,
+                              }}
+                            >
+                              <div>
+                                ₹{pay?.amount ?? "-"} - ({pay?.method || "-"})
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: token.colorTextSecondary,
+                                  marginTop: 4,
+                                }}
+                              >
+                                {formatDisplayDate(pay?.created_at || pay?.date)}
+                               
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       ) : (
                         <>
                           <div
@@ -552,7 +640,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
                               color: token.colorTextSecondary,
                             }}
                           >
-                            {item.date || "—"}
+                            {formatDisplayDate(item.created_at || item.date)}
                           </div>
                         </>
                       )}
