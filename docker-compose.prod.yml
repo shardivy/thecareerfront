@@ -14,6 +14,7 @@ services:
       - redis
     volumes:
       - ./staticfiles:/app/staticfiles
+      - ./media:/app/media
     restart: always
 
   frontend:
@@ -34,15 +35,13 @@ services:
       MYSQL_ROOT_PASSWORD: prod_root@
     volumes:
       - prod_mysql_data:/var/lib/mysql
-    ports:
-      - "3308:3306"
+    
 
   redis:
     image: redis:7-alpine
     container_name: prod_redis
     restart: always
-    ports:
-      - "6379:6379"
+  
 
   celery:
     build: ./backend
