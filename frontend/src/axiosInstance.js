@@ -5,7 +5,7 @@ const axiosInstance = axios.create({
   // baseURL: "http://192.168.84.38:8000/api",
   // baseURL: "https://portland-dsc-recall-jail.trycloudflare.com/api",
 
-  baseURL: "https://staging.abhinavcareerscope.com/api",
+  baseURL: "https://cms.abhinavcareerscope.com/api",
 
 
 });
