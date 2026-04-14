@@ -25,6 +25,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   CloseCircleOutlined,
+  MinusCircleOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import UserProfileModal from "../modals/UserProfileModal";
@@ -130,6 +131,7 @@ const UserList = () => {
       // "Review": user.review || "-",
       "Slot Status": user.slotStatus || "-",
       "Journey Status": user.journeyStatus || "-",
+      "Questionnaire Status": user.analysis_status || "-",
 
     }));
 
@@ -161,7 +163,7 @@ const UserList = () => {
 
     saveAs(fileData, `User List Report.xlsx`);
   };
-  
+
 
 
 
@@ -279,43 +281,109 @@ const UserList = () => {
         );
       },
     },
+    {
+      title: "Report Status",
+      dataIndex: "reportStatus",
+      key: "report",
+      render: (status) => {
+        const normalizedStatus = status?.toLowerCase()?.trim();
+
+        let color = "default";
+        let icon = <LockOutlined />;
+        let label = status;
+
+        if (normalizedStatus === "received_unlocked") {
+          color = "success";
+          icon = <UnlockOutlined />;
+          label = "Received & Unlocked";
+        }
+        else if (normalizedStatus === "received_locked") {
+          color = "processing";
+          icon = <LockOutlined />;
+          label = "Received & Locked";
+        }
+        else if (normalizedStatus === "not_received") {
+          color = "error";
+          icon = <CloseCircleOutlined />;
+          label = "Not Received";
+        }
+         else if (normalizedStatus === "not_applicable") {
+    color = "default";
+    icon = <MinusCircleOutlined />;
+    label = (
+      <>
+        Not <br />
+        Applicable
+      </>
+    );
+  }
+
+        return (
+          <Tag
+            icon={icon}
+            color={color}
+            style={{
+              textAlign: "center",
+              whiteSpace: "normal",
+              lineHeight: "16px",
+              padding: "4px 8px",
+            }}
+          >
+            {label}
+          </Tag>
+        );
+      },
+    },
 {
-  title: "Report",
-  dataIndex: "reportStatus",
-  key: "report",
-  render: (status) => {
-    const normalizedStatus = status?.toLowerCase()?.trim();
+  title: "Questionnaire Status",
+  width: 150,
+  dataIndex: "analysis_status",
+  key: "analysis_status",
+  render: (status, record) => {
+    console.log("analysis_status:", record.analysis_status);
+
+    const normalized = status?.toLowerCase()?.trim();
 
     let color = "default";
-    let icon = <LockOutlined />;
-    let label = status;
+    let icon = <ClockCircleOutlined />;
+    let label = "—";
 
-    if (normalizedStatus === "received_unlocked") {
+    if (normalized === "completed") {
       color = "success";
-      icon = <UnlockOutlined />;
-      label = "Received & Unlocked";
+      icon = <CheckCircleOutlined />;
+      label = "Completed";
     } 
-    else if (normalizedStatus === "received_locked") {
-      color = "processing";
-      icon = <LockOutlined />;
-      label = "Received & Locked";
+    else if (normalized === "not_started") {
+      color = "default"; // ⚪ neutral
+      icon = <MinusCircleOutlined />; // ⭕ different icon
+      label = "Not Started";
     } 
-    else if (normalizedStatus === "not_received") {
-      color = "error";
-      icon = <CloseCircleOutlined />;
-      label = "Not Received";
+    else if (normalized === "in_progress") {
+      color = "processing"; // 🔵 different from warning
+      icon = <ClockCircleOutlined />;
+      label = "In Progress";
+    } 
+    // else if (normalized === "not_completed") {
+    //   color = "warning"; // 🟡 separate meaning
+    //   icon = <CloseCircleOutlined />;
+    //   label = "Not Completed";
+    // } 
+    else if (normalized === "not_applicable") {
+      color = "default";
+      icon = <MinusCircleOutlined />;
+      label = (
+        <>
+          Not <br />
+          Applicable
+        </>
+      );
     }
 
     return (
       <Tag
         icon={icon}
         color={color}
-        style={{
-          textAlign: "center",
-          whiteSpace: "normal",
-          lineHeight: "16px",
-          padding: "4px 8px",
-        }}
+        style={{ textAlign: "center", lineHeight: "16px" }}
       >
         {label}
       </Tag>
@@ -329,13 +397,16 @@ const UserList = () => {
     //   render: (text) => text ? text : " - ",
     // },
     {
-      title: "Slot Status",
+      title: "Counselling Booking Status",
       dataIndex: "slotStatus",
       key: "slotStatus",
+      width: 100,
       render: (status) => {
         let color = "default";
 
         if (status === "Booked") color = "processing";
+        else if (status === "Pending") color = "warning";
+        else if (status === "Rescheduled") color = "purple";
         else if (status === "Completed") color = "success";
         else if (status === "Not Booked") color = "default";
 
@@ -343,40 +414,40 @@ const UserList = () => {
       },
     },
 
-  {
-  title: "Journey Status",
-  dataIndex: "journeyStatus",
-  key: "journeyStatus",
-  render: (status) => {
-    let color = "default";
+    {
+      title: "Journey Status",
+      dataIndex: "journeyStatus",
+      key: "journeyStatus",
+      render: (status) => {
+        let color = "default";
 
-    if (status === "Full Access") color = "success";
-    else if (status === "Counselling Slot Booking") color = "processing";
-    else if (status === "Exam") color = "warning";
-    else if (status === "Payment") color = "#722ed1";
-    else if (status === "Counselling Service Selection") color = "cyan"; // new status color
+        if (status === "Full Access") color = "success";
+        else if (status === "Counselling Slot Booking") color = "processing";
+        else if (status === "Exam") color = "warning";
+        else if (status === "Payment") color = "#722ed1";
+        else if (status === "Counselling Service Selection") color = "cyan"; // new status color
 
-    // Format multi-word statuses: split each word into <br />
-    const formattedStatus =
-      status && typeof status === "string" && status.includes(" ")
-        ? status.split(" ").map((word, idx) => (
-            <React.Fragment key={idx}>
-              {word}
-              <br />
-            </React.Fragment>
-          ))
-        : status;
+        // Format multi-word statuses: split each word into <br />
+        const formattedStatus =
+          status && typeof status === "string" && status.includes(" ")
+            ? status.split(" ").map((word, idx) => (
+              <React.Fragment key={idx}>
+                {word}
+                <br />
+              </React.Fragment>
+            ))
+            : status;
 
-    return (
-      <Tag
-        color={color}
-        style={{ textAlign: "center", lineHeight: "16px" }}
-      >
-        {formattedStatus || "—"}
-      </Tag>
-    );
-  },
-},
+        return (
+          <Tag
+            color={color}
+            style={{ textAlign: "center", lineHeight: "16px" }}
+          >
+            {formattedStatus || "—"}
+          </Tag>
+        );
+      },
+    },
     {
       title: "Actions",
       key: "actions",
@@ -392,18 +463,18 @@ const UserList = () => {
             View
           </Button>
 
-    
-  <Button
-    type="primary"
-    icon={<EditOutlined />}
-    onClick={() => {
-      setSelectedUser(record);
-      setModalMode("edit");
-      setAddEditModalOpen(true);
-    }}
-  >
-    Edit
-  </Button>
+
+          <Button
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => {
+              setSelectedUser(record);
+              setModalMode("edit");
+              setAddEditModalOpen(true);
+            }}
+          >
+            Edit
+          </Button>
 
           {/* <Button
             type="default"
@@ -416,6 +487,14 @@ const UserList = () => {
         </Space>
       ),
     },
+    {
+  title: "Created At",
+  dataIndex: "created_at",
+  key: "created_at",
+  width: 150,
+  render: (date) =>
+    date ? dayjs(date).format("DD MMM YYYY, hh:mm A") : "—",
+},
   ];
 
   // ADD USER HANDLER
@@ -452,7 +531,7 @@ const UserList = () => {
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Col>
           {/* <Title level={3}>User Lists</Title> */}
-           <Title level={3}>Students Enrolled</Title>
+          <Title level={3}>Students Enrolled</Title>
         </Col>
         <Col>
           <Space>
@@ -465,7 +544,7 @@ const UserList = () => {
               icon={<PlusOutlined />}
               onClick={handleAddUser}
             >
-              Add User
+              Add Student
             </Button>
           </Space>
         </Col>

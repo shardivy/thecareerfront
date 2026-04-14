@@ -247,6 +247,10 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 
+USE_X_FORWARDED_HOST = True
+
+SECURE_SSL_REDIRECT = True
+
 CSRF_TRUSTED_ORIGINS = [
     origin for origin in os.environ.get(
         "CSRF_TRUSTED_ORIGINS", ""
@@ -254,7 +258,9 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -285,6 +291,10 @@ INSTALLED_APPS = [
     'exam',
     'report',
     'content',
+    'notification',
+    # 'activity',
+    "activity.apps.ActivityConfig",
+    'event',
 ]
 
 
@@ -301,6 +311,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'activity.middleware.CurrentUserMiddleware',
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -350,8 +361,7 @@ DATABASES = {
 
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # =========================
 # EMAIL

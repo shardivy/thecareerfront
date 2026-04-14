@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi,markCounsellingBookingCompletedApi , getStudentCounsellingBookingsApi } from "../adminApi/counsellingBookingApi";
+import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi,markCounsellingBookingCompletedApi , getStudentCounsellingBookingsApi, cancelCounsellingBookingApi  } from "../adminApi/counsellingBookingApi";
 
 /* ================= THUNK ================= */
 export const bookCounsellingSlot = createAsyncThunk(
@@ -99,6 +99,19 @@ export const fetchStudentCounsellingBookings = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Failed to fetch bookings"
+      );
+    }
+  }
+);
+
+export const cancelCounsellingBooking = createAsyncThunk(
+  "counsellingBooking/cancel",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await cancelCounsellingBookingApi(id);
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Cancel failed"
       );
     }
   }
@@ -232,7 +245,30 @@ const counsellingBookingSlice = createSlice({
 .addCase(fetchStudentCounsellingBookings.rejected, (state, action) => {
   state.loading = false;
   state.error = action.payload;
-});
+})
+
+/* ================= CANCEL ================= */
+.addCase(cancelCounsellingBooking.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(cancelCounsellingBooking.fulfilled, (state, action) => {
+  state.loading = false;
+  state.success = true;
+
+  const cancelledId = action.meta.arg;
+
+  // Update status instead of removing
+  state.data = state.data.map(item =>
+    item.id === cancelledId
+      ? { ...item, status: "cancelled" }
+      : item
+  );
+})
+.addCase(cancelCounsellingBooking.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
   },
 });
 

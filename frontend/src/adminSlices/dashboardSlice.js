@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getDashboardStatsApi, getLeadStatsApi } from "../adminApi/dashboardApi";
+import { getDashboardStatsApi, getLeadStatsApi , getActivityLogsApi} from "../adminApi/dashboardApi";
 
 // ==================== THUNKS ====================
 
@@ -31,6 +31,20 @@ export const fetchLeadStats = createAsyncThunk(
   }
 );
 
+export const fetchActivityLogs = createAsyncThunk(
+  "dashboard/fetchActivityLogs",
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await getActivityLogsApi();
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch activity logs"
+      );
+    }
+  }
+);
+
 // ==================== SLICE ====================
 
 const dashboardSlice = createSlice({
@@ -38,6 +52,7 @@ const dashboardSlice = createSlice({
   initialState: {
     stats: null,
     leadStats: null,
+      activities: [], 
     loading: false,
     error: null,
   },
@@ -77,7 +92,7 @@ const dashboardSlice = createSlice({
 
           sortedYears.forEach((year) => {
             labels.push(year);
-            total.push(data.yearly[year]?.enquiry || 0);
+            total.push(data.yearly[year]?.total || 0);
             converted.push(data.yearly[year]?.converted || 0);
           });
         }
@@ -100,7 +115,7 @@ const dashboardSlice = createSlice({
 
           sortedMonths.forEach((monthKey) => {
             labels.push(monthKey); // keep "Feb 2026"
-            total.push(data.monthly[monthKey]?.enquiry || 0);
+            total.push(data.monthly[monthKey]?.total || 0);
             converted.push(data.monthly[monthKey]?.converted || 0);
           });
         }
@@ -116,7 +131,7 @@ const dashboardSlice = createSlice({
 
           sortedWeeks.forEach((week) => {
             labels.push(week);
-            total.push(weeks[week]?.enquiry || 0);
+            total.push(weeks[week]?.total || 0);
             converted.push(weeks[week]?.converted || 0);
           });
         }
@@ -127,7 +142,22 @@ const dashboardSlice = createSlice({
       .addCase(fetchLeadStats.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+
+    
+// ================= ACTIVITY LOGS =================
+.addCase(fetchActivityLogs.fulfilled, (state, action) => {
+  state.loading = false;
+
+  const activityData = action.payload?.data || [];
+
+  // ✅ Sort by latest (newest first)
+  const sortedActivities = activityData.sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+
+  state.activities = sortedActivities;
+})
   },
 });
 

@@ -21,6 +21,7 @@ import adminTheme from "../../../theme/adminTheme";
 import dayjs from "dayjs";
 import { useDispatch ,useSelector} from "react-redux";
 import { verifyPayment, updatePayment ,fetchStudentPaymentHistory } from "../../../adminSlices/paymentSlice";
+import { fetchHandholdingPaymentDetails } from "../../../hhSlices/handholdingPaymentSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -55,6 +56,9 @@ const {
   historyList,
   remainingAmount
 } = useSelector((state) => state.payment);
+
+const { details: handholdingDetails, loading: handholdingLoading } =
+  useSelector((state) => state.handholdingPayment);
 
 
   const [file, setFile] = useState(null);
@@ -135,10 +139,8 @@ const {
     blobUrlsRef.current.add(blobUrl);
     return blobUrl;
   };
-
 useEffect(() => {
   if (open && data) {
-
     form.setFieldsValue({
       name: safeData.name,
       package: safeData.package,
@@ -155,17 +157,20 @@ useEffect(() => {
     setPreviewUrl(originalProofUrl);
     setIsImage(isImageUrl(originalProofUrl));
 
-    // ✅ CALL PAYMENT HISTORY API (only in view mode)
-    if (mode === "view" && safeData.student_id) {
-      dispatch(fetchStudentPaymentHistory(safeData.student_id));
+    // ✅ SWITCH API
+    if (mode === "view") {
+      if (data?.type === "handholding") {
+        dispatch(fetchHandholdingPaymentDetails(safeData.student_id));
+      } else {
+        dispatch(fetchStudentPaymentHistory(safeData.student_id));
+      }
     }
   }
 
   return () => {
     revokeBlobUrls();
   };
-}, [open]);
-
+}, [open, data]);
   // Don't render anything if modal is not open
   if (!open) return null;
 
@@ -503,6 +508,15 @@ const handleRejectConfirm = () => {
 }
 
     >
+
+       <div
+    className="custom-scroll"
+    style={{
+      maxHeight: "75vh",
+      overflowY: "auto",
+      paddingRight: 8,
+    }}
+  >
       {/* ================= FORM / VIEW ================= */}
       {isEdit ? (
         <Form form={form} layout="vertical">
@@ -1019,7 +1033,7 @@ const handleRejectConfirm = () => {
     })()}
   </>
 )}
-
+</div>
     </Modal>
   );
 };

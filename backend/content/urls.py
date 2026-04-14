@@ -1,6 +1,6 @@
 from django.urls import path
 
-from content.views import ContentDashboardAPIView, ContentDownloadAPIView, ContentFileView, ContentUploadAPIView
+from content.views import ContentDashboardAPIView, ContentDownloadAPIView, ContentFileView, ContentUploadAPIView, ProgramContentAPIView
 
 urlpatterns = [
     path("upload-content/", ContentUploadAPIView.as_view(), name="upload-content"),
@@ -11,5 +11,6 @@ urlpatterns = [
     "download/<int:content_id>/",
     ContentDownloadAPIView.as_view(),
     name="content-download"
-)
+),
+    path("program-content/", ProgramContentAPIView.as_view())
 ]

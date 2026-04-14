@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Layout,
   Menu,
@@ -35,6 +35,7 @@ import {
   PhoneFilled,
   NotificationFilled,
   AppstoreFilled,
+  BarChartOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
@@ -43,6 +44,7 @@ import { logout } from "../adminSlices/authSlice";
 import NotificationDropdown from "../components/student/pages/Notification";
 import { s, style } from "framer-motion/client";
 import { color } from "chart.js/helpers";
+import { fetchNotifications, markNotificationRead } from "../adminSlices/notificationSlice";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -109,12 +111,46 @@ const AdminLayout = () => {
     }
   }, [profileHasName, displayLabel]);
 
+
+
+  const { list: notifications, loading } = useSelector(
+    (state) => state.notifications
+  );
+
+  const [localNotifications, setLocalNotifications] = useState([]);
+
+  useEffect(() => {
+    if (role === "admin" || role === "superadmin") {
+      // initial fetch
+      dispatch(fetchNotifications());
+
+      // poll every 30s
+      const interval = setInterval(() => {
+        dispatch(fetchNotifications());
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [dispatch, role]);
+
+  useEffect(() => {
+    setLocalNotifications(notifications);
+  }, [notifications]);
+
   /* ===================== NOTIFICATIONS ===================== */
-  // const [notifications, setNotifications] = useState([
-  //   { id: 1, title: "New Student Registered", description: "John Doe joined today", type: "student", read: false },
-  //   { id: 2, title: "Payment Received", description: "Payment received from Jane Smith", type: "payment", read: false },
-  // ]);
-  // const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const unreadCount = localNotifications.filter(
+    (n) => !n.is_read
+  ).length;
+
+  const handleRead = (id) => {
+    dispatch(markNotificationRead(id)); // 🔥 API call
+
+    // optional instant UI update
+    setLocalNotifications((prev) =>
+      prev.filter((item) => item.id !== id)
+    );
+  };
 
   /* ===================== BREADCRUMB ===================== */
   const breadcrumbNameMap = {
@@ -128,6 +164,7 @@ const AdminLayout = () => {
     "/s-admin/paymentmanagement": "Payment Management",
     "/s-admin/slotbooking": "Counselling Bookings",
     "/s-admin/createslot": "Create Counselling Slot ",
+    "/s-admin/scheduler": "Scheduler",
     "/s-admin/followupManagement": "Follow Up Management",
     "/s-admin/contentManagement": "Content Management",
     "/s-admin/examManagements": "User Request List",
@@ -135,12 +172,19 @@ const AdminLayout = () => {
     "/s-admin/employeeList": "User List",
     "/s-admin/notificationManagement": "Notification Management",
     "/s-admin/settings": "Settings",
+    "/s-admin/collegeListAnalysis": "College List Analysis",
 
     "/s-admin/counsellor-dashboard": "Dashboard",
     "/s-admin/session-history": "Session History",
 
     "/s-admin/uiux-dashboard": "Dashboard",
     "/s-admin/sessions-history": "Session History",
+
+    "/s-admin/hhManagement": "Handholding Management",
+
+    "/s-admin/eventOutreach": "Event Outreach Management",
+    "/s-admin/advertisement": "Advertisement Management",
+
 
 
     // "/admin/leadlist": "Lead List",
@@ -256,8 +300,47 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
+    // (role === "admin" || role === "superadmin") && {
+    //   key: "exam-management",
+    //   icon: <CalendarFilled />,
+    //   label: (
+    //     <div style={{ lineHeight: "20px" }}>
+    //       <div>Aptitude Test</div>
+    //       <div>Management</div>
+    //     </div>
+    //   ),
+    //   children: [
+    // {
+    //   key: "/s-admin/examlist",
+    //   icon: <UnorderedListOutlined />,
+    //   // label: "Exam List",
+    //   label: (
+    //     <div style={{ lineHeight: "20px" }}>
+    //       <div>Aptitude Test</div>
+    //       <div>List</div>
+    //     </div>
+    //   ),
+    //   onClick: () => {
+    //     navigate("/s-admin/examlist");
+    //     setDrawerVisible(false);
+    //   },
+    // },
+
+    //     (role === "admin" || role === "superadmin") && {
+    //       key: "/s-admin/examManagements",
+    //       icon: <SolutionOutlined />,
+    //       label: "User Request List",
+    //       onClick: () => {
+    //         navigate("/s-admin/examManagements");
+    //         setDrawerVisible(false);
+    //       },
+    //     },
+    //   ],
+    //   style: { marginBottom: 12 },
+    // },
+
     (role === "admin" || role === "superadmin") && {
-      key: "exam-management",
+      key: "/s-admin/examManagements",
       icon: <CalendarFilled />,
       label: (
         <div style={{ lineHeight: "20px" }}>
@@ -265,33 +348,10 @@ const AdminLayout = () => {
           <div>Management</div>
         </div>
       ),
-      children: [
-        {
-          key: "/s-admin/examlist",
-          icon: <UnorderedListOutlined />,
-          // label: "Exam List",
-          label: (
-            <div style={{ lineHeight: "20px" }}>
-              <div>Aptitude Test</div>
-              <div>List</div>
-            </div>
-          ),
-          onClick: () => {
-            navigate("/s-admin/examlist");
-            setDrawerVisible(false);
-          },
-        },
-
-        (role === "admin" || role === "superadmin") && {
-          key: "/s-admin/examManagements",
-          icon: <SolutionOutlined />,
-          label: "User Request List",
-          onClick: () => {
-            navigate("/s-admin/examManagements");
-            setDrawerVisible(false);
-          },
-        },
-      ],
+      onClick: () => {
+        navigate("/s-admin/examManagements");
+        setDrawerVisible(false);
+      },
       style: { marginBottom: 12 },
     },
 
@@ -313,6 +373,23 @@ const AdminLayout = () => {
     },
 
     (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/collegeListAnalysis",
+      icon: <BarChartOutlined />,
+      // label: "College List Analysis",
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>College List</div>
+          <div>Analysis</div>
+        </div>
+      ),
+      onClick: () => {
+        navigate("/s-admin/collegeListAnalysis");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+    (role === "admin" || role === "superadmin") && {
       key: "slot-booking",
       icon: <CalendarFilled />,
       // label: "Counselling Slot Booking",
@@ -322,6 +399,7 @@ const AdminLayout = () => {
           <div>Slot Booking</div>
         </div>
       ),
+      style: { marginBottom: 12 },
 
       children: [
         {
@@ -356,6 +434,28 @@ const AdminLayout = () => {
         },
       ],
     },
+
+
+
+    // (role === "admin" || role === "superadmin") && {
+    //   key: "/s-admin/hhManagement",
+    //   icon: <SolutionOutlined />, // you can change icon
+    //   label: (
+    //     <div style={{ lineHeight: "20px" }}>
+    //       <div>Handholding</div>
+    //       <div>Management</div>
+    //     </div>
+    //   ),
+    //   onClick: () => {
+    //     navigate("/s-admin/hhManagement");
+    //     setDrawerVisible(false);
+    //   },
+    //   style: { marginBottom: 12 },
+    // },
+
+
+
+    
 
     // (role === "admin" || role === "superadmin") &&
     //   {
@@ -413,6 +513,42 @@ const AdminLayout = () => {
       },
       style: { marginBottom: 12 },
     },
+
+    // (role === "admin" || role === "superadmin") && {
+    //   key: "/s-admin/eventOutreach",
+    //   icon: <CalendarFilled />, // you can change icon
+    //   label: (
+    //     <div style={{ lineHeight: "20px" }}>
+    //       <div>Event Outreach </div>
+    //       <div>Management</div>
+    //     </div>
+    //   ),
+    //   onClick: () => {
+    //     navigate("/s-admin/eventOutreach");
+    //     setDrawerVisible(false);
+    //   },
+    //   style: { marginBottom: 12 },
+    // },
+
+
+
+
+// ✅ Advertisement Menu Item
+// (role === "admin" || role === "superadmin") && {
+//   key: "/s-admin/advertisement",
+//   icon: <NotificationFilled />,
+//   label: (
+//     <div style={{ lineHeight: "20px" }}>
+//       <div>Advertisement</div>
+//       <div>Management</div>
+//     </div>
+//   ),
+//   onClick: () => {
+//     navigate("/s-admin/advertisement");
+//     setDrawerVisible(false);
+//   },
+//   style: { marginBottom: 12 },
+// },
 
     //    (role === "lead_counsellor" || role === "counsellor") &&{
     //   key: "/admin/leadlist",
@@ -503,11 +639,11 @@ const AdminLayout = () => {
   );
 
   const getDashboardPath = () => {
-  if (role === "superadmin" || role === "admin") return "/s-admin/dashboard";
-  if (role === "counsellor" || role === "lead_counsellor") return "/s-admin/counsellor-dashboard";
-  if (role === "ui_ux") return "/s-admin/uiux-dashboard";
-  return "/s-admin/dashboard"; // fallback
-};
+    if (role === "superadmin" || role === "admin") return "/s-admin/dashboard";
+    if (role === "counsellor" || role === "lead_counsellor") return "/s-admin/counsellor-dashboard";
+    if (role === "ui_ux") return "/s-admin/uiux-dashboard";
+    return "/s-admin/dashboard"; // fallback
+  };
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -526,54 +662,54 @@ const AdminLayout = () => {
           >
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
               {/* BRANDING */}
-        
-{/* BRANDING */}
-<div
-  style={{
-    padding: "20px 16px",
-    textAlign: "center",
-       cursor: "pointer",
-  }}
-    onClick={() => navigate(getDashboardPath())}
->
-  {/* LOGO */}
-  <img
-    src="/Abhinav-logo.jpg"
-    alt="Career Counselling"
-    style={{
-      width: 120,
-      height: "auto",
-      objectFit: "contain",
-      marginBottom: 8,
-    }}
-  />
 
-  {/* TITLE */}
-  <div
-    style={{
-      fontSize: 18,
-      fontWeight: 700,
-      color: adminTheme.token.colorTextPrimary,
-      lineHeight: "24px",
-    }}
-  >
-    Career Counselling
-  </div>
+              {/* BRANDING */}
+              <div
+                style={{
+                  padding: "20px 16px",
+                  textAlign: "center",
+                  cursor: "pointer",
+                }}
+                onClick={() => navigate(getDashboardPath())}
+              >
+                {/* LOGO */}
+                <img
+                  src="/Abhinav-logo.jpg"
+                  alt="Career Counselling"
+                  style={{
+                    width: 120,
+                    height: "auto",
+                    objectFit: "contain",
+                    marginBottom: 8,
+                  }}
+                />
 
-  {/* SUBTITLE */}
-  <div
-    style={{
-      fontSize: 11,
-      fontWeight: 500,
-      marginTop: 4,
-      color: adminTheme.token.colorTextTertiary,
-      letterSpacing: "0.6px",
-      textTransform: "uppercase",
-    }}
-  >
-    {brandingLabel}
-  </div>
-</div>
+                {/* TITLE */}
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: adminTheme.token.colorTextPrimary,
+                    lineHeight: "24px",
+                  }}
+                >
+                  Career Counselling
+                </div>
+
+                {/* SUBTITLE */}
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    marginTop: 4,
+                    color: adminTheme.token.colorTextTertiary,
+                    letterSpacing: "0.6px",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {brandingLabel}
+                </div>
+              </div>
 
 
               {/* MENU - scrollable with small width scrollbar */}
@@ -620,54 +756,54 @@ const AdminLayout = () => {
             open={drawerVisible}
             onClose={() => setDrawerVisible(false)}
             closable={false}
-           title={
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-        cursor: "pointer",
-    }}
-    onClick={() => {
-    navigate(getDashboardPath());
-    setDrawerVisible(false); // close drawer
-  }}
-  >
-    <img
-      src="/Abhinav-logo.jpg"
-      alt="Career Counselling"
-      style={{
-        width: 66,
-        height: "auto",
-        objectFit: "contain",
-      }}
-    />
+            title={
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  navigate(getDashboardPath());
+                  setDrawerVisible(false); // close drawer
+                }}
+              >
+                <img
+                  src="/Abhinav-logo.jpg"
+                  alt="Career Counselling"
+                  style={{
+                    width: 66,
+                    height: "auto",
+                    objectFit: "contain",
+                  }}
+                />
 
-    <div>
-      <div
-        style={{
-          fontSize: 16,
-          fontWeight: 700,
-          color: adminTheme.token.colorTextPrimary,
-          lineHeight: "18px",
-        }}
-      >
-        Career Counselling
-      </div>
+                <div>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: adminTheme.token.colorTextPrimary,
+                      lineHeight: "18px",
+                    }}
+                  >
+                    Career Counselling
+                  </div>
 
-      <div
-        style={{
-          fontSize: 11,
-          marginTop: 2,
-          color: adminTheme.token.colorTextTertiary,
-          letterSpacing: "0.5px",
-        }}
-      >
-        {brandingLabel}
-      </div>
-    </div>
-  </div>
-}
+                  <div
+                    style={{
+                      fontSize: 11,
+                      marginTop: 2,
+                      color: adminTheme.token.colorTextTertiary,
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {brandingLabel}
+                  </div>
+                </div>
+              </div>
+            }
             extra={
               <Button
                 type="text"
@@ -738,18 +874,23 @@ const AdminLayout = () => {
             <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
 
               {/* 🔔 NOTIFICATIONS */}
-              {/* <Dropdown
+              <Dropdown
                 trigger={["click"]}
-                dropdownRender={() => <NotificationDropdown notifications={notifications} setNotifications={setNotifications} />}
+                dropdownRender={() => (
+                  <NotificationDropdown
+                    notifications={localNotifications}
+                    onRead={handleRead}
+                  />
+                )}
               >
                 <span>
                   <Badge count={unreadCount} size="small">
                     <BellOutlined style={{ fontSize: 20, cursor: "pointer" }} />
                   </Badge>
                 </span>
-              </Dropdown> */}
+              </Dropdown>
 
-              <span>
+              {/* <span>
                 <Badge size="small">
                   <BellOutlined
                     style={{
@@ -759,7 +900,7 @@ const AdminLayout = () => {
                     }}
                   />
                 </Badge>
-              </span>
+              </span> */}
 
               {/* 👤 USER */}
               <Dropdown menu={userMenu} trigger={["click"]}>

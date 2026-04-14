@@ -115,16 +115,6 @@ Session Fees:
 ₹500 via GPay + ₹4,500 cash at the time of counseling
 
 --------------------------------------------------
-Assessment / Exam Link
---------------------------------------------------
-
-If you are selected for the assessment exam, please use the following link:
-
-https://staging.abhinavcareerscope.com/ba/business-associate#
-
-If the exam is not applicable to you, please ignore this section.
-
---------------------------------------------------
 Important Instructions
 --------------------------------------------------
 

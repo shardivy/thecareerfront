@@ -25,7 +25,7 @@ class Lead(models.Model):
     email = models.EmailField(blank=True, null=True)
     study_class = models.CharField(max_length=200, null=True, blank=True)
     specialization = models.CharField(max_length=100, blank=True, null=True)
-    program = models.ForeignKey(Program, on_delete=models.CASCADE)
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
     source = models.CharField(max_length=20, blank=True, null=True, choices=SOURCE_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='enquiry')
     date = models.DateField(blank=True, null=True)
@@ -51,7 +51,9 @@ class ParentProfile(models.Model):
     profession = models.CharField(max_length=100, blank=True, null=True)
     organization_name = models.CharField(max_length=150, blank=True, null=True)
     education_level = models.CharField(max_length=100, blank=True, null=True)
-    background = models.CharField(max_length=100, choices=background_choices)
+    father_background = models.CharField(max_length=200, blank=True, null=True)
+    mother_background = models.CharField(max_length=200, blank=True, null=True)
+    location = models.CharField(max_length=200, blank=True, null=True)
     annual_income_range = models.CharField(max_length=100)
     expectations_from_student = models.TextField()
 
@@ -116,8 +118,19 @@ class StudentProfile(models.Model):
     preferred_counselling_mode = models.CharField(max_length=50, blank=True, null=True,choices=MODECHOICES) 
 
     school_college = models.CharField(max_length=200, blank=True, null=True)
-    city = models.CharField(max_length=100, blank=True, null=True)
+    city = models.CharField(max_length=200, blank=True, null=True)
     is_profile_complete = models.BooleanField(default=False)
+    
+    previous_class_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True
+    )
+
+    board_exam_year = models.CharField(max_length=10, blank=True, null=True)
+
+    improvement_areas = models.TextField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -141,9 +154,13 @@ class StudentProfile(models.Model):
     
 class StudentAcademicHistory(models.Model):
     student_profile = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
-    academic_stage = models.CharField(max_length=20)
-    start_year = models.IntegerField()
-    end_year = models.IntegerField()
+    academic_stage = models.CharField(max_length=20, blank=True, null=True)
+    start_year = models.IntegerField(null=True, blank=True)
+    end_year = models.IntegerField(null=True, blank=True)
+    board_name = models.CharField(max_length=150, blank=True, null=True)
+    coaching_entrance = models.CharField(max_length=200, blank=True, null=True)
+    current_class_percentage = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    special_notes = models.TextField(blank=True, null=True) 
     is_current = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -172,9 +189,18 @@ class Subject(models.Model):
         return self.name
     
 class StudentSubjectPreference(models.Model):
+    PREFERENCE_CHOICES = (
+        ("like", "Like"),
+        ("dislike", "Dislike"),
+        ("moderate", "Moderate"),
+    )
     student_profile = models.ForeignKey(StudentProfile, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    preference_type = models.BooleanField(default=True)  # True for like, False for dislike
+    # preference_type = models.BooleanField(default=True)  # True for like, False for dislike
+    preference_type = models.CharField(
+        max_length=20,
+        choices=PREFERENCE_CHOICES
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

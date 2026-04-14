@@ -191,7 +191,7 @@ const StudentRegister = () => {
 
     const payload = {
       student_name: values.studentName,
-      dob: values.dob.format("YYYY-MM-DD"),
+      dob: values.dob ? values.dob.format("YYYY-MM-DD") : null,
       student_email: values.email,
       student_mobile: values.mobile || "",
       study_class: values.class,
@@ -323,7 +323,7 @@ const StudentRegister = () => {
                     </Form.Item>
                   </Col>
                   <Col md={12}>
-                    <Form.Item label="Date of Birth" name="dob" rules={[{ required: true }]}>
+                    <Form.Item label="Date of Birth" name="dob">
                       <DatePicker size="large" style={{ width: "100%" }} />
                     </Form.Item>
                   </Col>

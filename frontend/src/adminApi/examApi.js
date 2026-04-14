@@ -26,17 +26,30 @@ export const getUserExamsApi = async () => {
 };
 
 // APPROVE USER EXAM
-export const approveUserExamApi = async (id) => {
+// export const approveUserExamApi = async (id) => {
+//   const response = await axiosInstance.post(
+//     `/exam/user-exams/${id}/approve/`
+//   );
+//   return response.data;
+// };
+
+export const approveUserExamApi = async (id, description) => {
   const response = await axiosInstance.post(
-    `/exam/user-exams/${id}/approve/`
+    `/exam/user-exams/${id}/approve/`,
+    {
+      description, // ✅ send comment in body
+    }
   );
   return response.data;
 };
 
 // REJECT USER EXAM
-export const rejectUserExamApi = async (id) => {
+export const rejectUserExamApi = async (id, description) => {
   const response = await axiosInstance.post(
-    `/exam/user-exams/${id}/reject/`
+    `/exam/user-exams/${id}/reject/`,
+    {
+      description, // ✅ now properly passed
+    }
   );
   return response.data;
 };

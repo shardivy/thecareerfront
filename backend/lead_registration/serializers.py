@@ -148,20 +148,25 @@ class AddUserSerializer(serializers.Serializer):
 
         return value
 
-    # -------------------------
-    # Phone Validation
-    # -------------------------
     def validate_phone(self, value):
+        if not value:
+            return value
+
+        # normalize phone (optional but recommended)
+        phone = value.strip().replace(" ", "")
+
         user_id = self.context.get("user_id")
 
-        qs = User.objects.filter(phone=value)
+        qs = User.objects.filter(phone=phone)
+
+        # ✅ exclude current user (VERY IMPORTANT)
         if user_id:
             qs = qs.exclude(id=user_id)
 
         if qs.exists():
             raise serializers.ValidationError("Phone number already exists.")
 
-        return value
+        return phone
 
     # -------------------------
     # Cross-field Validation
@@ -401,7 +406,7 @@ class StudentRegistrationSerializer(serializers.Serializer):
     # 👨‍🎓 Student
     # =========================
     student_name = serializers.CharField(required=True)
-    dob = serializers.DateField(required=True)
+    dob = serializers.DateField(required=False, allow_null=True)
     student_email = serializers.EmailField(required=True)
     student_mobile = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     study_class = serializers.CharField(required=True)

@@ -271,9 +271,7 @@ const ReportManagement = () => {
 
 const handleDownload = async (url) => {
   try {
-    const response = await fetch(url, {
-      method: "GET",
-    });
+    const response = await fetch(url);
 
     const blob = await response.blob();
 
@@ -281,9 +279,9 @@ const handleDownload = async (url) => {
 
     const a = document.createElement("a");
     a.href = downloadUrl;
-    a.setAttribute("download", "Aptitude_Test_Report.pdf");
-    document.body.appendChild(a);
+    a.download = "Aptitude_Test_Report.pdf"; // dynamic later if needed
 
+    document.body.appendChild(a);
     a.click();
 
     a.remove();
@@ -293,9 +291,10 @@ const handleDownload = async (url) => {
   }
 };
 
-  const handleView = () => {
-    window.open("/Career Counselling & Assessment Platform.pdf", "_blank");
-  };
+const handleView = (url) => {
+  if (!url) return;
+  window.open(url, "_blank");
+};
 
   const handleReviewRedirect = () => {
     window.open(
@@ -385,6 +384,15 @@ const handleDownload = async (url) => {
           >
             Download PDF
           </Button>
+
+          {/* <Button
+  block
+  icon={<StarOutlined />}
+  type="primary"
+  onClick={handleReviewRedirect}
+>
+  Submit Review
+</Button> */}
         </>
       ) : reason === "payment" ? (
         <Alert

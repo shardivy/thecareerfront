@@ -113,19 +113,19 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
             : undefined;
 
     form.setFieldsValue({
-student: {
-  value: data.student?.id,
-  label: (
-    <div>
-      <div>
-        {data.student?.first_name || ""} {data.student?.last_name || ""}
-      </div>
-      <div style={{ fontSize: 12, color: "#888" }}>
-        {data.student?.email || ""}
-      </div>
-    </div>
-  ),
-},
+      student: {
+        value: data.student?.id,
+        label: (
+          <div>
+            <div>
+              {data.student?.first_name || ""} {data.student?.last_name || ""}
+            </div>
+            <div style={{ fontSize: 12, color: "#888" }}>
+              {data.student?.email || ""}
+            </div>
+          </div>
+        ),
+      },
       mode: prefillMode,
       primaryCounsellor: lead
         ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
@@ -154,11 +154,54 @@ student: {
   }, [primaryCounsellorId, selectedDate, dispatch, isView]);
 
   // ================= SLOT FILTER =================
+  // const filteredSlots = slotsByDate.filter((slot) => {
+  //   if (isView) return selectedSlot ? slot.id === selectedSlot.id : false; // Only booked slot in view
+  //   if (filter === "All") return true; // Show all in create/edit
+  //   if (filter === "Available") return slot.status === "available";
+  //   if (filter === "Booked") return slot.status === "booked";
+  //   return true;
+  // });
+
+  const isSlotExpired = (slot) => {
+    if (!selectedDate) return false;
+
+    const today = dayjs().format("YYYY-MM-DD");
+    const selected = dayjs(selectedDate).format("YYYY-MM-DD");
+
+    // Only check time if selected date is today
+    if (today !== selected) return false;
+
+    const slotStart = dayjs(
+      `${selected} ${slot.start_time}`,
+      "YYYY-MM-DD hh:mm A"
+    );
+
+    return dayjs().isAfter(slotStart);
+  };
+
   const filteredSlots = slotsByDate.filter((slot) => {
-    if (isView) return selectedSlot ? slot.id === selectedSlot.id : false; // Only booked slot in view
-    if (filter === "All") return true; // Show all in create/edit
-    if (filter === "Available") return slot.status === "available";
-    if (filter === "Booked") return slot.status === "booked";
+    const expired = isSlotExpired(slot);
+
+    const isAvailableLike =
+      slot.status === "available" || slot.status === "pending";
+
+    const isBookedLike =
+      slot.status === "booked" || slot.status === "rescheduled";
+
+    if (isView) {
+      return selectedSlot ? slot.id === selectedSlot.id : false;
+    }
+
+    if (filter === "All") return true;
+
+    if (filter === "Available") {
+      return isAvailableLike && !expired;
+    }
+
+    if (filter === "Booked") {
+      return isBookedLike || expired;
+    }
+
     return true;
   });
 
@@ -171,7 +214,7 @@ student: {
       }
 
       const payload = {
-       student_id: values.student.value,
+        student_id: values.student.value,
         date: values.date.format("YYYY-MM-DD"),
         slots: [selectedSlot.id],
         counsellors_data: [
@@ -256,22 +299,8 @@ student: {
 
     return () => clearInterval(interval);
   }, [data]);
-  const isSlotExpired = (slot) => {
-    if (!selectedDate) return false;
 
-    const today = dayjs().format("YYYY-MM-DD");
-    const selected = dayjs(selectedDate).format("YYYY-MM-DD");
 
-    // Only check time if selected date is today
-    if (today !== selected) return false;
-
-    const slotStart = dayjs(
-      `${selected} ${slot.start_time}`,
-      "YYYY-MM-DD hh:mm A"
-    );
-
-    return dayjs().isAfter(slotStart);
-  };
 
   // ================= UI =================
   return (
@@ -361,153 +390,162 @@ student: {
 
 
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onValuesChange={(changed, allValues) => {
 
-            // When student changes
-            if (changed.student) {
+        <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
+          <Form
+            form={form}
+            layout="vertical"
+            onValuesChange={(changed, allValues) => {
 
-              const selectedStudent = students.find(
-                (s) => (s.student_id || s.id) === changed.student?.value
-              );
+              // When student changes
+              if (changed.student) {
 
-              const backendMode = selectedStudent?.preferred_counselling_mode;
+                const selectedStudent = students.find(
+                  (s) => (s.student_id || s.id) === changed.student?.value
+                );
 
-              if (backendMode && backendMode !== "Not Specified") {
+                const backendMode = selectedStudent?.preferred_counselling_mode;
 
-                const formattedMode =
-                  backendMode.charAt(0).toUpperCase() +
-                  backendMode.slice(1).toLowerCase();
+                if (backendMode && backendMode !== "Not Specified") {
 
-                form.setFieldsValue({
-                  mode: formattedMode,
-                });
+                  const formattedMode =
+                    backendMode.charAt(0).toUpperCase() +
+                    backendMode.slice(1).toLowerCase();
+
+                  form.setFieldsValue({
+                    mode: formattedMode,
+                  });
+                }
               }
-            }
 
-            if (changed.primaryCounsellor)
-              setPrimaryCounsellorId(changed.primaryCounsellor.value);
+              if (changed.primaryCounsellor)
+                setPrimaryCounsellorId(changed.primaryCounsellor.value);
 
-            if (changed.date)
-              setSelectedDate(changed.date);
-          }}
-        >
-          {/* ================= STUDENT & MODE ================= */}
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="Student"
-                name="student"
-                rules={[{ required: true }]}
-              >
-                <Select
-                  disabled={isView}
-                  loading={studentsLoading}
-                  showSearch
-                  optionFilterProp="label"
-                    labelInValue
+              if (changed.date)
+                setSelectedDate(changed.date);
+            }}
+          >
+            {/* ================= STUDENT & MODE ================= */}
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  label="Student"
+                  name="student"
+                  rules={[{ required: true }]}
                 >
-                  {students.map((s) => (
-                    <Option
-                      key={s.student_id || s.id}
-                      value={s.student_id || s.id}
-                      label={`${s.name}  (${s.email})`}
-                    >
-                      <div>
+                  <Select
+                    disabled={isView}
+                    loading={studentsLoading}
+                    showSearch
+                    optionFilterProp="label"
+                    labelInValue
+                  >
+                    {students.map((s) => (
+                      <Option
+                        key={s.student_id || s.id}
+                        value={s.student_id || s.id}
+                        label={`${s.name}  (${s.email})`}
+                      >
                         <div>
-                          {s.name}
+                          <div>
+                            {s.name}
+                          </div>
+                          <div>{s.email}</div>
                         </div>
-                        <div>{s.email}</div>
-                      </div>
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Mode" name="mode" rules={[{ required: true }]}>
-                <Select disabled>
-                  <Option value="Online">Online</Option>
-                  <Option value="Offline">Offline</Option>
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* ================= PRIMARY & SECONDARY COUNSELLOR ================= */}
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Lead Counsellor" name="primaryCounsellor" rules={[{ required: true }]}>
-                <Select disabled={isView} loading={counsellorsLoading} labelInValue placeholder="Select Lead Counsellor">
-                  {counsellors.map((c) => (
-                    <Option key={c.id} value={c.id}>{c.first_name} {c.last_name}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item label="Assistant Counsellor" name="secondaryCounsellor">
-                <Select disabled={isView} allowClear labelInValue placeholder="Select Assistant Counsellor">
-                  {counsellors.map((c) => (
-                    <Option key={c.id} value={c.id} label={`${c.first_name} ${c.last_name}`}>
-                      {c.first_name} {c.last_name}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-          </Row>
-
-          {/* ================= DATE ================= */}
-          <Form.Item label="Date" name="date" rules={[{ required: true }]}>
-            <DatePicker disabled={isView} style={{ width: "100%" }} disabledDate={(d) => d && d < dayjs().startOf("day")} />
-          </Form.Item>
-
-
-          {/* ================= SLOTS ================= */}
-          <Form.Item label={<Text strong>Slot</Text>}>
-            <Row gutter={[8, 8]}>
-              {slotsLoading ? (
-                <Spin />
-              ) : filteredSlots.length ? (
-                filteredSlots.map((slot) => (
-                  <Col key={slot.id}>
-                    <Button
-                      type={selectedSlot?.id === slot.id && slot.status === "available" ? "primary" : "default"}
-                      disabled={slot.status === "booked" || isSlotExpired(slot)}
-                      onClick={() => {
-                        if (slot.status === "available") setSelectedSlot(slot);
-                      }}
-                    >
-                      {slot.start_time} - {slot.end_time} {slot.status === "booked"}
-                    </Button>
-                  </Col>
-                ))
-              ) : (
-                <Text type="secondary">No slots found</Text>
-              )}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="Preferred Counselling Mode" name="mode" rules={[{ required: true }]}>
+                  <Select disabled>
+                    <Option value="Online">Online</Option>
+                    <Option value="Offline">Offline</Option>
+                  </Select>
+                </Form.Item>
+              </Col>
             </Row>
 
+            {/* ================= PRIMARY & SECONDARY COUNSELLOR ================= */}
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label="Lead Counsellor" name="primaryCounsellor" rules={[{ required: true }]}>
+                  <Select disabled={isView} loading={counsellorsLoading} labelInValue placeholder="Select Lead Counsellor">
+                    {counsellors.map((c) => (
+                      <Option key={c.id} value={c.id}>{c.first_name} {c.last_name}</Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="Assistant Counsellor" name="secondaryCounsellor">
+                  <Select disabled={isView} allowClear labelInValue placeholder="Select Assistant Counsellor">
+                    {counsellors.map((c) => (
+                      <Option key={c.id} value={c.id} label={`${c.first_name} ${c.last_name}`}>
+                        {c.first_name} {c.last_name}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
 
-            {/* Show filter buttons only in create/edit mode */}
-            {!isView && (
-              <Space style={{ marginTop: 12 }}>
-                {["All", "Available", "Booked"].map((f) => (
-                  <Button
-                    key={f}
-                    size="small"
-                    type={filter === f ? "primary" : "default"}
-                    onClick={() => setFilter(f)}
-                  >
-                    {f}
-                  </Button>
-                ))}
-              </Space>
-            )}
-          </Form.Item>
-        </Form>
+            {/* ================= DATE ================= */}
+            <Form.Item label="Date" name="date" rules={[{ required: true }]}>
+              <DatePicker disabled={isView} style={{ width: "100%" }} disabledDate={(d) => d && d < dayjs().startOf("day")} />
+            </Form.Item>
+
+
+            {/* ================= SLOTS ================= */}
+            <Form.Item label={<Text strong>Slot</Text>}>
+              <Row gutter={[8, 8]}>
+                {slotsLoading ? (
+                  <Spin />
+                ) : filteredSlots.length ? (
+                  filteredSlots.map((slot) => (
+                    <Col key={slot.id}>
+                      <Button
+                        type={selectedSlot?.id === slot.id && slot.status === "available" ? "primary" : "default"}
+                        disabled={slot.status === "booked" ||
+                          slot.status === "rescheduled" || !slot.is_available || isSlotExpired(slot)}
+                        onClick={() => {
+                          if (
+                            (slot.status === "available" || slot.status === "pending") &&
+                            slot.is_available
+                          ) {
+                            setSelectedSlot(slot);
+                          }
+                        }}
+                      >
+                        {slot.start_time} - {slot.end_time} {slot.status === "booked"}
+                      </Button>
+                    </Col>
+                  ))
+                ) : (
+                  <Text type="colorTextSecondary">No slots found</Text>
+                )}
+              </Row>
+
+
+              {/* Show filter buttons only in create/edit mode */}
+              {!isView && (
+                <Space style={{ marginTop: 12 }}>
+                  {["All", "Available", "Booked"].map((f) => (
+                    <Button
+                      key={f}
+                      size="small"
+                      type={filter === f ? "primary" : "default"}
+                      onClick={() => setFilter(f)}
+                    >
+                      {f}
+                    </Button>
+                  ))}
+                </Space>
+              )}
+            </Form.Item>
+          </Form>
+        </div>
       </Modal>
     </ConfigProvider>
   );

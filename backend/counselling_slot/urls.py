@@ -1,6 +1,6 @@
 from django.urls import path
 
-from counselling_slot.views import AddCounsellorAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
+from counselling_slot.views import AddCounsellorAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CancelBookingAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorMonthAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
 
 
 urlpatterns = [
@@ -34,6 +34,12 @@ urlpatterns = [
     
     path("bookings/create/", BookingCreateAPIView.as_view()),
     path("bookings/<int:booking_id>/", BookingCreateAPIView.as_view()),
+    
+    path(
+    "bookings/<int:booking_id>/cancel/",
+    CancelBookingAPIView.as_view(),
+    name="cancel-booking"
+),
     
     path(
     "session-count/",
@@ -97,6 +103,7 @@ urlpatterns = [
         CounsellorDashboardCountAPIView.as_view(),
         name="counsellor-dashboard-count"
     ),
+    path('counsellor-bookings-all-list/', CounsellorMonthAPIView.as_view(), name='counsellor-bookings'),
 
 
 

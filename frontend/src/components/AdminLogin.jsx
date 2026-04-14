@@ -85,10 +85,14 @@ const AdminLogin = () => {
   }, [error]);
 
   /* ========= SUBMIT ========= */
-  const onFinish = (values) => {
-    console.log("Login Payload:", values);
-    dispatch(loginUser(values)); // only email + password
-  };
+const onFinish = (values, event) => {
+  if (event?.preventDefault) {
+    event.preventDefault(); // 🔥 STOP PAGE RELOAD
+  }
+
+  console.log("Login Payload:", values);
+  dispatch(loginUser(values));
+};
 
   const validatePassword = (_, value) => {
     if (!value) return Promise.reject("Password is required");
@@ -225,6 +229,7 @@ const AdminLogin = () => {
               <Form
                 layout="vertical"
                 onFinish={onFinish}
+                onFinishFailed={() => console.log("Validation Failed")}
                 style={{ marginTop: 28 }}
               >
                 {/* EMAIL */}
@@ -249,7 +254,9 @@ const AdminLogin = () => {
                   label="Password"
                   name="password"
                   hasFeedback
-                  rules={[{ validator: validatePassword }]}
+                  rules={[
+  { required: true, message: "Password is required" }
+]}
                 >
                   <Input.Password
                     prefix={<LockOutlined />}
@@ -295,6 +302,22 @@ const AdminLogin = () => {
                 </Button>
 
                 <Divider style={{ margin: "28px 0" }} />
+
+                <Text style={{ textAlign: "center", display: "block" }}>
+  Want to watch video?{" "}
+  <Text
+    type="primary"
+    style={{
+      cursor: "pointer",
+      textDecoration: "underline",
+      color: "#1677ff",
+      fontWeight: "500",
+    }}
+    onClick={() => navigate("/welcome")}
+  >
+    Click here
+  </Text>
+</Text>
 
                 <Text style={{ textAlign: "center", display: "block" }}>
                   Don’t have an student account?{" "}

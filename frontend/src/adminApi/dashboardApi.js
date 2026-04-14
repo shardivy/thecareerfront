@@ -13,3 +13,9 @@ export const getLeadStatsApi = async (period = "monthly") => {
   const response = await axiosInstance.get(`/lead-stats/?period=${period}`);
   return response.data;
 };
+
+// ✅ GET ACTIVITY LOGS
+export const getActivityLogsApi = async () => {
+  const response = await axiosInstance.get("/activity/activity-logs/");
+  return response.data;
+};

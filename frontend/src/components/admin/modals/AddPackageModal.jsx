@@ -18,6 +18,9 @@ const AddPackageModal = ({
 
   const programs = useSelector((state) => state.programs.activeList);
   const programsLoading = useSelector((state) => state.programs.loading);
+const aptitudeTest = Form.useWatch("aptitude_test", form);
+const engineeringService = Form.useWatch("engineering_test_analysis", form);
+const handholdingProgram = Form.useWatch("is_handholding", form);
 
   const { list: packages, loading } = useSelector((state) => state.packages);
 
@@ -48,6 +51,9 @@ const AddPackageModal = ({
           : [],
         aptitude_test:
           initialValues.aptitude_test ?? false,
+    engineering_test_analysis:
+  initialValues.engineering_test_analysis ?? false,
+  is_handholding: initialValues.is_handholding ?? false,
       });
     } else {
       form.resetFields();
@@ -73,135 +79,195 @@ const AddPackageModal = ({
       footer={null}
       centered
       destroyOnClose
-        width={600} 
+      width={600}
     >
-      <Form layout="vertical" form={form} onFinish={handleFinish}>
-
-        {/* PACKAGE NAME */}
-        <Form.Item
-          label="Counselling Service"
-          name="name"
-          rules={[{ required: true, message: "Please enter counselling service name" }]}
-        >
-          <Input
-            placeholder="Enter counselling service name"
-            disabled={viewMode}
-          />
-        </Form.Item>
-
-        {/* DESCRIPTION */}
-        <Form.Item
-          label="Description"
-          name="description"
-          rules={[
-            { required: true, message: "Please enter description" },
-            { max: 200, message: "Maximum 200 characters allowed" },
-          ]}
-        >
-          <Input.TextArea
-            placeholder="Enter counselling service description"
-            rows={3}
-            disabled={viewMode}
-          />
-        </Form.Item>
 
 
-        {/* LINK URL */}
+      <div style={{ maxHeight: "85vh", overflowY: "auto", paddingRight: 8 }}>
+        <Form layout="vertical" form={form} onFinish={handleFinish}>
 
-        <Form.Item
-          label="Service Link URL"
-          name="link_url"
-          rules={[
-            { type: "url", message: "Please enter a valid URL (https://example.com)" }
-          ]}
-        >
-          <Input
-            placeholder="https://example.com"
-            disabled={viewMode}
-          />
-        </Form.Item>
-
-        {/* PROGRAM */}
-        <Form.Item
-          label="Program"
-          name="program_id"
-          rules={[{ required: true, message: "Please select a program" }]}
-        >
-          <Select
-            placeholder={programsLoading ? "Loading programs..." : "Select program"}
-            disabled={viewMode}
-            loading={programsLoading}
+          {/* PACKAGE NAME */}
+          <Form.Item
+            label="Counselling Service"
+            name="name"
+            rules={[{ required: true, message: "Please enter counselling service name" }]}
           >
-            {programs.map((prog) => (
-              <Option key={prog.id} value={prog.id}>
-                {prog.name}
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
+            <Input
+              placeholder="Enter counselling service name"
+              disabled={viewMode}
+            />
+          </Form.Item>
 
-        {/* PRICE */}
-        <Form.Item
-          label="Price"
-          name="price"
-          rules={[{ required: true, message: "Please enter price" }]}
-        >
-          <Input
-            type="number"
-            placeholder="e.g. 999"
-            disabled={viewMode}
-          />
-        </Form.Item>
+          {/* DESCRIPTION */}
+          <Form.Item
+            label="Description"
+            name="description"
+            rules={[
+              { required: true, message: "Please enter description" },
+              { max: 200, message: "Maximum 200 characters allowed" },
+            ]}
+          >
+            <Input.TextArea
+              placeholder="Enter counselling service description"
+              rows={3}
+              disabled={viewMode}
+            />
+          </Form.Item>
 
-        {/* FEATURES */}
-        <Form.Item
-          label="Features"
-          name="features"
-          rules={[{ required: true, message: "Add at least one feature" }]}
-        >
-          <Select
-            mode="tags"
-            placeholder="Type feature & press Enter"
-            tokenSeparators={[","]}
-            disabled={viewMode}
-          />
-        </Form.Item>
 
-        {/* APTITUDE TEST TOGGLE */}
-        <Form.Item
-          label="Aptitude Test Availability"
-          name="aptitude_test"
-          valuePropName="checked"
-        >
-          <Switch
-            checkedChildren="Available"
-            unCheckedChildren="Unavailable"
-            disabled={viewMode}
-          />
-        </Form.Item>
+          {/* LINK URL */}
 
-        {/* ACTION BUTTONS */}
-       {/* ACTION BUTTONS */}
-{!viewMode && (
-  <Form.Item>
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "flex-end",
-        gap: 8,
+          <Form.Item
+            label="Service Link URL"
+            name="link_url"
+            rules={[
+              { type: "url", message: "Please enter a valid URL (https://example.com)" }
+            ]}
+          >
+            <Input
+              placeholder="https://example.com"
+              disabled={viewMode}
+            />
+          </Form.Item>
+
+          {/* PROGRAM */}
+          <Form.Item
+            label="Program"
+            name="program_id"
+            rules={[{ required: true, message: "Please select a program" }]}
+          >
+            <Select
+              placeholder={programsLoading ? "Loading programs..." : "Select program"}
+              disabled={viewMode}
+              loading={programsLoading}
+            >
+              {programs.map((prog) => (
+                <Option key={prog.id} value={prog.id}>
+                  {prog.name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          {/* PRICE */}
+          <Form.Item
+            label="Price"
+            name="price"
+            rules={[{ required: true, message: "Please enter price" }]}
+          >
+            <Input
+              type="number"
+              placeholder="e.g. 999"
+              disabled={viewMode}
+            />
+          </Form.Item>
+
+          {/* FEATURES */}
+          <Form.Item
+            label="Features"
+            name="features"
+            rules={[{ required: true, message: "Add at least one feature" }]}
+          >
+            <Select
+              mode="tags"
+              placeholder="Type feature & press Enter"
+              tokenSeparators={[","]}
+              disabled={viewMode}
+            />
+          </Form.Item>
+
+<div style={{ display: "flex", gap: 16 }}>
+
+  {/* APTITUDE TEST */}
+  <Form.Item
+    label="Aptitude Test Availability"
+    name="aptitude_test"
+    valuePropName="checked"
+    style={{ flex: 1 }}
+  >
+    <Switch
+      checkedChildren="Available"
+      unCheckedChildren="Unavailable"
+      disabled={viewMode || engineeringService || handholdingProgram} // ✅ FIX
+      onChange={(checked) => {
+        if (checked) {
+          form.setFieldsValue({
+            engineering_test_analysis: false,
+            handholding_program: false, // ✅ FIX
+          });
+        }
       }}
-    >
-      <Button onClick={onClose}>Cancel</Button>
-      <Button type="primary" htmlType="submit">
-        {initialValues ? "Update" : "Submit"} {/* <-- Change text here */}
-      </Button>
-    </div>
+    />
   </Form.Item>
-)}
+
+  {/* ENGINEERING SERVICE */}
+  <Form.Item
+    label="Engineering Service"
+    name="engineering_test_analysis"
+    valuePropName="checked"
+    style={{ flex: 1 }}
+  >
+    <Switch
+      checkedChildren="Yes"
+      unCheckedChildren="No"
+      disabled={viewMode || aptitudeTest || handholdingProgram} // ✅ FIX
+      onChange={(checked) => {
+        if (checked) {
+          form.setFieldsValue({
+            aptitude_test: false,
+            handholding_program: false, // ✅ FIX
+          });
+        }
+      }}
+    />
+  </Form.Item>
+
+  {/* HANDHOLDING PROGRAM */}
+  <Form.Item
+    label="Handholding Program"
+    name="is_handholding"
+    valuePropName="checked"
+    style={{ flex: 1 }}
+  >
+    <Switch
+      checkedChildren="Yes"
+      unCheckedChildren="No"
+      disabled={viewMode || aptitudeTest || engineeringService}
+      onChange={(checked) => {
+        if (checked) {
+          form.setFieldsValue({
+            aptitude_test: false,
+            engineering_test_analysis: false,
+          });
+        }
+      }}
+    />
+  </Form.Item>
+
+</div>
+
+          {/* ACTION BUTTONS */}
+          {!viewMode && (
+            <Form.Item>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: 8,
+                }}
+              >
+                <Button onClick={onClose}>Cancel</Button>
+                <Button type="primary" htmlType="submit">
+                  {initialValues ? "Update" : "Submit"} {/* <-- Change text here */}
+                </Button>
+              </div>
+            </Form.Item>
+          )}
 
 
 
-      </Form>
+        </Form>
+      </div>
     </Modal>
   );
 };

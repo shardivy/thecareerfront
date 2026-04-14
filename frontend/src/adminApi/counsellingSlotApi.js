@@ -75,3 +75,12 @@ export const updateSlotAvailabilityApi = async (slotId, payload) => {
   );
   return response.data;
 };
+
+//scheduler page api
+export const getCounsellorBookingsApi = async (year, month) => {
+  const response = await axiosInstance.get(
+    `/counselling_slot/counsellor-bookings-all-list/?year=${year}&month=${month}`
+  );
+
+  return response.data.data;
+};

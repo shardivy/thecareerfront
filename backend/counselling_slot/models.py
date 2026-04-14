@@ -53,6 +53,7 @@ class Booking(models.Model):
         ('booked', 'Booked'),
         ('rescheduled', 'Rescheduled'),
         ('completed', 'Completed'),
+        ('pending', 'Pending'),
         ('cancelled', 'Cancelled'),
     )
 

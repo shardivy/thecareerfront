@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { uploadContentApi, updateContentApi, getContentListApi, getContentCountApi, deleteContentApi ,incrementDownloadCountApi } from "../adminApi/contentApi";
+import { uploadContentApi, updateContentApi, getContentListApi, getContentCountApi, deleteContentApi ,incrementDownloadCountApi, getProgramContentApi} from "../adminApi/contentApi";
 
 // ================= THUNK =================
 export const uploadContent = createAsyncThunk(
@@ -88,6 +88,21 @@ export const incrementDownloadCount = createAsyncThunk(
       return data;
     } catch (error) {
       return rejectWithValue(error.response?.data || "Failed to increment download count");
+    }
+  }
+);
+
+// ================= FETCH PROGRAM CONTENT =================
+export const fetchProgramContent = createAsyncThunk(
+  "content/fetchProgramContent",
+  async (programId, { rejectWithValue }) => {
+    try {
+      const data = await getProgramContentApi(programId);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Program content fetch failed"
+      );
     }
   }
 );
@@ -200,7 +215,26 @@ const contentSlice = createSlice({
     .addCase(incrementDownloadCount.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload;
-    });
+    })
+
+
+    // ================= PROGRAM CONTENT =================
+.addCase(fetchProgramContent.pending, (state) => {
+  state.loading = true;
+})
+.addCase(fetchProgramContent.fulfilled, (state, action) => {
+  state.loading = false;
+
+  const list = action.payload?.data || [];
+
+  state.contentList = list.sort(
+    (a, b) => new Date(b.date) - new Date(a.date)
+  );
+})
+.addCase(fetchProgramContent.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+});
   },
 });
 

@@ -9,6 +9,10 @@ import {
   Button,
   Space,
   Spin,
+  Modal, 
+  Form, 
+  Input,
+  message,
 } from "antd";
 import {
   UserOutlined,
@@ -17,16 +21,23 @@ import {
   PhoneOutlined,
   CalendarOutlined,
   SafetyOutlined,
+  LockOutlined ,
 } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import EditProfileModal from "../modals/EditProfileModal";
 import { getProfile } from "../../../adminSlices/profileSlice";
+import { resetPassword } from "../../../adminSlices/resetPasswordSlice"
 
 const { Title, Text } = Typography;
 
 const Profile = () => {
   const dispatch = useDispatch();
   const { profile, loading } = useSelector((state) => state.profile);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+
+const { loading: passwordLoading } = useSelector(
+  (state) => state.resetPassword
+);
 
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
@@ -48,6 +59,44 @@ const Profile = () => {
   return role
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+
+const validatePassword = (_, value) => {
+  if (!value) return Promise.reject("Password is required");
+
+  if (value.length < 8)
+    return Promise.reject("Minimum 8 characters required");
+
+  if (!/[A-Z]/.test(value))
+    return Promise.reject("At least one uppercase letter required");
+
+  if (!/[a-z]/.test(value))
+    return Promise.reject("At least one lowercase letter required");
+
+  if (!/\d/.test(value))
+    return Promise.reject("At least one number required");
+
+  return Promise.resolve();
+};
+
+const handlePasswordChange = async (values) => {
+  try {
+    await dispatch(
+      resetPassword({
+        email: profile.email,
+        new_password: values.new_password,
+        confirm_password: values.confirm_password,
+      })
+    ).unwrap();
+
+    message.success("Password changed successfully");
+
+    setIsPasswordModalOpen(false);
+
+  } catch (err) {
+    message.error(err || "Password update failed");
+  }
 };
 
   return (
@@ -102,6 +151,13 @@ const Profile = () => {
                 >
                   Edit
                 </Button>
+
+                  <Button
+    icon={<LockOutlined />}
+    onClick={() => setIsPasswordModalOpen(true)}
+  >
+    Change Password
+  </Button>
               </Space>
             </div>
 
@@ -148,6 +204,72 @@ const Profile = () => {
         onClose={() => setIsEditModalVisible(false)}
         userData={profile}   // ✅ Redux data
       />
+
+
+      <Modal
+  title="Change Password"
+  open={isPasswordModalOpen}
+  onCancel={() => !passwordLoading && setIsPasswordModalOpen(false)}
+  footer={null}
+>
+  <Form layout="vertical" onFinish={handlePasswordChange}>
+    
+    <Form.Item
+      label="New Password"
+      name="new_password"
+      rules={[{ validator: validatePassword }]}
+    >
+      <Input.Password
+        prefix={<LockOutlined />}
+        placeholder="Enter new password"
+      />
+    </Form.Item>
+
+    <Form.Item
+      label="Confirm Password"
+      name="confirm_password"
+      dependencies={["new_password"]}
+      rules={[
+        { required: true, message: "Confirm password is required" },
+        ({ getFieldValue }) => ({
+          validator(_, value) {
+            if (!value || getFieldValue("new_password") === value) {
+              return Promise.resolve();
+            }
+            return Promise.reject("Passwords do not match");
+          },
+        }),
+      ]}
+    >
+      <Input.Password
+        prefix={<LockOutlined />}
+        placeholder="Confirm password"
+      />
+    </Form.Item>
+
+  <Row gutter={12} justify="end">
+  <Col>
+    <Button
+      onClick={() => setIsPasswordModalOpen(false)}
+      disabled={passwordLoading}
+    >
+      Cancel
+    </Button>
+  </Col>
+
+  <Col>
+    <Button
+      type="primary"
+      htmlType="submit"
+      loading={passwordLoading}
+    >
+      {passwordLoading ? "Updating..." : "Update Password"}
+    </Button>
+  </Col>
+</Row>
+
+  </Form>
+</Modal>
     </div>
   );
 };

@@ -680,9 +680,14 @@ class LoginAPIView(APIView):
         # ==========================
         # 1️⃣ Validate credentials
         # ==========================
-        if not email or not password:
+        if not email:
             return Response(
-                {"error": "Email and password are required"},
+                {"error": "Email is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not password:
+            return Response(
+                {"error": "Password is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -955,6 +960,9 @@ class ProfileUpdateAPIView(APIView):
                 "current_academic_year": student_profile.current_academic_year,
                 "school_college": student_profile.school_college,
                 "city": student_profile.city,
+                "previous_class_percentage": student_profile.previous_class_percentage,
+                "board_exam_year": student_profile.board_exam_year,
+                "improvement_areas": student_profile.improvement_areas,
                 "preferred_counselling_mode": student_profile.preferred_counselling_mode,
                 "dob": student_profile.dob,
                 "complete_profile": student_profile.is_profile_complete
@@ -970,7 +978,9 @@ class ProfileUpdateAPIView(APIView):
                     "profession": parent.profession,
                     "organization_name": parent.organization_name,
                     "education_level": parent.education_level,
-                    "background": parent.background,
+                    "father_background": parent.father_background,
+                    "mother_background": parent.mother_background,
+                    "location": parent.location,
                     "annual_income_range": parent.annual_income_range,
                     "expectations_from_student": parent.expectations_from_student
                 }
@@ -989,6 +999,10 @@ class ProfileUpdateAPIView(APIView):
                     "academic_stage": record.academic_stage,
                     "start_year": record.start_year,
                     "end_year": record.end_year,
+                    "board_name": record.board_name,
+                    "coaching_entrance": record.coaching_entrance,
+                    "current_class_percentage": record.current_class_percentage,
+                    "special_notes": record.special_notes,
                     "is_current": record.is_current
                 }
                 for record in academic_records
@@ -1015,6 +1029,7 @@ class ProfileUpdateAPIView(APIView):
 
             liked_subjects = []
             disliked_subjects = []
+            moderate_subjects = []
 
             for pref in preferences:
                 subject_data = {
@@ -1022,14 +1037,16 @@ class ProfileUpdateAPIView(APIView):
                     "name": pref.subject.name
                 }
 
-                if pref.preference_type is True:
+                if pref.preference_type == "like":
                     liked_subjects.append(subject_data)
-                elif pref.preference_type is False:
+                elif pref.preference_type == "dislike":
                     disliked_subjects.append(subject_data)
+                elif pref.preference_type == "moderate":
+                    moderate_subjects.append(subject_data)
 
             response_data["liked_subjects"] = liked_subjects
             response_data["disliked_subjects"] = disliked_subjects
-            
+            response_data["moderate_subjects"] = moderate_subjects
             # ==========================
             # 🔹 Hobbies
             # ==========================
@@ -1063,7 +1080,8 @@ class ProfileUpdateAPIView(APIView):
                     "program": upp.program.name if upp.program else None,
                     "package_id": upp.package.id if upp.package else None,
                     "package": upp.package.name if upp.package else None,
-                    "aptitude_test": aptitude_test_status
+                    "aptitude_test": aptitude_test_status,
+                    "engineering_test_analysis": upp.package.engineering_test_analysis 
                 })
             else:
                 response_data["aptitude_test"] = False
@@ -1103,6 +1121,7 @@ class ProfileUpdateAPIView(APIView):
         # ==========================
         liked_subject_ids = data.get("liked_subject_ids")
         disliked_subject_ids = data.get("disliked_subject_ids")
+        # moderate_subject_ids = data.get("moderate_subject_ids")
         hobby_ids = data.get("hobby_ids")
 
         errors = {}
@@ -1112,6 +1131,9 @@ class ProfileUpdateAPIView(APIView):
 
         if disliked_subject_ids is not None and len(disliked_subject_ids) == 0:
             errors["disliked_subjects"] = "Disliked subjects are compulsory to complete the profile"
+
+        # if moderate_subject_ids is not None and len(moderate_subject_ids) == 0:
+        #     errors["moderate_subjects"] = "Moderate subjects are compulsory to complete the profile"
 
         if hobby_ids is not None and len(hobby_ids) == 0:
             errors["hobbies"] = "Hobbies are compulsory to complete the profile"
@@ -1147,6 +1169,9 @@ class ProfileUpdateAPIView(APIView):
             "current_academic_year",
             student_profile.current_academic_year
         )
+        dob = data.get("dob")
+        if dob not in ["", None]:
+            student_profile.dob = dob
         student_profile.school_college = data.get(
             "school_college",
             student_profile.school_college
@@ -1155,6 +1180,24 @@ class ProfileUpdateAPIView(APIView):
         student_profile.specialization = data.get(
             "specialization",
             student_profile.specialization
+        )
+        # student_profile.previous_class_percentage = data.get(
+        #     "previous_class_percentage",
+        #     student_profile.previous_class_percentage
+        # )
+        previous_percentage = data.get("previous_class_percentage")
+
+        if previous_percentage not in ["", None]:
+            student_profile.previous_class_percentage = previous_percentage
+
+        student_profile.board_exam_year = data.get(
+            "board_exam_year",
+            student_profile.board_exam_year
+        )
+
+        student_profile.improvement_areas = data.get(
+            "improvement_areas",
+            student_profile.improvement_areas
         )
         student_profile.save()
         
@@ -1202,8 +1245,18 @@ class ProfileUpdateAPIView(APIView):
                 "education_level", parent_profile.education_level
             )
 
-            parent_profile.background = parent_data.get(
-                "background", parent_profile.background
+            parent_profile.father_background = parent_data.get(
+                "father_background",
+                parent_profile.father_background
+            )
+
+            parent_profile.mother_background = parent_data.get(
+                "mother_background",
+                parent_profile.mother_background
+            )
+            parent_profile.location = parent_data.get(
+                "location",
+                parent_profile.location
             )
 
             parent_profile.annual_income_range = parent_data.get(
@@ -1230,11 +1283,18 @@ class ProfileUpdateAPIView(APIView):
             ).delete()
 
             for record in academic_history:
+                current_percentage = record.get("current_class_percentage")
                 StudentAcademicHistory.objects.create(
                     student_profile=student_profile,
                     academic_stage=record.get("academic_stage"),
                     start_year=record.get("start_year"),
                     end_year=record.get("end_year"),
+                    board_name=record.get("board_name"),
+                    coaching_entrance=record.get("coaching_entrance"),
+                    # current_class_percentage=record.get("current_class_percentage"),
+                    current_class_percentage=current_percentage if current_percentage not in ["", None] else None,
+                    special_notes=record.get("special_notes"),
+
                     is_current=record.get("is_current", False),
                 )
 
@@ -1254,6 +1314,7 @@ class ProfileUpdateAPIView(APIView):
         # ==========================
         liked_subject_ids = data.get("liked_subject_ids")
         disliked_subject_ids = data.get("disliked_subject_ids")
+        moderate_subject_ids = data.get("moderate_subject_ids")
 
         if liked_subject_ids is not None or disliked_subject_ids is not None:
 
@@ -1263,21 +1324,44 @@ class ProfileUpdateAPIView(APIView):
             ).delete()
 
             # Create liked subjects
+            # if liked_subject_ids:
+            #     for subject_id in liked_subject_ids:
+            #         StudentSubjectPreference.objects.create(
+            #             student_profile=student_profile,
+            #             subject_id=subject_id,
+            #             preference_type=True
+            #         )
             if liked_subject_ids:
                 for subject_id in liked_subject_ids:
                     StudentSubjectPreference.objects.create(
                         student_profile=student_profile,
                         subject_id=subject_id,
-                        preference_type=True
+                        preference_type="like"
                     )
 
             # Create disliked subjects
+            # if disliked_subject_ids:
+            #     for subject_id in disliked_subject_ids:
+            #         StudentSubjectPreference.objects.create(
+            #             student_profile=student_profile,
+            #             subject_id=subject_id,
+            #             preference_type=False
+            #         )
+            
             if disliked_subject_ids:
                 for subject_id in disliked_subject_ids:
                     StudentSubjectPreference.objects.create(
                         student_profile=student_profile,
                         subject_id=subject_id,
-                        preference_type=False
+                        preference_type="dislike"
+                    )
+                    
+            if moderate_subject_ids:
+                for subject_id in moderate_subject_ids:
+                    StudentSubjectPreference.objects.create(
+                        student_profile=student_profile,
+                        subject_id=subject_id,
+                        preference_type="moderate"
                     )
 
         # ==========================
@@ -1306,23 +1390,14 @@ class ProfileUpdateAPIView(APIView):
         return Response({
             "message": "Profile updated! Redirecting to dashboard..."
         }, status=status.HTTP_200_OK)
-        
-class StudentProfileByIdAPIView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request, student_id):
 
-        # 🔹 Get student profile using ID from URL
-        student_profile = get_object_or_404(
-            StudentProfile.objects.select_related("user", "parent"),
-            id=student_id
-        )
 
-        user = student_profile.user
+def build_student_profile_response(request, user, student_profile=None):
 
         response_data = {
             "id": user.id,
-            "student_id": student_profile.id,
+            "student_id": student_profile.id if student_profile else None,
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
@@ -1332,106 +1407,559 @@ class StudentProfileByIdAPIView(APIView):
             "created_at": user.created_at
         }
 
-        # ==========================
-        # 🔹 Basic Student Info
-        # ==========================
-        response_data.update({
-            "study_class": student_profile.study_class,
-            "specialization": student_profile.specialization,
-            "current_academic_year": student_profile.current_academic_year,
-            "school_college": student_profile.school_college,
-            "city": student_profile.city,
-            "preferred_counselling_mode": student_profile.preferred_counselling_mode,
-            "dob": student_profile.dob,
-            "complete_profile": student_profile.is_profile_complete
-        })
+        if student_profile:
+            
+            response_data.update({
+                "study_class": student_profile.study_class,
+                "specialization": student_profile.specialization,
+                "current_academic_year": student_profile.current_academic_year,
+                "school_college": student_profile.school_college,
+                "city": student_profile.city,
+                "previous_class_percentage": student_profile.previous_class_percentage,
+                "board_exam_year": student_profile.board_exam_year,
+                "improvement_areas": student_profile.improvement_areas,
+                "preferred_counselling_mode": student_profile.preferred_counselling_mode,
+                "dob": student_profile.dob.strftime("%Y-%m-%d") if student_profile.dob else None,
+                "complete_profile": student_profile.is_profile_complete
+            })
+            
+            # Program & Package
+            user_programs = UserProgramPackage.objects.filter(
+                user=user
+            ).select_related("program", "package")
+
+            response_data["program_packages"] = [
+                {
+                    "program_id": up.program.id,
+                    "program_name": up.program.name,
+                    "package_id": up.package.id if up.package else None,
+                    "package_name": up.package.name if up.package else None,
+                    "assigned_by": up.assigned_by,
+                    "created_at": up.created_at
+                }
+                for up in user_programs
+            ]
+            
+            # Parent
+            if student_profile.parent:
+                parent = student_profile.parent
+                response_data["parent"] = {
+                    "parent_name": f"{parent.user.first_name} {parent.user.last_name}" if parent.user else None,
+                    "profession": parent.profession,
+                    "organization_name": parent.organization_name,
+                    "education_level": parent.education_level,
+                    "father_background": parent.father_background,
+                    "mother_background": parent.mother_background,
+                    "location": parent.location,
+                    "annual_income_range": parent.annual_income_range,
+                    "expectations_from_student": parent.expectations_from_student
+                }
+            else:
+                response_data["parent"] = None
+
+            # Academic History
+            academic_records = StudentAcademicHistory.objects.filter(
+                student_profile=student_profile
+            )
+
+            response_data["academic_history"] = [
+                {
+                    "academic_stage": r.academic_stage,
+                    "start_year": r.start_year,
+                    "end_year": r.end_year,
+                    "board_name": r.board_name,
+                    "coaching_entrance": r.coaching_entrance,
+                    "current_class_percentage": r.current_class_percentage,
+                    "special_notes": r.special_notes,
+                    "is_current": r.is_current
+                }
+                for r in academic_records
+            ]
+
+            # Stream
+            stream = StudentStream.objects.filter(
+                student_profile=student_profile
+            ).select_related("stream").first()
+
+            response_data["stream"] = {
+                "stream_id": stream.stream.id,
+                "stream_name": stream.stream.name
+            } if stream else None
+
+            # Subject Preferences
+            preferences = StudentSubjectPreference.objects.filter(
+                student_profile=student_profile
+            ).select_related("subject")
+
+            liked_subjects = []
+            disliked_subjects = []
+            moderate_subjects = []
+
+            for pref in preferences:
+
+                subject_data = {
+                    "id": pref.subject.id,
+                    "name": pref.subject.name
+                }
+
+                if pref.preference_type == "like":
+                    liked_subjects.append(subject_data)
+
+                elif pref.preference_type == "dislike":
+                    disliked_subjects.append(subject_data)
+
+                elif pref.preference_type == "moderate":
+                    moderate_subjects.append(subject_data)
+
+            response_data["liked_subjects"] = liked_subjects
+            response_data["disliked_subjects"] = disliked_subjects
+            response_data["moderate_subjects"] = moderate_subjects
+
+            # Hobbies
+            hobbies = StudentHobby.objects.filter(
+                student_profile=student_profile
+            ).select_related("hobby")
+
+            response_data["hobbies"] = [
+                {
+                    "id": hobby.hobby.id,
+                    "name": hobby.hobby.name
+                }
+                for hobby in hobbies
+            ]
+
+        return response_data
+        
+class StudentProfileByIdAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    # def get(self, request, student_id):
+
+    #     # 🔹 Get student profile using ID from URL
+    #     student_profile = get_object_or_404(
+    #         StudentProfile.objects.select_related("user", "parent"),
+    #         id=student_id
+    #     )
+
+    #     user = student_profile.user
+
+    #     response_data = {
+    #         "id": user.id,
+    #         "student_id": student_profile.id,
+    #         "first_name": user.first_name,
+    #         "last_name": user.last_name,
+    #         "email": user.email,
+    #         "phone": user.phone,
+    #         "role": user.role.name if user.role else None,
+    #         "is_active": user.is_active,
+    #         "created_at": user.created_at
+    #     }
+
+    #     # ==========================
+    #     # 🔹 Basic Student Info
+    #     # ==========================
+    #     response_data.update({
+    #         "study_class": student_profile.study_class,
+    #         "specialization": student_profile.specialization,
+    #         "current_academic_year": student_profile.current_academic_year,
+    #         "school_college": student_profile.school_college,
+    #         "city": student_profile.city,
+    #         "previous_class_percentage": student_profile.previous_class_percentage,
+    #         "board_exam_year": student_profile.board_exam_year,
+    #         "improvement_areas": student_profile.improvement_areas,
+    #         "preferred_counselling_mode": student_profile.preferred_counselling_mode,
+    #         "dob": student_profile.dob,
+    #         "complete_profile": student_profile.is_profile_complete
+    #     })
+
+    #     # ==========================
+    #     # 🔹 Parent Info
+    #     # ==========================
+    #     if student_profile.parent:
+    #         parent = student_profile.parent
+    #         response_data["parent"] = {
+    #             "parent_name": f"{parent.user.first_name} {parent.user.last_name}",
+    #             "profession": parent.profession,
+    #             "organization_name": parent.organization_name,
+    #             "education_level": parent.education_level,
+    #             "father_background": parent.father_background,
+    #             "mother_background": parent.mother_background,
+    #             "location": parent.location,
+    #             "annual_income_range": parent.annual_income_range,
+    #             "expectations_from_student": parent.expectations_from_student
+    #         }
+    #     else:
+    #         response_data["parent"] = None
+
+    #     # ==========================
+    #     # 🔹 Academic History
+    #     # ==========================
+    #     academic_records = StudentAcademicHistory.objects.filter(
+    #         student_profile=student_profile
+    #     )
+
+    #     response_data["academic_history"] = [
+    #         {
+    #             "academic_stage": record.academic_stage,
+    #             "start_year": record.start_year,
+    #             "end_year": record.end_year,
+    #             "is_current": record.is_current
+    #         }
+    #         for record in academic_records
+    #     ]
+
+    #     # ==========================
+    #     # 🔹 Stream
+    #     # ==========================
+    #     stream = StudentStream.objects.filter(
+    #         student_profile=student_profile
+    #     ).select_related("stream").first()
+
+    #     response_data["stream"] = {
+    #         "stream_id": stream.stream.id,
+    #         "stream_name": stream.stream.name
+    #     } if stream else None
+
+    #     # ==========================
+    #     # 🔹 Subject Preferences
+    #     # ==========================
+    #     preferences = StudentSubjectPreference.objects.filter(
+    #         student_profile=student_profile
+    #     ).select_related("subject")
+
+    #     liked_subjects = []
+    #     disliked_subjects = []
+
+    #     for pref in preferences:
+    #         subject_data = {
+    #             "id": pref.subject.id,
+    #             "name": pref.subject.name
+    #         }
+
+    #         if pref.preference_type is True:
+    #             liked_subjects.append(subject_data)
+    #         elif pref.preference_type is False:
+    #             disliked_subjects.append(subject_data)
+
+    #     response_data["liked_subjects"] = liked_subjects
+    #     response_data["disliked_subjects"] = disliked_subjects
+
+    #     # ==========================
+    #     # 🔹 Hobbies
+    #     # ==========================
+    #     hobbies = StudentHobby.objects.filter(
+    #         student_profile=student_profile
+    #     ).select_related("hobby")
+
+    #     response_data["hobbies"] = [
+    #         {
+    #             "id": hobby.hobby.id,
+    #             "name": hobby.hobby.name
+    #         }
+    #         for hobby in hobbies
+    #     ]
+
+    #     return Response(response_data)
+    def get(self, request, student_id):
+
+        student_profile = get_object_or_404(
+            StudentProfile.objects.select_related("user", "parent"),
+            id=student_id
+        )
+
+        user = student_profile.user
+
+        response_data = build_student_profile_response(
+            request,
+            user,
+            student_profile
+        )
+
+        return Response(response_data)
+    
+    @transaction.atomic
+    def put(self, request, student_id):
+
+        data = request.data
+
+        # 🔹 Get student profile
+        student_profile = get_object_or_404(
+            StudentProfile.objects.select_related("user"),
+            id=student_id
+        )
+
+        user = student_profile.user
 
         # ==========================
-        # 🔹 Parent Info
+        # 🔹 Prevent Email & Role Update
         # ==========================
-        if student_profile.parent:
-            parent = student_profile.parent
-            response_data["parent"] = {
-                "parent_name": f"{parent.user.first_name} {parent.user.last_name}",
-                "profession": parent.profession,
-                "organization_name": parent.organization_name,
-                "education_level": parent.education_level,
-                "background": parent.background,
-                "annual_income_range": parent.annual_income_range,
-                "expectations_from_student": parent.expectations_from_student
-            }
-        else:
-            response_data["parent"] = None
+        if 'email' in data:
+            return Response({"error": "Email cannot be updated"}, status=400)
+
+        if 'role' in data:
+            return Response({"error": "Role cannot be updated"}, status=400)
+
+        # ==========================
+        # 🔹 Validate Preferences & Hobbies
+        # ==========================
+        liked_subject_ids = data.get("liked_subject_ids")
+        disliked_subject_ids = data.get("disliked_subject_ids")
+        hobby_ids = data.get("hobby_ids")
+
+        errors = {}
+
+        if liked_subject_ids is not None and len(liked_subject_ids) == 0:
+            errors["liked_subjects"] = "Liked subjects are compulsory to complete the profile"
+
+        if disliked_subject_ids is not None and len(disliked_subject_ids) == 0:
+            errors["disliked_subjects"] = "Disliked subjects are compulsory to complete the profile"
+
+        if hobby_ids is not None and len(hobby_ids) == 0:
+            errors["hobbies"] = "Hobbies are compulsory to complete the profile"
+
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # ==========================
+        # 🔹 Update User
+        # ==========================
+        user.first_name = data.get("first_name", user.first_name)
+        user.last_name = data.get("last_name", user.last_name)
+        user.phone = data.get("phone", user.phone)
+        user.save()
+
+        # ==========================
+        # 🔹 Update Student Basic Info
+        # ==========================
+        student_profile.study_class = data.get(
+            "study_class", student_profile.study_class
+        )
+
+        student_profile.current_academic_year = data.get(
+            "current_academic_year",
+            student_profile.current_academic_year
+        )
+
+        dob = data.get("dob")
+        if dob not in ["", None]:
+            student_profile.dob = dob
+
+        student_profile.school_college = data.get(
+            "school_college",
+            student_profile.school_college
+        )
+
+        student_profile.city = data.get(
+            "city",
+            student_profile.city
+        )
+
+        student_profile.specialization = data.get(
+            "specialization",
+            student_profile.specialization
+        )
+
+        student_profile.previous_class_percentage = data.get(
+            "previous_class_percentage",
+            student_profile.previous_class_percentage
+        )
+
+        student_profile.board_exam_year = data.get(
+            "board_exam_year",
+            student_profile.board_exam_year
+        )
+
+        student_profile.improvement_areas = data.get(
+            "improvement_areas",
+            student_profile.improvement_areas
+        )
+
+        student_profile.save()
+
+        # ==========================
+        # 🔹 Parent Profile Update
+        # ==========================
+        parent_data = data.get("parent", {})
+
+        if parent_data:
+
+            parent_profile = student_profile.parent
+
+            if not parent_profile or parent_profile.user == user:
+
+                parent_user = User.objects.create(
+                    first_name="Parent",
+                    last_name="",
+                    email=f"parent_{user.id}_{timezone.now().timestamp()}@temp.com",
+                    role=None
+                )
+
+                parent_profile = ParentProfile.objects.create(
+                    user=parent_user
+                )
+
+            parent_name = parent_data.get("parent_name")
+
+            if parent_name:
+                name_parts = parent_name.split(" ", 1)
+
+                parent_profile.user.first_name = name_parts[0]
+                parent_profile.user.last_name = name_parts[1] if len(name_parts) > 1 else ""
+                parent_profile.user.save()
+
+            parent_profile.profession = parent_data.get(
+                "profession",
+                parent_profile.profession
+            )
+
+            parent_profile.organization_name = parent_data.get(
+                "organization_name",
+                parent_profile.organization_name
+            )
+
+            parent_profile.education_level = parent_data.get(
+                "education_level",
+                parent_profile.education_level
+            )
+
+            parent_profile.father_background = parent_data.get(
+                "father_background",
+                parent_profile.father_background
+            )
+
+            parent_profile.mother_background = parent_data.get(
+                "mother_background",
+                parent_profile.mother_background
+            )
+
+            parent_profile.location = parent_data.get(
+                "location",
+                parent_profile.location
+            )
+
+            parent_profile.annual_income_range = data.get(
+                "annual_income_range",
+                parent_profile.annual_income_range
+            )
+
+            parent_profile.expectations_from_student = parent_data.get(
+                "expectations_from_student",
+                parent_profile.expectations_from_student
+            )
+
+            parent_profile.save()
+
+            student_profile.parent = parent_profile
+            student_profile.save()
 
         # ==========================
         # 🔹 Academic History
         # ==========================
-        academic_records = StudentAcademicHistory.objects.filter(
-            student_profile=student_profile
-        )
+        academic_history = data.get("academic_history", [])
 
-        response_data["academic_history"] = [
-            {
-                "academic_stage": record.academic_stage,
-                "start_year": record.start_year,
-                "end_year": record.end_year,
-                "is_current": record.is_current
-            }
-            for record in academic_records
-        ]
+        if academic_history:
+
+            StudentAcademicHistory.objects.filter(
+                student_profile=student_profile
+            ).delete()
+
+            for record in academic_history:
+
+                StudentAcademicHistory.objects.create(
+                    student_profile=student_profile,
+                    academic_stage=record.get("academic_stage"),
+                    start_year=record.get("start_year"),
+                    end_year=record.get("end_year"),
+                    board_name=record.get("board_name"),
+                    coaching_entrance=record.get("coaching_entrance"),
+                    current_class_percentage=record.get("current_class_percentage"),
+                    special_notes=record.get("special_notes"),
+                    is_current=record.get("is_current", False)
+                )
 
         # ==========================
         # 🔹 Stream
         # ==========================
-        stream = StudentStream.objects.filter(
-            student_profile=student_profile
-        ).select_related("stream").first()
+        stream_id = data.get("stream_id")
 
-        response_data["stream"] = {
-            "stream_id": stream.stream.id,
-            "stream_name": stream.stream.name
-        } if stream else None
+        if stream_id:
+
+            StudentStream.objects.filter(
+                student_profile=student_profile
+            ).delete()
+
+            StudentStream.objects.create(
+                student_profile=student_profile,
+                stream_id=stream_id
+            )
 
         # ==========================
         # 🔹 Subject Preferences
         # ==========================
-        preferences = StudentSubjectPreference.objects.filter(
-            student_profile=student_profile
-        ).select_related("subject")
+        liked_subject_ids = data.get("liked_subject_ids")
+        disliked_subject_ids = data.get("disliked_subject_ids")
+        moderate_subject_ids = data.get("moderate_subject_ids")
 
-        liked_subjects = []
-        disliked_subjects = []
+        if liked_subject_ids is not None or disliked_subject_ids is not None:
 
-        for pref in preferences:
-            subject_data = {
-                "id": pref.subject.id,
-                "name": pref.subject.name
-            }
+            StudentSubjectPreference.objects.filter(
+                student_profile=student_profile
+            ).delete()
 
-            if pref.preference_type is True:
-                liked_subjects.append(subject_data)
-            elif pref.preference_type is False:
-                disliked_subjects.append(subject_data)
+            if liked_subject_ids:
+                for subject_id in liked_subject_ids:
 
-        response_data["liked_subjects"] = liked_subjects
-        response_data["disliked_subjects"] = disliked_subjects
+                    StudentSubjectPreference.objects.create(
+                        student_profile=student_profile,
+                        subject_id=subject_id,
+                        preference_type="like"
+                    )
+
+            if disliked_subject_ids:
+                for subject_id in disliked_subject_ids:
+
+                    StudentSubjectPreference.objects.create(
+                        student_profile=student_profile,
+                        subject_id=subject_id,
+                        preference_type="dislike"
+                    )
+
+            if moderate_subject_ids:
+                for subject_id in moderate_subject_ids:
+
+                    StudentSubjectPreference.objects.create(
+                        student_profile=student_profile,
+                        subject_id=subject_id,
+                        preference_type="moderate"
+                    )
 
         # ==========================
         # 🔹 Hobbies
         # ==========================
-        hobbies = StudentHobby.objects.filter(
-            student_profile=student_profile
-        ).select_related("hobby")
+        hobby_ids = data.get("hobby_ids")
 
-        response_data["hobbies"] = [
-            {
-                "id": hobby.hobby.id,
-                "name": hobby.hobby.name
-            }
-            for hobby in hobbies
-        ]
+        if hobby_ids is not None:
 
-        return Response(response_data)
+            StudentHobby.objects.filter(
+                student_profile=student_profile
+            ).delete()
+
+            for hobby_id in hobby_ids:
+
+                StudentHobby.objects.create(
+                    student_profile=student_profile,
+                    hobby_id=hobby_id
+                )
+
+        # ==========================
+        # 🔹 Update Profile Completion
+        # ==========================
+        student_profile.update_profile_completion()
+
+        return Response({
+            "message": "Student profile updated successfully"
+        }, status=status.HTTP_200_OK)
+    
 
  
         
@@ -1591,9 +2119,15 @@ class AdminDashboardAPIView(APIView):
                 filter=Q(status__in=['fully_paid', 'partial_paid'])
             )
         )['collected'] or 0
+        
+        
+        # =====================================
+        # 🔹 5. PAYMENT PENDING REVIEW
+        # =====================================
+        pending_revenue = total_expected - total_collected
 
         # =====================================
-        # 🔹 5. TODAY SESSIONS
+        # 🔹 6. TODAY SESSIONS
         # =====================================
         today_sessions = Booking.objects.filter(date=today)
 
@@ -1604,7 +2138,7 @@ class AdminDashboardAPIView(APIView):
         )
 
         # =====================================
-        # 🔹 6. USER EXAMS
+        # 🔹 7. USER EXAMS
         # =====================================
         user_exam_counts = UserExam.objects.aggregate(
             total=Count('id'),
@@ -1614,14 +2148,14 @@ class AdminDashboardAPIView(APIView):
         )
 
         # =====================================
-        # 🔹 7. REPORT NOT RECEIVED
+        # 🔹 8. REPORT NOT RECEIVED
         # =====================================
         report_not_received = Report.objects.filter(
             report_status='not_received'
         ).count()
 
         # =====================================
-        # 🔹 8. CONTENT (Free vs Premium)
+        # 🔹 9. CONTENT (Free vs Premium)
         # =====================================
         content_counts = Content.objects.aggregate(
             total=Count('id'),
@@ -1646,6 +2180,7 @@ class AdminDashboardAPIView(APIView):
             "payments": {
                 "total_expected": total_expected,
                 "total_collected": total_collected,
+                "total_pending": pending_revenue
             },
 
             "today_sessions": {
@@ -1710,8 +2245,11 @@ class LeadStatsAPIView(APIView):
             yearly_result[year][status] = entry["count"]
 
         # ensure all 5 years exist
+        # for year in range(start_year, current_year + 1):
+        #     yearly_result[year]
         for year in range(start_year, current_year + 1):
-            yearly_result[year]
+            data = yearly_result[year]
+            data["total"] = data["enquiry"] + data["converted"]
 
         # ======================================
         # 🔹 MONTHLY DATA (Last 12 Months)
@@ -1751,6 +2289,10 @@ class LeadStatsAPIView(APIView):
             label = f"{month_abbr[month_date.month]} {month_date.year}"
 
             monthly_result[label][entry["status"]] = entry["count"]
+            
+        for month in monthly_result:
+            data = monthly_result[month]
+            data["total"] = data["enquiry"] + data["converted"]
 
         # ======================================
         # 🔹 WEEKLY DATA (Current Month)
@@ -1798,6 +2340,10 @@ class LeadStatsAPIView(APIView):
 
             if week_key in weekly_result[month_key]:
                 weekly_result[month_key][week_key][lead.status] += 1
+                
+        for week in weekly_result[month_key]:
+            data = weekly_result[month_key][week]
+            data["total"] = data["enquiry"] + data["converted"]
 
         # ======================================
         # 🔹 RESPONSE
@@ -1807,7 +2353,10 @@ class LeadStatsAPIView(APIView):
             "yearly": dict(yearly_result),
             "monthly": monthly_result,
             "weekly": weekly_result
-        })       
+        })  
+        
+        
+             
 class RevenueStatsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 

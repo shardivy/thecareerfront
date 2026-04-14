@@ -3,6 +3,7 @@ import {
   getProfileApi,
   getStudentProfileApi,
   updateProfileApi,
+  updateStudentProfileApi,
 } from "../adminApi/profileApi";
 
 // GET profile
@@ -46,12 +47,27 @@ export const updateProfile = createAsyncThunk(
   }
 );
 
+export const updateStudentProfile = createAsyncThunk(
+  "profile/updateStudentProfile",
+  async ({ studentId, data }, { rejectWithValue }) => {
+    try {
+      return await updateStudentProfileApi(studentId, data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Student profile update failed"
+      );
+    }
+  }
+);
+
+
 const profileSlice = createSlice({
   name: "profile",
   initialState: {
     loading: false,
     profile: null,
     error: null,
+    studentProfile: null,
   },
    reducers: {
     clearProfile: (state) => {
@@ -80,10 +96,11 @@ const profileSlice = createSlice({
       state.loading = true;
       state.error = null;
     })
-    .addCase(getStudentProfile.fulfilled, (state, action) => {
-      state.loading = false;
-      state.profile = action.payload; 
-    })
+  // ✅ GET STUDENT PROFILE
+.addCase(getStudentProfile.fulfilled, (state, action) => {
+  state.loading = false;
+  state.studentProfile = action.payload; // ✅ FIXED
+})
     .addCase(getStudentProfile.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload;
@@ -101,7 +118,21 @@ const profileSlice = createSlice({
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+
+// update stud profile
+      .addCase(updateStudentProfile.pending, (state) => {
+  state.loading = true;
+})
+// ✅ UPDATE STUDENT PROFILE
+.addCase(updateStudentProfile.fulfilled, (state, action) => {
+  state.loading = false;
+  state.studentProfile = action.payload; // ✅ FIXED
+})
+.addCase(updateStudentProfile.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
   },
 });
 

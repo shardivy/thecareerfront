@@ -64,7 +64,7 @@ const Programs = () => {
   const [editingPackage, setEditingPackage] = useState(null);
   const [viewMode, setViewMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-const [pageSize, setPageSize] = useState(5);
+  const [pageSize, setPageSize] = useState(5);
 
 
   /* ---------- CONFIRM MODAL STATE ---------- */
@@ -149,33 +149,34 @@ const [pageSize, setPageSize] = useState(5);
   /* ---------- PROGRAM COLUMNS ---------- */
 
   const programColumns = [
-    { title: "Sr. No", render: (_, __, index) =>
-    (currentPage - 1) * pageSize + index + 1,
-},
+    {
+      title: "Sr. No", render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
+    },
     {
       title: "Program Name",
       dataIndex: "name",
       render: (t) => <Text strong>{t}</Text>,
     },
-{
-  title: "Description",
-  dataIndex: "description",
-  render: (text) => {
-    if (!text) return "-";
+    {
+      title: "Description",
+      dataIndex: "description",
+      render: (text) => {
+        if (!text) return "-";
 
-    const words = text.split(" ");
-    const shortText =
-      words.length > 5
-        ? words.slice(0, 5).join(" ") + "..."
-        : text;
+        const words = text.split(" ");
+        const shortText =
+          words.length > 5
+            ? words.slice(0, 5).join(" ") + "..."
+            : text;
 
-    return (
-      <Text title={text}>
-        {shortText}
-      </Text>
-    );
-  },
-},
+        return (
+          <Text title={text}>
+            {shortText}
+          </Text>
+        );
+      },
+    },
 
 
     { title: "Enrolled Users", dataIndex: "enrolled_users" },
@@ -223,87 +224,88 @@ const [pageSize, setPageSize] = useState(5);
   /* ---------- PACKAGE COLUMNS ---------- */
 
   const packageColumns = [
-    { title: "Sr. No", render: (_, __, index) =>
-    (currentPage - 1) * pageSize + index + 1,
-},
-{
-  title: "Counselling Service Name",
-  dataIndex: "name",
-  render: (text) => {
-    if (!text) return "-";
+    {
+      title: "Sr. No", render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      title: "Counselling Service Name",
+      dataIndex: "name",
+      render: (text) => {
+        if (!text) return "-";
 
-    const words = text.split(/\s+/);
-    const firstLine = words.slice(0, 3).join(" ");
-    const remaining = words.slice(3).join(" ");
+        const words = text.split(/\s+/);
+        const firstLine = words.slice(0, 3).join(" ");
+        const remaining = words.slice(3).join(" ");
 
-    return (
-      <Text strong>
-        {firstLine}
-        {remaining && (
-          <>
-            <br />
-            <span style={{ fontWeight: 400 }}>{remaining}</span>
-          </>
-        )}
-      </Text>
-    );
-  },
-},
+        return (
+          <Text strong>
+            {firstLine}
+            {remaining && (
+              <>
+                <br />
+                <span style={{ fontWeight: 400 }}>{remaining}</span>
+              </>
+            )}
+          </Text>
+        );
+      },
+    },
 
-   {
+    {
       title: "Program",
       render: (_, r) => r.program?.name || "-",
     },
-{
-  title: "Description",
-  dataIndex: "description",
-  render: (text) => {
-    if (!text || text.trim() === "") return "-";
+    {
+      title: "Description",
+      dataIndex: "description",
+      render: (text) => {
+        if (!text || text.trim() === "") return "-";
 
-    const words = text.trim().split(/\s+/);
-    const shortText =
-      words.length > 2
-        ? words.slice(0, 6).join(" ") + "..."
-        : text;
+        const words = text.trim().split(/\s+/);
+        const shortText =
+          words.length > 2
+            ? words.slice(0, 6).join(" ") + "..."
+            : text;
 
-    return (
-      <Text title={text}>
-        {shortText}
-      </Text>
-    );
-  },
-},
+        return (
+          <Text title={text}>
+            {shortText}
+          </Text>
+        );
+      },
+    },
 
     { title: "Price", dataIndex: "price" },
-  {
-  title: "Features",
-  render: (_, r) => {
-    if (!r.features?.length) return "-";
+    {
+      title: "Features",
+      render: (_, r) => {
+        if (!r.features?.length) return "-";
 
-    const words = r.features
-      .map((f) => f.description)
-      .join(" ")
-      .trim()
-      .split(/\s+/);
+        const words = r.features
+          .map((f) => f.description)
+          .join(" ")
+          .trim()
+          .split(/\s+/);
 
-    const lines = [];
-    for (let i = 0; i < words.length; i += 3) {
-      lines.push(words.slice(i, i + 3).join(" "));
-    }
+        const lines = [];
+        for (let i = 0; i < words.length; i += 3) {
+          lines.push(words.slice(i, i + 3).join(" "));
+        }
 
-    const displayLines = lines.slice(0, 2);
-    const hasMore = lines.length > 2;
+        const displayLines = lines.slice(0, 2);
+        const hasMore = lines.length > 2;
 
-    return (
-      <Text>
-        {displayLines.map((line, i) => (
-          <div key={i}>{line}</div>
-        ))}
-        {hasMore && <span>...</span>}
-      </Text>
-    );
-  },
-},
+        return (
+          <Text>
+            {displayLines.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
+            {hasMore && <span>...</span>}
+          </Text>
+        );
+      },
+    },
 
     {
       title: "Status",
@@ -351,15 +353,15 @@ const [pageSize, setPageSize] = useState(5);
   const filteredData =
     activeTab === "packages"
       ? packageData.filter((i) =>
-          JSON.stringify(i)
-            .toLowerCase()
-            .includes(searchText.toLowerCase())
-        )
+        JSON.stringify(i)
+          .toLowerCase()
+          .includes(searchText.toLowerCase())
+      )
       : programData.filter((i) =>
-          JSON.stringify(i)
-            .toLowerCase()
-            .includes(searchText.toLowerCase())
-        );
+        JSON.stringify(i)
+          .toLowerCase()
+          .includes(searchText.toLowerCase())
+      );
 
   /* ---------- RENDER ---------- */
 
@@ -374,7 +376,7 @@ const [pageSize, setPageSize] = useState(5);
             <Card
               hoverable
               onClick={() => item.tabKey && setActiveTab(item.tabKey)}
-              style={{ borderRadius: 16, textAlign: "center" }}
+              style={{ borderRadius: 16, textAlign: "center" , fontSize: 16}}
             >
               <Text>{item.title}</Text>
               <div style={{ marginTop: 8 }}>
@@ -394,52 +396,53 @@ const [pageSize, setPageSize] = useState(5);
       </Row>
 
       {/* TABS + CREATE */}
-<Row
-  align="middle"
-  justify="space-between"
-  style={{ marginTop: 24, marginBottom: 16 }}
-  gutter={[8, 8]}
->
-  <Col xs={24} md="auto">
-    <Tabs
-      activeKey={activeTab}
-      onChange={setActiveTab}
-      items={[
-        { key: "programs", label: "Programs" },
-        { key: "packages", label: "Counselling Services" },
-      ]}
-    />
-  </Col>
+      <Row
+        align="middle"
+        justify="space-between"
+        style={{ marginTop: 24, marginBottom: 16 }}
+        gutter={[8, 8]}
+      >
+        <Col xs={24} md="auto">
+          <Tabs
+            activeKey={activeTab}
+            onChange={setActiveTab}
+            items={[
+              { key: "programs", label: "Programs" },
+              { key: "packages", label: "Counselling Services" },
+            ]}
+          />
+        </Col>
 
-  <Col xs={24} md="auto" style={{ textAlign: "right" }}>
-    <Button
-      block={!screens.md}
-      type="primary"
-      icon={<PlusOutlined />}
-      onClick={() => {
-        setEditingProgram(null);
-        setEditingPackage(null);
-        setModalVisible(true);
-      }}
-    >
-      Create {activeTab === "packages" ? "Counselling Service" : "Program"}
-    </Button>
-  </Col>
-</Row>
+        <Col xs={24} md="auto" style={{ textAlign: "right" }}>
+          <Button
+            block={!screens.md}
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setEditingProgram(null);
+              setEditingPackage(null);
+              setModalVisible(true);
+               setViewMode(false); 
+            }}
+          >
+            Create {activeTab === "packages" ? "Counselling Service" : "Program"}
+          </Button>
+        </Col>
+      </Row>
 
 
       {/* TABLE */}
       <Card ref={tableRef}>
 
-      <Col>
-  <Title level={5} style={{ margin: 10 }}>
-    {activeTab === "packages"
-      ? `Counselling Service Records (${filteredData.length})`
-      : `Program Records (${filteredData.length})`}
-  </Title>
-</Col>
+        <Col>
+          <Title level={5} style={{ margin: 10 }}>
+            {activeTab === "packages"
+              ? `Counselling Service Records (${filteredData.length})`
+              : `Program Records (${filteredData.length})`}
+          </Title>
+        </Col>
 
-        
+
         <Input
           prefix={<SearchOutlined />}
           placeholder="Search..."
@@ -450,26 +453,26 @@ const [pageSize, setPageSize] = useState(5);
             width: screens.md ? 400 : "100%",
           }}
         />
-<Table
-  rowKey="id"
-  scroll={{ x: "max-content" }}
-  columns={
-    activeTab === "packages"
-      ? packageColumns
-      : programColumns
-  }
-  dataSource={filteredData}
-  pagination={{
-    current: currentPage,
-    pageSize: pageSize,
-    showSizeChanger: true,
-    pageSizeOptions: [5, 10, 20, 50],
-    onChange: (page, size) => {
-      setCurrentPage(page);
-      setPageSize(size);
-    },
-  }}
-/>
+        <Table
+          rowKey="id"
+          scroll={{ x: "max-content" }}
+          columns={
+            activeTab === "packages"
+              ? packageColumns
+              : programColumns
+          }
+          dataSource={filteredData}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            showSizeChanger: true,
+            pageSizeOptions: [5, 10, 20, 50],
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+          }}
+        />
 
       </Card>
 
@@ -515,14 +518,15 @@ const [pageSize, setPageSize] = useState(5);
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           initialValues={editingPackage}
-            viewMode={viewMode}
+          viewMode={viewMode}
           programs={programData}
           onSubmit={async (values) => {
             const payload = {
               ...values,
-           name: values.name,
+              name: values.name,
               price: Number(values.price),
               is_active: true,
+               engineering_test_analysis: values.engineering_test_analysis,
             };
 
             if (editingPackage) {

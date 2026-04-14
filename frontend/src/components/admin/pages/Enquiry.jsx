@@ -1,4 +1,4 @@
-import React, { useState, useEffect  } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Table,
@@ -20,6 +20,7 @@ import AddEnquiryModal from "../modals/AddEnquiryModal";
 import { fetchEnquiries } from "../../../adminSlices/enquiryListSlice";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import ConvertHHUserModal from "../modals/ConvertHHUserModal";
 
 
 const { Title, Text } = Typography;
@@ -32,12 +33,12 @@ const Enquiry = () => {
 
 
 
-    useEffect(() => {
-      dispatch(fetchEnquiries());  
-    }, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchEnquiries());
+  }, [dispatch]);
 
-    // Use dynamic list from Redux instead of static data
-    const enquiriesData = Array.isArray(list) ? list : [];
+  // Use dynamic list from Redux instead of static data
+  const enquiriesData = Array.isArray(list) ? list : [];
 
   // Source color mapping - handles different case variations
   const getSourceColor = (source) => {
@@ -83,114 +84,115 @@ const Enquiry = () => {
   // 🔥 NEW STATES (FOR CONVERT)
   const [modalMode, setModalMode] = useState("add"); // add | convert
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
+  const [openHHModal, setOpenHHModal] = useState(false);
 
   // ---------------- FILTER LOGIC ----------------
-const filteredEnquiries = enquiriesData.filter((enquiry) => {
-  const search = searchText.toLowerCase();
+  const filteredEnquiries = enquiriesData.filter((enquiry) => {
+    const search = searchText.toLowerCase();
 
-  const matchesSearch =
-    (enquiry.name?.toLowerCase() || "").includes(search) ||
-    (enquiry.program?.toLowerCase() || "").includes(search) ||
-    (enquiry.source?.toLowerCase() || "").includes(search) ||
-    (enquiry.email?.toLowerCase() || "").includes(search) ||
-    (enquiry.phone || "").includes(searchText);
+    const matchesSearch =
+      (enquiry.name?.toLowerCase() || "").includes(search) ||
+      (enquiry.program?.toLowerCase() || "").includes(search) ||
+      (enquiry.source?.toLowerCase() || "").includes(search) ||
+      (enquiry.email?.toLowerCase() || "").includes(search) ||
+      (enquiry.phone || "").includes(searchText);
 
-  const matchesStatus = statusFilter
-    ? enquiry.status?.toLowerCase() === statusFilter.toLowerCase()
-    : true;
+    const matchesStatus = statusFilter
+      ? enquiry.status?.toLowerCase() === statusFilter.toLowerCase()
+      : true;
 
-  const matchesSource = sourceFilter
-    ? enquiry.source?.toLowerCase() === sourceFilter.toLowerCase()
-    : true;
+    const matchesSource = sourceFilter
+      ? enquiry.source?.toLowerCase() === sourceFilter.toLowerCase()
+      : true;
 
-  const matchesDate =
-    dateFilter && enquiry.date !== "N/A"
-      ? dayjs(enquiry.date).isSame(dateFilter, "day")
-      : !dateFilter;
+    const matchesDate =
+      dateFilter && enquiry.date !== "N/A"
+        ? dayjs(enquiry.date).isSame(dateFilter, "day")
+        : !dateFilter;
 
-  return (
-    matchesSearch &&
-    matchesStatus &&
-    matchesSource &&
-    matchesDate
-  );
-});
- 
-
-const handleExport = () => {
-  if (!filteredEnquiries.length) return;
-
-  const exportData = filteredEnquiries.map((item, index) => ({
-    "Sr. No": index + 1,
-    "User Name": item.name,
-    "Email": item.email,
-    "Mobile Number": item.phone,
-    "Program of Interest": item.program,
-    "Source": item.source,
-    "Date": item.date,
-    "Status": item.status,
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(exportData, { origin: "A3" });
-
-  // 🔥 Add Download Date at Top
-XLSX.utils.sheet_add_aoa(
-  worksheet,
-  [
-    [`Exported On: ${dayjs().format("YYYY-MM-DD hh:mm A")}`],
-       [`Total Records: ${filteredEnquiries.length}`],
-    [], // empty row
-  ],
-  { origin: "A1" }
-);
-
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Enquiry & Leads");
-
-  const excelBuffer = XLSX.write(workbook, {
-    bookType: "xlsx",
-    type: "array",
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesSource &&
+      matchesDate
+    );
   });
 
-  const fileData = new Blob([excelBuffer], {
-    type:
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-  });
 
-  saveAs(fileData, `Enquiry & Leads.xlsx`);
-};
+  const handleExport = () => {
+    if (!filteredEnquiries.length) return;
+
+    const exportData = filteredEnquiries.map((item, index) => ({
+      "Sr. No": index + 1,
+      "User Name": item.name,
+      "Email": item.email,
+      "Mobile Number": item.phone,
+      "Program of Interest": item.program,
+      "Source": item.source,
+      "Date": item.date,
+      "Status": item.status,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData, { origin: "A3" });
+
+    // 🔥 Add Download Date at Top
+    XLSX.utils.sheet_add_aoa(
+      worksheet,
+      [
+        [`Exported On: ${dayjs().format("YYYY-MM-DD hh:mm A")}`],
+        [`Total Records: ${filteredEnquiries.length}`],
+        [], // empty row
+      ],
+      { origin: "A1" }
+    );
+
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Enquiry & Leads");
+
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const fileData = new Blob([excelBuffer], {
+      type:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+    });
+
+    saveAs(fileData, `Enquiry & Leads.xlsx`);
+  };
 
 
 
   // ---------------- TABLE COLUMNS ----------------
   const columns = [
-     {
-    title: "Sr. No",
-    key: "srno",
-    render: (_, __, index) => (currentPage - 1) * pageSize + index + 1, // Page-aware serial number
-  },
-{
-  title: "Name / Email",
-  dataIndex: "name",
-  key: "name",
-  render: (text, record) => (
-    <>
-      <Text strong style={{ color: adminTheme.token.colorTextBase }}>
-        {text}
-      </Text>
-      <br />
-      <Text type="colorTextSecondary">{record.email}</Text>
-    </>
-  ),
-},
+    {
+      title: "Sr. No",
+      key: "srno",
+      render: (_, __, index) => (currentPage - 1) * pageSize + index + 1, // Page-aware serial number
+    },
+    {
+      title: "Name / Email",
+      dataIndex: "name",
+      key: "name",
+      render: (text, record) => (
+        <>
+          <Text strong style={{ color: adminTheme.token.colorTextBase }}>
+            {text}
+          </Text>
+          <br />
+          <Text type="colorTextSecondary">{record.email}</Text>
+        </>
+      ),
+    },
     {
       title: "Mobile Number",
       key: "contact",
       render: (_, record) => (
         <div>
-          <Text>{record.phone|| "N/A"}</Text>
-          </div>
+          <Text>{record.phone || "N/A"}</Text>
+        </div>
       ),
     },
     {
@@ -219,49 +221,76 @@ XLSX.utils.sheet_add_aoa(
         <Tag color={getStatusColor(status)}>{status}</Tag>
       ),
     },
-{
-  title: "Action",
-  key: "action",
-  render: (_, record) => {
-    const isConverted = record.status.toLowerCase() === "converted";
+    {
+      title: "Action",
+      key: "action",
+render: (_, record) => {
+  const isConverted = record.status.toLowerCase() === "converted";
 
-    return (
-      <Space>
-        {/* Convert Button */}
+  const normalizedProgram = record.program
+    ?.toLowerCase()
+    .replace(/\s+/g, "");
+
+  const isHHProgram = normalizedProgram.includes("handholding");
+
+  return (
+    <Space>
+      <Button
+        type="primary"
+        style={{
+          borderRadius: adminTheme.token.borderRadius,
+
+          // ✅ PRIORITY: Converted → Gray
+          backgroundColor: isConverted
+            ? adminTheme.token.disabledBg
+            : isHHProgram
+            ? "#3b82f6" // HH blue
+            : adminTheme.token.colorPrimary, // default blue
+
+          borderColor: isConverted
+            ? adminTheme.token.disabledBg
+            : isHHProgram
+            ? "#3b82f6"
+            : adminTheme.token.colorPrimary,
+
+          color: isConverted ? "#888" : "#fff", // optional text dim
+        }}
+       onClick={() => {
+  if (isHHProgram) {
+    setSelectedEnquiry(record);
+    setOpenHHModal(true);
+  } else {
+    setModalMode("convert");
+    setSelectedEnquiry(record);
+    setOpenAddModal(true);
+  }
+}}
+        disabled={isConverted}
+      >
+        {isConverted
+          ? "Converted"
+          : isHHProgram
+          ? "Convert to HH User"
+          : "Convert to User"}
+      </Button>
+
+      {!isConverted && (
         <Button
-          type="primary"
-          style={{
-            borderRadius: adminTheme.token.borderRadius,
-            backgroundColor: adminTheme.token.disabledBg,
-          }}
+          type="default"
+          icon={<EditOutlined />}
           onClick={() => {
-            setModalMode("convert");
+            setModalMode("edit");
             setSelectedEnquiry(record);
             setOpenAddModal(true);
           }}
-          disabled={isConverted} // Disable if already converted
         >
-          {isConverted ? "Converted" : "Convert to User"}
+          Edit
         </Button>
-
-        {/* Only show Edit button if not converted */}
-        {!isConverted && (
-          <Button
-            type="default"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setModalMode("edit"); // edit mode
-              setSelectedEnquiry(record);
-              setOpenAddModal(true);
-            }}
-          >
-            Edit
-          </Button>
-        )}
-      </Space>
-    );
-  },
+      )}
+    </Space>
+  );
 }
+    }
 
   ];
 
@@ -278,126 +307,127 @@ XLSX.utils.sheet_add_aoa(
           </Space>
         </Col>
 
-      <Col>
-  <Space>
-    <Button
-      onClick={handleExport}
-      style={{
-        borderRadius: adminTheme.token.borderRadius,
-      }}
-    >
-      Export to Excel
-    </Button>
+        <Col>
+          <Space>
+            <Button
+              onClick={handleExport}
+              style={{
+                borderRadius: adminTheme.token.borderRadius,
+              }}
+            >
+              Export to Excel
+            </Button>
 
-    <Button
-      type="primary"
-      icon={<PlusOutlined />}
-      style={{
-        borderRadius: adminTheme.token.borderRadius,
-        backgroundColor: adminTheme.token.colorPrimary,
-      }}
-      onClick={() => {
-        setModalMode("add");
-        setSelectedEnquiry(null);
-        setOpenAddModal(true);
-      }}
-    >
-      Add Enquiry
-    </Button>
-  </Space>
-</Col>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              style={{
+                borderRadius: adminTheme.token.borderRadius,
+                backgroundColor: adminTheme.token.colorPrimary,
+              }}
+              onClick={() => {
+                setModalMode("add");
+                setSelectedEnquiry(null);
+                setOpenAddModal(true);
+              }}
+            >
+              Add Enquiry
+            </Button>
+          </Space>
+        </Col>
 
       </Row>
 
       {/* Filters */}
       <Card
         style={{
-          marginTop:30,
+          marginTop: 30,
           borderRadius: adminTheme.token.borderRadius,
           boxShadow: adminTheme.token.boxShadow,
         }}
       >
-      <Row gutter={[16, 16]} align="middle">
-  {/* Search - LEFT */}
-  <Col xs={24} sm={24} md={10}>
-    <Input
-      prefix={
-        <SearchOutlined
-          style={{ color: adminTheme.token.colorTextSecondary }}
-        />
-      }
-      placeholder="Search..."
-      value={searchText}
-      onChange={(e) => setSearchText(e.target.value)}
-      allowClear
-       />
-  </Col>
+        <Row gutter={[16, 16]} align="middle">
+          {/* Search - LEFT */}
+          <Col xs={24} sm={24} md={10}>
+            <Input
+              prefix={
+                <SearchOutlined
+                  style={{ color: adminTheme.token.colorTextSecondary }}
+                />
+              }
+              placeholder="Search..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+            />
+          </Col>
 
-  {/* Status Filter */}
-  <Col xs={24} sm={8} md={4}>
-    <Select
-      placeholder="Status"
-      value={statusFilter}
-      onChange={setStatusFilter}
-      allowClear
-      style={{ width: "100%" }}
-    >
-      <Option value="enquiry">Enquiry</Option>
-      <Option value="Converted">Converted</Option>
-    </Select>
-  </Col>
+          {/* Source Filter */}
+          <Col xs={24} sm={8} md={4}>
+            <Select
+              placeholder="Source"
+              value={sourceFilter}
+              onChange={setSourceFilter}
+              allowClear
+              style={{ width: "100%" }}
+            >
+              <Option value="Website">Website</Option>
+              <Option value="WhatsApp">WhatsApp</Option>
+              <Option value="Call">Call</Option>
+              <Option value="Walk-In">Walk-In</Option>
+            </Select>
+          </Col>
 
-  {/* Source Filter */}
-  <Col xs={24} sm={8} md={4}>
-    <Select
-      placeholder="Source"
-      value={sourceFilter}
-      onChange={setSourceFilter}
-      allowClear
-      style={{ width: "100%" }}
-    >
-      <Option value="Website">Website</Option>
-      <Option value="WhatsApp">WhatsApp</Option>
-      <Option value="Call">Call</Option>
-      <Option value="Walk-In">Walk-In</Option>
-    </Select>
-  </Col>
+          {/* Status Filter */}
+          <Col xs={24} sm={8} md={4}>
+            <Select
+              placeholder="Status"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              allowClear
+              style={{ width: "100%" }}
+            >
+              <Option value="enquiry">Enquiry</Option>
+              <Option value="Converted">Converted</Option>
+            </Select>
+          </Col>
 
-  {/* Date Filter */}
-  <Col xs={24} sm={8} md={4}>
-    <DatePicker
-      placeholder="Filter by Date"
-      value={dateFilter}
-      onChange={(date) => setDateFilter(date)}
-      style={{ width: "100%" }}
-      allowClear
-    />
-  </Col>
-</Row>
+
+          {/* Date Filter */}
+          <Col xs={24} sm={8} md={4}>
+            <DatePicker
+              placeholder="Filter by Date"
+              value={dateFilter}
+              onChange={(date) => setDateFilter(date)}
+              style={{ width: "100%" }}
+              allowClear
+            />
+          </Col>
+        </Row>
 
 
         {/* Table */}
-       <Table
-  style={{ marginTop: 16 }}
-  columns={columns}
-  dataSource={filteredEnquiries}
-  pagination={{
-    current: currentPage,
-    pageSize: pageSize,
-    showSizeChanger: true,
-    pageSizeOptions: [5, 10, 20, 50],
-    onChange: (page, size) => {
-      setCurrentPage(page);
-      setPageSize(size);
-    },
-  }}
-  rowClassName={() => "enquiry-row"}
-  scroll={{ x: "max-content" }}
-  loading={loading}
-  locale={{
-    emptyText: error ? `Error: ${error}` : "No enquiries found",
-  }}
-/>
+        <Table
+          style={{ marginTop: 16 }}
+          columns={columns}
+          dataSource={filteredEnquiries}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            showSizeChanger: true,
+            pageSizeOptions: [5, 10, 20, 50],
+            onChange: (page, size) => {
+              setCurrentPage(page);
+              setPageSize(size);
+            },
+          }}
+          rowClassName={() => "enquiry-row"}
+          scroll={{ x: "max-content" }}
+          loading={loading}
+          locale={{
+            emptyText: error ? `Error: ${error}` : "No enquiries found",
+          }}
+        />
 
       </Card>
 
@@ -409,13 +439,18 @@ XLSX.utils.sheet_add_aoa(
       `}</style> */}
 
       {/* SAME MODAL FOR ADD + CONVERT */}
-   <AddEnquiryModal
-  open={openAddModal}
-  onCancel={() => setOpenAddModal(false)}
-  mode={modalMode}
+      <AddEnquiryModal
+        open={openAddModal}
+        onCancel={() => setOpenAddModal(false)}
+        mode={modalMode}
+        enquiryData={selectedEnquiry}
+        readonly={modalMode === "convert"}
+
+      />
+      <ConvertHHUserModal
+  open={openHHModal}
+  onCancel={() => setOpenHHModal(false)}
   enquiryData={selectedEnquiry}
-  readonly={modalMode === "convert"} 
-  
 />
 
     </div>

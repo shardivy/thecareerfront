@@ -62,6 +62,15 @@ const statusIconMap = {
   "Received & Locked": <LockOutlined />,
   "Review Verification Pending": <FileSyncOutlined />,
 };
+
+const formatText = (text) => {
+  if (!text) return "";
+
+  return text
+    .replace(/_/g, " ")        // replace underscores
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase()); // capitalize words
+};
 /* ----------------- COMPONENT ----------------- */
 const ReportsManagement = () => {
   const dispatch = useDispatch();
@@ -131,30 +140,33 @@ const ReportsManagement = () => {
       name: `${item.first_name ?? ""} ${item.last_name ?? ""}`.trim(),
       email: item.email,
       program: item.program ?? "—",
-      package:item.package ?? "—" ,
-status:
-  item.report_status === "not_received"
-    ? "Not Received"
-    : item.report_status === "review_pending"
-    ? "Review Verification Pending"
-    : item.report_status === "received_unlocked"
-    ? "Received & Unlocked"
-    : item.report_status === "received_locked"
-    ? "Received & Locked"
-    : "Unknown",
-     paymentStatus:
-  item.payment_status === "fully_paid"
-    ? "Fully Paid"
-    : item.payment_status === "partial_paid"
-      ? "Partial Paid"
-      : "Pending",
+      package: item.package ?? "—",
+      status:
+        item.report_status === "not_received"
+          ? "Not Received"
+          : item.report_status === "review_pending"
+            ? "Review Verification Pending"
+            : item.report_status === "received_unlocked"
+              ? "Received & Unlocked"
+              : item.report_status === "received_locked"
+                ? "Received & Locked"
+                : formatText(item.report_status),
+
+      paymentStatus:
+        item.payment_status === "fully_paid"
+          ? "Fully Paid"
+          : item.payment_status === "partial_paid"
+            ? "Partial Paid"
+            : item.payment_status === "not_paid"
+              ? "Not Paid"
+              : formatText(item.payment_status),
 
       examStatus:
         item.exam_status === "completed"
           ? "Completed"
           : item.exam_status === "pending"
             ? "Pending"
-            : "Not Started",
+            : formatText(item.exam_status),
       uploadedDate: item.uploaded_at
         ? new Date(item.uploaded_at).toISOString().split("T")[0]
         : "—",
@@ -163,49 +175,49 @@ status:
   }, [rawReports]);
 
   /* ----------------- FILTER DATA ----------------- */
-const filteredData = useMemo(() => {
-  const search = searchText.toLowerCase();
+  const filteredData = useMemo(() => {
+    const search = searchText.toLowerCase();
 
-  const filtered = mappedReports.filter((item) => {
-    const matchesSearch = Object.values(item)
-      .join(" ")
-      .toLowerCase()
-      .includes(search);
+    const filtered = mappedReports.filter((item) => {
+      const matchesSearch = Object.values(item)
+        .join(" ")
+        .toLowerCase()
+        .includes(search);
 
-    const matchesStatus = statusFilter ? item.status === statusFilter : true;
-    const matchesPayment = paymentFilter
-      ? item.paymentStatus === paymentFilter
-      : true;
-    const matchesExam = examFilter ? item.examStatus === examFilter : true;
+      const matchesStatus = statusFilter ? item.status === statusFilter : true;
+      const matchesPayment = paymentFilter
+        ? item.paymentStatus === paymentFilter
+        : true;
+      const matchesExam = examFilter ? item.examStatus === examFilter : true;
 
-    return matchesSearch && matchesStatus && matchesPayment && matchesExam;
-  });
+      return matchesSearch && matchesStatus && matchesPayment && matchesExam;
+    });
 
-  /* ----------------- CUSTOM SORTING ----------------- */
-const statusPriority = {
-  "Not Received": 1,
-  "Received & Locked": 2,
-  "Received & Unlocked": 3,
-};
+    /* ----------------- CUSTOM SORTING ----------------- */
+    const statusPriority = {
+      "Not Received": 1,
+      "Received & Locked": 2,
+      "Received & Unlocked": 3,
+    };
 
-  return filtered.sort((a, b) => {
-    const priorityDiff =
-      (statusPriority[a.status] || 99) -
-      (statusPriority[b.status] || 99);
+    return filtered.sort((a, b) => {
+      const priorityDiff =
+        (statusPriority[a.status] || 99) -
+        (statusPriority[b.status] || 99);
 
-    if (priorityDiff !== 0) return priorityDiff;
+      if (priorityDiff !== 0) return priorityDiff;
 
-    // ✅ If same status AND status is Pending Upload or Locked
-    if (
-      a.status === "Not Received" ||
-      a.status === "Received & Locked"
-    ) {
-      return new Date(a.uploadedDate) - new Date(b.uploadedDate);
-    }
+      // ✅ If same status AND status is Pending Upload or Locked
+      if (
+        a.status === "Not Received" ||
+        a.status === "Received & Locked"
+      ) {
+        return new Date(a.uploadedDate) - new Date(b.uploadedDate);
+      }
 
-    return 0;
-  });
-}, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
+      return 0;
+    });
+  }, [mappedReports, searchText, statusFilter, paymentFilter, examFilter]);
   /* ----------------- BULK UPLOAD ----------------- */
   const handleBulkUpload = () => {
     if (!showCheckboxes) {
@@ -262,19 +274,19 @@ const statusPriority = {
         </>
       ),
     },
-      {
-  title: "Program / Counselling Service",
-  width: 250,
-  render: (_, record) => (
-    <div>
-      <Text strong>{record.program || "N/A"}</Text>
-      <br />
-      <Text type="colorTextSecondary" >
-        {record.package || "-"}
-      </Text>
-    </div>
-  ),
-},
+    {
+      title: "Program / Counselling Service",
+      width: 190,
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.program || "N/A"}</Text>
+          <br />
+          <Text type="colorTextSecondary" >
+            {record.package || "-"}
+          </Text>
+        </div>
+      ),
+    },
     {
       title: "Report Status",
       dataIndex: "status",
@@ -307,14 +319,10 @@ const statusPriority = {
       ),
     },
     {
-      title: "Uploaded Date",
-      dataIndex: "uploadedDate",
-    },
-    {
       title: "Actions",
       render: (_, record) => (
         <Space wrap>
-      { record.status === "Not Received" ? (
+          {record.status === "Not Received" ? (
             <Button
               type="primary"
               icon={<UploadOutlined />}
@@ -386,6 +394,10 @@ const statusPriority = {
         </Space>
       ),
     },
+    {
+      title: "Uploaded Date",
+      dataIndex: "uploadedDate",
+    },
   ];
 
 
@@ -448,7 +460,7 @@ const statusPriority = {
             <Card
               hoverable
               onClick={() => item.tabKey && setActiveTab(item.tabKey)}
-              style={{ borderRadius: 16, textAlign: "center" }}
+              style={{ borderRadius: 16, textAlign: "center", fontSize: 16 }}
             >
               <Text>{item.title}</Text>
               <div style={{ marginTop: 8 }}>
@@ -528,11 +540,11 @@ const statusPriority = {
               style={{ width: "100%" }}
               onChange={setStatusFilter}
             >
-               <Option value="Not Received">Not Received</Option>
-                  <Option value="Received & Locked">Received & Locked</Option>
+              <Option value="Not Received">Not Received</Option>
+              <Option value="Received & Locked">Received & Locked</Option>
               <Option value="Received & Unlocked">Received & Unlocked</Option>
-           
-             
+
+
               {/* <Option value="Review Verification Pending">
                 Review Verification Pending
               </Option> */}
@@ -548,11 +560,12 @@ const statusPriority = {
             >
               <Option value="Fully Paid">Fully Paid</Option>
               <Option value="Partial Paid">Partial Paid</Option>
-              <Option value="Pending">Pending</Option>
+              <Option value="Verification Pending">Verification Pending</Option>
+              <Option value="Not Paid">Not Paid</Option>
             </Select>
           </Col>
 
-          <Col xs={24} sm={12} md={5}>
+          {/* <Col xs={24} sm={12} md={5}>
             <Select
               placeholder="Exam Status"
               allowClear
@@ -563,7 +576,7 @@ const statusPriority = {
               <Option value="Pending">Pending</Option>
               <Option value="Not Started">Not Started</Option>
             </Select>
-          </Col>
+          </Col> */}
         </Row>
 
         <br />

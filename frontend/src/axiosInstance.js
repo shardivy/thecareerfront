@@ -1,7 +1,9 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  // baseURL: "http://192.168.82.38:8000/api",
+  // baseURL: "http://192.168.1.5:8000/api",
+  // baseURL: "http://192.168.84.38:8000/api",
+  // baseURL: "https://portland-dsc-recall-jail.trycloudflare.com/api",
 
   baseURL: "https://staging.abhinavcareerscope.com/api",
 
@@ -17,7 +19,7 @@ const publicEndpoints = [
   // "/program-package/get-programs/",
   // "/lead-registeration/send-otp/",   
   // "/lead-registeration/verify-otp-register/",
-  // "/lead-registeration/student/register/",
+  // "/lead-registeration/student/      register/",
 
 ]; 
 
@@ -32,7 +34,7 @@ axiosInstance.interceptors.request.use(
 
     if (accessToken && !isPublic) {
       config.headers.Authorization = `Bearer ${accessToken}`;
-          console.log("Outgoing request:", config.url, "Token:", accessToken);
+          // console.log("Outgoing request:", config.url, "Token:", accessToken);
     } else {
       delete config.headers.Authorization;
     }
@@ -54,10 +56,22 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.clear();
-      window.location.replace("/");
+    const status = error.response?.status;
+    const url = error.config?.url || "";
+
+    // console.log("❌ API Error:", status, url);
+
+    // ✅ DO NOT redirect for login API
+    if (status === 401 && url.includes("login")) {
+      return Promise.reject(error);
     }
+
+    // ✅ Redirect only for protected APIs
+    if (status === 401) {
+      localStorage.clear();
+      window.location.href = "/";
+    }
+
     return Promise.reject(error);
   }
 );

@@ -1,6 +1,8 @@
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
+from program_package.models import UserProgramPackage
+from report.models import Report
 from lead_registration.models import StudentProfile
 from rest_framework import serializers
 
@@ -137,9 +139,9 @@ class BookingCreateSerializer(serializers.Serializer):
     student_id = serializers.PrimaryKeyRelatedField(
         queryset=StudentProfile.objects.all()
     )
+
     date = serializers.DateField()
 
-    # 🔥 RENAMED FIELD (THIS FIXES EVERYTHING)
     slots = serializers.ListField(
         child=serializers.PrimaryKeyRelatedField(
             queryset=Slot.objects.all()
@@ -149,70 +151,105 @@ class BookingCreateSerializer(serializers.Serializer):
 
     counsellors_data = BookingCounsellorInputSerializer(many=True)
 
-    # def validate(self, data):
-    #     # exactly one lead
-    #     lead_count = sum(
-    #         1 for c in data["counsellors_data"] if c["role"] == "lead"
-    #     )
-    #     if lead_count != 1:
-    #         raise serializers.ValidationError(
-    #             "Exactly one lead counsellor is required."
-    #         )
-
-    #     # prevent double booking
-    #     for slot in data["slots"]:
-    #         if Booking.objects.filter(slot=slot, date=data["date"]).exists():
-    #             raise serializers.ValidationError(
-    #                 f"Slot {slot.id} already booked for this date"
-    #             )
-
-    #     return data
-
     def validate(self, data):
+
         student = data["student_id"]
         booking_id = self.context.get("booking_id")
 
-        # ✅ 1. Exactly one lead counsellor
+        # =============================
+        # 1️⃣ Exactly one lead counsellor
+        # =============================
         lead_count = sum(
             1 for c in data["counsellors_data"] if c["role"] == "lead"
         )
-        if lead_count != 1:
-            raise serializers.ValidationError(
-                {"counsellors_data": "Exactly one lead counsellor is required."}
-            )
 
-        # ✅ 2. Exclude current booking during update
+        if lead_count != 1:
+            raise serializers.ValidationError({
+                "counsellors_data": "Exactly one lead counsellor is required."
+            })
+
+        # =============================
+        # 2️⃣ Student booking validation
+        # =============================
         existing_booking = Booking.objects.filter(
             student=student,
-            status__in=["booked", "completed"]
+            status__in=["booked", "completed", "rescheduled"]
         )
 
         if booking_id:
+
+            try:
+                booking = Booking.objects.get(id=booking_id)
+            except Booking.DoesNotExist:
+                raise serializers.ValidationError({
+                    "error": "Booking not found"
+                })
+
+            # =============================
+            # 3️⃣ Booking status logic
+            # =============================
+            if booking.status == "not_booked":
+                data["status_override"] = "booked"
+
+            elif booking.status in ["booked", "completed"]:
+                data["status_override"] = "rescheduled"
+
+            elif booking.status == "pending":
+                data["status_override"] = "rescheduled"
+
+            elif booking.status == "rescheduled":
+                data["status_override"] = "rescheduled"
+
+            else:
+                raise serializers.ValidationError({
+                    "error": "Invalid booking status for update."
+                })
+
             existing_booking = existing_booking.exclude(id=booking_id)
 
         if existing_booking.exists():
-            raise serializers.ValidationError(
-                {"error": "Student already has a booked or completed session."}
-            )
+            raise serializers.ValidationError({
+                "error": "Student already has a booked or completed session."
+            })
 
-        # ✅ 3. Prevent slot being already booked by someone else
+        # =============================
+        # 4️⃣ Slot validation
+        # =============================
+        # for slot in data["slots"]:
+
+        #     slot_query = Booking.objects.filter(
+        #         slot=slot,
+        #         status__in=["booked", "completed", "rescheduled"]
+        #     )
+
+        #     if booking_id:
+        #         slot_query = slot_query.exclude(id=booking_id)
+
+        #     if slot_query.exists():
+        #         raise serializers.ValidationError({
+        #             "error": f"Slot {slot.id} is already booked."
+        #         })
         for slot in data["slots"]:
-            slot_query = Booking.objects.filter(
-                slot=slot,
-                status__in=["booked", "completed"]
-            )
 
-            if booking_id:
-                slot_query = slot_query.exclude(id=booking_id)
+            for counsellor_data in data["counsellors_data"]:
 
-            if slot_query.exists():
-                raise serializers.ValidationError(
-                    {"error": f"Slot {slot.id} is already booked or completed."}
+                counsellor = counsellor_data["counsellor_id"]
+
+                booking_query = BookingCounsellor.objects.filter(
+                    counsellor=counsellor,
+                    booking__slot=slot,
+                    booking__status__in=["booked", "completed", "rescheduled"]
                 )
 
+                if booking_id:
+                    booking_query = booking_query.exclude(booking_id=booking_id)
+
+                if booking_query.exists():
+                    raise serializers.ValidationError({
+                        "error": f"Counsellor {counsellor.id} already has this slot booked."
+                    })
+
         return data
-
-
 
 class StudentBookingSerializer(serializers.ModelSerializer):
     slot_date = serializers.DateField(source="slot.date", allow_null=True)
@@ -253,6 +290,9 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     slot_time = serializers.SerializerMethodField()
     mode = serializers.CharField(source="slot.mode", read_only=True)
+    report_file = serializers.SerializerMethodField()
+    aptitude_test = serializers.SerializerMethodField()
+    engineering_test_analysis = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
@@ -269,7 +309,29 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             "slot_time",
             "mode",
             "status",
+            "report_file",
+            "aptitude_test",
+            "engineering_test_analysis",
         ]
+        
+    def get_report_file(self, obj):
+        request = self.context.get("request")
+
+        report = (
+            Report.objects
+            .filter(user=obj.student.user)
+            .order_by("-uploaded_at")
+            .first()
+        )
+
+        if report and report.file_path:
+            pdf_url = reverse(
+                "report-pdf",
+                kwargs={"report_id": report.id}
+            )
+            return request.build_absolute_uri(pdf_url)
+
+        return None
         
     def get_student_id(self, obj):
         return obj.student.id
@@ -286,12 +348,25 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     def get_preferred_counselling_mode(self, obj):
         return obj.student.preferred_counselling_mode
 
-    def get_counsellor_name(self, obj):
-        counsellor = obj.bookingcounsellor_set.first()
+    # def get_counsellor_name(self, obj):
+    #     counsellor = obj.bookingcounsellor_set.first()
 
-        if counsellor:
-            return f"{counsellor.counsellor.user.first_name} {counsellor.counsellor.user.last_name}"
-        return None
+    #     if counsellor:
+    #         return f"{counsellor.counsellor.user.first_name} {counsellor.counsellor.user.last_name}"
+    #     return None
+    
+    def get_counsellor_name(self, obj):
+        counsellors = obj.bookingcounsellor_set.all()
+
+        counsellor_list = []
+        for counsellor in counsellors:
+            counsellor_list.append({
+                "counsellor_id": counsellor.counsellor.id,
+                "counsellor_name": f"{counsellor.counsellor.user.first_name} {counsellor.counsellor.user.last_name}",
+                "role": counsellor.role
+            })
+
+        return counsellor_list
 
     def get_role(self, obj):
         counsellor = obj.bookingcounsellor_set.filter(
@@ -306,6 +381,22 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
         if obj.slot:
             return f"{obj.slot.start_time} - {obj.slot.end_time}"
         return None
+    
+    def get_aptitude_test(self, obj):
+        student_user = obj.student.user
+
+        return UserProgramPackage.objects.filter(
+            user=student_user,
+            package__aptitude_test=True
+        ).exists()
+        
+    def get_engineering_test_analysis(self, obj):
+        student_user = obj.student.user
+
+        return UserProgramPackage.objects.filter(
+            user=student_user,
+            package__engineering_test_analysis=True
+        ).exists()
     
 class CounsellingNoteSerializer(serializers.ModelSerializer):
 
@@ -337,26 +428,32 @@ class CounsellingNoteSerializer(serializers.ModelSerializer):
 
         return note
 
-    # def to_representation(self, instance):
-    #     representation = super().to_representation(instance)
+class CounsellorBookingSerializer(serializers.ModelSerializer):
+    student_name = serializers.SerializerMethodField()
+    email = serializers.EmailField(source="student.user.email")
+    phone = serializers.CharField(source="student.user.phone")
+    preferred_mode = serializers.CharField(source="student.preferred_counselling_mode")
+    slot_date = serializers.DateField(source="slot.date")
+    start_time = serializers.CharField(source="slot.start_time")
+    end_time = serializers.CharField(source="slot.end_time")
 
-    #     request = self.context.get("request")
+    class Meta:
+        model = Booking
+        fields = [
+            "id",
+            "student_name",
+            "email",
+            "phone",
+            "preferred_mode",
+            "status",
+            "slot_date",
+            "start_time",
+            "end_time",
+            "created_at",
+        ]
 
-    #     representation["booking_id"] = instance.booking.id if instance.booking else None
-
-    #     file_urls = []
-
-    #     file_fields = ["file1", "file2", "file3", "file4", "file5"]
-
-    #     for field in file_fields:
-    #         file = getattr(instance, field)
-
-    #         if file and request:
-    #             file_urls.append(request.build_absolute_uri(file.url))
-
-    #     representation["file_urls"] = file_urls
-
-    #     return representation
+    def get_student_name(self, obj):
+        return f"{obj.student.user.first_name} {obj.student.user.last_name}"
 
 
 

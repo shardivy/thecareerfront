@@ -44,11 +44,16 @@ const StudentDashboard = () => {
 
     if (profile.program) {
       localStorage.setItem("selectedProgram", profile.program);
+      localStorage.setItem("program_id", profile.program_id);
     }
 
     if (profile.package_id) {
       localStorage.setItem("selectedPackage", profile.package_id);
     }
+
+    if (profile.package) {
+    localStorage.setItem("selectedPackageName", profile.package);
+  }
 
     if (profile.student_id) {
       localStorage.setItem("studentId", profile.student_id);
@@ -77,6 +82,9 @@ const StudentDashboard = () => {
   // Show exam & report only if aptitude_test = true
   const showExamAndReport = aptitudeTestFromStorage === "true";
 
+  const engineeringTestAnalysis =
+  localStorage.getItem("engineering_test_analysis") === "true";
+
   /* ================= FETCH JOURNEY (ONLY FOR PAID USERS) ================= */
   useEffect(() => {
     if (!isFreeUser && profile?.student_id) {
@@ -94,9 +102,17 @@ const StudentDashboard = () => {
       : 0;
 
   // Adjust step index if exam/report are not part of the journey
+  // if (!showExamAndReport && currentStep > 2) {
+  //   currentStep = currentStep - 2;
+  // }
+
   if (!showExamAndReport && currentStep > 2) {
-    currentStep = currentStep - 2;
-  }
+  currentStep = currentStep - 2;
+}
+
+if (!engineeringTestAnalysis && currentStep > 2) {
+  currentStep = currentStep - 2;
+}
 
   useEffect(() => {
     if (progressData) {
@@ -118,6 +134,7 @@ const StudentDashboard = () => {
 
 
   /* ================= BUTTON LOGIC ================= */
+
   const getJourneyAction = () => {
     if (isFreeUser) {
       return {
@@ -126,57 +143,115 @@ const StudentDashboard = () => {
       };
     }
 
-    switch (currentStep) {
-      case 0:
-      case 1:
-        return {
-          label: "View Programs & Services →",
-          path: "/student/program",
-        };
+    // ✅ Step-wise based on real data (BEST PRACTICE)
 
-      case 2:
-        return {
-          label: "Pay Now →",
-          path: "/student/payments",
-        };
-
-      case 3:
-        if (showExamAndReport) {
-          return {
-            label: "Start Exam →",
-            path: "/student/exam-management",
-          };
-        }
-        break;
-
-      case 4:
-        if (showExamAndReport) {
-          return {
-            label: "View Report →",
-            path: "/student/report-management",
-          };
-        }
-        break;
-
-      case 5:
-        return {
-          label: "Book Counselling Session →",
-          path: "/student/slot-booking",
-        };
-
-      case 6:
-        return {
-          label: "Submit Review →",
-          path: "/student/report-management",
-        };
-
-      default:
-        return {
-          label: "Go to Dashboard →",
-          path: "/student/dashboard",
-        };
+    if (!progressData.registration) {
+      return {
+        label: "Complete Registration →",
+        path: "/register",
+      };
     }
+
+    if (!progressData.counselling_service) {
+      return {
+        label: "Select Program →",
+        path: "/student/program",
+      };
+    }
+
+    if (progressData.payment !== "fully_paid") {
+      return {
+        label: "Pay Now →",
+        path: "/student/payments",
+      };
+    }
+
+    // ✅ AFTER PAYMENT
+    if (showExamAndReport && progressData.exam !== "completed") {
+      return {
+        label: "Start Exam →",
+        path: "/student/exam-management",
+      };
+    }
+
+    if (showExamAndReport && progressData.report !== "received_unlocked") {
+      return {
+        label: "View Report →",
+        path: "/student/report-management",
+      };
+    }
+
+    if (!progressData.counselling_slot_booking) {
+      return {
+        label: "Book Counselling Session →",
+        path: "/student/slot-booking",
+      };
+    }
+
+    return {
+      label: "Go to Dashboard →",
+      path: "/student/dashboard",
+    };
   };
+  // const getJourneyAction = () => {
+  //   if (isFreeUser) {
+  //     return {
+  //       label: "Browse Programs & Services →",
+  //       path: "/student/program",
+  //     };
+  //   }
+
+  //   switch (currentStep) {
+  //     case 0:
+  //     case 1:
+  //       return {
+  //         label: "View Programs & Services →",
+  //         path: "/student/program",
+  //       };
+
+  //     case 2:
+  //       return {
+  //         label: "Pay Now →",
+  //         path: "/student/payments",
+  //       };
+
+  //     case 3:
+  //       if (showExamAndReport) {
+  //         return {
+  //           label: "Start Exam →",
+  //           path: "/student/exam-management",
+  //         };
+  //       }
+  //       break;
+
+  //     case 4:
+  //       if (showExamAndReport) {
+  //         return {
+  //           label: "View Report →",
+  //           path: "/student/report-management",
+  //         };
+  //       }
+  //       break;
+
+  //     case 5:
+  //       return {
+  //         label: "Book Counselling Session →",
+  //         path: "/student/slot-booking",
+  //       };
+
+  //     case 6:
+  //       return {
+  //         label: "Submit Review →",
+  //         path: "/student/report-management",
+  //       };
+
+  //     default:
+  //       return {
+  //         label: "Go to Dashboard →",
+  //         path: "/student/dashboard",
+  //       };
+  //   }
+  // };
 
   const journeyAction = getJourneyAction();
 
@@ -198,6 +273,7 @@ const StudentDashboard = () => {
           <JourneySteps
             currentStep={currentStep}
             showExamAndReport={showExamAndReport}
+            engineeringTestAnalysis={engineeringTestAnalysis} 
             progressData={progressData}
             journeyLoading={journeyLoading}
           />

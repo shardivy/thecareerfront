@@ -1,6 +1,6 @@
 from django.urls import path
 
-from program_package.views import  ActiveProgramListAPIView, AddProgramAPIView, DashboardCountAPIView, PackageCreateAPIView, PackageListAPIView, ProgramListAPIView, ProgramPackageDetailAPIView, ProgramPackagesAPIView, UpdateProgramAPIView
+from program_package.views import  ActiveProgramListAPIView, AddProgramAPIView, AddQuestionAPIView, CollegeListAnalysisListAPIView, CollegeListAnalysisStatusAPIView, DashboardCountAPIView, EngineeringAnalysisDashboardAPIView, PackageCreateAPIView, PackageListAPIView, ProgramListAPIView, ProgramPackageDetailAPIView, ProgramPackagesAPIView, StartQuestionAPIView, SubmitMultipleAnswersAPIView, UpdateMultipleAnswersAPIView, UpdateProgramAPIView
 
 
 urlpatterns = [
@@ -23,7 +23,15 @@ urlpatterns = [
         name="program-package-detail"
     ),
     
-
-
     # path('update-packages/<int:package_id>/', AddPackageAPIView.as_view(), name='add-package'),
+    
+    # =================== College List Analysis URL ====================
+    path("college-list-analysis/", CollegeListAnalysisListAPIView.as_view(), name="college-list-analysis"),
+    path("questions/", AddQuestionAPIView.as_view(), name="add-question"),
+    path("questions/<int:question_id>/", AddQuestionAPIView.as_view(), name="update-question"),
+    path("college-analysis/start/<int:student_id>/",StartQuestionAPIView.as_view(), name="start-question"),
+    path("submit-answers/", SubmitMultipleAnswersAPIView.as_view(), name="submit-answers"),
+    path("answers/update/<int:student_id>/", UpdateMultipleAnswersAPIView.as_view(), name="update-multiple-answers"),
+    path("college-analysis/status/<int:student_id>/", CollegeListAnalysisStatusAPIView.as_view(), name="college-analysis-status"),
+    path("engineering-analysis/dashboard/", EngineeringAnalysisDashboardAPIView.as_view(), name="engineering-analysis-dashboard"),
 ]

@@ -1,6 +1,8 @@
 from django.db import models
+from django.conf import settings
 
 from accounts.models import User
+from payment.models import Payment
 
 class Event(models.Model):
     EVENT_TYPE_CHOICES = (
@@ -34,7 +36,7 @@ class Event(models.Model):
     is_paid = models.BooleanField(default=False)
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
-    conducted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    conducted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -51,21 +53,22 @@ class HandHoldingParticipant(models.Model):
         ('completed', 'Completed'),
     )
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
 
     resume_file = models.FileField(upload_to='handholding/resumes/', blank=True, null=True)
     photo = models.ImageField(upload_to='handholding/photos/', blank=True, null=True)
 
-    mobile = models.CharField(max_length=15)
-    email = models.EmailField()
+    mobile = models.CharField(max_length=15, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
 
     full_address = models.TextField()
-    city = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-    pincode = models.CharField(max_length=10)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
+    pincode = models.CharField(max_length=10, null=True, blank=True)
 
-    mode = models.CharField(max_length=10, choices=MODE_CHOICES)
-    total_sessions = models.PositiveIntegerField(default=10)
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, null=True, blank=True)
+    total_sessions = models.PositiveIntegerField(default=10, null=True, blank=True)
     completed_sessions = models.PositiveIntegerField(default=0)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
@@ -90,7 +93,7 @@ class HandHoldingSession(models.Model):
     )
 
     conducted_by = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         related_name='conducted_handholding_sessions'
@@ -142,7 +145,7 @@ class Advertisement(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
 
     created_by = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         related_name='created_ads'

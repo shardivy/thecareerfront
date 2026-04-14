@@ -23,12 +23,15 @@ import {
   fetchStudentPaymentSummary,
 } from "../../../adminSlices/paymentSlice";
 import { fetchStudents } from "../../../adminSlices/userSlice";
+import { fetchHandholdingUsers } from "../../../hhSlices/handholdingUsersSlice";
 
 const { Option } = Select;
 
 const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
   const [form] = Form.useForm();
   const dispatch = useDispatch();
+
+  const isHandholding = paymentData?.type === "handholding";
 
   const { list: students = [], loading: studentsLoading } = useSelector(
     (state) => state.users
@@ -37,6 +40,11 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
   const { list: packageList = [], loading: packageLoading } = useSelector(
     (state) => state.packages
   );
+
+  const {
+  list: handholdingUsers = [],
+  loading: hhLoading,
+} = useSelector((state) => state.handholdingUsers);
 
   const {
     submitLoading,
@@ -51,12 +59,24 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
   const [previewUrl, setPreviewUrl] = useState("");
 
   /* ================= FETCH STUDENTS & PACKAGES ================= */
+  // useEffect(() => {
+  //   if (open) {
+  //     dispatch(fetchStudents());
+  //     dispatch(fetchPackages());
+  //   }
+  // }, [open, dispatch]);
+
   useEffect(() => {
-    if (open) {
-      dispatch(fetchStudents());
-      dispatch(fetchPackages());
+  if (open) {
+    if (paymentData?.type === "handholding") {
+      dispatch(fetchHandholdingUsers()); // 👈 NEW API
+    } else {
+      dispatch(fetchStudents()); // 👈 OLD API
     }
-  }, [open, dispatch]);
+
+    dispatch(fetchPackages());
+  }
+}, [open, paymentData, dispatch]);
 
   /* ================= FILE PREVIEW ================= */
   useEffect(() => {
@@ -83,52 +103,82 @@ useEffect(() => {
 
 useEffect(() => {
   if (open && paymentData) {
+    const selectedId = isHandholding
+      ? paymentData.originalData?.id   // ✅ FIXED
+      : paymentData.originalData?.student_id;
+
     form.setFieldsValue({
-      student_profile: paymentData.originalData?.student_id,
+      student_profile: selectedId,
       package: paymentData.originalData?.package_id,
       amount: paymentData.packagePrice || "",
     });
 
-    // fetch summary if needed
-    if (
-      paymentData.originalData?.student_id &&
-      paymentData.originalData?.package_id
-    ) {
+    if (selectedId && paymentData.originalData?.package_id) {
       dispatch(
         fetchStudentPaymentSummary({
-          studentId: paymentData.originalData.student_id,
+          ...(isHandholding
+            ? { handholdingParticipantId: selectedId }
+            : { studentId: selectedId }),
           packageId: paymentData.originalData.package_id,
         })
       );
     }
   }
-}, [open, paymentData, dispatch, form]);
+}, [open, paymentData, dispatch, form, isHandholding]);
+
+useEffect(() => {
+  if (
+    open &&
+    isHandholding &&
+    handholdingUsers.length > 0 &&
+    paymentData?.originalData?.id
+  ) {
+    form.setFieldsValue({
+      student_profile: paymentData.originalData.id,
+    });
+  }
+}, [handholdingUsers, open, isHandholding, paymentData, form]);
 
   /* ================= SUBMIT ================= */
-  const handleSubmit = (values) => {
-    const formData = new FormData();
+const handleSubmit = (values) => {
+  const formData = new FormData();
 
-    formData.append("student_profile", values.student_profile);
-    formData.append("package", values.package);
-    formData.append("amount", values.amount);
-    formData.append("payment_type", values.payment_type);
-    formData.append("method", values.method);
+  if (isHandholding) {
+    // ✅ send BOTH
+    formData.append("handholding_participant", values.student_profile);
 
-    if (values.transactionId) {
-      formData.append("transaction_id", values.transactionId);
-    }
-
-    formData.append(
-      "payment_date",
-      dayjs(values.paymentDate).format("YYYY-MM-DD")
+    // 👇 IMPORTANT: map correct student id
+    const selected = handholdingUsers.find(
+      (u) => u.handholding_participant === values.id
     );
 
-    if (fileList.length && fileList[0].originFileObj) {
-      formData.append("proof_file", fileList[0].originFileObj);
+    if (selected?.student_id) {
+      formData.append("student_profile", selected.student_id);
     }
+  } else {
+    formData.append("student_profile", values.student_profile);
+  }
 
-    dispatch(submitPayment(formData));
-  };
+  formData.append("package", values.package);
+  formData.append("amount", values.amount);
+  formData.append("payment_type", values.payment_type);
+  formData.append("method", values.method);
+
+  if (values.transactionId) {
+    formData.append("transaction_id", values.transactionId);
+  }
+
+  formData.append(
+    "payment_date",
+    dayjs(values.paymentDate).format("YYYY-MM-DD")
+  );
+
+  if (fileList.length && fileList[0].originFileObj) {
+    formData.append("proof_file", fileList[0].originFileObj);
+  }
+
+  dispatch(submitPayment(formData));
+};
 
   /* ================= SUCCESS / ERROR ================= */
   useEffect(() => {
@@ -152,25 +202,35 @@ useEffect(() => {
   }, [submitSuccess, submitError, dispatch, form, onClose, onSuccess]);
 
   /* ================= HANDLE STUDENT SELECT ================= */
-  const handleStudentChange = (studentId) => {
-    const student = students.find((s) => s.id === studentId);
-    const packageId = student?.package_id;
+const handleStudentChange = (studentId) => {
+  const list = isHandholding ? handholdingUsers : students;
 
-    // Auto set package
-    form.setFieldsValue({
-      package: packageId,
-    });
+  const student = list.find((s) => s.id === studentId); // ✅ FIX
 
-    // Fetch summary immediately
-    if (studentId && packageId) {
+  const packageId = student?.package_id;
+
+  form.setFieldsValue({
+    package: packageId,
+  });
+
+  if (studentId && packageId) {
+    if (isHandholding) {
       dispatch(
         fetchStudentPaymentSummary({
-          studentId,
+          handholdingParticipantId: studentId,
+          packageId,
+        })
+      );
+    } else {
+      dispatch(
+        fetchStudentPaymentSummary({
+          studentId: studentId,
           packageId,
         })
       );
     }
-  };
+  }
+};
 
   /* ================= HANDLE PACKAGE CHANGE ================= */
   const handlePackageChange = (packageId) => {
@@ -190,6 +250,16 @@ const disableFutureDates = (current) => {
   return current && current > dayjs().endOf("day");
 };
 
+const studentList =
+  paymentData?.type === "handholding"
+    ? handholdingUsers
+    : students;
+
+const studentLoading =
+  paymentData?.type === "handholding"
+    ? hhLoading
+    : studentsLoading;
+
 
   return (
     <Modal
@@ -202,6 +272,7 @@ const disableFutureDates = (current) => {
       width={650}
       centered
     >
+       <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
       <Form
         form={form}
         layout="vertical"
@@ -225,24 +296,24 @@ const disableFutureDates = (current) => {
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
-              label="Select Student"
+            label={isHandholding ? "Select User" : "Select Student"}
               name="student_profile"
               rules={[{ required: true, message: "Please select student" }]}
             >
-              <Select
-                placeholder="Select student"
-                loading={studentsLoading}
-                showSearch
-                optionFilterProp="children"
-                onChange={handleStudentChange}
-              >
-                {students.map((student) => (
-                  <Option key={student.id} value={student.id}>
-                    {student.first_name} {student.last_name}
-                    <div style={{ fontSize: 12 }}>{student.email}</div>
-                  </Option>
-                ))}
-              </Select>
+             <Select
+ placeholder={isHandholding ? "Select user" : "Select student"}
+  loading={studentLoading}
+  showSearch
+  optionFilterProp="children"
+  onChange={handleStudentChange}
+>
+  {studentList.map((student) => (
+    <Option key={student.id} value={student.id}>
+      {student.first_name} {student.last_name}
+      <div style={{ fontSize: 12 }}>{student.email}</div>
+    </Option>
+  ))}
+</Select>
             </Form.Item>
           </Col>
 
@@ -267,12 +338,19 @@ const disableFutureDates = (current) => {
           </Col>
         </Row>
 
-    <Row>
+<Row>
   <Col span={24}>
     <Form.Item label="Amount Due" name="amount">
+  {/* <Input
+    disabled={Boolean(paymentData) && paymentData?.status !== "Not Paid"}
+  /> */}
   <Input
-    disabled={paymentData?.status !== "Not Paid"}
-  />
+  disabled={
+    paymentData?.type !== "handholding" &&
+    Boolean(paymentData) &&
+    paymentData?.status !== "Not Paid"
+  }
+/>
 </Form.Item>
   </Col>
 </Row>
@@ -295,7 +373,7 @@ const disableFutureDates = (current) => {
     label="Payment Type"
     rules={[{ required: true, message: "Please select payment type" }]}
   >
-    <Select
+   <Select placeholder="Select payment type"
       onChange={(value) => {
         if (value === "online") {
           form.setFieldsValue({
@@ -328,7 +406,7 @@ const disableFutureDates = (current) => {
                     label="Payment Method"
                     rules={[{ required: true }]}
                   >
-                    <Select disabled={!paymentType}>
+                   <Select placeholder="Select payment method" disabled={!paymentType}>
                       {paymentType === "online" && (
                         <Option value="upi">UPI</Option>
                       )}
@@ -433,6 +511,7 @@ const disableFutureDates = (current) => {
           </div>
         </Form.Item>
       </Form>
+      </div>
     </Modal>
   );
 };

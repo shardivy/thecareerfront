@@ -21,7 +21,7 @@ class Content(models.Model):
     type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES, null=True, blank=False)
     category = models.CharField(max_length=100, choices=CONTENT_CATEGORY_CHOICES, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
-    program = models.ManyToManyField(Program, blank=True) 
+    # program = models.ManyToManyField(Program, blank=True) 
     file_url = models.FileField(upload_to='contents/', null=True, blank=True)
     video_link = models.URLField(null=True, blank=True)
     image = models.ImageField(upload_to='content_images/', null=True, blank=True)
@@ -42,9 +42,13 @@ class Content(models.Model):
 
 
 class ContentPackage(models.Model):
-    content = models.ForeignKey(Content, on_delete=models.CASCADE)
-    package = models.ForeignKey(Package, on_delete=models.CASCADE)
+    content = models.ForeignKey(Content, on_delete=models.CASCADE, null=True, blank=True)
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
+    
+    def __str__(self):
+        return f"{self.content} - {self.program} - {self.package}"
 
-    class Meta:
-        unique_together = ('content', 'package')
+    # class Meta:
+    #     unique_together = ('content', 'program', 'package')
 
