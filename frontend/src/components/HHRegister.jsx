@@ -21,6 +21,8 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../theme/adminTheme";
+import { registerHH } from "../hhSlices/hhRegisterSlice";
+import { useDispatch, useSelector } from "react-redux";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -28,9 +30,12 @@ const { Option } = Select;
 const HHRegister = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
+  const dispatch = useDispatch();
+const { loading } = useSelector((state) => state.hhRegister);
 
   /* ================= SUBMIT ================= */
-  const onFinish = (values) => {
+const onFinish = async (values) => {
+  try {
     const payload = new FormData();
 
     payload.append("first_name", values.firstName);
@@ -38,7 +43,7 @@ const HHRegister = () => {
     payload.append("email", values.email);
     payload.append("mobile", values.mobile);
     payload.append("city", values.city);
-    payload.append("address", values.address);
+    payload.append("full_address", values.address);
     payload.append("preferred_mode", values.preferredMode);
 
     if (values.photo?.[0]?.originFileObj) {
@@ -49,16 +54,20 @@ const HHRegister = () => {
       payload.append("resume", values.resume[0].originFileObj);
     }
 
-    // NEW FIELD
     if (values.payment?.[0]?.originFileObj) {
       payload.append("payment_receipt", values.payment[0].originFileObj);
     }
 
-    console.log("HH Register Payload:", payload);
+    // 🔥 API CALL
+    await dispatch(registerHH(payload)).unwrap();
 
-    message.success("Registered successfully (API pending)");
+    message.success("Registered successfully 🎉");
     navigate("/hhlogin");
-  };
+
+  } catch (err) {
+    message.error(err?.message || "Registration failed ❌");
+  }
+};
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -219,7 +228,6 @@ const HHRegister = () => {
       label="Payment Details"
       valuePropName="fileList"
       getValueFromEvent={(e) => e.fileList}
-      rules={[{ required: true, message: "Please upload payment proof" }]}
     >
       <Upload beforeUpload={() => false} maxCount={1}>
         <Button icon={<UploadOutlined />}>
@@ -232,7 +240,7 @@ const HHRegister = () => {
 
                 <Divider />
 
-                <Button type="primary" htmlType="submit" block size="large">
+                <Button type="primary" htmlType="submit" block size="large" loading={loading}>
                   Register
                 </Button>
 

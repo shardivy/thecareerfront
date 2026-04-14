@@ -45,7 +45,7 @@ const CollegeListAnalysis = () => {
     const { token } = theme.useToken();
     const screens = useBreakpoint();
 
-    const [activeTab, setActiveTab] = useState("template");
+    const [activeTab, setActiveTab] = useState("requests");
     const [searchText, setSearchText] = useState("");
 
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -534,7 +534,7 @@ const CollegeListAnalysis = () => {
                         >
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "100%" }}>
                                 <div>
-                                    <Text style={{ color: token.colorTextSecondary }}>
+                                    <Text style={{ color: token.colorTextSecondary , fontSize: 16}}>
                                         {item.title}
                                     </Text>
                                     <Title level={3}>{item.value}</Title>

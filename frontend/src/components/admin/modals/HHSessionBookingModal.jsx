@@ -429,7 +429,7 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
-                  label="Student"
+                  label="User"
                   name="student"
                   rules={[{ required: true }]}
                 >
@@ -467,30 +467,7 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
               </Col>
             </Row>
 
-            {/* ================= PRIMARY & SECONDARY COUNSELLOR ================= */}
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="Lead Counsellor" name="primaryCounsellor" rules={[{ required: true }]}>
-                  <Select disabled={isView} loading={counsellorsLoading} labelInValue placeholder="Select Lead Counsellor">
-                    {counsellors.map((c) => (
-                      <Option key={c.id} value={c.id}>{c.first_name} {c.last_name}</Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Assistant Counsellor" name="secondaryCounsellor">
-                  <Select disabled={isView} allowClear labelInValue placeholder="Select Assistant Counsellor">
-                    {counsellors.map((c) => (
-                      <Option key={c.id} value={c.id} label={`${c.first_name} ${c.last_name}`}>
-                        {c.first_name} {c.last_name}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
-
+          
             {/* ================= DATE ================= */}
             <Form.Item label="Date" name="date" rules={[{ required: true }]}>
               <DatePicker disabled={isView} style={{ width: "100%" }} disabledDate={(d) => d && d < dayjs().startOf("day")} />
@@ -543,6 +520,32 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
                   ))}
                 </Space>
               )}
+
+              {selectedSlot && (
+  <Card style={{ marginTop: 16 }} title="Session Summary">
+    <p>
+      <b>Student:</b>{" "}
+      {form.getFieldValue("student")?.label || "-"}
+    </p>
+
+    <p>
+      <b>Date:</b>{" "}
+      {selectedDate ? dayjs(selectedDate).format("DD MMM YYYY") : "-"}
+    </p>
+
+    <p>
+      <b>Slot:</b>{" "}
+      {selectedSlot.start_time} - {selectedSlot.end_time}
+    </p>
+
+    <p>
+      <b>Counsellor:</b>{" "}
+      {selectedSlot?.counsellor
+        ? `${selectedSlot.counsellor.first_name} ${selectedSlot.counsellor.last_name}`
+        : "Auto Assigned"}
+    </p>
+  </Card>
+)}
             </Form.Item>
           </Form>
         </div>

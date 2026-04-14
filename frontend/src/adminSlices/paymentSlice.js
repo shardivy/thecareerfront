@@ -324,6 +324,8 @@ reminderError: null,
         payment.transaction_id || payment.txn || "-",
 
       proof_file_url: payment.proof_file_url || "",
+
+        is_handholding: payment.is_handholding || false,
     };
   });
 

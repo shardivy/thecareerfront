@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Row,
   Col,
@@ -28,6 +28,7 @@ import {
   DeleteOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
+import { useDispatch, useSelector } from "react-redux";
 import HHSessionModal from "../modals/HHSessionModal";
 import { title } from "framer-motion/client";
 import HHUserProfileModal from "../modals/HHUserProfileModal";
@@ -35,6 +36,7 @@ import EditHHUserModal from "../modals/EditHHUserModal";
 import CertificateTemplateModal from "../modals/CertificateTemplateModal";
 import HHSessionBookingModal from "../modals/HHSessionBookingModal";
 import GenerateCertificateModal from "../modals/GenerateCertificateModal";
+import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -42,8 +44,9 @@ const { useBreakpoint } = Grid;
 const HandholdingManagement = () => {
   const { token } = theme.useToken();
   const screens = useBreakpoint();
+  const dispatch = useDispatch();
 
-  const [activeTab, setActiveTab] = useState("sessions");
+  const [activeTab, setActiveTab] = useState("users"); // ✅ default
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSession, setEditingSession] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -64,6 +67,9 @@ const HandholdingManagement = () => {
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
   const [certificateMode, setCertificateMode] = useState("issue"); // "issue" | "preview"
   const [issuedModalOpen, setIssuedModalOpen] = useState(false);
+  const [bookingStatusFilter, setBookingStatusFilter] = useState("booked_group");
+  const [bookingSearch, setBookingSearch] = useState("");
+
 
   /* ================= PAGINATION STATE ================= */
   const [sessionPagination, setSessionPagination] = useState({
@@ -72,6 +78,16 @@ const HandholdingManagement = () => {
   });
 
   const [issuedPagination, setIssuedPagination] = useState({
+    current: 1,
+    pageSize: 5,
+  });
+
+  const [userPagination, setUserPagination] = useState({
+    current: 1,
+    pageSize: 5,
+  });
+
+  const [bookingPagination, setBookingPagination] = useState({
     current: 1,
     pageSize: 5,
   });
@@ -93,46 +109,25 @@ const HandholdingManagement = () => {
     setDeleteModalOpen(true);
   };
 
-
-
-  const confirmDelete = () => {
-    setSessions((prev) =>
-      prev.filter((item) => item.id !== selectedSession.id)
-    );
-
-    message.success("Session deleted successfully");
-
-    setDeleteModalOpen(false);
-    setSelectedSession(null);
+  const handleEdit = (record) => {
+    setEditingSession(record);
+    setModalOpen(true);
   };
 
-  const handleSubmitSession = (values) => {
-    if (editingSession) {
-      // UPDATE
-      setSessions((prev) =>
-        prev.map((item) =>
-          item.id === editingSession.id
-            ? { ...item, ...values }
-            : item
-        )
-      );
 
-      message.success("Session updated successfully");
-    } else {
-      // CREATE
-      const newSession = {
-        id: Date.now(),
-        ...values,
-      };
+  const confirmDelete = async () => {
+    try {
+      await dispatch(deleteHHSession(selectedSession.id)).unwrap();
 
-      setSessions((prev) => [...prev, newSession]);
-
-      message.success("Session added successfully 🎉");
+      message.success("Session deleted successfully");
+    } catch (err) {
+      message.error(err?.message || "Delete failed");
+    } finally {
+      setDeleteModalOpen(false);
+      setSelectedSession(null);
     }
-
-    setModalOpen(false);
-    setEditingSession(null);
   };
+
 
   const handlePreview = (record) => {
     // Example URL (change based on your backend route)
@@ -178,14 +173,12 @@ const HandholdingManagement = () => {
 
 
   /* ================= SESSION TEMPLATE ================= */
-  const [sessions, setSessions] = useState(
-    Array.from({ length: 10 }, (_, i) => ({
-      id: i + 1,
-      title: `Session ${i + 1}`,
-      description: "Session description here",
-      status: i % 2 === 0 ? "completed" : "pending",
-    }))
-  );
+  const { sessions, loading } = useSelector((state) => state.hhSession);
+
+  useEffect(() => {
+    dispatch(getHHSession());
+  }, [dispatch]);
+
 
   const sessionColumns = [
     {
@@ -229,18 +222,18 @@ const HandholdingManagement = () => {
         </div>
       ),
     },
-    {
-      title: "Status",
-      align: "right",
-      render: (_, record) => (
-        <Tag
-          color={record.status === "completed" ? "success" : "default"}
-          style={{ borderRadius: 20 }}
-        >
-          {record.status === "completed" ? "Completed" : "Pending"}
-        </Tag>
-      ),
-    },
+    // {
+    //   title: "Status",
+    //   align: "right",
+    //   render: (_, record) => (
+    //     <Tag
+    //       color={record.status === "completed" ? "success" : "default"}
+    //       style={{ borderRadius: 20 }}
+    //     >
+    //       {record.status === "completed" ? "Completed" : "Pending"}
+    //     </Tag>
+    //   ),
+    // },
     {
       title: "Action",
       render: (_, record) => (
@@ -444,8 +437,8 @@ const HandholdingManagement = () => {
   ];
 
 
-  const filteredSessions = sessions.filter((item) =>
-    item.title.toLowerCase().includes(sessionSearch.toLowerCase())
+  const filteredSessions = sessions?.filter((item) =>
+    item.title?.toLowerCase().includes(sessionSearch.toLowerCase())
   );
 
   const filteredUsers = users.filter((item) => {
@@ -461,6 +454,7 @@ const HandholdingManagement = () => {
 
     return matchesSearch && matchesPayment && matchesCertification;
   });
+
 
   const filteredCertificates = completedUsers.filter((item) =>
     item.name.toLowerCase().includes(certificateSearch.toLowerCase()) ||
@@ -485,6 +479,42 @@ const HandholdingManagement = () => {
       date: "2026-04-04",
       time: "12:00 PM - 01:00 PM",
       status: "rescheduled",
+    },
+    {
+      id: 3,
+      name: "Rahul Sharma",
+      email: "rahul@gmail.com",
+      session: "Session 1",
+      date: "2026-04-03",
+      time: "10:00 AM - 11:00 AM",
+      status: "pending",
+    },
+    {
+      id: 4,
+      name: "Priya Singh",
+      email: "priya@gmail.com",
+      session: "Session 2",
+      date: "2026-04-04",
+      time: "12:00 PM - 01:00 PM",
+      status: "completed",
+    },
+    {
+      id: 5,
+      name: "Amit Kumar",
+      email: "amit@gmail.com",
+      session: "Session 3",
+      date: "2026-04-05",
+      time: "02:00 PM - 03:00 PM",
+      status: "cancelled",
+    },
+    {
+      id: 6,
+      name: "Amit Kumar",
+      email: "amit@gmail.com",
+      session: "Session 3",
+      date: "2026-04-05",
+      time: "02:00 PM - 03:00 PM",
+      status: "not_booked",
     },
   ];
 
@@ -516,32 +546,121 @@ const HandholdingManagement = () => {
     },
     {
       title: "Status",
-      render: (_, record) => (
-        <Tag color={record.status === "booked" ? "green" : "orange"}>
-          {record.status === "booked" ? "Booked" : "Rescheduled"}
-        </Tag>
-      ),
+      render: (_, record) => {
+        let color = "default";
+        let text = record.status;
+
+        if (record.status === "booked") {
+          color = "green";
+          text = "Booked";
+        } else if (record.status === "rescheduled") {
+          color = "orange";
+          text = "Rescheduled";
+        } else if (record.status === "not_booked") {
+          color = "red";
+          text = "Not Booked";
+        } else if (record.status === "pending") {
+          color = "blue";
+          text = "Pending";
+        } else if (record.status === "completed") {
+          color = "green";
+          text = "Completed";
+        } else if (record.status === "cancelled") {
+          color = "red";
+          text = "Cancelled";
+        }
+
+        return <Tag color={color}>{text}</Tag>;
+      },
     },
     {
       title: "Actions",
-      render: (_, record) => (
-        <Space>
-          <Button
-            icon={<EyeOutlined />}
-            onClick={() => handleViewBooking(record)}
-          >
-            View
-          </Button>
+      render: (_, record) => {
 
-          <Button
-            icon={<EditOutlined />}
-            onClick={() => handleEditBooking(record)}
-          >
-            Edit
-          </Button>
-        </Space>
-      ),
-    },
+        // ✅ NOT BOOKED → Only Book
+        if (record.status === "not_booked") {
+          return (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setSelectedBooking(record);
+                setBookingMode("create");
+                setBookingModalOpen(true);
+              }}
+            >
+              Book Session
+            </Button>
+          );
+        }
+
+        // ✅ BOOKED / RESCHEDULED → Edit + Cancel
+        if (["booked", "rescheduled"].includes(record.status)) {
+          return (
+            <Space>
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => handleEditBooking(record)}
+              >
+                Reschedule
+              </Button>
+
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleCancel(record)}
+              >
+                Cancel
+              </Button>
+            </Space>
+          );
+        }
+
+        // ✅ COMPLETED → Reschedule + Cancel
+        if (record.status === "completed") {
+          return (
+            <Space>
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => handleEditBooking(record)}
+              >
+                Reschedule
+              </Button>
+
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleCancel(record)}
+              >
+                Cancel
+              </Button>
+            </Space>
+          );
+        }
+
+        // ✅ PENDING → Only Reschedule
+        if (record.status === "pending") {
+          return (
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => handleEditBooking(record)}
+            >
+              Reschedule
+            </Button>
+          );
+        }
+
+        // ❌ CANCELLED → No buttons
+        if (record.status === "cancelled") {
+          return null;
+        }
+
+        return null;
+      },
+    }
   ];
 
   const issuedColumns = [
@@ -580,6 +699,26 @@ const HandholdingManagement = () => {
     }
   ];
 
+  const filteredBookings = bookingsData.filter((item) => {
+
+    // ✅ SEARCH FILTER
+    const matchesSearch =
+      item.name.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+      item.email.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+      item.session.toLowerCase().includes(bookingSearch.toLowerCase());
+
+    // ✅ STATUS FILTER
+    let matchesStatus = true;
+
+    if (bookingStatusFilter === "booked_group") {
+      matchesStatus = ["booked", "rescheduled"].includes(item.status);
+    } else if (bookingStatusFilter) {
+      matchesStatus = item.status === bookingStatusFilter;
+    }
+
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <div>
       {/* HEADER */}
@@ -612,7 +751,7 @@ const HandholdingManagement = () => {
                 }}
               >
                 <div>
-                  <Text style={{ color: token.colorTextSecondary }}>
+                  <Text style={{ color: token.colorTextSecondary, fontSize: 16 }}>
                     {item.title}
                   </Text>
                   <Title level={3}>{item.value}</Title>
@@ -627,15 +766,19 @@ const HandholdingManagement = () => {
       {/* TABS */}
       <Tabs
         activeKey={activeTab}
-        onChange={setActiveTab}
-        items={[
+        onChange={(key) => {
+          setActiveTab(key);
 
+          // ✅ When clicking "Session Bookings"
+          if (key === "bookings") {
+            setBookingStatusFilter("booked_group"); // 👈 force active sub-tab
+          }
+        }}
+        items={[
           { key: "users", label: "Handholding Users" },
           { key: "sessions", label: "Session Template" },
-          { key: "bookings", label: "Booked / Rescheduled" },
+          { key: "bookings", label: "Session Bookings" },
           { key: "certificates", label: "Certification" },
-
-
         ]}
       />
 
@@ -672,10 +815,13 @@ const HandholdingManagement = () => {
               columns={sessionColumns}
               dataSource={filteredSessions}
               rowKey="id"
+              loading={loading}
               rowClassName={() => "custom-row"}
               pagination={{
                 ...sessionPagination,
-                showSizeChanger: false,
+                showSizeChanger: true,
+
+                pageSizeOptions: [5, 10, 20, 50],
               }}
               onChange={(pag) => setSessionPagination(pag)}
               scroll={{ x: "max-content" }}
@@ -740,6 +886,13 @@ const HandholdingManagement = () => {
               dataSource={filteredUsers}
               rowKey="id"
               scroll={{ x: "max-content" }}
+              pagination={{
+                ...userPagination,
+                showSizeChanger: true,
+                pageSizeOptions: [5, 10, 20, 50],
+              }}
+              onChange={(pag) => setUserPagination(pag)}
+
             />
           </>
         )}
@@ -987,26 +1140,53 @@ const HandholdingManagement = () => {
         )}
 
         {/* BOOKINGS TAB */}
+
+
         {activeTab === "bookings" && (
           <>
+            {/* SEARCH */}
             <Row style={{ marginBottom: 16 }} gutter={10}>
               <Col xs={24} md={12}>
                 <Input
-                  placeholder="Search bookings..."
+                  placeholder="Search..."
                   prefix={<SearchOutlined />}
+                  value={bookingSearch}
+                  onChange={(e) => setBookingSearch(e.target.value)}
                   allowClear
                 />
               </Col>
             </Row>
 
+            {/* 🔥 SUB TABS */}
+            <Tabs
+              activeKey={bookingStatusFilter}
+              onChange={(key) => setBookingStatusFilter(key)}
+              items={[
+                { key: "not_booked", label: "Not Booked" },
+                { key: "booked_group", label: "Booked / Rescheduled" },
+                { key: "pending", label: "Pending" },
+                { key: "completed", label: "Completed" },
+                { key: "cancelled", label: "Cancelled" },
+              ]}
+              style={{ marginBottom: 16 }}
+            />
+
+            {/* TABLE */}
             <Table
               columns={bookingColumns}
-              dataSource={bookingsData}
+              dataSource={filteredBookings}
               rowKey="id"
               scroll={{ x: "max-content" }}
+              pagination={{
+                ...bookingPagination,
+                showSizeChanger: true,
+                pageSizeOptions: [5, 10, 20, 50],
+              }}
+              onChange={(pag) => setBookingPagination(pag)}
             />
           </>
         )}
+
       </Card>
 
       {/* CUSTOM CSS */}
@@ -1031,7 +1211,6 @@ const HandholdingManagement = () => {
           }
         `}
       </style>
-
       <HHSessionModal
         open={modalOpen}
         centered
@@ -1039,7 +1218,6 @@ const HandholdingManagement = () => {
           setModalOpen(false);
           setEditingSession(null);
         }}
-        onSubmit={handleSubmitSession}
         initialValues={editingSession}
       />
 

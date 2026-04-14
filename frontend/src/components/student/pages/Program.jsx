@@ -403,46 +403,46 @@ const Program = () => {
                             ))}
                           </div>
 
-                      <div
-  style={{
-    marginTop: 20,
-    display: "flex",
-    gap: 10,
-    flexDirection: screens.xs ? "column" : "row",
-  }}
->
-<Button
-  block
-  onClick={() => {
-    if (pkg.link_url) {
-      window.open(pkg.link_url, "_blank", "noopener,noreferrer");
-    } else {
-      window.location.href = "#";
-    }
-  }}
->
-  Learn More
-</Button>
+                          <div
+                            style={{
+                              marginTop: 20,
+                              display: "flex",
+                              gap: 10,
+                              flexDirection: screens.xs ? "column" : "row",
+                            }}
+                          >
+                            <Button
+                              block
+                              onClick={() => {
+                                if (pkg.link_url) {
+                                  window.open(pkg.link_url, "_blank", "noopener,noreferrer");
+                                } else {
+                                  window.location.href = "#";
+                                }
+                              }}
+                            >
+                              Learn More
+                            </Button>
 
-  <Button
-    type="primary"
-    block
-    onClick={() => {
-      navigate("/student/payment-page", {
-        state: {
-          packageId: pkg.id,
-          packageName: pkg.name,
-          packagePrice: pkg.price,
-          programId: pkg.program.id,
-          programName: selectedProgram,
-          isFreeUser: true
-        }
-      });
-    }}
-  >
-    Select Service
-  </Button>
-</div>
+                            <Button
+                              type="primary"
+                              block
+                              onClick={() => {
+                                navigate("/student/payment-page", {
+                                  state: {
+                                    packageId: pkg.id,
+                                    packageName: pkg.name,
+                                    packagePrice: pkg.price,
+                                    programId: pkg.program.id,
+                                    programName: selectedProgram,
+                                    isFreeUser: true
+                                  }
+                                });
+                              }}
+                            >
+                              Select Service
+                            </Button>
+                          </div>
                         </Card>
                       </Col>
                     ))
@@ -648,16 +648,16 @@ const Program = () => {
                             ))}
                           </div>
 
-                        <div
-  style={{
-    marginTop: 20,
-    display: "flex",
-    gap: 10,
-    flexDirection: screens.xs ? "column" : "row",
-  }}
->
-  {/* Learn More Button */}
-  {/* <Button
+                          <div
+                            style={{
+                              marginTop: 20,
+                              display: "flex",
+                              gap: 10,
+                              flexDirection: screens.xs ? "column" : "row",
+                            }}
+                          >
+                            {/* Learn More Button */}
+                            {/* <Button
     block
     onClick={() => {
       if (pkg.link_url) {
@@ -670,51 +670,51 @@ const Program = () => {
     Learn More
   </Button> */}
 
-  <Button
-  block
-  onClick={() => {
-    const url = pkg?.link_url || "https://abhinavcareerscope.com/";
+                            <Button
+                              block
+                              onClick={() => {
+                                const url = pkg?.link_url || "https://abhinavcareerscope.com/";
 
-    window.open(url, "_blank", "noopener,noreferrer");
-  }}
->
-  Learn More
-</Button>
+                                window.open(url, "_blank", "noopener,noreferrer");
+                              }}
+                            >
+                              Learn More
+                            </Button>
 
-  {/* Select / Selected Button */}
-  {profile?.package_id === pkg.id ? (
-    <Button
-      block
-      disabled
-      style={{
-        backgroundColor: token.colorSuccess,
-        color: "#fff",
-        border: "none",
-      }}
-    >
-      Selected
-    </Button>
-  ) : (
-    <Button
-      type="primary"
-      block
-      onClick={() => {
-        navigate("/student/payment-page", {
-          state: {
-            packageId: pkg.id,
-            packageName: pkg.name,
-            packagePrice: pkg.price,
-            programId: pkg.program?.id,
-            programName: selectedProgram,
-            isFreeUser: false,
-          },
-        });
-      }}
-    >
-      Select Service
-    </Button>
-  )}
-</div>
+                            {/* Select / Selected Button */}
+                            {profile?.package_id === pkg.id ? (
+                              <Button
+                                block
+                                disabled
+                                style={{
+                                  backgroundColor: token.colorSuccess,
+                                  color: "#fff",
+                                  border: "none",
+                                }}
+                              >
+                                Selected
+                              </Button>
+                            ) : (
+                              <Button
+                                type="primary"
+                                block
+                                onClick={() => {
+                                  navigate("/student/payment-page", {
+                                    state: {
+                                      packageId: pkg.id,
+                                      packageName: pkg.name,
+                                      packagePrice: pkg.price,
+                                      programId: pkg.program?.id,
+                                      programName: selectedProgram,
+                                      isFreeUser: false,
+                                    },
+                                  });
+                                }}
+                              >
+                                Select Service
+                              </Button>
+                            )}
+                          </div>
                         </Card>
                       </Col>
                     ))

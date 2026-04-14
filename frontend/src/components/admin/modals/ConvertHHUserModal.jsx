@@ -13,14 +13,28 @@ import {
     Card,
     Empty,
     Image,
+    message,
 } from "antd";
 import { UploadOutlined, EyeOutlined } from "@ant-design/icons";
+import { useDispatch, useSelector } from "react-redux";
+import { convertEnquiry } from "../../../adminSlices/convertEnquirySlice"; // adjust path
+import { fetchPackagesByProgram } from "../../../adminSlices/packageSlice"; // adjust path
+
 
 const { Option } = Select;
 
 const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
     const [form] = Form.useForm();
     const liveValues = Form.useWatch([], form);
+
+    const dispatch = useDispatch();
+
+const { loading, error, fieldErrors, success, message: successMessage } =
+  useSelector((state) => state.convertEnquiry);
+
+  const { list: packages, loading: packagesLoading } = useSelector(
+  (state) => state.packages
+);
 
     const [photo, setPhoto] = useState([]);
     const [resume, setResume] = useState([]);
@@ -29,6 +43,15 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
     const [photoPreview, setPhotoPreview] = useState(null);
     const [resumePreview, setResumePreview] = useState(null);
     const [paymentPreview, setPaymentPreview] = useState(null);
+
+useEffect(() => {
+  const programId =
+    enquiryData?.programId || enquiryData?.program_id;
+
+  if (open && programId) {
+    dispatch(fetchPackagesByProgram(programId));
+  }
+}, [open, enquiryData, dispatch]);
 
     /* ================= FILE HANDLER ================= */
     const handleFile = (type) => (e) => {
@@ -69,32 +92,73 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
             lastName,
             email: enquiryData.email,
             mobile: enquiryData.phone,
-            program: enquiryData.program || "",
+            program_name: enquiryData.program || "",
+            program_id: enquiryData.programId || enquiryData.program_id || "",
             source: enquiryData.source || "",
             date: enquiryData.date || "",
         });
     }, [open, enquiryData, form]);
 
     /* ================= SUBMIT ================= */
-    const handleSubmit = (values) => {
-        const formData = new FormData();
-
-        Object.entries(values).forEach(([key, value]) => {
-            formData.append(key, value ?? "");
-        });
-
-        if (photo[0]?.originFileObj) {
-            formData.append("photo", photo[0].originFileObj);
-        }
-        if (resume[0]?.originFileObj) {
-            formData.append("resume", resume[0].originFileObj);
-        }
-        if (payment[0]?.originFileObj) {
-            formData.append("payment_proof", payment[0].originFileObj);
-        }
-
-        console.log("HH Payload:", formData);
+ const handleSubmit = async (values) => {
+    const formData = new FormData();
+    const payload = {
+        city: values.city ?? "",
+        preferred_counselling_mode: values.preferred_counselling_mode ?? "",
+        address: values.address ?? "",
+       student_profile: values.showProfile ?? false,
+        program: values.program_id ?? enquiryData?.programId ?? enquiryData?.program_id ?? "",
+        package: values.package_id ?? "",
     };
+
+    Object.entries(payload).forEach(([key, value]) => {
+        formData.append(key, value);
+    });
+
+    if (photo[0]?.originFileObj) {
+        formData.append("photo", photo[0].originFileObj);
+    }
+    if (resume[0]?.originFileObj) {
+        formData.append("resume", resume[0].originFileObj);
+    }
+    if (payment[0]?.originFileObj) {
+        formData.append("payment_proof", payment[0].originFileObj);
+    }
+
+    try {
+        await dispatch(
+            convertEnquiry({
+                id: enquiryData?.id, // 👈 IMPORTANT
+                payload: formData,
+            })
+        ).unwrap();
+
+        // message.success("User converted successfully ✅");
+
+        form.resetFields();
+        setPhoto([]);
+        setResume([]);
+        setPayment([]);
+
+        onCancel(); // close modal
+    } catch (err) {
+        console.log("Error:", err);
+
+        if (err?.fieldErrors) {
+            // Set backend validation errors on form
+            const formattedErrors = Object.entries(err.fieldErrors).map(
+                ([name, errors]) => ({
+                    name,
+                    errors,
+                })
+            );
+
+            form.setFields(formattedErrors);
+        } else {
+            message.error(err?.generalError || "Conversion failed ❌");
+        }
+    }
+};
 
     return (
         <Modal
@@ -142,10 +206,14 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
 
                                 {/* PREFILLED */}
                                 <Col xs={24} sm={12}>
-                                    <Form.Item name="program" label="Program">
+                                    <Form.Item name="program_name" label="Program">
                                         <Input disabled />
                                     </Form.Item>
                                 </Col>
+
+                                <Form.Item name="program_id" hidden>
+                                    <Input type="hidden" />
+                                </Form.Item>
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item name="source" label="Source">
@@ -165,6 +233,25 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
                                         <Input />
                                     </Form.Item>
                                 </Col>
+
+    <Col xs={24} sm={12}>
+  <Form.Item
+    name="package_id"
+    label="Counselling Service"
+    rules={[{ required: true, message: "Please select service" }]}
+  >
+    <Select
+      placeholder={packagesLoading ? "Loading services..." : "Select service"}
+      loading={packagesLoading}
+    >
+      {packages.map((pkg) => (
+        <Option key={pkg.id} value={pkg.id}>
+          {pkg.name}
+        </Option>
+      ))}
+    </Select>
+  </Form.Item>
+</Col>
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item
@@ -216,7 +303,7 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item
-                                        name="showProfile"
+                                        name="student_profile"
                                         label="Show HH User Profile"
                                         valuePropName="checked"
                                     >
@@ -229,7 +316,7 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
                             {/* BUTTONS */}
                             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
                                 <Button onClick={onCancel}>Cancel</Button>
-                                <Button type="primary" htmlType="submit">
+                                <Button type="primary" htmlType="submit" loading={loading}>
                                     Convert HH User
                                 </Button>
                             </div>
@@ -243,7 +330,7 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
                                 <p><b>Email:</b> {liveValues?.email}</p>
                                 <p><b>Mobile:</b> {liveValues?.mobile}</p>
 
-                                <p><b>Program:</b> {liveValues?.program || "-"}</p>
+                                <p><b>Program:</b> {liveValues?.program_name || "-"}</p>
                                 <p><b>Source:</b> {liveValues?.source || "-"}</p>
                                 <p><b>Enquiry Date:</b> {liveValues?.date || "-"}</p>
 
@@ -254,7 +341,7 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
 
                                 <p>
                                     <b>Show Profile:</b>{" "}
-                                    {liveValues?.showProfile ? "Yes" : "No"}
+                                    {liveValues?.student_profile? "Yes" : "No"}
                                 </p>
 
                                 <Divider />

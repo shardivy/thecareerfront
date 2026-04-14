@@ -376,7 +376,7 @@ const Programs = () => {
             <Card
               hoverable
               onClick={() => item.tabKey && setActiveTab(item.tabKey)}
-              style={{ borderRadius: 16, textAlign: "center" }}
+              style={{ borderRadius: 16, textAlign: "center" , fontSize: 16}}
             >
               <Text>{item.title}</Text>
               <div style={{ marginTop: 8 }}>

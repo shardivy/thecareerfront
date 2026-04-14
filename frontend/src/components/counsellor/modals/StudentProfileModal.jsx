@@ -31,9 +31,11 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
 
 
   useEffect(() => {
-    dispatch(fetchSubjects());
-    dispatch(fetchHobbies());
-  }, [dispatch]);
+    if (open) {
+      dispatch(fetchSubjects());
+      dispatch(fetchHobbies());
+    }
+  }, [dispatch, open]);
 
   /* ================= SET DATA ================= */
   useEffect(() => {

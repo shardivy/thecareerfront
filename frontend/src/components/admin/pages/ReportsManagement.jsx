@@ -62,6 +62,15 @@ const statusIconMap = {
   "Received & Locked": <LockOutlined />,
   "Review Verification Pending": <FileSyncOutlined />,
 };
+
+const formatText = (text) => {
+  if (!text) return "";
+
+  return text
+    .replace(/_/g, " ")        // replace underscores
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase()); // capitalize words
+};
 /* ----------------- COMPONENT ----------------- */
 const ReportsManagement = () => {
   const dispatch = useDispatch();
@@ -451,7 +460,7 @@ const ReportsManagement = () => {
             <Card
               hoverable
               onClick={() => item.tabKey && setActiveTab(item.tabKey)}
-              style={{ borderRadius: 16, textAlign: "center" }}
+              style={{ borderRadius: 16, textAlign: "center", fontSize: 16 }}
             >
               <Text>{item.title}</Text>
               <div style={{ marginTop: 8 }}>

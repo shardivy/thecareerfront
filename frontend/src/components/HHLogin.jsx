@@ -303,6 +303,22 @@ const HHLogin = () => {
 
                                 <Divider style={{ margin: "28px 0" }} />
 
+                                {/* <Text style={{ textAlign: "center", display: "block", marginBottom: 16 }}>
+                                    Don't have an account?{" "}
+                                    <Text
+                                        type="primary"
+                                        style={{
+                                            cursor: "pointer",
+                                            color: "#1890ff",
+                                            textDecoration: "underline",
+                                            fontWeight: 500,
+                                        }}
+                                        onClick={() => navigate("/hhregister")}
+                                    >
+                                        Register
+                                    </Text>
+                                </Text> */}
+
                                 <Text style={{ textAlign: "center", display: "block" }}>
                                     Interested in Handholding program?{" "}
                                     <Text

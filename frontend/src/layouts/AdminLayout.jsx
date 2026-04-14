@@ -119,19 +119,19 @@ const AdminLayout = () => {
 
   const [localNotifications, setLocalNotifications] = useState([]);
 
-useEffect(() => {
-  if (role === "admin" || role === "superadmin") {
-    // initial fetch
-    dispatch(fetchNotifications());
-
-    // poll every 30s
-    const interval = setInterval(() => {
+  useEffect(() => {
+    if (role === "admin" || role === "superadmin") {
+      // initial fetch
       dispatch(fetchNotifications());
-    }, 30000);
 
-    return () => clearInterval(interval);
-  }
-}, [dispatch, role]);
+      // poll every 30s
+      const interval = setInterval(() => {
+        dispatch(fetchNotifications());
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [dispatch, role]);
 
   useEffect(() => {
     setLocalNotifications(notifications);
@@ -172,7 +172,7 @@ useEffect(() => {
     "/s-admin/employeeList": "User List",
     "/s-admin/notificationManagement": "Notification Management",
     "/s-admin/settings": "Settings",
-    "/s-admin/collegeListAnalysis" : "College List Analysis",
+    "/s-admin/collegeListAnalysis": "College List Analysis",
 
     "/s-admin/counsellor-dashboard": "Dashboard",
     "/s-admin/session-history": "Session History",
@@ -181,6 +181,9 @@ useEffect(() => {
     "/s-admin/sessions-history": "Session History",
 
     "/s-admin/hhManagement": "Handholding Management",
+
+    "/s-admin/eventOutreach": "Event Outreach Management",
+    "/s-admin/advertisement": "Advertisement Management",
 
 
 
@@ -307,21 +310,21 @@ useEffect(() => {
     //     </div>
     //   ),
     //   children: [
-        // {
-        //   key: "/s-admin/examlist",
-        //   icon: <UnorderedListOutlined />,
-        //   // label: "Exam List",
-        //   label: (
-        //     <div style={{ lineHeight: "20px" }}>
-        //       <div>Aptitude Test</div>
-        //       <div>List</div>
-        //     </div>
-        //   ),
-        //   onClick: () => {
-        //     navigate("/s-admin/examlist");
-        //     setDrawerVisible(false);
-        //   },
-        // },
+    // {
+    //   key: "/s-admin/examlist",
+    //   icon: <UnorderedListOutlined />,
+    //   // label: "Exam List",
+    //   label: (
+    //     <div style={{ lineHeight: "20px" }}>
+    //       <div>Aptitude Test</div>
+    //       <div>List</div>
+    //     </div>
+    //   ),
+    //   onClick: () => {
+    //     navigate("/s-admin/examlist");
+    //     setDrawerVisible(false);
+    //   },
+    // },
 
     //     (role === "admin" || role === "superadmin") && {
     //       key: "/s-admin/examManagements",
@@ -337,20 +340,20 @@ useEffect(() => {
     // },
 
     (role === "admin" || role === "superadmin") && {
-  key: "/s-admin/examManagements",
-  icon: <CalendarFilled />,
-  label: (
-    <div style={{ lineHeight: "20px" }}>
-      <div>Aptitude Test</div>
-      <div>Management</div>
-    </div>
-  ),
-  onClick: () => {
-    navigate("/s-admin/examManagements");
-    setDrawerVisible(false);
-  },
-  style: { marginBottom: 12 },
-},
+      key: "/s-admin/examManagements",
+      icon: <CalendarFilled />,
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Aptitude Test</div>
+          <div>Management</div>
+        </div>
+      ),
+      onClick: () => {
+        navigate("/s-admin/examManagements");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
 
 
     (role === "admin" || role === "superadmin") && {
@@ -370,6 +373,23 @@ useEffect(() => {
     },
 
     (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/collegeListAnalysis",
+      icon: <BarChartOutlined />,
+      // label: "College List Analysis",
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>College List</div>
+          <div>Analysis</div>
+        </div>
+      ),
+      onClick: () => {
+        navigate("/s-admin/collegeListAnalysis");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+    (role === "admin" || role === "superadmin") && {
       key: "slot-booking",
       icon: <CalendarFilled />,
       // label: "Counselling Slot Booking",
@@ -379,6 +399,7 @@ useEffect(() => {
           <div>Slot Booking</div>
         </div>
       ),
+      style: { marginBottom: 12 },
 
       children: [
         {
@@ -413,6 +434,28 @@ useEffect(() => {
         },
       ],
     },
+
+
+
+    // (role === "admin" || role === "superadmin") && {
+    //   key: "/s-admin/hhManagement",
+    //   icon: <SolutionOutlined />, // you can change icon
+    //   label: (
+    //     <div style={{ lineHeight: "20px" }}>
+    //       <div>Handholding</div>
+    //       <div>Management</div>
+    //     </div>
+    //   ),
+    //   onClick: () => {
+    //     navigate("/s-admin/hhManagement");
+    //     setDrawerVisible(false);
+    //   },
+    //   style: { marginBottom: 12 },
+    // },
+
+
+
+    
 
     // (role === "admin" || role === "superadmin") &&
     //   {
@@ -471,32 +514,41 @@ useEffect(() => {
       style: { marginBottom: 12 },
     },
 
-    (role === "admin" || role === "superadmin") && {
-  key: "/s-admin/collegeListAnalysis",
-  icon: <BarChartOutlined />, 
-  label: "College List Analysis",
-  onClick: () => {
-    navigate("/s-admin/collegeListAnalysis");
-    setDrawerVisible(false);
-  },
-  style: { marginBottom: 12 },
-},
+    // (role === "admin" || role === "superadmin") && {
+    //   key: "/s-admin/eventOutreach",
+    //   icon: <CalendarFilled />, // you can change icon
+    //   label: (
+    //     <div style={{ lineHeight: "20px" }}>
+    //       <div>Event Outreach </div>
+    //       <div>Management</div>
+    //     </div>
+    //   ),
+    //   onClick: () => {
+    //     navigate("/s-admin/eventOutreach");
+    //     setDrawerVisible(false);
+    //   },
+    //   style: { marginBottom: 12 },
+    // },
 
-(role === "admin" || role === "superadmin") && {
-  key: "/s-admin/hhManagement",
-  icon: <SolutionOutlined />, // you can change icon
-  label: (
-    <div style={{ lineHeight: "20px" }}>
-      <div>Handholding</div>
-      <div>Management</div>
-    </div>
-  ),
-  onClick: () => {
-    navigate("/s-admin/hhManagement");
-    setDrawerVisible(false);
-  },
-  style: { marginBottom: 12 },
-},
+
+
+
+// ✅ Advertisement Menu Item
+// (role === "admin" || role === "superadmin") && {
+//   key: "/s-admin/advertisement",
+//   icon: <NotificationFilled />,
+//   label: (
+//     <div style={{ lineHeight: "20px" }}>
+//       <div>Advertisement</div>
+//       <div>Management</div>
+//     </div>
+//   ),
+//   onClick: () => {
+//     navigate("/s-admin/advertisement");
+//     setDrawerVisible(false);
+//   },
+//   style: { marginBottom: 12 },
+// },
 
     //    (role === "lead_counsellor" || role === "counsellor") &&{
     //   key: "/admin/leadlist",

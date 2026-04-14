@@ -56,6 +56,12 @@ import HandholdingDashboard from "./components/hh-users/pages/HandholdingDashboa
 import HhSession from "./components/hh-users/pages/HhSession";
 import HhPayments from "./components/hh-users/pages/HhPayments";
 import HhCertificates from "./components/hh-users/pages/HhCertificates";
+import Welcome from "./components/Welcome";
+import WelcomeEnquiry from "./components/WelcomeEnquiry";
+import AptitudeDetails from "./components/AptitudeDetails";
+import RegisterDetails from "./components/RegisterDetails";
+import SeminarWebinarManagement from "./components/admin/pages/SeminarWebinarManagement";
+import Advertisement from "./components/admin/pages/Advertisement";
 
 
 
@@ -79,9 +85,15 @@ const App = () => {
         <Route path="/resetpassword" element={<ResetPassword />} /> 
         <Route path="/change-password" element={<ChangePassword />} />
 
+        <Route path="/welcome" element={<Welcome />} />
+        <Route path="/welcome-enquiry" element={<WelcomeEnquiry />} />
+        <Route path="/aptitude-details" element={<AptitudeDetails />} />
+        <Route path="/register-details" element={<RegisterDetails />} />
+
         {/* ===================== Handholding ROUTES ===================== */}
         <Route path="/hhlogin" element={<HHLogin />} />
         <Route path="/hhregister" element={<HHRegister />} />
+
         
 
              {/* =================== STUDENT ROUTES ===================== */}
@@ -123,6 +135,9 @@ const App = () => {
           <Route path="collegeListAnalysis" element={<CollegeListAnalysis />} />
           <Route path="hhManagement" element={<HandholdingManagement />} />
           <Route path="scheduler" element={<SchedulerPage />} />
+
+          <Route path="eventOutreach" element={<SeminarWebinarManagement />} />
+          <Route path="advertisement" element={<Advertisement />} />
        
           
        

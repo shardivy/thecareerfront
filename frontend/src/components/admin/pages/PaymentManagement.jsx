@@ -13,6 +13,7 @@ import {
   Input,
   Select,
   DatePicker,
+  Tabs,
 } from "antd";
 import {
   EyeOutlined,
@@ -47,6 +48,7 @@ const PaymentManagement = () => {
   const [pageSize, setPageSize] = useState(5);
   const [reminderLoadingId, setReminderLoadingId] = useState(null);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [activeTab, setActiveTab] = useState("normal");
   const dispatch = useDispatch();
 
   const { stats, statsLoading, list, listLoading } = useSelector(
@@ -197,6 +199,7 @@ const PaymentManagement = () => {
         date,
         txn,
         proof: !!(p.proof_file_url || p.proof_file || p.receipt_url),
+        is_handholding: p.is_handholding,
         originalData: p
       };
     })
@@ -285,6 +288,8 @@ const PaymentManagement = () => {
       setReminderLoadingId(null);
     }
   };
+
+
 
 
   /* ---------------- TABLE COLUMNS ---------------- */
@@ -411,7 +416,7 @@ const PaymentManagement = () => {
                 type="primary"
                 icon={<UploadOutlined />}
                 onClick={() => {
-                  setSelectedPayment(record);
+                  setSelectedPayment({ ...record, type: activeTab });
                   setIsUploadModalOpen(true);
                 }}
               >
@@ -439,7 +444,7 @@ const PaymentManagement = () => {
                 type="primary"
                 icon={<UploadOutlined />}
                 onClick={() => {
-                  setSelectedPayment(record);
+                  setSelectedPayment({ ...record, type: activeTab });
                   setIsUploadModalOpen(true);
                 }}
               >
@@ -458,7 +463,11 @@ const PaymentManagement = () => {
                 size="large"
                 icon={<EyeOutlined />}
                 onClick={() => {
-                  setSelectedPayment({ ...record, mode: "view" });
+                  setSelectedPayment({
+                    ...record,
+                    mode: "view",
+                    type: activeTab, // ✅ ADD THIS
+                  });
                   setIsModalOpen(true);
                 }}
               >
@@ -507,7 +516,11 @@ const PaymentManagement = () => {
               size="large"
               icon={<EyeOutlined />}
               onClick={() => {
-                setSelectedPayment({ ...record, mode: "view" });
+                setSelectedPayment({
+                  ...record,
+                  mode: "view",
+                  type: activeTab, // ✅ ADD THIS
+                });
                 setIsModalOpen(true);
               }}
             >
@@ -537,6 +550,126 @@ const PaymentManagement = () => {
 
   ];
 
+  const renderTableContent = (data) => (
+    <>
+      {/* HEADER */}
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+        <Col>
+          <Title level={5} style={{ margin: 10 }}>
+            Payment Records ({data.length})
+          </Title>
+        </Col>
+
+        <Col>
+          <Button
+            type="primary"
+            icon={<UploadOutlined />}
+            onClick={() => {
+              setSelectedPayment({ type: activeTab });
+              setIsUploadModalOpen(true);
+            }}
+          >
+            Upload Payment
+          </Button>
+        </Col>
+      </Row>
+
+      {/* FILTERS */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={8}>
+          <Input
+            placeholder="Search"
+            prefix={<SearchOutlined />}
+            allowClear
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+        </Col>
+
+        <Col xs={24} md={4}>
+          <Select
+            placeholder="Payment Status"
+            allowClear
+            style={{ width: "100%" }}
+            onChange={setStatusFilter}
+          >
+            {Object.keys(statusColorMap).map((status) => (
+              <Option key={status}>{status}</Option>
+            ))}
+          </Select>
+        </Col>
+
+        <Col xs={24} md={5}>
+          <DatePicker
+            style={{ width: "100%" }}
+            placeholder="Select date"
+            onChange={setSelectedDate}
+          />
+        </Col>
+
+        {["Not Paid", "Partial Paid"].includes(statusFilter) && (
+          <Col xs={24} md={5}>
+            <Button
+              type="primary"
+              icon={<BellOutlined />}
+              disabled={selectedRowKeys.length === 0}
+              loading={reminderLoadingId === "bulk"}
+              onClick={handleBulkSendReminder}
+              style={{
+                width: "100%",
+                backgroundColor:
+                  selectedRowKeys.length === 0 ? "#f5f5f5" : "#fa8c16",
+                borderColor:
+                  selectedRowKeys.length === 0 ? "#d9d9d9" : "#fa8c16",
+                color:
+                  selectedRowKeys.length === 0
+                    ? "rgba(0,0,0,0.25)"
+                    : "#fff",
+              }}
+            >
+              Send Reminder
+            </Button>
+          </Col>
+        )}
+      </Row>
+
+      {/* TABLE */}
+      <Table
+        rowSelection={
+          ["Not Paid", "Partial Paid"].includes(statusFilter)
+            ? {
+              selectedRowKeys,
+              onChange: (keys) => setSelectedRowKeys(keys),
+              getCheckboxProps: (record) => ({
+                disabled: !["Not Paid", "Partial Paid"].includes(
+                  record.status
+                ),
+              }),
+            }
+            : null
+        }
+        loading={listLoading}
+        columns={columns}
+        dataSource={data}
+        pagination={{
+          current: currentPage,
+          pageSize,
+          showSizeChanger: true,
+          pageSizeOptions: [5, 10, 20, 50],
+          onChange: (page, size) => {
+            setCurrentPage(page);
+            setPageSize(size);
+          },
+        }}
+        scroll={{ x: "max-content" }}
+        locale={{
+          emptyText: listLoading
+            ? "Loading payments..."
+            : "No payments found",
+        }}
+      />
+    </>
+  );
+
   return (
     <ConfigProvider theme={adminTheme}>
       <div style={{ padding: 16 }}>
@@ -549,7 +682,7 @@ const PaymentManagement = () => {
                 loading={statsLoading}
                 bodyStyle={{ padding: "18px 12px", textAlign: "center" }}
               >
-                <Text type="colorTextSecondary" style={{ fontSize: 13 }}>
+                <Text type="colorTextSecondary" style={{ fontSize: 16 }}>
                   {stat.title}
                 </Text>
 
@@ -565,116 +698,35 @@ const PaymentManagement = () => {
           ))}
         </Row>
 
+        <Tabs activeKey={activeTab} onChange={setActiveTab}>
 
 
-        {/* ---------------- TABLE ---------------- */}
-        <Card>
-          {/* HEADER WITH UPLOAD BUTTON */}
-          <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-            <Col>
-              <Title level={5} style={{ margin: 10 }}>
-                Payment Records ({filteredData.length})
-              </Title>
-            </Col>
+          {/* 🔹 TAB 1: NORMAL PAYMENTS */}
+          <Tabs.TabPane tab="Student Payments" key="normal">
+            <Card>
+              {renderTableContent(
+                filteredData.filter(
+                  (item) => item.is_handholding !== true
+                )
+              )}
+            </Card>
+          </Tabs.TabPane>
 
-            <Col>
-              <Button
-                type="primary"
-                icon={<UploadOutlined />}
-                onClick={() => setIsUploadModalOpen(true)}
-              >
-                Upload Payment
-              </Button>
-            </Col>
-          </Row>
+          {/* 🔹 TAB 2: HANDHOLDING PAYMENTS */}
+          {/* <Tabs.TabPane tab="Handholding Payments" key="handholding">
+            <Card>
+              {renderTableContent(
+                filteredData.filter(
+                  (item) => item.is_handholding === true
+                )
+              )}
+            </Card>
+          </Tabs.TabPane> */}
 
-          {/* FILTERS */}
-          <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-            <Col xs={24} md={8}>
-              <Input
-                placeholder="Search"
-                prefix={<SearchOutlined />}
-                allowClear
-                onChange={(e) => setSearchText(e.target.value)}
-              />
-            </Col>
+        </Tabs>
 
-            <Col xs={24} md={4}>
-              <Select
-                placeholder="Payment Status"
-                allowClear
-                style={{ width: "100%" }}
-                onChange={setStatusFilter}
-              >
-                {Object.keys(statusColorMap).map((status) => (
-                  <Option key={status}>{status}</Option>
-                ))}
-              </Select>
-            </Col>
 
-            <Col xs={24} md={5}>
-              <DatePicker
-                style={{ width: "100%" }}
-                placeholder="Select date"
-                onChange={setSelectedDate}
-              />
-            </Col>
 
-            {/* Send Reminder button */}
-            {/* Send Reminder button */}
-            {["Not Paid", "Partial Paid"].includes(statusFilter) && (
-              <Col xs={24} md={5}>
-                <Button
-                  type="primary"
-                  icon={<BellOutlined />}
-                  disabled={selectedRowKeys.length === 0}
-                  loading={reminderLoadingId === "bulk"}
-                  onClick={handleBulkSendReminder}
-                  style={{
-                    width: "100%",
-                    marginTop: window.innerWidth < 768 ? 8 : 0,
-                    backgroundColor: selectedRowKeys.length === 0 ? "#f5f5f5" : "#fa8c16", // gray when disabled
-                    borderColor: selectedRowKeys.length === 0 ? "#d9d9d9" : "#fa8c16",
-                    color: selectedRowKeys.length === 0 ? "rgba(0,0,0,0.25)" : "#fff",
-                  }}
-                >
-                  Send Reminder
-                </Button>
-              </Col>
-            )}
-          </Row>
-
-          {/* TABLE */}
-          <Table
-            rowSelection={
-              ["Not Paid", "Partial Paid"].includes(statusFilter) // only enable for these statuses
-                ? {
-                  selectedRowKeys,
-                  onChange: (keys) => setSelectedRowKeys(keys),
-                  getCheckboxProps: (record) => ({
-                    disabled: !["Not Paid", "Partial Paid"].includes(record.status),
-                  }),
-                }
-                : null // no checkboxes if filter is not set
-            }
-            loading={listLoading}
-            columns={columns}
-            dataSource={filteredData}
-            pagination={{
-              current: currentPage,
-              pageSize: pageSize,
-              showSizeChanger: true,
-              pageSizeOptions: [5, 10, 20, 50],
-              onChange: (page, size) => {
-                setCurrentPage(page);
-                setPageSize(size);
-              },
-            }}
-
-            scroll={{ x: "max-content" }}
-            locale={{ emptyText: listLoading ? 'Loading payments...' : 'No payments found' }}
-          />
-        </Card>
 
         {/* VIEW PAYMENT MODAL */}
         <PaymentProofModal

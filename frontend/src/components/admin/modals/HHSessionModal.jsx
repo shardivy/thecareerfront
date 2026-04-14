@@ -1,13 +1,19 @@
 import React, { useEffect } from "react";
-import { Modal, Form, Input, Select } from "antd";
+import { Modal, Form, Input, message } from "antd";
+import { useDispatch, useSelector } from "react-redux";
+import {
+    createHHSession,
+    updateHHSession,
+} from "../../../hhSlices/handholdingSessionSlice";
 
 const HHSessionModal = ({
     open,
     onCancel,
-    onSubmit,
     initialValues,
 }) => {
     const [form] = Form.useForm();
+    const dispatch = useDispatch();
+    const { loading } = useSelector((state) => state.hhSession);
 
     useEffect(() => {
         if (open) {
@@ -22,13 +28,29 @@ const HHSessionModal = ({
     }, [open, initialValues, form]);
 
     const handleOk = () => {
-        form
-            .validateFields()
-            .then((values) => {
-                onSubmit(values);
+        form.validateFields().then(async (values) => {
+            try {
+                if (initialValues?.id) {
+                    await dispatch(
+                        updateHHSession({
+                            id: initialValues.id,
+                            payload: values,
+                        })
+                    ).unwrap();
+
+                    message.success("Session updated successfully");
+                } else {
+                    await dispatch(createHHSession(values)).unwrap();
+
+                    message.success("Session created successfully");
+                }
+
                 form.resetFields();
-            })
-            .catch(() => { });
+                onCancel();
+            } catch (err) {
+                message.error(err?.message || "Something went wrong");
+            }
+        });
     };
 
     return (
@@ -37,6 +59,7 @@ const HHSessionModal = ({
             open={open}
             onCancel={onCancel}
             onOk={handleOk}
+            confirmLoading={loading}
             okText={initialValues ? "Update" : "Create"}
         >
             <Form form={form} layout="vertical">
@@ -54,8 +77,6 @@ const HHSessionModal = ({
                 >
                     <Input.TextArea placeholder="Enter description" />
                 </Form.Item>
-
-
             </Form>
         </Modal>
     );

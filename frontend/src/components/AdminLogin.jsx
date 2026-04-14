@@ -304,6 +304,22 @@ const onFinish = (values, event) => {
                 <Divider style={{ margin: "28px 0" }} />
 
                 <Text style={{ textAlign: "center", display: "block" }}>
+  Want to watch video?{" "}
+  <Text
+    type="primary"
+    style={{
+      cursor: "pointer",
+      textDecoration: "underline",
+      color: "#1677ff",
+      fontWeight: "500",
+    }}
+    onClick={() => navigate("/welcome")}
+  >
+    Click here
+  </Text>
+</Text>
+
+                <Text style={{ textAlign: "center", display: "block" }}>
                   Don’t have an student account?{" "}
                   <Text
                     type="primary"

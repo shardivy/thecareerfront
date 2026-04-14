@@ -14,6 +14,10 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 const AdminDashboard = () => {
+
+  const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState(5);
+  
   const dispatch = useDispatch();
  const { stats: dashboardStats, leadStats, activities, loading, error } =
   useSelector((state) => state.dashboard);
@@ -150,18 +154,33 @@ const getEnquiriesData = () => {
         label: "Total Enquiries",
         data: leadStats.total || [],
         backgroundColor: adminTheme.token.colorPrimary,
-        barThickness: 40,
-        maxBarThickness: 50,
+        barPercentage: 0.4,       // ✅ controls bar width
+        categoryPercentage: 0.6,  // ✅ controls group spacing
       },
       {
         label: "Total Converted",
         data: leadStats.converted || [],
         backgroundColor: adminTheme.token.colorSuccess,
-        barThickness: 40,
-        maxBarThickness: 50,
+        barPercentage: 0.4,
+        categoryPercentage: 0.6,
       },
     ],
   };
+};
+
+const barOptions = {
+  responsive: true,
+  plugins: {
+    legend: { position: "top" },
+  },
+  scales: {
+    x: {
+      stacked: false, // ❌ make sure not stacked
+    },
+    y: {
+      beginAtZero: true,
+    },
+  },
 };
 
 const collectedRevenue = dashboardStats?.payments?.total_collected || 0;
@@ -371,7 +390,7 @@ activity:
             }
             style={{ borderRadius: adminTheme.token.borderRadius, boxShadow: adminTheme.token.boxShadow }}
           >
-            <Bar data={getEnquiriesData()} />
+            <Bar data={getEnquiriesData()} options={barOptions}/>
           </Card>
         </Col>
 
@@ -399,7 +418,16 @@ activity:
             <Table
               columns={activityColumns}
               dataSource={recentActivities}
-              pagination={false}
+             pagination={{
+    current: currentPage,
+    pageSize: pageSize,
+    showSizeChanger: true,
+    pageSizeOptions: [5, 10, 20, 50],
+    onChange: (page, size) => {
+      setCurrentPage(page);
+      setPageSize(size);
+    },
+  }}
               scroll={{ x: "max-content" }}
               style={{ borderColor: adminTheme.token.colorBorder }}
             />

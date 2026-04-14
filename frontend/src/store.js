@@ -31,6 +31,10 @@ import notificationReducer from "./adminSlices/notificationSlice";
 import questionReducer from "./adminSlices/questionSlice";
 import collegeAnalysisReducer from "./adminSlices/collegeAnalysisSlice";
 import reviewReducer from "./adminSlices/reviewSlice";
+import hhRegisterReducer from "./hhSlices/hhRegisterSlice";
+import handholdingSessionReducer from "./hhSlices/handholdingSessionSlice";
+import handholdingUsersReducer from "./hhSlices/handholdingUsersSlice";
+import handholdingPaymentReducer from "./hhSlices/handholdingPaymentSlice";
 
 
 const store = configureStore({
@@ -65,6 +69,11 @@ const store = configureStore({
         questions: questionReducer,
         collegeAnalysis: collegeAnalysisReducer,
         review: reviewReducer,
+
+        hhRegister: hhRegisterReducer,
+        hhSession: handholdingSessionReducer,
+        handholdingUsers: handholdingUsersReducer,
+        handholdingPayment: handholdingPaymentReducer,
 
   },
 });

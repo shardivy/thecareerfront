@@ -473,6 +473,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                 <Form.Item
                   name="preferred_counselling_mode"
                   label="Preferred Counselling Mode"
+                    initialValue="online" 
                   required
                 >
                   <Select disabled={isView} placeholder="Select counselling mode">

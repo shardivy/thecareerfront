@@ -306,34 +306,42 @@ const handleCancel = (record) => {
           );
         }
 
-        if (record.status === "completed") {
-          return (
-            <Space>
-              <Button
-                onClick={() => {
-                  dispatch(fetchCounsellingNote(record.id)).then(() => {
-                    setSelectedSession(record);
-                    setNotesModalOpen(true);
-                  });
-                }}
-              >
-                View / Add Notes
-              </Button>
+      if (record.status === "completed") {
+  return (
+    <Space>
+      <Button
+        onClick={() => {
+          dispatch(fetchCounsellingNote(record.id)).then(() => {
+            setSelectedSession(record);
+            setNotesModalOpen(true);
+          });
+        }}
+      >
+        View / Add Notes
+      </Button>
 
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                onClick={() => {
-                  setRescheduleData(record);
-                  setModalMode("edit");
-                  setIsModalOpen(true);
-                }}
-              >
-                Reschedule
-              </Button>
-            </Space>
-          );
-        }
+      <Button
+        type="primary"
+        icon={<EditOutlined />}
+        onClick={() => {
+          setRescheduleData(record);
+          setModalMode("edit");
+          setIsModalOpen(true);
+        }}
+      >
+        Reschedule
+      </Button>
+
+      <Button
+        danger
+        icon={<DeleteOutlined />}
+        onClick={() => handleCancel(record)}
+      >
+        Cancel
+      </Button>
+    </Space>
+  );
+}
 
         return (
           <Space>
