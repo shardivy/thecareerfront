@@ -1480,19 +1480,6 @@ class AdvertisementCreateAPIView(APIView):
     
 # ============================ Certificate Views ============================
 
-import os
-import io
-import time
-from django.conf import settings
-from django.utils import timezone
-from django.core.files.base import ContentFile
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from PIL import Image, ImageDraw, ImageFont
-
-from .models import HandHoldingParticipant, Certificate
-from .utils import get_font_path
-
 
 class GenerateCertificateAPIView(APIView):
 
@@ -1548,29 +1535,32 @@ class GenerateCertificateAPIView(APIView):
             draw = ImageDraw.Draw(image)
             
             # =========================
-            # 📍 COLORS - KEEPING BLACK TEXT
+            # 📍 COLORS
             # =========================
-            text_color = (251, 251, 251)   # pure white
-            # shadow_color = (200, 200, 200)  # light gray shadow
+            text_color = (252, 252, 200)  # Black text for name and date
 
             # =========================
-            # 🔤 FONT - SIGNIFICANTLY INCREASED NAME FONT SIZE
+            # 🔤 FONT - ARIAL BOLD FOR NAME
             # =========================
-            font_path = get_font_path()
-            
-            # Increased name font to 120 for much larger text
             try:
-                name_font = ImageFont.truetype(font_path, 90) if font_path and os.path.exists(font_path) else ImageFont.load_default()
+                # Use Arial Bold for the name (professional look)
+                name_font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 80)
             except:
-                # Fallback to Arial with larger size if GreatVibes fails
                 try:
-                    name_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 90)
+                    # Fallback to regular Arial if Bold not available
+                    name_font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 80)
                 except:
-                    name_font = ImageFont.load_default()
+                    try:
+                        # Fallback for Linux/Mac
+                        name_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 80)
+                    except:
+                        name_font = ImageFont.load_default()
 
-            # Date font size
+            # =========================
+            # 🔤 DATE FONT
+            # =========================
             try:
-                date_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 45)
+                date_font = ImageFont.truetype("C:/Windows/Fonts/timesbd.ttf", 45)
             except:
                 try:
                     date_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 45)
@@ -1587,59 +1577,30 @@ class GenerateCertificateAPIView(APIView):
             today_date = timezone.now().strftime("%d %B %Y")
 
             # =========================
-            # 📍 POSITIONS - ADJUSTED FOR LARGER FONT
+            # 📍 POSITIONS
             # =========================
             img_width, img_height = image.size
             center_x = img_width // 2
             
-            # Calculate text size to adjust position dynamically
-            try:
-                name_bbox = draw.textbbox((0, 0), full_name, font=name_font)
-                name_width = name_bbox[2] - name_bbox[0]
-                name_height = name_bbox[3] - name_bbox[1]
-            except:
-                name_width = len(full_name) * 80  # Rough estimate for 160px font
-                name_height = 160
+            # Name position - adjust this value to move name up/down
+            name_y = 805  # Increase to move down, decrease to move up
+            date_y = 960  # Date position
             
-            # Adjust Y position based on font size
-            # Move up more for larger font to keep it centered in the name area
-            name_y = 720  # Moved up from 760 to accommodate 160px font
-            date_y = 960
-            
-            # Further adjustment for very large names
-            if name_height > 150:
-                name_y = 700  # Move up even more for 160px font
-            
-            # Draw name with shadow (keep black text)
-            # shadow_offset = 4  # Increased shadow offset for larger font
-            draw.text(
-                (center_x , name_y ), 
-                full_name, 
-                font=name_font, 
-                # fill=shadow_color, 
-                anchor="mm"
-            )
+            # Draw name (single draw to avoid duplication)
             draw.text(
                 (center_x, name_y), 
                 full_name, 
                 font=name_font, 
-                fill=text_color,  # Keep BLACK text
+                fill=text_color,
                 anchor="mm"
             )
 
-            # Draw date with shadow (keep black text)
-            draw.text(
-                (center_x + 2, date_y + 2), 
-                today_date, 
-                font=date_font, 
-                # fill=shadow_color, 
-                anchor="mm"
-            )
+            # Draw date
             draw.text(
                 (center_x, date_y), 
                 today_date, 
                 font=date_font, 
-                fill=text_color,  # Keep BLACK text
+                fill=text_color,
                 anchor="mm"
             )
 
