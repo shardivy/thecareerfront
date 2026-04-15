@@ -61,18 +61,18 @@ const PaymentManagement = () => {
   }, [dispatch]);
 
   // Debug: Log the payment list
-  useEffect(() => {
-    console.log("📊 Payment list in component:", list);
-    if (list.length > 0) {
-      console.log("🔍 First payment item:", list[0]);
-      console.log("🔍 Date fields in first item:", {
-        payment_date: list[0].payment_date,
-        date: list[0].date,
-        original_payment_date: list[0].original_payment_date,
-        original_created_at: list[0].original_created_at
-      });
-    }
-  }, [list]);
+  // useEffect(() => {
+  //   console.log("📊 Payment list in component:", list);
+  //   if (list.length > 0) {
+  //     console.log("🔍 First payment item:", list[0]);
+  //     console.log("🔍 Date fields in first item:", {
+  //       payment_date: list[0].payment_date,
+  //       date: list[0].date,
+  //       original_payment_date: list[0].original_payment_date,
+  //       original_created_at: list[0].original_created_at
+  //     });
+  //   }
+  // }, [list]);
 
   const handleEditPayment = (record) => {
     setSelectedPayment(record);
@@ -166,7 +166,7 @@ const PaymentManagement = () => {
   /* ---------------- API -> TABLE DATA ---------------- */
   const apiPaymentRecords = Array.isArray(list)
     ? list.map((p, idx) => {
-      console.log(`📋 Processing payment ${idx} for table:`, p);
+      // console.log(`📋 Processing payment ${idx} for table:`, p);
 
       // const cleanName = extractName(p.user_name);
       const packageName = p.package_name || p.package || "N/A";

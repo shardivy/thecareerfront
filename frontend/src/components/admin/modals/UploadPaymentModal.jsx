@@ -23,7 +23,8 @@ import {
   fetchStudentPaymentSummary,
 } from "../../../adminSlices/paymentSlice";
 import { fetchStudents } from "../../../adminSlices/userSlice";
-import { fetchHandholdingUsers } from "../../../hhSlices/handholdingUsersSlice";
+import { fetchPendingParticipants } from "../../../hhSlices/handholdingUsersSlice";
+import { fetchHandholdingSummary } from "../../../hhSlices/handholdingPaymentSlice";
 
 const { Option } = Select;
 
@@ -41,10 +42,14 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
     (state) => state.packages
   );
 
+  const { data: hhSummary } = useSelector(
+    (state) => state.handholdingPayment
+  );
+
   const {
-  list: handholdingUsers = [],
-  loading: hhLoading,
-} = useSelector((state) => state.handholdingUsers);
+    pendingParticipants = [],
+    pendingLoading,
+  } = useSelector((state) => state.handholdingUsers);
 
   const {
     submitLoading,
@@ -52,7 +57,7 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
     submitError,
     summaryLoading,
     summaryData,
-      summaryError, 
+    summaryError,
   } = useSelector((state) => state.payment);
 
   const [fileList, setFileList] = useState([]);
@@ -67,16 +72,16 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
   // }, [open, dispatch]);
 
   useEffect(() => {
-  if (open) {
-    if (paymentData?.type === "handholding") {
-      dispatch(fetchHandholdingUsers()); // 👈 NEW API
-    } else {
-      dispatch(fetchStudents()); // 👈 OLD API
-    }
+    if (open) {
+      if (paymentData?.type === "handholding") {
+        dispatch(fetchPendingParticipants());
+      } else {
+        dispatch(fetchStudents()); // 👈 OLD API
+      }
 
-    dispatch(fetchPackages());
-  }
-}, [open, paymentData, dispatch]);
+      dispatch(fetchPackages());
+    }
+  }, [open, paymentData, dispatch]);
 
   /* ================= FILE PREVIEW ================= */
   useEffect(() => {
@@ -88,97 +93,105 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
   }, [fileList]);
 
   useEffect(() => {
-  if (summaryError) {
-    message.error(summaryError);
-  }
-}, [summaryError]);
-
-useEffect(() => {
-  if (summaryData?.remaining_amount !== undefined) {
-    form.setFieldsValue({
-      amount: summaryData.remaining_amount,
-    });
-  }
-}, [summaryData, form]);
-
-useEffect(() => {
-  if (open && paymentData) {
-    const selectedId = isHandholding
-      ? paymentData.originalData?.id   // ✅ FIXED
-      : paymentData.originalData?.student_id;
-
-    form.setFieldsValue({
-      student_profile: selectedId,
-      package: paymentData.originalData?.package_id,
-      amount: paymentData.packagePrice || "",
-    });
-
-    if (selectedId && paymentData.originalData?.package_id) {
-      dispatch(
-        fetchStudentPaymentSummary({
-          ...(isHandholding
-            ? { handholdingParticipantId: selectedId }
-            : { studentId: selectedId }),
-          packageId: paymentData.originalData.package_id,
-        })
-      );
+    if (summaryError) {
+      message.error(summaryError);
     }
-  }
-}, [open, paymentData, dispatch, form, isHandholding]);
+  }, [summaryError]);
 
-useEffect(() => {
-  if (
-    open &&
-    isHandholding &&
-    handholdingUsers.length > 0 &&
-    paymentData?.originalData?.id
-  ) {
-    form.setFieldsValue({
-      student_profile: paymentData.originalData.id,
-    });
-  }
-}, [handholdingUsers, open, isHandholding, paymentData, form]);
+  useEffect(() => {
+    if (summaryData?.remaining_amount !== undefined) {
+      form.setFieldsValue({
+        amount: summaryData.remaining_amount,
+      });
+    }
+  }, [summaryData, form]);
+
+  useEffect(() => {
+    if (
+      isHandholding &&
+      hhSummary?.data?.remaining_amount !== undefined
+    ) {
+      form.setFieldsValue({
+        amount: hhSummary.data.remaining_amount,
+      });
+    }
+  }, [hhSummary, isHandholding, form]);
+
+  useEffect(() => {
+    if (open && paymentData) {
+      const selectedId = isHandholding
+        ? paymentData.originalData?.handholding_participant_id
+        : paymentData.originalData?.student_id;
+
+      form.setFieldsValue({
+        student_profile: selectedId,
+        package: paymentData.originalData?.package_id,
+        // amount: paymentData.packagePrice || "",
+      });
+
+      if (selectedId && paymentData.originalData?.package_id) {
+        if (isHandholding) {
+          // ✅ CALL YOUR NEW API HERE
+          dispatch(
+            fetchHandholdingSummary({
+              participantId: selectedId,
+              packageId: paymentData.originalData.package_id,
+            })
+          );
+        } else {
+          dispatch(
+            fetchStudentPaymentSummary({
+              studentId: selectedId,
+              packageId: paymentData.originalData.package_id,
+            })
+          );
+        }
+      }
+    }
+  }, [open, paymentData, dispatch, form, isHandholding]);
+
+
 
   /* ================= SUBMIT ================= */
-const handleSubmit = (values) => {
-  const formData = new FormData();
+  const handleSubmit = (values) => {
+    const formData = new FormData();
 
-  if (isHandholding) {
-    // ✅ send BOTH
-    formData.append("handholding_participant", values.student_profile);
+    if (isHandholding) {
+      // ✅ send BOTH
+      formData.append("handholding_participant", values.student_profile);
 
-    // 👇 IMPORTANT: map correct student id
-    const selected = handholdingUsers.find(
-      (u) => u.handholding_participant === values.id
+      // 👇 IMPORTANT: map correct student id
+      const selected = pendingParticipants.find(
+        (u) => u.id === values.student_profile
+      );
+
+      if (selected?.student_id) {
+        formData.append("student_profile", selected.student_id);
+      }
+    } else {
+      formData.append("student_profile", values.student_profile);
+    }
+
+    formData.append("package", values.package);
+    formData.append("amount", values.amount);
+    formData.append("payment_type", values.payment_type);
+    formData.append("method", values.method);
+
+    if (values.transactionId) {
+      formData.append("transaction_id", values.transactionId);
+    }
+
+    formData.append(
+      "payment_date",
+      dayjs(values.paymentDate).format("YYYY-MM-DD")
     );
 
-    if (selected?.student_id) {
-      formData.append("student_profile", selected.student_id);
+    if (fileList.length && fileList[0].originFileObj) {
+      formData.append("proof_file", fileList[0].originFileObj);
     }
-  } else {
-    formData.append("student_profile", values.student_profile);
-  }
 
-  formData.append("package", values.package);
-  formData.append("amount", values.amount);
-  formData.append("payment_type", values.payment_type);
-  formData.append("method", values.method);
-
-  if (values.transactionId) {
-    formData.append("transaction_id", values.transactionId);
-  }
-
-  formData.append(
-    "payment_date",
-    dayjs(values.paymentDate).format("YYYY-MM-DD")
-  );
-
-  if (fileList.length && fileList[0].originFileObj) {
-    formData.append("proof_file", fileList[0].originFileObj);
-  }
-
-  dispatch(submitPayment(formData));
-};
+    dispatch(submitPayment(formData));
+  };
 
   /* ================= SUCCESS / ERROR ================= */
   useEffect(() => {
@@ -202,63 +215,74 @@ const handleSubmit = (values) => {
   }, [submitSuccess, submitError, dispatch, form, onClose, onSuccess]);
 
   /* ================= HANDLE STUDENT SELECT ================= */
-const handleStudentChange = (studentId) => {
-  const list = isHandholding ? handholdingUsers : students;
+  const handleStudentChange = (studentId) => {
+    const list = isHandholding ? pendingParticipants : students;
 
-  const student = list.find((s) => s.id === studentId); // ✅ FIX
+    const student = list.find((s) => s.id === studentId);
 
-  const packageId = student?.package_id;
+    const packageId = student?.package_id;
 
-  form.setFieldsValue({
-    package: packageId,
-  });
+    form.setFieldsValue({
+      package: packageId,
+    });
 
-  if (studentId && packageId) {
-    if (isHandholding) {
-      dispatch(
-        fetchStudentPaymentSummary({
-          handholdingParticipantId: studentId,
-          packageId,
-        })
-      );
-    } else {
-      dispatch(
-        fetchStudentPaymentSummary({
-          studentId: studentId,
-          packageId,
-        })
-      );
+    if (studentId && packageId) {
+      if (isHandholding) {
+        // ✅ CALL NEW API
+        dispatch(
+          fetchHandholdingSummary({
+            participantId: studentId,
+            packageId,
+          })
+        );
+      } else {
+        dispatch(
+          fetchStudentPaymentSummary({
+            studentId,
+            packageId,
+          })
+        );
+      }
     }
-  }
-};
+  };
 
   /* ================= HANDLE PACKAGE CHANGE ================= */
   const handlePackageChange = (packageId) => {
     const studentId = form.getFieldValue("student_profile");
 
     if (studentId && packageId) {
-      dispatch(
-        fetchStudentPaymentSummary({
-          studentId,
-          packageId,
-        })
-      );
+      if (isHandholding) {
+        // ✅ CALL NEW API
+        dispatch(
+          fetchHandholdingSummary({
+            participantId: studentId,
+            packageId,
+          })
+        );
+      } else {
+        dispatch(
+          fetchStudentPaymentSummary({
+            studentId,
+            packageId,
+          })
+        );
+      }
     }
   };
 
-const disableFutureDates = (current) => {
-  return current && current > dayjs().endOf("day");
-};
+  const disableFutureDates = (current) => {
+    return current && current > dayjs().endOf("day");
+  };
 
-const studentList =
-  paymentData?.type === "handholding"
-    ? handholdingUsers
-    : students;
+  const studentList =
+    paymentData?.type === "handholding"
+      ? pendingParticipants
+      : students;
 
-const studentLoading =
-  paymentData?.type === "handholding"
-    ? hhLoading
-    : studentsLoading;
+  const studentLoading =
+    paymentData?.type === "handholding"
+      ? pendingLoading
+      : studentsLoading;
 
 
   return (
@@ -272,92 +296,98 @@ const studentLoading =
       width={650}
       centered
     >
-       <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={handleSubmit}
-        onValuesChange={(changedValues) => {
-          if (changedValues.payment_type) {
-            form.setFieldsValue({
-              method: undefined,
-              transactionId: undefined,
-            });
-          }
+      <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          onValuesChange={(changedValues) => {
+            if (changedValues.payment_type) {
+              form.setFieldsValue({
+                method: undefined,
+                transactionId: undefined,
+              });
+            }
 
-          if (
-            Object.prototype.hasOwnProperty.call(changedValues, "method") &&
-            changedValues.method !== "upi"
-          ) {
-            form.setFieldsValue({ transactionId: undefined });
-          }
-        }}
-      >
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-            label={isHandholding ? "Select User" : "Select Student"}
-              name="student_profile"
-              rules={[{ required: true, message: "Please select student" }]}
-            >
-             <Select
- placeholder={isHandholding ? "Select user" : "Select student"}
-  loading={studentLoading}
-  showSearch
-  optionFilterProp="children"
-  onChange={handleStudentChange}
->
-  {studentList.map((student) => (
-    <Option key={student.id} value={student.id}>
-      {student.first_name} {student.last_name}
-      <div style={{ fontSize: 12 }}>{student.email}</div>
-    </Option>
-  ))}
-</Select>
-            </Form.Item>
-          </Col>
-
-          <Col span={12}>
-            <Form.Item
-              label="Counselling Service"
-              name="package"
-              rules={[{ required: true }]}
-            >
-              <Select
-                placeholder="Select counselling service"
-                loading={packageLoading}
-                onChange={handlePackageChange}
+            if (
+              Object.prototype.hasOwnProperty.call(changedValues, "method") &&
+              changedValues.method !== "upi"
+            ) {
+              form.setFieldsValue({ transactionId: undefined });
+            }
+          }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label={isHandholding ? "Select User" : "Select Student"}
+                name="student_profile"
+                rules={[{ required: true, message: "Please select student" }]}
               >
-                {packageList.map((pkg) => (
-                  <Option key={pkg.id} value={pkg.id}>
-                    {pkg.name}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Col>
-        </Row>
+                <Select
+                  placeholder={isHandholding ? "Select user" : "Select student"}
+                  loading={studentLoading}
+                  showSearch
+                  optionFilterProp="label"
+                  onChange={handleStudentChange}
+                  options={studentList.map((student) => ({
+                    value: student.id,
+                    label: (
+                      <div>
+                        <div style={{ fontWeight: 500 }}>
+                          {student.first_name} {student.last_name}
+                        </div>
+                        <div>
+                          {student.email}
+                        </div>
+                      </div>
+                    ),
+                  }))}
+                />
+              </Form.Item>
+            </Col>
 
-<Row>
-  <Col span={24}>
-    <Form.Item label="Amount Due" name="amount">
-  {/* <Input
+            <Col span={12}>
+              <Form.Item
+                label="Counselling Service"
+                name="package"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  placeholder="Select counselling service"
+                  loading={packageLoading}
+                  onChange={handlePackageChange}
+                >
+                  {packageList.map((pkg) => (
+                    <Option key={pkg.id} value={pkg.id}>
+                      {pkg.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row>
+            <Col span={24}>
+              <Form.Item label="Amount Due" name="amount">
+                {/* <Input
     disabled={Boolean(paymentData) && paymentData?.status !== "Not Paid"}
   /> */}
-  <Input
-  disabled={
-    paymentData?.type !== "handholding" &&
-    Boolean(paymentData) &&
-    paymentData?.status !== "Not Paid"
-  }
-/>
-</Form.Item>
-  </Col>
-</Row>
+                <Input
+                  disabled={
+                    paymentData?.type !== "handholding" &&
+                    Boolean(paymentData) &&
+                    paymentData?.status !== "Not Paid"
+                  }
+                />
+              </Form.Item>
+            </Col>
+          </Row>
 
 
-        <Row gutter={16}>
-          {/* <Col span={12}>
+          <Row gutter={16}>
+            {/* <Col span={12}>
             <Form.Item
               label="Amount Paid"
               name="amount"
@@ -367,150 +397,150 @@ const studentLoading =
             </Form.Item>
           </Col> */}
 
-         <Col span={12}>
-  <Form.Item
-    name="payment_type"
-    label="Payment Type"
-    rules={[{ required: true, message: "Please select payment type" }]}
-  >
-   <Select placeholder="Select payment type"
-      onChange={(value) => {
-        if (value === "online") {
-          form.setFieldsValue({
-            method: "upi",
-            transactionId: undefined,
-          });
-        } else if (value === "offline") {
-          form.setFieldsValue({
-            method: "cash",
-            transactionId: undefined,
-          });
-        }
-      }}
-    >
-      <Option value="online">Online</Option>
-      <Option value="offline">Offline</Option>
-    </Select>
-  </Form.Item>
-</Col>
+            <Col span={12}>
+              <Form.Item
+                name="payment_type"
+                label="Payment Type"
+                rules={[{ required: true, message: "Please select payment type" }]}
+              >
+                <Select placeholder="Select payment type"
+                  onChange={(value) => {
+                    if (value === "online") {
+                      form.setFieldsValue({
+                        method: "upi",
+                        transactionId: undefined,
+                      });
+                    } else if (value === "offline") {
+                      form.setFieldsValue({
+                        method: "cash",
+                        transactionId: undefined,
+                      });
+                    }
+                  }}
+                >
+                  <Option value="online">Online</Option>
+                  <Option value="offline">Offline</Option>
+                </Select>
+              </Form.Item>
+            </Col>
 
 
-          <Col span={12}>
-            <Form.Item shouldUpdate>
-              {({ getFieldValue }) => {
-                const paymentType = getFieldValue("payment_type");
+            <Col span={12}>
+              <Form.Item shouldUpdate>
+                {({ getFieldValue }) => {
+                  const paymentType = getFieldValue("payment_type");
 
-                return (
-                  <Form.Item
-                    name="method"
-                    label="Payment Method"
-                    rules={[{ required: true }]}
-                  >
-                   <Select placeholder="Select payment method" disabled={!paymentType}>
-                      {paymentType === "online" && (
-                        <Option value="upi">UPI</Option>
-                      )}
-                      {paymentType === "offline" && (
-                        <Option value="cash">Cash</Option>
-                      )}
-                    </Select>
-                  </Form.Item>
-                );
-              }}
-            </Form.Item>
-          </Col>
-
-          <Col span={12}>
-<Form.Item shouldUpdate>
-  {({ getFieldValue }) =>
-    getFieldValue("method") === "upi" ? (
-      <Form.Item
-        label="Transaction ID"
-        name="transactionId"
-        validateTrigger="onChange"
-        rules={[
-          {
-            required: false,
-            
-          },
-          {
-            pattern: /^[0-9]{12,16}$/,
-            message:
-              "Transaction ID must be 12-16 digits only",
-          },
-        ]}
-      >
-        <Input
-          placeholder="Enter 12-16 digit UPI Transaction ID"
-          maxLength={16}
-        />
-      </Form.Item>
-    ) : null
-  }
-</Form.Item>
-
-
-          </Col>
-        </Row>
-
-        <Form.Item
-          label="Payment Date"
-          name="paymentDate"
-          rules={[{ required: true }]}
-        >
-          <DatePicker style={{ width: "100%" }} disabledDate={disableFutureDates}  />
-        </Form.Item>
-
-        <Form.Item label="Upload Receipt">
-          <div
-            style={{
-              display: "flex",
-              gap: 16,
-              alignItems: "center",
-              border: "1px dashed #d9d9d9",
-              padding: 16,
-              borderRadius: 8,
-            }}
-          >
-            {previewUrl ? (
-              <img
-                src={previewUrl}
-                alt="Receipt Preview"
-                style={{
-                  width: 160,
-                  height: 160,
-                  objectFit: "cover",
-                  borderRadius: 8,
-                }}
-              />
-            ) : (
-              <Empty description="No receipt uploaded" />
-            )}
-
-            <Upload
-              beforeUpload={() => false}
-              maxCount={1}
-              showUploadList={false}
-              fileList={fileList}
-              onChange={({ fileList }) => {
-                setFileList(fileList);
-
-                if (fileList[0]?.originFileObj) {
-                  setPreviewUrl(
-                    URL.createObjectURL(fileList[0].originFileObj)
+                  return (
+                    <Form.Item
+                      name="method"
+                      label="Payment Method"
+                      rules={[{ required: true }]}
+                    >
+                      <Select placeholder="Select payment method" disabled={!paymentType}>
+                        {paymentType === "online" && (
+                          <Option value="upi">UPI</Option>
+                        )}
+                        {paymentType === "offline" && (
+                          <Option value="cash">Cash</Option>
+                        )}
+                      </Select>
+                    </Form.Item>
                   );
-                } else {
-                  setPreviewUrl("");
+                }}
+              </Form.Item>
+            </Col>
+
+            <Col span={12}>
+              <Form.Item shouldUpdate>
+                {({ getFieldValue }) =>
+                  getFieldValue("method") === "upi" ? (
+                    <Form.Item
+                      label="Transaction ID"
+                      name="transactionId"
+                      validateTrigger="onChange"
+                      rules={[
+                        {
+                          required: false,
+
+                        },
+                        {
+                          pattern: /^[0-9]{12,16}$/,
+                          message:
+                            "Transaction ID must be 12-16 digits only",
+                        },
+                      ]}
+                    >
+                      <Input
+                        placeholder="Enter 12-16 digit UPI Transaction ID"
+                        maxLength={16}
+                      />
+                    </Form.Item>
+                  ) : null
                 }
+              </Form.Item>
+
+
+            </Col>
+          </Row>
+
+          <Form.Item
+            label="Payment Date"
+            name="paymentDate"
+            rules={[{ required: true }]}
+          >
+            <DatePicker style={{ width: "100%" }} disabledDate={disableFutureDates} />
+          </Form.Item>
+
+          <Form.Item label="Upload Receipt">
+            <div
+              style={{
+                display: "flex",
+                gap: 16,
+                alignItems: "center",
+                border: "1px dashed #d9d9d9",
+                padding: 16,
+                borderRadius: 8,
               }}
             >
-              <Button icon={<UploadOutlined />}>
-                Upload Receipt
-              </Button>
-            </Upload>
-          </div>
-        </Form.Item>
-      </Form>
+              {previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt="Receipt Preview"
+                  style={{
+                    width: 160,
+                    height: 160,
+                    objectFit: "cover",
+                    borderRadius: 8,
+                  }}
+                />
+              ) : (
+                <Empty description="No receipt uploaded" />
+              )}
+
+              <Upload
+                beforeUpload={() => false}
+                maxCount={1}
+                showUploadList={false}
+                fileList={fileList}
+                onChange={({ fileList }) => {
+                  setFileList(fileList);
+
+                  if (fileList[0]?.originFileObj) {
+                    setPreviewUrl(
+                      URL.createObjectURL(fileList[0].originFileObj)
+                    );
+                  } else {
+                    setPreviewUrl("");
+                  }
+                }}
+              >
+                <Button icon={<UploadOutlined />}>
+                  Upload Receipt
+                </Button>
+              </Upload>
+            </div>
+          </Form.Item>
+        </Form>
       </div>
     </Modal>
   );

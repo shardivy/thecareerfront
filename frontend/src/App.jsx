@@ -62,6 +62,7 @@ import AptitudeDetails from "./components/AptitudeDetails";
 import RegisterDetails from "./components/RegisterDetails";
 import SeminarWebinarManagement from "./components/admin/pages/SeminarWebinarManagement";
 import Advertisement from "./components/admin/pages/Advertisement";
+import HhProfile from "./components/hh-users/pages/HhProfile";
 
 
 
@@ -160,6 +161,7 @@ const App = () => {
               <Route path="sessions" element={<HhSession />} />
               <Route path="payments" element={<HhPayments />} />
               <Route path="certificates" element={<HhCertificates />} />
+              <Route path="profile" element={<HhProfile />} />
           </Route>
 
       </Routes>

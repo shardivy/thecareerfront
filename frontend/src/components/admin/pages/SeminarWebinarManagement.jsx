@@ -10,6 +10,7 @@ import {
     Tag,
     Input,
     theme,
+    Select,
 } from "antd";
 import {
     CalendarFilled,
@@ -24,6 +25,7 @@ import AddEventModal from "../modals/AddEventModal";
 
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const SeminarWebinarManagement = () => {
     const { token } = theme.useToken();
@@ -37,6 +39,7 @@ const SeminarWebinarManagement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState("add"); // add | edit | view
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [typeFilter, setTypeFilter] = useState(null);
 
     /* ================= STATS ================= */
     const stats = [
@@ -105,11 +108,16 @@ const SeminarWebinarManagement = () => {
         return lines;
     };
 
-    const filteredData = data.filter((item) =>
-        (item.eventName || item.title || "")
-            .toLowerCase()
-            .includes(search.toLowerCase())
-    );
+const filteredData = data.filter((item) => {
+    const matchesSearch = (item.eventName || item.title || "")
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
+    const matchesType =
+        !typeFilter || item.eventType === typeFilter;
+
+    return matchesSearch && matchesType;
+});
 
     const columns = [
         {
@@ -328,36 +336,51 @@ const SeminarWebinarManagement = () => {
             {/* TABLE */}
             {/* TABLE */}
             <Card>
-                <Row gutter={[12, 12]} style={{ marginBottom: 16 }} align="middle">
+              <Row gutter={[12, 12]} style={{ marginBottom: 16 }} align="middle">
 
-                    {/* 🔍 SEARCH */}
-                    <Col xs={24} sm={12} md={8}>
-                        <Input
-                            placeholder="Search events..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            allowClear
-                            size="large"
-                        />
-                    </Col>
+    {/* 🔍 SEARCH */}
+    <Col xs={24} sm={12} md={12}>
+        <Input
+            placeholder="Search events..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            allowClear
+            size="large"
+        />
+    </Col>
 
-                    {/* ➕ ADD BUTTON (RIGHT SIDE) */}
-                    <Col xs={24} sm={12} md={8} style={{ marginLeft: "auto" }}>
-                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                            <Button
-                                type="primary"
-                                icon={<PlusOutlined />}
-                                onClick={() => {
-                                    setSelectedEvent(null);
-                                    setModalMode("add");
-                                    setIsModalOpen(true);
-                                }}
-                            >
-                                Add Event
-                            </Button>
-                        </div>
-                    </Col>
-                </Row>
+    {/* 🎯 TYPE FILTER */}
+    <Col xs={24} sm={12} md={4}>
+        <Select
+    value={typeFilter}
+    onChange={(value) => setTypeFilter(value)}
+    allowClear
+    placeholder="Filter by Type"
+    size="large"
+    style={{ width: "100%" }}
+>
+    <Option value="webinar">Webinar</Option>
+    <Option value="seminar">Seminar</Option>
+</Select>
+    </Col>
+
+    {/* ➕ ADD BUTTON */}
+    <Col xs={24} sm={12} md={6} style={{ marginLeft: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                    setSelectedEvent(null);
+                    setModalMode("add");
+                    setIsModalOpen(true);
+                }}
+            >
+                Add Event
+            </Button>
+        </div>
+    </Col>
+</Row>
 
                 <Table
                     rowKey="id"

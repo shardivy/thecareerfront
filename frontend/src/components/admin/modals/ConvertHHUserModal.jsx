@@ -53,58 +53,103 @@ useEffect(() => {
   }
 }, [open, enquiryData, dispatch]);
 
+
+const urlToFileList = (url) => {
+    if (!url) return [];
+    return [
+        {
+            uid: "-1",
+            name: url.split("/").pop(),
+            status: "done",
+            url: url.startsWith("http")
+                ? url
+                : `${process.env.REACT_APP_BASE_URL}${url}`,
+        },
+    ];
+};
+
     /* ================= FILE HANDLER ================= */
-    const handleFile = (type) => (e) => {
-        const fileList = e.fileList;
+const handleFile = (type) => (e) => {
+  const fileList = e.fileList;
+  const file = fileList[0];
 
-        if (type === "photo") {
-            setPhoto(fileList);
-            if (fileList[0]?.originFileObj) {
-                setPhotoPreview(URL.createObjectURL(fileList[0].originFileObj));
-            }
-        }
+  if (type === "photo") {
+    setPhoto(fileList);
+    setPhotoPreview(file?.originFileObj
+      ? URL.createObjectURL(file.originFileObj)
+      : file?.url || null);
+  }
 
-        if (type === "resume") {
-            setResume(fileList);
-            if (fileList[0]?.originFileObj) {
-                setResumePreview(URL.createObjectURL(fileList[0].originFileObj));
-            }
-        }
+  if (type === "resume") {
+    setResume(fileList);
+    setResumePreview(file?.originFileObj
+      ? URL.createObjectURL(file.originFileObj)
+      : file?.url || null);
+  }
 
-        if (type === "payment") {
-            setPayment(fileList);
-            if (fileList[0]?.originFileObj) {
-                setPaymentPreview(URL.createObjectURL(fileList[0].originFileObj));
-            }
-        }
-    };
+  if (type === "payment") {
+    setPayment(fileList);
+    setPaymentPreview(file?.originFileObj
+      ? URL.createObjectURL(file.originFileObj)
+      : file?.url || null);
+  }
+};
 
     /* ================= PREFILL ================= */
-    useEffect(() => {
-        if (!open || !enquiryData) return;
+useEffect(() => {
+    if (!open || !enquiryData) return;
 
-        const firstName = enquiryData.name?.split(" ")[0] || "";
-        const lastName =
-            enquiryData.name?.split(" ").slice(1).join(" ") || "";
+    const firstName = enquiryData.name?.split(" ")[0] || "";
+    const lastName = enquiryData.name?.split(" ").slice(1).join(" ") || "";
 
+    form.setFieldsValue({
+        firstName,
+        lastName,
+        email: enquiryData.email,
+        mobile: enquiryData.phone,
+        program_name: enquiryData.program || "",
+        program_id: enquiryData.programId || enquiryData.program_id || "",
+        source: enquiryData.source || "",
+        date: enquiryData.date || "",
+    });
+
+    // ✅ FIXED CONDITION (case insensitive)
+    if (
+        enquiryData.source?.toLowerCase() === "website" &&
+        enquiryData.handholding_details
+    ) {
+        const hh = enquiryData.handholding_details;
+
+        const photoList = urlToFileList(hh.photo);
+        const resumeList = urlToFileList(hh.resume_file);
+        const paymentList = urlToFileList(hh.proof_file);
+
+        setPhoto(photoList);
+        setResume(resumeList);
+        setPayment(paymentList);
+
+        setPhotoPreview(photoList[0]?.url || null);
+        setResumePreview(resumeList[0]?.url || null);
+        setPaymentPreview(paymentList[0]?.url || null);
+
+        // ✅ ALSO SET PROFILE SWITCH VALUE
         form.setFieldsValue({
-            firstName,
-            lastName,
-            email: enquiryData.email,
-            mobile: enquiryData.phone,
-            program_name: enquiryData.program || "",
-            program_id: enquiryData.programId || enquiryData.program_id || "",
-            source: enquiryData.source || "",
-            date: enquiryData.date || "",
+            city: hh.city || "",
+            preferred_counselling_mode: hh.preferred_counselling_mode|| "",
+            student_profile: hh.student_profile ?? false,
+            
+            
+            
         });
-    }, [open, enquiryData, form]);
+    }
+}, [open, enquiryData, form]);
 
     /* ================= SUBMIT ================= */
  const handleSubmit = async (values) => {
     const formData = new FormData();
     const payload = {
         city: values.city ?? "",
-        preferred_counselling_mode: values.preferred_counselling_mode ?? "",
+        preferred_counselling_mode: values.preferred_counselling_mode ?? "", 
         address: values.address ?? "",
        student_profile: values.showProfile ?? false,
         program: values.program_id ?? enquiryData?.programId ?? enquiryData?.program_id ?? "",
@@ -122,7 +167,7 @@ useEffect(() => {
         formData.append("resume", resume[0].originFileObj);
     }
     if (payment[0]?.originFileObj) {
-        formData.append("payment_proof", payment[0].originFileObj);
+     formData.append("proof_file", payment[0].originFileObj);
     }
 
     try {
@@ -277,7 +322,7 @@ useEffect(() => {
                                 {/* UPLOADS */}
                                 <Col xs={24} sm={12}>
                                     <Form.Item label="Upload Photo">
-                                        <Upload beforeUpload={() => false} maxCount={1} onChange={handleFile("photo")}>
+                                        <Upload beforeUpload={() => false} maxCount={1} fileList={photo} onChange={handleFile("photo")}>
                                             <Button icon={<UploadOutlined />}>Upload Photo</Button>
                                         </Upload>
                                     </Form.Item>
@@ -285,7 +330,7 @@ useEffect(() => {
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item label="Upload Resume">
-                                        <Upload beforeUpload={() => false} maxCount={1} onChange={handleFile("resume")}>
+                                        <Upload beforeUpload={() => false} maxCount={1}fileList={resume} onChange={handleFile("resume")}>
                                             <Button icon={<UploadOutlined />}>Upload Resume</Button>
                                         </Upload>
                                     </Form.Item>
@@ -293,7 +338,7 @@ useEffect(() => {
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item label="Payment Proof">
-                                        <Upload beforeUpload={() => false} maxCount={1} onChange={handleFile("payment")}>
+                                        <Upload beforeUpload={() => false} maxCount={1}  fileList={payment} onChange={handleFile("payment")}>
                                             <Button icon={<UploadOutlined />} block>
                                                 Upload Payment
                                             </Button>

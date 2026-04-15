@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, Typography, Divider, Button, Row, Col } from "antd";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const { Title, Paragraph } = Typography;
 
@@ -12,11 +12,11 @@ const RegisterDetails = () => {
       style={{
         minHeight: "100vh",
         background: "#f5f7fb",
-         padding: "30px 20px",
+        padding: "30px 20px",
       }}
     >
       <Row justify="center" align="middle" gutter={[30, 30]}>
-        
+
         {/* LEFT IMAGE */}
         <Col xs={24} md={10}>
           <img
@@ -122,6 +122,43 @@ const RegisterDetails = () => {
               2. We request flexibility in scheduling. Weekday sessions may be required
               as weekends/evenings cannot accommodate all students.
             </Paragraph>
+
+            {/* EXPLORE MORE SERVICES */}
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "12px 16px",
+                borderRadius: "12px",
+                background: "#f0f5ff",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                border: "1px solid #d6e4ff",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontSize: "14px", color: "#666" }}>
+                  Explore More Services
+                </span>
+                <span style={{ fontWeight: 600, fontSize: "16px" }}>
+                  Find the right career guidance for you
+                </span>
+              </div>
+
+              <Button
+                type="primary"
+                onClick={() =>
+                  window.open("https://abhinavcareerscope.com/", "_blank")
+                }
+                style={{
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                }}
+              >
+                View Services →
+              </Button>
+            </div>
           </Card>
 
           {/* BUTTONS OUTSIDE CARD */}

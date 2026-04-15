@@ -35,6 +35,7 @@ import hhRegisterReducer from "./hhSlices/hhRegisterSlice";
 import handholdingSessionReducer from "./hhSlices/handholdingSessionSlice";
 import handholdingUsersReducer from "./hhSlices/handholdingUsersSlice";
 import handholdingPaymentReducer from "./hhSlices/handholdingPaymentSlice";
+import sessionBookingReducer from "./hhSlices/sessionBookingSlice";
 
 
 const store = configureStore({
@@ -74,6 +75,7 @@ const store = configureStore({
         hhSession: handholdingSessionReducer,
         handholdingUsers: handholdingUsersReducer,
         handholdingPayment: handholdingPaymentReducer,
+        sessionBooking: sessionBookingReducer,
 
   },
 });

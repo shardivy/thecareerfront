@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     Card,
@@ -7,9 +7,7 @@ import {
     Typography,
     Grid,
     theme,
-    Progress,
     Button,
-    Modal ,
 } from "antd";
 import {
     CheckCircleOutlined,
@@ -21,6 +19,9 @@ import {
     CreditCardOutlined,
 } from "@ant-design/icons";
 import HhJourneySteps from "./HhJourneySteps";
+import { useDispatch, useSelector } from "react-redux";
+import { getParticipantSessions } from "../../../hhSlices/handholdingUsersSlice";
+import { getProfile } from "../../../adminSlices/profileSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -29,14 +30,44 @@ const HandholdingDashboard = () => {
     const screens = useBreakpoint();
     const navigate = useNavigate();
     const { token } = theme.useToken();
+    const dispatch = useDispatch();
 
-    /* ================= DUMMY DATA ================= */
-    const totalSessions = 10;
-    const completedSessions = 4;
-
-    const progressPercent = Math.round(
-        (completedSessions / totalSessions) * 100
+    const { participantSessions } = useSelector(
+        (state) => state.handholdingUsers
     );
+
+    const { profile } = useSelector((state) => state.profile);
+
+    /* ================= PROFILE API ================= */
+    useEffect(() => {
+        dispatch(getProfile());
+    }, [dispatch]);
+
+    const participantId =
+        profile?.participant_id ?? profile?.data?.participant_id;
+
+    /* ================= SESSION API ================= */
+    useEffect(() => {
+        if (participantId) {
+            dispatch(getParticipantSessions(participantId));
+        }
+    }, [dispatch, participantId]);
+
+    /* ================= SESSION CALCULATION ================= */
+    const sessions = participantSessions?.data || participantSessions || [];
+
+    const totalSessions = sessions.length;
+
+    const completedSessions = sessions.filter(
+        (s) => s.status === "completed"
+    ).length;
+
+    const pendingSessions = totalSessions - completedSessions;
+
+    const progressPercent =
+        totalSessions > 0
+            ? Math.round((completedSessions / totalSessions) * 100)
+            : 0;
 
     /* ================= STATS ================= */
     const stats = [
@@ -48,13 +79,13 @@ const HandholdingDashboard = () => {
         },
         {
             title: "Pending Sessions",
-            value: totalSessions - completedSessions,
+            value: pendingSessions,
             icon: <ClockCircleOutlined />,
             color: token.colorWarning,
         },
         {
             title: "Next Session",
-            value: "12 Apr",
+            value: sessions[completedSessions]?.session_no || "-",
             icon: <CalendarOutlined />,
             color: token.colorPrimary,
         },
@@ -74,14 +105,13 @@ const HandholdingDashboard = () => {
                 margin: "0 auto",
             }}
         >
-            {/* ===================== JOURNEY PROGRESS ===================== */}
-
+            {/* ================= JOURNEY ================= */}
             <HhJourneySteps
-                totalSessions={10}
-                completedSessions={4}
+                totalSessions={totalSessions}
+                completedSessions={completedSessions}
             />
 
-            {/* ===================== CTA CARD ===================== */}
+            {/* ================= CTA ================= */}
             <Card
                 style={{
                     margin: "24px 0",
@@ -122,20 +152,17 @@ const HandholdingDashboard = () => {
                 </Row>
             </Card>
 
-            {/* ===================== STATS ===================== */}
+            {/* ================= STATS ================= */}
             <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
                 {stats.map((stat, index) => (
                     <Col xs={24} sm={12} md={6} key={index}>
-                        <Card
-                            hoverable
-                            style={{ borderRadius: token.borderRadiusLG }}
-                        >
+                        <Card hoverable style={{ borderRadius: token.borderRadiusLG }}>
                             <div style={{ display: "flex", gap: 12 }}>
                                 <div style={{ fontSize: 26, color: stat.color }}>
                                     {stat.icon}
                                 </div>
                                 <div>
-                                    <Text type="colorTextSecondary">{stat.title}</Text>
+                                    <Text type="colortextSecondary">{stat.title}</Text>
                                     <Title level={4} style={{ margin: 0 }}>
                                         {stat.value}
                                     </Title>
@@ -146,7 +173,7 @@ const HandholdingDashboard = () => {
                 ))}
             </Row>
 
-            {/* ===================== FEATURE CARDS ===================== */}
+            {/* ================= FEATURES ================= */}
             <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12} md={8}>
                     <Card
@@ -163,35 +190,35 @@ const HandholdingDashboard = () => {
                     </Card>
                 </Col>
 
-               <Col xs={24} sm={12} md={8}>
-        <Card
-          hoverable
-          onClick={() => navigate("/handholding/certificates")}
-          style={{ borderRadius: token.borderRadiusLG }}
-        >
-          <TrophyOutlined
-            style={{ fontSize: 26, color: "#faad14" }}
-          />
-          <Title level={5} style={{ marginTop: 16 }}>
-            Certificates
-          </Title>
-        </Card>
-      </Col>
+                <Col xs={24} sm={12} md={8}>
+                    <Card
+                        hoverable
+                        onClick={() => navigate("/handholding/certificates")}
+                        style={{ borderRadius: token.borderRadiusLG }}
+                    >
+                        <TrophyOutlined
+                            style={{ fontSize: 26, color: "#faad14" }}
+                        />
+                        <Title level={5} style={{ marginTop: 16 }}>
+                            Certificates
+                        </Title>
+                    </Card>
+                </Col>
 
- <Col xs={24} sm={12} md={8}>
-        <Card
-          hoverable
-          onClick={() => navigate("/handholding/payments")}
-          style={{ borderRadius: token.borderRadiusLG}}
-        >
-          <CreditCardOutlined
-            style={{ fontSize: 26, color: "#52c41a" }}
-          />
-          <Title level={5} style={{ marginTop: 16 }}>
-            Payments
-          </Title>
-        </Card>
-      </Col>
+                <Col xs={24} sm={12} md={8}>
+                    <Card
+                        hoverable
+                        onClick={() => navigate("/handholding/payments")}
+                        style={{ borderRadius: token.borderRadiusLG }}
+                    >
+                        <CreditCardOutlined
+                            style={{ fontSize: 26, color: "#52c41a" }}
+                        />
+                        <Title level={5} style={{ marginTop: 16 }}>
+                            Payments
+                        </Title>
+                    </Card>
+                </Col>
             </Row>
         </div>
     );

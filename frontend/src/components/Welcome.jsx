@@ -65,7 +65,7 @@ const Welcome = () => {
                     <Button
                         size="large"
                         icon={<RocketOutlined />}
-                        onClick={() => navigate("/welcome-enquiry", { state: { from: "enquiry" } })}
+                        onClick={() => navigate("/aptitude-details", { state: { from: "enquiry" } })}
                         style={{
                             background: 'linear-gradient(135deg, #05162f, #124983)',
                             border: 'none',
@@ -97,7 +97,7 @@ const Welcome = () => {
                     <Button
                         size="large"
                         icon={<FormOutlined />}
-                        onClick={() => navigate("/welcome-enquiry", { state: { from: "register" } })}
+                        onClick={() => navigate("/register-details", { state: { from: "register" } })}
                         style={{
                             background: 'linear-gradient(135deg, #52c41a, #95de64)',
                             border: 'none',

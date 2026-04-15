@@ -13,14 +13,18 @@ import {
   Card,
   Empty,
   Image,
+message,
 } from "antd";
 import { UploadOutlined, EyeOutlined } from "@ant-design/icons";
+import { useDispatch } from "react-redux";
+import { updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
 
 const { Option } = Select;
 
 const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
   const [form] = Form.useForm();
   const liveValues = Form.useWatch([], form);
+  const dispatch = useDispatch();
 
   const [photo, setPhoto] = useState([]);
   const [resume, setResume] = useState([]);
@@ -56,53 +60,61 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
     }
   };
 
-  /* ================= PREFILL ================= */
-  useEffect(() => {
-    if (!open || !userData) return;
+ useEffect(() => {
+  if (!open || !userData) return;
 
-    form.setFieldsValue({
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      email: userData.email,
-      mobile: userData.mobile,
-      program: userData.program,
-      source: userData.source,
-      date: userData.date,
-      city: userData.city,
-      preferred_counselling_mode: userData.preferred_counselling_mode,
-      address: userData.address,
-      showProfile: userData.showProfile,
-    });
+  form.resetFields(); // 🔥 IMPORTANT FIX
+  // console.log("userData inside modal:", userData);
 
-    // Existing previews
-    if (userData.photo) setPhotoPreview(userData.photo);
-    if (userData.resume) setResumePreview(userData.resume);
-    if (userData.payment_proof) setPaymentPreview(userData.payment_proof);
+  form.setFieldsValue({
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    email: userData.email,
+    mobile: userData.mobile,
+    program_name: userData.program_name,
+    source: userData.source,
+    date: userData.date,
+    city: userData.city,
+    preferred_counselling_mode: userData.preferred_counselling_mode,
+    address: userData.address,
+  showProfile: Boolean(userData.showProfile),
+  });
 
-  }, [open, userData, form]);
+  if (userData.photo) setPhotoPreview(userData.photo);
+  if (userData.resume) setResumePreview(userData.resume);
+  if (userData.payment_proof) setPaymentPreview(userData.payment_proof);
+
+}, [open, userData]);
 
   /* ================= SUBMIT ================= */
-  const handleSubmit = (values) => {
-    const formData = new FormData();
+const handleSubmit = async (values) => {
+  const formData = new FormData();
 
-    Object.entries(values).forEach(([key, value]) => {
-      formData.append(key, value ?? "");
-    });
+Object.entries(values).forEach(([key, value]) => {
+  if (key === "showProfile") {
+    formData.append("show_profile", value ? "True" : "False");
+  } else {
+    formData.append(key, value ?? "");
+  }
+});
+  if (photo[0]?.originFileObj) {
+    formData.append("photo", photo[0].originFileObj);
+  }
 
-    if (photo[0]?.originFileObj) {
-      formData.append("photo", photo[0].originFileObj);
-    }
-    if (resume[0]?.originFileObj) {
-      formData.append("resume", resume[0].originFileObj);
-    }
-    if (payment[0]?.originFileObj) {
-      formData.append("payment_proof", payment[0].originFileObj);
-    }
+  if (resume[0]?.originFileObj) {
+    formData.append("resume", resume[0].originFileObj);
+  }
 
-    console.log("Edit HH User Payload:", formData);
+  if (payment[0]?.originFileObj) {
+    formData.append("payment_proof", payment[0].originFileObj);
+  }
 
-    onSubmit && onSubmit(formData);
-  };
+  // ✅ ADD ID HERE
+  formData.append("id", userData?.id);
+
+  // ✅ CALL PARENT HANDLER
+  onSubmit(formData);
+};
 
   return (
     <Modal
@@ -148,22 +160,22 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
                 </Col>
 
                 <Col xs={24} sm={12}>
-                  <Form.Item name="program" label="Program">
+                  <Form.Item name="program_name" label="Program">
                     <Input />
                   </Form.Item>
                 </Col>
 
-                <Col xs={24} sm={12}>
+                {/* <Col xs={24} sm={12}>
                   <Form.Item name="source" label="Source">
                     <Input />
                   </Form.Item>
                 </Col>
 
                 <Col xs={24}>
-                  <Form.Item name="date" label="Date">
+                  <Form.Item name="date" label="Enquiry Date">
                     <Input />
                   </Form.Item>
-                </Col>
+                </Col> */}
 
                 <Col xs={24} sm={12}>
                   <Form.Item name="city" label="City">

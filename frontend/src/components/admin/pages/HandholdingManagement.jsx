@@ -30,13 +30,16 @@ import {
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import HHSessionModal from "../modals/HHSessionModal";
-import { title } from "framer-motion/client";
+import { p, title } from "framer-motion/client";
 import HHUserProfileModal from "../modals/HHUserProfileModal";
 import EditHHUserModal from "../modals/EditHHUserModal";
 import CertificateTemplateModal from "../modals/CertificateTemplateModal";
 import HHSessionBookingModal from "../modals/HHSessionBookingModal";
 import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
+import { getSessionBookings, cancelSession  } from "../../../hhSlices/sessionBookingSlice";
+import { getHandholdingParticipants } from "../../../hhSlices/handholdingUsersSlice";
+import { updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -69,28 +72,71 @@ const HandholdingManagement = () => {
   const [issuedModalOpen, setIssuedModalOpen] = useState(false);
   const [bookingStatusFilter, setBookingStatusFilter] = useState("booked_group");
   const [bookingSearch, setBookingSearch] = useState("");
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+const [selectedCancelBooking, setSelectedCancelBooking] = useState(null);
+
+  
 
 
   /* ================= PAGINATION STATE ================= */
-  const [sessionPagination, setSessionPagination] = useState({
-    current: 1,
-    pageSize: 5,
-  });
+  const [sessionPagination, setSessionPagination] = useState({current: 1, pageSize: 5,});
 
-  const [issuedPagination, setIssuedPagination] = useState({
-    current: 1,
-    pageSize: 5,
-  });
+  const [issuedPagination, setIssuedPagination] = useState({current: 1,pageSize: 5,});
 
-  const [userPagination, setUserPagination] = useState({
-    current: 1,
-    pageSize: 5,
-  });
+  const [userPagination, setUserPagination] = useState({current: 1,pageSize: 5,});
 
-  const [bookingPagination, setBookingPagination] = useState({
-    current: 1,
-    pageSize: 5,
-  });
+  const [bookingPagination, setBookingPagination] = useState({current: 1, pageSize: 5,});
+
+  const { list: bookingsData,loading: bookingsLoading,} = useSelector((state) => state.sessionBooking);
+
+const {
+  participants,
+  participantsLoading,
+} = useSelector((state) => state.handholdingUsers);
+
+useEffect(() => {
+  if (activeTab === "bookings") {
+    dispatch(getSessionBookings());
+  }
+}, [activeTab, dispatch]);
+
+useEffect(() => {
+  if (activeTab === "users") {
+    dispatch(getHandholdingParticipants());
+  }
+}, [activeTab, dispatch]);
+
+const formattedBookings = bookingsData.map((item) => {
+  const statusMap = {
+    not_started: "not_booked",  // 👈 temporary backend mismatch fix
+    not_booked: "not_booked",
+    booked: "booked",
+    rescheduled: "rescheduled",
+    pending: "pending",
+    completed: "completed",
+    cancelled: "cancelled",
+  };
+
+  return {
+    id: item.id,
+    name: `${item.first_name} ${item.last_name}`,
+    email: item.email,
+    participant_id: item.participant_id,
+    session: `Session ${item.session_no}`,
+        session_no: item.session_no,  
+    date: item.session_date?.split("T")[0],
+     time:
+      item.start_time && item.end_time
+        ? `${item.start_time} - ${item.end_time}`
+        : "-",
+    status: statusMap[item.status] || "not_booked", 
+     preferred_counselling_mode: item.preferred_counselling_mode
+      ? item.preferred_counselling_mode.charAt(0).toUpperCase() + item.preferred_counselling_mode.slice(1)
+      : "-",
+    
+  };
+});
+  
 
   const handleEditBooking = (record) => {
     setSelectedBooking(record);
@@ -113,6 +159,31 @@ const HandholdingManagement = () => {
     setEditingSession(record);
     setModalOpen(true);
   };
+
+  const handleCancel = (record) => {
+  setSelectedCancelBooking(record);
+  setCancelModalOpen(true);
+};
+
+const confirmCancelBooking = async () => {
+  try {
+    await dispatch(
+      cancelSession({
+        participant_id: selectedCancelBooking.participant_id,
+    session_no: selectedCancelBooking.session_no,
+      })
+    ).unwrap();
+
+    message.success("Booking cancelled successfully");
+
+    dispatch(getSessionBookings()); // refresh list
+  } catch (err) {
+    message.error(err?.message || "Cancel failed");
+  } finally {
+    setCancelModalOpen(false);
+    setSelectedCancelBooking(null);
+  }
+};
 
 
   const confirmDelete = async () => {
@@ -174,6 +245,8 @@ const HandholdingManagement = () => {
 
   /* ================= SESSION TEMPLATE ================= */
   const { sessions, loading } = useSelector((state) => state.hhSession);
+  
+
 
   useEffect(() => {
     dispatch(getHHSession());
@@ -258,26 +331,37 @@ const HandholdingManagement = () => {
   ];
 
   /* ================= USERS ================= */
-  const users = [
-    {
-      id: 1,
-      name: "Rahul Sharma",
-      email: "rahul@gmail.com",
-      completedSessions: 7,
-      totalSessions: 10,
-      paymentStatus: "Partial Paid",
-      certificationStatus: "pending",
-    },
-    {
-      id: 2,
-      name: "Priya Singh",
-      email: "priya@gmail.com",
-      completedSessions: 10,
-      totalSessions: 10,
-      paymentStatus: "Fully Paid",
-      certificationStatus: "issued",
-    },
-  ];
+const users = (participants || []).map((item) => ({
+  id: item.id,
+
+  // UI FORM FIELDS (IMPORTANT)
+  firstName: item.first_name || "",
+  lastName: item.last_name || "",
+  email: item.email || "",
+  mobile: item.mobile || "",
+
+  city: item.city || "",
+  address: item.full_address || "",
+  preferred_counselling_mode: item.preferred_counselling_mode || "",
+  showProfile: item.show_profile ?? false,
+
+  photo: item.photo || null,
+  resume: item.resume_file || null,
+  payment_proof: item.proof_file || null,
+
+  // TABLE FIELDS
+  name: `${item.first_name || ""} ${item.last_name || ""}`,
+ progressPercent: item.progress?.percentage || 0,
+  progressLabel: item.progress?.label || "0/0",
+  sessionStatus: item.session_status || "pending",
+  paymentStatus: (item.payment_status || "not_paid").toLowerCase(),
+certificationStatus: item.certificate_issued ? "issued" : "pending",
+  program_name: item.program_name || "-",
+  package_name: item.package_name || "-",
+  package_price: item.package_price || 0,             
+  total_paid_amount: item.total_paid_amount || 0,     
+  remaining_amount: item.remaining_amount || 0,  
+}));
 
   // ✅ NOW it's safe
   const issuedUsers = users.filter(
@@ -302,50 +386,61 @@ const HandholdingManagement = () => {
     },
     {
       title: "Progress",
-      render: (_, record) => {
-        const percent =
-          (record.completedSessions / record.totalSessions) * 100;
-
-        return (
-          <div>
-            <Progress
-              percent={percent}
-              size={screens.xs ? "small" : "default"}
-            />
-            <Text>
-              {record.completedSessions}/{record.totalSessions} Sessions
-            </Text>
-          </div>
-        );
-      },
+     render: (_, record) => (
+  <div>
+    <Progress
+      percent={record.progressPercent}
+      size={screens.xs ? "small" : "default"}
+    />
+    <Text>{record.progressLabel} Sessions</Text>
+  </div>
+),
     },
     {
       title: "Session Status",
       width: 120,
-      render: (_, record) =>
-        record.completedSessions === record.totalSessions ? (
-          <Tag color="success">Completed</Tag>
-        ) : (
-          <Tag color="processing">In Progress</Tag>
-        ),
-    },
-    {
-      title: "Payment Status",
-      width: 120,
-      render: (_, record) => {
-        let color = "default";
+     render: (_, record) => {
+  const status = record.sessionStatus;
 
-        if (record.paymentStatus === "Fully Paid") {
-          color = "success";
-        } else if (record.paymentStatus === "Partial Paid") {
-          color = "warning";
-        } else {
-          color = "error";
-        }
+  let color = "default";
+  let label = "Pending";
 
-        return <Tag color={color}>{record.paymentStatus}</Tag>;
-      },
+  if (status === "completed") {
+    color = "success";
+    label = "Completed";
+  } else if (status === "in_progress") {
+    color = "processing";
+    label = "In Progress";
+  } else if (status === "not_started") {
+    color = "default";
+    label = "Not Started";
+  }
+
+  return <Tag color={color}>{label}</Tag>;
+}
     },
+ {
+  title: "Payment Status",
+  render: (_, record) => {
+    const status = record.paymentStatus?.toLowerCase();
+
+    let color = "default";
+    let label = status;
+
+    if (status === "fully_paid") {
+      color = "success";
+      label = "Fully Paid";
+    } else if (status === "partial_paid") {
+      color = "warning";
+      label = "Partial Paid";
+    } else if (status === "not_paid") {
+      color = "error";
+      label = "Not Paid";
+    }
+
+    return <Tag color={color}>{label}</Tag>;
+  },
+},
     {
       title: "Certification Status",
       width: 120,
@@ -461,70 +556,72 @@ const HandholdingManagement = () => {
     item.email.toLowerCase().includes(certificateSearch.toLowerCase())
   );
 
-  const bookingsData = [
-    {
-      id: 1,
-      name: "Rahul Sharma",
-      email: "rahul@gmail.com",
-      session: "Session 1",
-      date: "2026-04-03",
-      time: "10:00 AM - 11:00 AM",
-      status: "booked",
-    },
-    {
-      id: 2,
-      name: "Priya Singh",
-      email: "priya@gmail.com",
-      session: "Session 2",
-      date: "2026-04-04",
-      time: "12:00 PM - 01:00 PM",
-      status: "rescheduled",
-    },
-    {
-      id: 3,
-      name: "Rahul Sharma",
-      email: "rahul@gmail.com",
-      session: "Session 1",
-      date: "2026-04-03",
-      time: "10:00 AM - 11:00 AM",
-      status: "pending",
-    },
-    {
-      id: 4,
-      name: "Priya Singh",
-      email: "priya@gmail.com",
-      session: "Session 2",
-      date: "2026-04-04",
-      time: "12:00 PM - 01:00 PM",
-      status: "completed",
-    },
-    {
-      id: 5,
-      name: "Amit Kumar",
-      email: "amit@gmail.com",
-      session: "Session 3",
-      date: "2026-04-05",
-      time: "02:00 PM - 03:00 PM",
-      status: "cancelled",
-    },
-    {
-      id: 6,
-      name: "Amit Kumar",
-      email: "amit@gmail.com",
-      session: "Session 3",
-      date: "2026-04-05",
-      time: "02:00 PM - 03:00 PM",
-      status: "not_booked",
-    },
-  ];
-
-  const bookingColumns = [
+  // const bookingsData = [
+  //   {
+  //     id: 1,
+  //     name: "Rahul Sharma",
+  //     email: "rahul@gmail.com",
+  //     session: "Session 1",
+  //     date: "2026-04-03",
+  //     time: "10:00 AM - 11:00 AM",
+  //     status: "booked",
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "Priya Singh",
+  //     email: "priya@gmail.com",
+  //     session: "Session 2",
+  //     date: "2026-04-04",
+  //     time: "12:00 PM - 01:00 PM",
+  //     status: "rescheduled",
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "Rahul Sharma",
+  //     email: "rahul@gmail.com",
+  //     session: "Session 1",
+  //     date: "2026-04-03",
+  //     time: "10:00 AM - 11:00 AM",
+  //     status: "pending",
+  //   },
+  //   {
+  //     id: 4,
+  //     name: "Priya Singh",
+  //     email: "priya@gmail.com",
+  //     session: "Session 2",
+  //     date: "2026-04-04",
+  //     time: "12:00 PM - 01:00 PM",
+  //     status: "completed",
+  //   },
+  //   {
+  //     id: 5,
+  //     name: "Amit Kumar",
+  //     email: "amit@gmail.com",
+  //     session: "Session 3",
+  //     date: "2026-04-05",
+  //     time: "02:00 PM - 03:00 PM",
+  //     status: "cancelled",
+  //   },
+  //   {
+  //     id: 6,
+  //     name: "Amit Kumar",
+  //     email: "amit@gmail.com",
+  //     session: "Session 3",
+  //     date: "2026-04-05",
+  //     time: "02:00 PM - 03:00 PM",
+  //     status: "not_booked",
+  //   },
+  // ];
+const bookingColumns = React.useMemo(() => {
+  const baseColumns = [
     {
       title: "Sr No",
+      width: 60,
       render: (_, __, index) => index + 1,
     },
     {
-      title: "User",
+      title: "Username / Email",
+      width: 150,
       render: (_, record) => (
         <div>
           <Text strong>{record.name}</Text>
@@ -533,17 +630,35 @@ const HandholdingManagement = () => {
       ),
     },
     {
-      title: "Session",
-      dataIndex: "session",
+      title: "Date & Time",
+      render: (_, record) => (
+        <div>
+          <Text strong>{record.date}</Text>
+          <div>{record.time}</div>
+        </div>
+      ),
     },
-    {
-      title: "Date",
-      dataIndex: "date",
-    },
-    {
-      title: "Time",
-      dataIndex: "time",
-    },
+   {
+  title: "Preferred Counselling Mode",
+  width: 150,
+  render: (_, record) => {
+    let color = "default";
+    let text = record.preferred_counselling_mode;
+
+    if (record.preferred_counselling_mode === "Online") {
+      color = "blue";
+      text = "Online";
+    } else if (record.preferred_counselling_mode === "Offline") {
+      color = "green";
+      text = "Offline";
+      } else {
+      color = "default";
+      text = record.preferred_counselling_mode || "N/A";
+    }
+
+    return <Tag color={color}>{text}</Tag>;
+  },
+},
     {
       title: "Status",
       render: (_, record) => {
@@ -573,11 +688,20 @@ const HandholdingManagement = () => {
         return <Tag color={color}>{text}</Tag>;
       },
     },
+  ];
+
+  // ❌ REMOVE ACTION COLUMN FOR CANCELLED TAB
+  if (bookingStatusFilter === "cancelled") {
+    return baseColumns;
+  }
+
+  // ✅ ADD ACTION COLUMN FOR OTHER TABS
+  return [
+    ...baseColumns,
     {
       title: "Actions",
       render: (_, record) => {
 
-        // ✅ NOT BOOKED → Only Book
         if (record.status === "not_booked") {
           return (
             <Button
@@ -594,7 +718,6 @@ const HandholdingManagement = () => {
           );
         }
 
-        // ✅ BOOKED / RESCHEDULED → Edit + Cancel
         if (["booked", "rescheduled"].includes(record.status)) {
           return (
             <Space>
@@ -617,7 +740,6 @@ const HandholdingManagement = () => {
           );
         }
 
-        // ✅ COMPLETED → Reschedule + Cancel
         if (record.status === "completed") {
           return (
             <Space>
@@ -640,7 +762,6 @@ const HandholdingManagement = () => {
           );
         }
 
-        // ✅ PENDING → Only Reschedule
         if (record.status === "pending") {
           return (
             <Button
@@ -653,16 +774,11 @@ const HandholdingManagement = () => {
           );
         }
 
-        // ❌ CANCELLED → No buttons
-        if (record.status === "cancelled") {
-          return null;
-        }
-
         return null;
       },
-    }
+    },
   ];
-
+}, [bookingStatusFilter]);
   const issuedColumns = [
     {
       title: "Sr No",
@@ -699,25 +815,22 @@ const HandholdingManagement = () => {
     }
   ];
 
-  const filteredBookings = bookingsData.filter((item) => {
+const filteredBookings = formattedBookings.filter((item) => {
+  const matchesSearch =
+    item.name?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+    item.email?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+    item.session?.toLowerCase().includes(bookingSearch.toLowerCase());
 
-    // ✅ SEARCH FILTER
-    const matchesSearch =
-      item.name.toLowerCase().includes(bookingSearch.toLowerCase()) ||
-      item.email.toLowerCase().includes(bookingSearch.toLowerCase()) ||
-      item.session.toLowerCase().includes(bookingSearch.toLowerCase());
+  let matchesStatus = true;
 
-    // ✅ STATUS FILTER
-    let matchesStatus = true;
+  if (bookingStatusFilter === "booked_group") {
+    matchesStatus = ["booked", "rescheduled"].includes(item.status);
+  } else if (bookingStatusFilter) {
+    matchesStatus = item.status === bookingStatusFilter;
+  }
 
-    if (bookingStatusFilter === "booked_group") {
-      matchesStatus = ["booked", "rescheduled"].includes(item.status);
-    } else if (bookingStatusFilter) {
-      matchesStatus = item.status === bookingStatusFilter;
-    }
-
-    return matchesSearch && matchesStatus;
-  });
+  return matchesSearch && matchesStatus;
+});
 
   return (
     <div>
@@ -858,9 +971,9 @@ const HandholdingManagement = () => {
                   size="large"
                   style={{ width: "100%" }}
                 >
-                  <Select.Option value="Fully Paid">Fully Paid</Select.Option>
-                  <Select.Option value="Partial Paid">Partial Paid</Select.Option>
-                  <Select.Option value="Not Paid">Not Paid</Select.Option>
+                 <Select.Option value="fully_paid">Fully Paid</Select.Option>
+<Select.Option value="partial_paid">Partial Paid</Select.Option>
+<Select.Option value="not_paid">Not Paid</Select.Option>
                 </Select>
               </Col>
 
@@ -885,6 +998,7 @@ const HandholdingManagement = () => {
               columns={userColumns}
               dataSource={filteredUsers}
               rowKey="id"
+               loading={participantsLoading} 
               scroll={{ x: "max-content" }}
               pagination={{
                 ...userPagination,
@@ -1173,17 +1287,18 @@ const HandholdingManagement = () => {
 
             {/* TABLE */}
             <Table
-              columns={bookingColumns}
-              dataSource={filteredBookings}
-              rowKey="id"
-              scroll={{ x: "max-content" }}
-              pagination={{
-                ...bookingPagination,
-                showSizeChanger: true,
-                pageSizeOptions: [5, 10, 20, 50],
-              }}
-              onChange={(pag) => setBookingPagination(pag)}
-            />
+  columns={bookingColumns}
+  dataSource={filteredBookings}
+  rowKey="id"
+  loading={bookingsLoading}
+  scroll={{ x: "max-content" }}
+  pagination={{
+    ...bookingPagination,
+    showSizeChanger: true,
+    pageSizeOptions: [5, 10, 20, 50],
+  }}
+  onChange={(pag) => setBookingPagination(pag)}
+/>
           </>
         )}
 
@@ -1230,14 +1345,30 @@ const HandholdingManagement = () => {
         user={selectedUser}
       />
 
-      <EditHHUserModal
-        open={editModalOpen}
-        onCancel={() => setEditModalOpen(false)}
-        userData={selectedUser}
-        onSubmit={(formData) => {
-          dispatch(updateHHUser(formData));
-        }}
-      />
+<EditHHUserModal
+  open={editModalOpen}
+  onCancel={() => setEditModalOpen(false)}
+  userData={selectedUser}
+  onSubmit={async (formData) => {
+    try {
+      await dispatch(updateHandholdingParticipant({
+        id: formData.get("id"),
+        payload: formData
+      })).unwrap();
+
+      message.success("User updated successfully");
+
+      // ✅ REFRESH USERS LIST
+      dispatch(getHandholdingParticipants());
+
+      setEditModalOpen(false);
+      setSelectedUser(null);
+
+    } catch (err) {
+      message.error(err?.message || "Update failed");
+    }
+  }}
+/>
 
       <CertificateTemplateModal
         open={certificateModalOpen}
@@ -1303,9 +1434,30 @@ const HandholdingManagement = () => {
         mode={bookingMode}   // 🔥 edit / view / create
         data={selectedBooking}  // 🔥 pass selected row
         onSave={() => {
-          message.success("Booking updated");
+          // message.success("Booking updated");
+
+          dispatch(getSessionBookings());
         }}
       />
+
+      <Modal
+  title="Cancel Booking"
+  open={cancelModalOpen}
+  centered
+  onOk={confirmCancelBooking}
+  onCancel={() => {
+    setCancelModalOpen(false);
+    setSelectedCancelBooking(null);
+  }}
+  okText="Yes, Cancel"
+     okType="default"
+  okButtonProps={{ danger: true }}
+>
+  <p>
+    Are you sure you want to cancel session for{" "}
+    <strong>{selectedCancelBooking?.name}</strong>?
+  </p>
+</Modal>
 
       <Modal
         title="Delete Session"

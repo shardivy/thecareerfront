@@ -7,3 +7,14 @@ export const getHandholdingPaymentDetailsApi = async (participantId) => {
 
   return response.data;
 };
+
+export const getHandholdingSummaryApi = async (
+  participantId,
+  packageId
+) => {
+  const response = await axiosInstance.get(
+    `/payment/participant-payment-summary/${participantId}/${packageId}/`
+  );
+
+  return response.data;
+};

@@ -27,55 +27,20 @@ const HHLogin = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-    const { loading, error, success, successMessage, complete_profile, user } = useSelector(
-        (state) => state.auth
-    );
+  const { loading, error, success, successMessage, user, is_handholding } =
+  useSelector((state) => state.auth);
 
     /* ========= SUCCESS ========= */
-    useEffect(() => {
-        if (success && user) {
-            sessionStorage.removeItem("profileWarningShown");
-            message.success(successMessage);
+  useEffect(() => {
+  if (success) {
+    sessionStorage.removeItem("profileWarningShown");
+    message.success(successMessage);
 
-            // 🔑 ROLE-BASED REDIRECT (backend driven)
-            switch (user.role) {
-                case "admin":
-                case "superadmin":
-                case "employee":
-                    navigate("/s-admin/dashboard");
-                    break;
-
-                case "lead_counsellor":
-                case "counsellor":
-                    navigate("/s-admin/counsellor-dashboard");
-                    break;
-
-                case "ui_ux":
-                    navigate("/s-admin/uiux-dashboard");
-                    break;
-
-                //  case "student":
-                //   navigate("/student/student-profile");
-                //   break;
-
-                case "basic_user":
-                    navigate("/student/dashboard");
-                    break;
-
-                case "student":
-                    if (complete_profile) {
-                        navigate("/student/dashboard");
-                    } else {
-                        navigate("/student/student-profile");
-                    }
-                    break;
-
-
-                default:
-                    navigate("/student/dashboard");
-            }
-        }
-    }, [success, successMessage, complete_profile, user, navigate]);
+    if (is_handholding) {
+      navigate("/handholding/dashboard");
+    }
+  }
+}, [success, successMessage, is_handholding, navigate]);
 
     /* ========= ERROR ========= */
     useEffect(() => {

@@ -69,6 +69,7 @@ const authSlice = createSlice({
 
           // ✅ STORE COMPLETE PROFILE
         state.complete_profile = action.payload.complete_profile;
+          state.is_handholding = action.payload.is_handholding;
 
         // ✅ store backend message
         state.successMessage = action.payload.message || "Login successful";

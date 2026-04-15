@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Modal,
     Typography,
@@ -11,6 +11,9 @@ import {
     Button,
 } from "antd";
 import HHSessionBookingModal from "../modals/HHSessionBookingModal";
+import { useDispatch, useSelector } from "react-redux";
+import { getParticipantSessions } from "../../../hhSlices/handholdingUsersSlice";
+import { PlusOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 
@@ -18,22 +21,45 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
     const { token } = theme.useToken();
 
     const [bookingModalOpen, setBookingModalOpen] = useState(false);
-const [selectedSessionData, setSelectedSessionData] = useState(null);
+    const [selectedSessionData, setSelectedSessionData] = useState(null);
+    const dispatch = useDispatch();
+
+    const {
+        participantSessions,
+        participantSessionsLoading,
+    } = useSelector((state) => state.handholdingUsers);
+
+    useEffect(() => {
+        if (open && user?.id) {
+            dispatch(getParticipantSessions(user.id));
+        }
+    }, [open, user, dispatch]);
 
     if (!user) return null;
 
-    const percent =
-        (user.completedSessions / user.totalSessions) * 100;
+    const totalSessions =
+        participantSessions?.total_sessions ?? 0;
 
-    /* 🧠 MOCK SESSION HISTORY */
-    const sessionHistory = Array.from(
-        { length: user.completedSessions },
-        (_, i) => ({
-            title: `Session ${i + 1}`,
-            status: "completed",
-            date: "2026-03-30",
-        })
-    );
+    const sessionHistory =
+        participantSessions?.history ?? [];
+
+    const journeyData = participantSessions?.journey ?? [];
+
+    const completedSessions =
+        sessionHistory.filter(s => s.status === "completed").length;
+
+
+    const paymentStatusMap = {
+        fully_paid: { label: "Fully Paid", color: "success" },
+        partial_paid: { label: "Partial Paid", color: "warning" },
+        not_paid: { label: "Not Paid", color: "error" },
+    };
+
+    const payment =
+        paymentStatusMap[user.paymentStatus] || {
+            label: user.paymentStatus || "Unknown",
+            color: "default",
+        };
 
     return (
         <Modal
@@ -65,11 +91,11 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
                         <Title level={5}>Program Details</Title>
                         <Descriptions bordered column={1}>
                             <Descriptions.Item label="Program">
-                                {user.program || "-"}
+                                {user.program_name || "-"}
                             </Descriptions.Item>
 
                             <Descriptions.Item label="Counselling Service">
-                                {user.package || "-"}
+                                {user.package_name || "-"}
                             </Descriptions.Item>
 
                             <Descriptions.Item label="Preferred Counselling Mode">
@@ -90,19 +116,29 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
                                 )}
                             </Descriptions.Item>
 
+
                             <Descriptions.Item label="Payment Status">
-                                <Tag
-                                    color={
-                                        user.paymentStatus === "Fully Paid"
-                                            ? "success"
-                                            : user.paymentStatus === "Partial Paid"
-                                                ? "warning"
-                                                : "error"
-                                    }
-                                >
-                                    {user.paymentStatus}
+                                <Tag color={payment.color}>
+                                    {payment.label}
                                 </Tag>
                             </Descriptions.Item>
+
+
+                            <Descriptions.Item label="Fees Paid">
+                                ₹ {user.total_paid_amount ?? 0} / ₹ {user.package_price ?? 0}
+
+                                {user.package_price > 0 && (
+                                    <>
+                                        <br />
+                                        <Text type="colorTextSecondary">
+                                            (Remaining: ₹ {user.remaining_amount ?? 0})
+                                        </Text>
+                                    </>
+                                )}
+                            </Descriptions.Item>
+
+
+
 
                             <Descriptions.Item label="Certification">
                                 <Tag
@@ -143,19 +179,25 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
                             minWidth: user.totalSessions * 100,
                         }}
                     >
-                        {Array.from({ length: user.totalSessions }, (_, index) => {
+                        {Array.from({ length: totalSessions }, (_, index) => {
                             const stepNo = index + 1;
 
-                            const isCompleted = index < user.completedSessions;
-                            const isActive = index === user.completedSessions;
+                            const journeyItem = journeyData[index];
+                            const status = journeyItem?.status?.toLowerCase();
+
+                            const isCompleted = status === "completed";
+                            const isActive = status === "in_progress" || status === "booked";
+                            const isRescheduled = status === "rescheduled";
 
                             // 🎨 STEP COLOR LOGIC
                             let stepColor = token.colorBorder;
 
                             if (isCompleted) {
-                                stepColor = token.colorSuccess;
+                                stepColor = token.colorSuccess;      // green
                             } else if (isActive) {
-                                stepColor = token.colorPrimary;
+                                stepColor = token.colorPrimary;      // blue
+                            } else if (isRescheduled) {
+                                stepColor = "#722ed1";     // 🔥 ORANGE
                             }
 
                             // 🔗 CONNECTOR PROGRESS
@@ -242,7 +284,7 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
                 <Divider />
 
                 {/* ================= SESSION HISTORY ================= */}
-                <Title level={5}>Session History</Title>
+                <Title level={5}>Session Details</Title>
 
                 <div
                     style={{
@@ -265,10 +307,17 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
                         }}
                     />
 
-                    {Array.from({ length: user.totalSessions }, (_, index) => {
+                    {sessionHistory.map((session, index) => {
+                        const status = session.status?.toLowerCase();
+
+                        const isCompleted = status === "completed";
+                        const isInProgress = status === "in_progress";
+                        const isBooked = status === "booked";
+                        const isRescheduled = status === "rescheduled";
+                        const isNotBooked = status === "not_booked";
+
+                        const isActive = isInProgress || isBooked;
                         const stepNo = index + 1;
-                        const isCompleted = index < user.completedSessions;
-                        const isActive = index === user.completedSessions;
 
                         return (
                             <div
@@ -288,7 +337,9 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
                                             ? token.colorSuccess
                                             : isActive
                                                 ? token.colorPrimary
-                                                : token.colorBorder,
+                                                : isRescheduled
+                                                    ? "#722ed1"
+                                                    : token.colorBorder,
                                         display: "flex",
                                         alignItems: "center",
                                         justifyContent: "center",
@@ -323,39 +374,48 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
                                                         ? "success"
                                                         : isActive
                                                             ? "processing"
-                                                            : "default"
+                                                            : isRescheduled
+                                                                ? "#722ed1"
+                                                                : "default"
                                                 }
                                             >
                                                 {isCompleted
                                                     ? "Completed"
-                                                    : isActive
+                                                    : isInProgress
                                                         ? "In Progress"
-                                                        : "Pending"}
+                                                        : isBooked
+                                                            ? "Booked"
+                                                            : isRescheduled
+                                                                ? "Rescheduled"
+                                                                : "Pending"}
                                             </Tag>
 
                                             {/* 🔥 SHOW BUTTON ONLY IF NOT COMPLETED */}
-                                            {!isCompleted && !isActive && (
+                                            {status === "not_booked" && (
                                                 <Button
                                                     size="small"
                                                     type="primary"
-                                                   onClick={() => {
-    setSelectedSessionData({
-        student: {
-            id: user.id,
-            first_name: user.name,
-            email: user.email,
-            preferred_counselling_mode: user.preferred_counselling_mode,
-        },
-        status: "not_booked",   // 🔥 VERY IMPORTANT
-        counsellors: [],
-        slot: null,
-        date: null,
-    });
+                                                    icon={<PlusOutlined />}
+                                                    onClick={() => {
+                                                        setSelectedSessionData({
+                                                            participant_id: participantSessions.participant_id,  // ✅ from API root
+                                                            session_no: session.session_no,                      // ✅ from journey/history
+                                                            status: session.status,
+                                                            date: session.date,
+                                                            slot: session.slot_id
+                                                                ? {
+                                                                    slot_id: session.slot_id,
+                                                                    start_time: session.start_time,
+                                                                    end_time: session.end_time,
+                                                                    status: session.status,
+                                                                }
+                                                                : null,
+                                                        });
 
-    setBookingModalOpen(true);
-}}
+                                                        setBookingModalOpen(true);
+                                                    }}
 
-                                                       
+
                                                 >
                                                     Book Session
                                                 </Button>
@@ -370,11 +430,7 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
                                             color: token.colorTextSecondary,
                                         }}
                                     >
-                                        {isCompleted
-                                            ? "Session completed successfully"
-                                            : isActive
-                                                ? "Currently ongoing session"
-                                                : "Not started yet"}
+                                        {session.details || "No details available"}
                                     </div>
 
                                     <div
@@ -394,13 +450,14 @@ const [selectedSessionData, setSelectedSessionData] = useState(null);
             </div>
 
             <HHSessionBookingModal
-    visible={bookingModalOpen}
-    onClose={() => setBookingModalOpen(false)}
-    onSave={() => {
-      }}
-    mode="edit"   
-    data={selectedSessionData}
-/>
+                visible={bookingModalOpen}
+                onClose={() => setBookingModalOpen(false)}
+                onSave={() => {
+                    dispatch(getParticipantSessions(participantSessions.participant_id));
+                }}
+
+                data={selectedSessionData}
+            />
         </Modal>
     );
 };

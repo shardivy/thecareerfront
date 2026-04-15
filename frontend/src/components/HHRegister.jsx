@@ -44,7 +44,7 @@ const onFinish = async (values) => {
     payload.append("mobile", values.mobile);
     payload.append("city", values.city);
     payload.append("full_address", values.address);
-    payload.append("preferred_mode", values.preferredMode);
+    payload.append("preferred_counselling_mode", values.preferred_counselling_mode);
 
     if (values.photo?.[0]?.originFileObj) {
       payload.append("photo", values.photo[0].originFileObj);
@@ -55,7 +55,7 @@ const onFinish = async (values) => {
     }
 
     if (values.payment?.[0]?.originFileObj) {
-      payload.append("payment_receipt", values.payment[0].originFileObj);
+      payload.append("payment", values.payment[0].originFileObj);
     }
 
     // 🔥 API CALL
@@ -175,7 +175,7 @@ const onFinish = async (values) => {
                 <Row gutter={16}>
                     
                   <Col md={12}>
-                    <Form.Item name="preferredMode" label="Preferred Mode" rules={[{ required: true }]}>
+                    <Form.Item name="preferred_counselling_mode" label="Preferred Counselling Mode" rules={[{ required: true }]}>
                       <Select placeholder="Select Mode">
                         <Option value="online">Online</Option>
                         <Option value="offline">Offline</Option>

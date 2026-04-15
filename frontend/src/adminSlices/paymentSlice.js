@@ -295,6 +295,7 @@ reminderError: null,
       id: payment.payment_id || payment.id,
       user_id: payment.user_id,
       student_id: payment.student_id,
+      handholding_participant_id:payment.handholding_participant_id || "",
 
        name: payment.user_name || "", 
       user_name: payment.user_name || "",
