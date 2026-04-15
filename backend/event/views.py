@@ -1,21 +1,120 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.db import models
+from django.db.models import Count, Q, OuterRef, Subquery
+from datetime import datetime, timedelta
+from django.db import transaction
+from django.utils import timezone
+from django.db.models import Max
 
-from accounts.models import User
+from accounts.models import Role, User
+from counselling_slot.models import Booking, Slot
+from event.serializers import AdvertisementSerializer, HandHoldingParticipantSerializer, HandHoldingParticipantSessionSerializer, HandHoldingSessionSerializer
 from program_package.models import Program
-from event.models import HandHoldingParticipant
+from event.models import HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 from payment.models import Payment
 from lead_registration.models import Lead
 
+# ===================== HandHolding Registration API =====================
+
+# class HandHoldingRegisterAPIView(APIView):
+
+#     def post(self, request):
+#         data = request.data
+
+#         # ✅ Get Hand Holding Program
+#         try:
+#             program = Program.objects.get(name__iexact="Hand Holding Program")
+#         except Program.DoesNotExist:
+#             return Response(
+#                 {"error": "Hand Holding program not found"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ✅ Create Lead
+#         lead = Lead.objects.create(
+#             first_name=data.get("first_name"),
+#             last_name=data.get("last_name"),
+#             email=data.get("email"),
+#             phone=data.get("mobile"),
+#             source="website",
+#             status="enquiry",
+#             program=program   # 👈 AUTO SET HERE
+#         )
+
+#         # ✅ Create Payment
+#         payment = None
+#         if request.FILES.get("payment"):
+#             payment = Payment.objects.create(
+#                 proof_file=request.FILES.get("payment")
+#             )
+
+#         # ✅ Create Participant
+#         participant = HandHoldingParticipant.objects.create(
+#             user=None,
+#             payment=payment,
+#             email=data.get("email"),
+#             mobile=data.get("mobile"),
+#             full_address=data.get("full_address"),
+#             city=data.get("city"),
+#             preferred_counselling_mode=data.get("preferred_counselling_mode"),
+#             photo=request.FILES.get("photo"),
+#             resume_file=request.FILES.get("resume"),
+#         )
+
+#         return Response({
+#             "message": "Registration successful",
+#             "lead_id": lead.id,
+#             "participant_id": participant.id
+#         }, status=status.HTTP_201_CREATED)
+        
+#     # ✅ GET API (NEW)
+#     def get(self, request):
+
+#         participants = HandHoldingParticipant.objects.all().order_by("-created_at")
+
+#         data = []
+
+#         for p in participants:
+#             data.append({
+#                 "participant_id": p.id,
+#                 "email": p.email,
+#                 "mobile": p.mobile,
+#                 "full_address": p.full_address,
+#                 "city": p.city,
+#                 "preferred_counselling_mode": p.preferred_counselling_mode,
+#                 "status": p.status,
+#                 "total_sessions": p.total_sessions,
+#                 "completed_sessions": p.completed_sessions,
+
+#                 # ✅ File URLs
+#                 "photo": p.photo.url if p.photo else None,
+#                 "resume": p.resume_file.url if p.resume_file else None,
+
+#                 # ✅ Payment file
+#                 "payment": p.payment.payment_file.url if p.payment else None,
+
+#                 # ✅ Created date
+#                 "created_at": p.created_at
+#             })
+
+#         return Response({
+#             "count": len(data),
+#             "data": data
+#         }, status=status.HTTP_200_OK)
+ 
 class HandHoldingRegisterAPIView(APIView):
 
     def post(self, request):
         data = request.data
 
+        # =========================
         # ✅ Get Hand Holding Program
+        # =========================
         try:
             program = Program.objects.get(name__iexact="Hand Holding Program")
         except Program.DoesNotExist:
@@ -24,7 +123,36 @@ class HandHoldingRegisterAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # =========================
+        # ✅ Get Role (HANDHOLDING)
+        # =========================
+        try:
+            role = Role.objects.get(name__iexact="handholding")
+        except Role.DoesNotExist:
+            return Response(
+                {"error": "Handholding role not found"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # =========================
+        # ✅ CREATE USER
+        # =========================
+        user = User.objects.create(
+            first_name=data.get("first_name"),
+            last_name=data.get("last_name"),
+            email=data.get("email"),
+            phone=data.get("mobile"),
+            role=role
+        )
+
+        # Optional: set password
+        if data.get("password"):
+            user.set_password(data.get("password"))
+            user.save()
+
+        # =========================
         # ✅ Create Lead
+        # =========================
         lead = Lead.objects.create(
             first_name=data.get("first_name"),
             last_name=data.get("last_name"),
@@ -32,25 +160,30 @@ class HandHoldingRegisterAPIView(APIView):
             phone=data.get("mobile"),
             source="website",
             status="enquiry",
-            program=program   # 👈 AUTO SET HERE
+            program=program
         )
 
+        # =========================
         # ✅ Create Payment
+        # =========================
         payment = None
         if request.FILES.get("payment"):
             payment = Payment.objects.create(
-                payment_file=request.FILES.get("payment")
+                proof_file=request.FILES.get("payment"),
+                user=user   # ✅ IMPORTANT (link user)
             )
 
+        # =========================
         # ✅ Create Participant
+        # =========================
         participant = HandHoldingParticipant.objects.create(
-            user=None,
+            user=user,  # ✅ LINK USER HERE
             payment=payment,
             email=data.get("email"),
             mobile=data.get("mobile"),
             full_address=data.get("full_address"),
             city=data.get("city"),
-            mode=data.get("mode"),
+            preferred_counselling_mode=data.get("preferred_counselling_mode"),
             photo=request.FILES.get("photo"),
             resume_file=request.FILES.get("resume"),
         )
@@ -58,40 +191,1143 @@ class HandHoldingRegisterAPIView(APIView):
         return Response({
             "message": "Registration successful",
             "lead_id": lead.id,
+            "user_id": user.id,
             "participant_id": participant.id
         }, status=status.HTTP_201_CREATED)
+ 
+ 
         
-    # ✅ GET API (NEW)
+class CreateHandHoldingSessionAPIView(APIView):
+    permission_classes = [AllowAny]  # Allow any user (can be restricted to admin later)
+    
     def get(self, request):
+        sessions = HandHoldingSession.objects.all().order_by("ordering")
 
-        participants = HandHoldingParticipant.objects.all().order_by("-created_at")
-
-        data = []
-
-        for p in participants:
-            data.append({
-                "participant_id": p.id,
-                "email": p.email,
-                "mobile": p.mobile,
-                "full_address": p.full_address,
-                "city": p.city,
-                "mode": p.mode,
-                "status": p.status,
-                "total_sessions": p.total_sessions,
-                "completed_sessions": p.completed_sessions,
-
-                # ✅ File URLs
-                "photo": p.photo.url if p.photo else None,
-                "resume": p.resume_file.url if p.resume_file else None,
-
-                # ✅ Payment file
-                "payment": p.payment.payment_file.url if p.payment else None,
-
-                # ✅ Created date
-                "created_at": p.created_at
-            })
+        serializer = HandHoldingSessionSerializer(sessions, many=True)
 
         return Response({
-            "count": len(data),
-            "data": data
+            "message": "Sessions fetched successfully",
+            "count": len(serializer.data),
+            "data": serializer.data
         }, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        last_order = HandHoldingSession.objects.aggregate(
+            max_order=models.Max("ordering")
+        )["max_order"] or 0
+
+        data = request.data.copy()
+        data["ordering"] = last_order + 1
+
+        serializer = HandHoldingSessionSerializer(data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Session created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request, session_id):
+        session = get_object_or_404(HandHoldingSession, id=session_id)
+
+        serializer = HandHoldingSessionSerializer(
+            session,
+            data=request.data,
+            partial=True  # ✅ allows updating only title/description
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Session updated successfully",
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, session_id):
+        session = get_object_or_404(HandHoldingSession, id=session_id)
+
+        session.delete()
+
+        return Response({
+            "message": "Session deleted successfully"
+        }, status=status.HTTP_200_OK)
+        
+class HandHoldingParticipantListAPIView(APIView):
+    permission_classes = [IsAuthenticated]  # Only authenticated users can access
+    
+    def get(self, request):
+        
+        # participants = HandHoldingParticipant.objects.annotate(
+        #     total_sessions_count=Count(
+        #         "sessions",
+        #         filter=~Q(sessions__status="cancelled")   # ✅ exclude cancelled
+        #     ),
+        #     completed_sessions_count=Count(
+        #         "sessions",
+        #         filter=Q(sessions__status="completed")
+        #     )
+        # )
+        participants = HandHoldingParticipant.objects.annotate(
+            total_sessions_count=Count(
+                "sessions",
+                filter=~Q(sessions__status="cancelled")
+            ),
+            completed_sessions_count=Count(
+                "sessions",
+                filter=Q(sessions__status="completed")
+            ),
+            booked_sessions_count=Count(
+                "sessions",
+                filter=Q(sessions__status="booked")
+            ),
+            pending_sessions_count=Count(
+                "sessions",
+                filter=Q(sessions__status="pending")
+            ),
+            cancelled_sessions_count=Count(
+                "sessions",
+                filter=Q(sessions__status="cancelled")
+            ),
+            in_progress_sessions_count=Count(
+                "sessions",
+                filter=Q(sessions__status="in_progress")
+            )
+            
+        )
+        serializer = HandHoldingParticipantSerializer(participants, many=True, context={"request": request})
+        return Response(serializer.data)
+    
+    # =====================================
+    # ✅ PUT API (UPDATE PARTICIPANT)
+    # =====================================
+    def put(self, request, participant_id=None):
+
+        if not participant_id:
+            return Response({
+                "message": "participant_id is required"
+            }, status=400)
+
+        try:
+            participant = HandHoldingParticipant.objects.get(id=participant_id)
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({
+                "message": "Participant not found"
+            }, status=404)
+
+        data = request.data
+
+        # =========================
+        # 🔹 UPDATE PARTICIPANT
+        # =========================
+        participant.mobile = data.get("mobile", participant.mobile)
+        participant.city = data.get("city", participant.city)
+        participant.state = data.get("state", participant.state)
+        participant.pincode = data.get("pincode", participant.pincode)
+        participant.full_address = data.get("full_address", participant.full_address)
+
+        participant.preferred_counselling_mode = data.get(
+            "preferred_counselling_mode",
+            participant.preferred_counselling_mode
+        )
+
+        participant.show_profile = data.get("show_profile", participant.show_profile)
+        participant.status = data.get("status", participant.status)
+
+        # =========================
+        # 🔹 FILE UPDATES (Participant)
+        # =========================
+        if "photo" in request.FILES:
+            participant.photo = request.FILES["photo"]
+
+        if "resume_file" in request.FILES:
+            participant.resume_file = request.FILES["resume_file"]
+
+        participant.save()
+
+        # =========================
+        # 🔹 UPDATE PAYMENT PROOF FILE
+        # =========================
+        if "proof_file" in request.FILES:
+
+            # Get latest payment of this user
+            payment = Payment.objects.filter(
+                user=participant.user
+            ).order_by("-created_at").first()
+
+            if payment:
+                payment.proof_file = request.FILES["proof_file"]
+                payment.save()
+
+        # =========================
+        # 🔹 RESPONSE
+        # =========================
+        return Response({
+            "message": "Participant updated successfully",
+            "data": HandHoldingParticipantSerializer(
+                participant,
+                context={"request": request}
+            ).data
+        }, status=200)
+        
+    
+class BookedRescheduledSlotsByDateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, date):
+
+        response_data = []
+        used_slot_ids = set()  # ✅ prevent duplicates
+
+        # ============================================
+        # 🔹 NORMAL BOOKINGS
+        # ============================================
+        bookings = Booking.objects.select_related("slot", "student__user").filter(
+            slot__date=date,
+            status__in=["booked", "rescheduled"],
+            slot__is_deleted=False
+        )
+
+        for booking in bookings:
+            slot = booking.slot
+            if not slot:
+                continue
+
+            used_slot_ids.add(slot.id)  # ✅ mark used
+
+            response_data.append({
+                "type": "normal",
+                "slot_id": slot.id,
+                "date": slot.date,
+                "start_time": slot.start_time,
+                "end_time": slot.end_time,
+                "status": booking.status,
+                "student_id": booking.student.id,
+                "student_name": f"{booking.student.user.first_name} {booking.student.user.last_name}",
+                "email": booking.student.user.email,
+                "phone": booking.student.user.phone,
+                "meeting_link": booking.meeting_link
+            })
+
+        # ============================================
+        # 🔹 HANDHOLDING BOOKINGS
+        # ============================================
+        hh_sessions = HandHoldingParticipantSession.objects.select_related(
+            "handholding_participant__user",
+            "conducted_by",
+            "slot"
+        ).filter(
+            session_date__date=date,
+            status__in=["booked", "rescheduled"]
+        )
+
+        for session in hh_sessions:
+
+            session_slot = session.slot
+
+            if not session_slot:
+                continue
+
+            # ❌ Skip duplicate slot
+            if session_slot.id in used_slot_ids:
+                continue
+
+            used_slot_ids.add(session_slot.id)
+
+            participant = session.handholding_participant
+            user = participant.user if participant else None
+
+            response_data.append({
+                "type": "handholding",
+                "slot_id": session_slot.id,
+                "date": session_slot.date,
+                "start_time": session_slot.start_time,
+                "end_time": session_slot.end_time,
+                "status": session.status,
+                "participant_id": participant.id if participant else None,
+                "session_no": session.session_no,
+                "student_id": user.id if user else None,
+                "student_name": f"{user.first_name} {user.last_name}" if user else None,
+                "email": user.email if user else None,
+                "phone": user.phone if user else None,
+                "counsellor_id": session.conducted_by.id if session.conducted_by else None,
+                "counsellor_name": (
+                    f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
+                    if session.conducted_by else None
+                ),
+            })
+
+        # ============================================
+        # 🔹 SORT
+        # ============================================
+        def parse_time(t):
+            try:
+                return datetime.strptime(str(t), "%I:%M %p")
+            except:
+                return datetime.strptime(str(t), "%H:%M:%S")
+
+        response_data = sorted(
+            response_data,
+            key=lambda x: parse_time(x["start_time"])
+        )
+
+        return Response({
+            "success": True,
+            "date": date,
+            "count": len(response_data),
+            "data": response_data
+        }, status=status.HTTP_200_OK) 
+        
+              
+class BookHandHoldingSessionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+
+        participant_id = request.data.get("participant_id")
+        session_no = request.data.get("session_no")
+        slot_id = request.data.get("slot_id")
+        date = request.data.get("date")
+
+        # =========================
+        # 🔹 VALIDATION
+        # =========================
+        if not participant_id or not session_no or not slot_id or not date:
+            return Response({
+                "message": "participant_id, session_no, slot_id and date are required"
+            }, status=400)
+
+        # ✅ Convert date string → date object
+        try:
+            selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "message": "Invalid date format. Use YYYY-MM-DD"
+            }, status=400)
+
+        try:
+            with transaction.atomic():
+
+                participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+
+                # session = HandHoldingParticipantSession.objects.get(
+                #     handholding_participant=participant,
+                #     session_no=session_no
+                # )
+                session, created = HandHoldingParticipantSession.objects.get_or_create(
+                    handholding_participant=participant,
+                    session_no=session_no,
+                    defaults={
+                        "status": "not_booked"
+                    }
+                )
+
+                slot = Slot.objects.select_related("counsellor").get(
+                    id=slot_id,
+                    is_available=True,
+                    is_deleted=False
+                )
+
+                # =========================
+                # 🔒 PREVENT DOUBLE BOOKING
+                # =========================
+                if session.status in ["booked", "completed"]:
+                    return Response({
+                        "message": "Session already booked/completed"
+                    }, status=400)
+
+                # Check if slot already used
+                slot_used = HandHoldingParticipantSession.objects.filter(
+                    slot=slot
+                ).exclude(id=session.id).exists()
+
+                if slot_used:
+                    return Response({
+                        "message": "This slot is already booked"
+                    }, status=400)
+
+                # =========================
+                # 🔒 DATE VALIDATION
+                # =========================
+                if slot.date != selected_date:
+                    return Response({
+                        "message": "Selected date does not match slot date"
+                    }, status=400)
+
+                # =========================
+                # 🔹 SET SESSION DATETIME
+                # =========================
+                session_datetime = datetime.combine(
+                    selected_date,
+                    datetime.strptime(slot.start_time, "%I:%M %p").time()
+                )
+
+                # =========================
+                # 🔹 UPDATE SESSION
+                # =========================
+                session.slot = slot
+                session.session_date = session_datetime
+                session.status = "booked"
+                session.conducted_by = slot.counsellor
+                session.save()
+
+                # =========================
+                # 🔹 BLOCK SLOT
+                # =========================
+                slot.is_available = False
+                slot.save(update_fields=["is_available"])
+
+                # =========================
+                # 🔹 RESPONSE
+                # =========================
+                return Response({
+                    "message": "Session booked successfully",
+                    "data": {
+                        "participant_id": participant.id,
+                        "session_no": session.session_no,
+                        "slot_id": slot.id,
+                        "date": selected_date,
+                        "start_time": slot.start_time,
+                        "end_time": slot.end_time,
+                        "counsellor_id": slot.counsellor.id,
+                        "counsellor_name": f"{slot.counsellor.first_name} {slot.counsellor.last_name}"
+                    }
+                }, status=200)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({"message": "Participant not found"}, status=404)
+
+        except HandHoldingParticipantSession.DoesNotExist:
+            return Response({"message": "Session not found"}, status=404)
+
+        except Slot.DoesNotExist:
+            return Response({"message": "Slot not available"}, status=400)
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+                       
+class MarkSessionCompletedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+
+        participant_id = request.data.get("participant_id")
+        session_no = request.data.get("session_no")
+
+        # =========================
+        # 🔹 VALIDATION
+        # =========================
+        if not participant_id or not session_no:
+            return Response({
+                "message": "participant_id and session_no are required"
+            }, status=400)
+
+        try:
+            with transaction.atomic():
+
+                # =========================
+                # 🔹 GET PARTICIPANT
+                # =========================
+                participant = HandHoldingParticipant.objects.get(id=participant_id)
+
+                # =========================
+                # 🔥 GET LATEST SESSION (IMPORTANT FIX)
+                # =========================
+                session = HandHoldingParticipantSession.objects.select_related(
+                    "slot", "conducted_by"
+                ).filter(
+                    handholding_participant=participant,
+                    session_no=session_no
+                ).exclude(
+                    status="cancelled"
+                ).order_by('-id').first()
+
+                if not session:
+                    return Response({
+                        "message": "Session not found"
+                    }, status=404)
+
+                # =========================
+                # 🔒 VALID STATUS CHECK
+                # =========================
+                if session.status == "completed":
+                    return Response({
+                        "message": "Session already completed"
+                    }, status=400)
+
+                if session.status not in ["booked", "rescheduled", "in_progress"]:
+                    return Response({
+                        "message": f"Cannot complete session with status '{session.status}'"
+                    }, status=400)
+
+                # =========================
+                # 🔹 UPDATE STATUS
+                # =========================
+                session.status = "completed"
+                session.completed_at = timezone.now()
+                session.save(update_fields=["status", "completed_at"])
+
+                # =========================
+                # 🔹 RESPONSE
+                # =========================
+                return Response({
+                    "message": "Session marked as completed successfully",
+                    "data": {
+                        "session_id": session.id,
+                        "participant_id": participant.id,
+                        "session_no": session.session_no,
+                        "status": session.status,
+                        "completed_at": session.completed_at,
+                        "slot_id": session.slot.id if session.slot else None,
+                        "counsellor": (
+                            f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
+                            if session.conducted_by else None
+                        )
+                    }
+                }, status=200)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({"message": "Participant not found"}, status=404)
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+class RescheduleSessionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+
+        participant_id = request.data.get("participant_id")
+        session_no = request.data.get("session_no")
+        new_slot_id = request.data.get("slot_id")
+        new_date = request.data.get("date")
+
+        # =========================
+        # 🔹 VALIDATION
+        # =========================
+        if not participant_id or not session_no or not new_slot_id or not new_date:
+            return Response({
+                "message": "participant_id, session_no, slot_id and date are required"
+            }, status=400)
+
+        try:
+            with transaction.atomic():
+
+                # =========================
+                # 🔹 GET PARTICIPANT
+                # =========================
+                participant = HandHoldingParticipant.objects.get(id=participant_id)
+
+                # =========================
+                # 🔹 GET CURRENT SESSION (LATEST NON-CANCELLED)
+                # =========================
+                current_session = HandHoldingParticipantSession.objects.select_related(
+                    "slot", "handholding_session"
+                ).filter(
+                    handholding_participant=participant,
+                    session_no=session_no
+                ).exclude(
+                    status="cancelled"
+                ).order_by('-id').first()
+
+                if not current_session:
+                    return Response({"message": "Session not found"}, status=404)
+
+                # =========================
+                # 🔹 GET SLOT
+                # =========================
+                new_slot = Slot.objects.select_related("counsellor").filter(
+                    id=new_slot_id,
+                    is_deleted=False
+                ).first()
+
+                if not new_slot:
+                    return Response({"message": "Slot not found"}, status=404)
+
+                # =========================
+                # 🔒 SLOT CONFLICT CHECK
+                # =========================
+                slot_used = HandHoldingParticipantSession.objects.filter(
+                    slot=new_slot,
+                    status__in=["booked", "rescheduled", "in_progress"]
+                ).exclude(id=current_session.id).exists()
+
+                if slot_used:
+                    return Response({
+                        "message": "This slot is already booked"
+                    }, status=400)
+
+                # =========================
+                # 🔹 PARSE DATE
+                # =========================
+                try:
+                    parsed_date = datetime.strptime(new_date, "%Y-%m-%d").date()
+                except ValueError:
+                    return Response({
+                        "message": "Invalid date format. Use YYYY-MM-DD"
+                    }, status=400)
+
+                # =========================
+                # 🔒 PREVENT PAST DATE
+                # =========================
+                if parsed_date < timezone.now().date():
+                    return Response({
+                        "message": "Cannot select past date"
+                    }, status=400)
+
+                # =========================
+                # 🔹 COMBINE DATE + TIME
+                # =========================
+                session_datetime = datetime.combine(
+                    parsed_date,
+                    datetime.strptime(new_slot.start_time, "%I:%M %p").time()
+                )
+
+                # =========================
+                # 🔥 CASE 1: PENDING → UPDATE SAME ROW
+                # =========================
+                if current_session.status == "pending":
+
+                    current_session.slot = new_slot
+                    current_session.session_date = session_datetime
+                    current_session.status = "rescheduled"
+                    current_session.conducted_by = new_slot.counsellor
+                    current_session.notes = "Updated from pending to rescheduled"
+                    current_session.save()
+
+                    new_slot.is_available = False
+                    new_slot.save(update_fields=["is_available"])
+
+                    return Response({
+                        "message": "Pending session updated successfully",
+                        "data": {
+                            "session_id": current_session.id,
+                            "participant_id": participant.id,
+                            "session_no": session_no,
+                            "status": current_session.status,
+                            "date": parsed_date,
+                            "start_time": new_slot.start_time,
+                            "end_time": new_slot.end_time,
+                            "slot_id": new_slot.id,
+                        }
+                    }, status=200)
+
+                # =========================
+                # 🔥 CASE 2: OTHER STATUS → CANCEL + CREATE NEW
+                # =========================
+                if current_session.status in ["booked", "in_progress", "completed", "rescheduled"]:
+
+                    # Free old slot
+                    if current_session.slot:
+                        current_session.slot.is_available = True
+                        current_session.slot.save(update_fields=["is_available"])
+
+                    # Cancel old session
+                    current_session.status = "cancelled"
+                    current_session.save(update_fields=["status"])
+
+                    # Create new session
+                    new_session = HandHoldingParticipantSession.objects.create(
+                        handholding_participant=participant,
+                        handholding_session=current_session.handholding_session,
+                        session_no=session_no,
+                        slot=new_slot,
+                        session_date=session_datetime,
+                        status="rescheduled",
+                        conducted_by=new_slot.counsellor,
+                        notes=f"Rescheduled from session ID {current_session.id}"
+                    )
+
+                    # Block new slot
+                    new_slot.is_available = False
+                    new_slot.save(update_fields=["is_available"])
+
+                    return Response({
+                        "message": "Session rescheduled successfully",
+                        "data": {
+                            "old_session_id": current_session.id,
+                            "new_session_id": new_session.id,
+                            "participant_id": participant.id,
+                            "session_no": session_no,
+                            "status": new_session.status,
+                            "date": parsed_date,
+                            "start_time": new_slot.start_time,
+                            "end_time": new_slot.end_time,
+                            "slot_id": new_slot.id,
+                        }
+                    }, status=200)
+
+                # =========================
+                # ❌ INVALID STATUS
+                # =========================
+                return Response({
+                    "message": f"Cannot reschedule session with status '{current_session.status}'"
+                }, status=400)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({"message": "Participant not found"}, status=404)
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+            
+            
+class CancelSessionAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+
+        participant_id = request.data.get("participant_id")
+        session_no = request.data.get("session_no")
+
+        # =========================
+        # 🔹 VALIDATION
+        # =========================
+        if not participant_id or not session_no:
+            return Response({
+                "message": "participant_id and session_no are required"
+            }, status=400)
+
+        try:
+            with transaction.atomic():
+
+                # =========================
+                # 🔹 GET PARTICIPANT
+                # =========================
+                participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+
+                # =========================
+                # 🔹 GET CURRENT SESSION
+                # =========================
+                current_session = HandHoldingParticipantSession.objects.filter(
+                    handholding_participant=participant,
+                    session_no=session_no
+                ).order_by('-id').first()
+
+                # =========================
+                # 🔒 STATUS CHECK
+                # =========================
+                if current_session.status not in ["booked", "in_progress", "rescheduled", "completed"]:
+                    return Response({
+                        "message": f"Cannot cancel session with status '{current_session.status}'"
+                    }, status=400)
+
+                # =========================
+                # 🔹 FREE SLOT (IF EXISTS)
+                # =========================
+                if current_session.slot:
+                    current_session.slot.is_available = True
+                    current_session.slot.save(update_fields=["is_available"])
+
+                # =========================
+                # 🔹 CANCEL OLD SESSION
+                # =========================
+                current_session.status = "cancelled"
+                current_session.save(update_fields=["status"])
+
+                # =========================
+                # 🔹 CREATE NEW PENDING SESSION
+                # =========================
+                new_session = HandHoldingParticipantSession.objects.create(
+                    handholding_participant=participant,
+                    handholding_session=current_session.handholding_session,
+                    session_no=session_no,
+                    status="pending",
+                    notes=f"Created after cancellation of session ID {current_session.id}"
+                    # ❗ No slot
+                    # ❗ No session_date
+                    # ❗ No conducted_by
+                )
+
+                # =========================
+                # 🔹 RESPONSE
+                # =========================
+                return Response({
+                    "message": "Session cancelled and new pending session created",
+                    "data": {
+                        "old_session_id": current_session.id,
+                        "new_session_id": new_session.id,
+                        "participant_id": participant.id,
+                        "name": f"{participant.user.first_name} {participant.user.last_name}",
+                        "email": participant.user.email,
+                        "session_no": session_no,
+                        "new_status": new_session.status
+                    }
+                }, status=200)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({"message": "Participant not found"}, status=404)
+
+        except HandHoldingParticipantSession.DoesNotExist:
+            return Response({"message": "Session not found"}, status=404)
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+# class ParticipantSessionListAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, participant_id):
+
+#         try:
+#             participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+
+#             # =========================
+#             # 🔥 STEP 1: Get latest session IDs per session_no
+#             # =========================
+#             latest_sessions_ids = (
+#                 HandHoldingParticipantSession.objects.filter(
+#                     handholding_participant=participant
+#                 )
+#                 .exclude(status="cancelled")
+#                 .values("session_no")
+#                 .annotate(latest_id=Max("id"))
+#                 .values_list("latest_id", flat=True)
+#             )
+
+#             # =========================
+#             # 🔥 STEP 2: Fetch those sessions
+#             # =========================
+#             sessions = HandHoldingParticipantSession.objects.select_related(
+#                 "slot", "conducted_by"
+#             ).filter(
+#                 id__in=latest_sessions_ids
+#             ).order_by("session_no")   # ✅ sequence wise
+
+#             # =========================
+#             # 🔹 FORMAT RESPONSE
+#             # =========================
+#             data = []
+#             for session in sessions:
+#                 data.append({
+#                     "session_id": session.id,
+#                     "session_no": session.session_no,
+#                     "status": session.status,
+#                     "date": session.session_date,
+#                     "completed_at": session.completed_at,
+#                     "slot_id": session.slot.id if session.slot else None,
+#                     "start_time": session.slot.start_time if session.slot else None,
+#                     "end_time": session.slot.end_time if session.slot else None,
+#                     "counsellor": (
+#                         f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
+#                         if session.conducted_by else None
+#                     ),
+#                     "notes": session.notes
+#                 })
+
+#             return Response({
+#                 "message": "Sessions fetched successfully",
+#                 "participant_id": participant.id,
+#                 "name": f"{participant.user.first_name} {participant.user.last_name}",
+#                 "total_sessions": len(data),
+#                 "data": data
+#             }, status=200)
+
+#         except HandHoldingParticipant.DoesNotExist:
+#             return Response({
+#                 "message": "Participant not found"
+#             }, status=404)
+
+#         except Exception as e:
+#             return Response({
+#                 "message": "Something went wrong",
+#                 "error": str(e)
+#             }, status=500)
+
+
+from collections import defaultdict
+
+class   ParticipantSessionListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, participant_id):
+
+        try:
+            participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+
+            # =========================
+            # 🔥 GET LATEST NON-CANCELLED SESSION PER SESSION_NO
+            # =========================
+            latest_sessions_ids = (
+                HandHoldingParticipantSession.objects.filter(
+                    handholding_participant=participant
+                )
+                .exclude(status="cancelled")
+                .values("session_no")
+                .annotate(latest_id=Max("id"))
+                .values_list("latest_id", flat=True)
+            )
+
+            latest_sessions = HandHoldingParticipantSession.objects.select_related(
+                "slot", "conducted_by"
+            ).filter(
+                id__in=latest_sessions_ids
+            ).order_by("session_no")
+
+            # =========================
+            # 🔹 MAIN DATA (LATEST VIEW)
+            # =========================
+            data = []
+            for session in latest_sessions:
+                data.append({
+                    "session_id": session.id,
+                    "session_no": session.session_no,
+                    "status": session.status,
+                    "date": session.session_date,
+                    "completed_at": session.completed_at,
+                    "slot_id": session.slot.id if session.slot else None,
+                    "start_time": session.slot.start_time if session.slot else None,
+                    "end_time": session.slot.end_time if session.slot else None,
+                    "counsellor": (
+                        f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
+                        if session.conducted_by else None
+                    ),
+                    "notes": session.notes
+                })
+
+            # =========================
+            # 🔥 HISTORY (LATEST ONLY)
+            # =========================
+            history = []
+            for session in latest_sessions:
+                history.append({
+                    "session_id": session.id,
+                    "session_no": session.session_no,
+                    "status": session.status,
+                    "date": session.session_date,
+                    "slot_id": session.slot.id if session.slot else None,
+                    "start_time": session.slot.start_time if session.slot else None,
+                    "end_time": session.slot.end_time if session.slot else None,
+                    "counsellor": (
+                        f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
+                        if session.conducted_by else None
+                    ),
+                    "details": f"Session {session.session_no} is {session.status}" +
+                        (f" on {session.session_date}" if session.session_date else "") 
+                })
+
+            # =========================
+            # 🔥 JOURNEY (LATEST ONLY)
+            # =========================
+            journey = []
+            for session in latest_sessions:
+                journey.append({
+                    "session_no": session.session_no,
+                    "status": session.status,
+                    "date": session.session_date,
+                    "slot_id": session.slot.id if session.slot else None,
+                })
+
+            # =========================
+            # 🔹 FINAL RESPONSE
+            # =========================
+            return Response({
+                "message": "Sessions fetched successfully",
+                "participant_id": participant.id,
+                "name": f"{participant.user.first_name} {participant.user.last_name}",
+                "total_sessions": len(data),
+
+                # ✅ SAME RESPONSE
+                "data": data,
+
+                # ✅ ADDITIONAL DATA
+                "history": history,
+                "journey": journey
+
+            }, status=200)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({
+                "message": "Participant not found"
+            }, status=404)
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+
+
+
+
+            
+class HandHoldingSessionListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        status_filter = request.GET.get("status")
+        
+        # =========================
+        # 🔥 AUTO COMPLETE LOGIC (FINAL FIX)
+        # =========================
+
+        now = timezone.now()   # ✅ ALWAYS use this (safe)
+
+        today_sessions = HandHoldingParticipantSession.objects.select_related("slot").filter(
+            session_date__date=now.date(),
+            status__in=["booked", "rescheduled", "in_progress"]
+        )
+
+        for session in today_sessions:
+            if session.slot and session.slot.end_time:
+
+                # ✅ convert string → time
+                end_time_obj = datetime.strptime(session.slot.end_time, "%I:%M %p").time()
+
+                # ✅ combine date + time (NAIVE)
+                session_end_datetime = datetime.combine(
+                    session.session_date.date(),
+                    end_time_obj
+                )
+
+                # ✅ convert BOTH to naive (IMPORTANT FIX)
+                now_naive = now.replace(tzinfo=None)
+
+                # ✅ compare safely
+                if now_naive >= (session_end_datetime - timedelta(minutes=30)):
+                    session.status = "completed"
+                    session.completed_at = now
+                    session.save(update_fields=["status", "completed_at"])
+            
+            
+        sessions = HandHoldingParticipantSession.objects.select_related(
+            "handholding_participant__user", "slot"
+        )
+
+        if status_filter == "not_booked":
+            sessions = sessions.filter(status="not_booked")
+
+        elif status_filter == "booked_rescheduled":
+            sessions = sessions.filter(
+                Q(status="booked") | Q(status="rescheduled")
+            )
+
+        elif status_filter == "pending":
+            sessions = sessions.filter(status="pending")
+
+        elif status_filter == "completed":
+            sessions = sessions.filter(status="completed")
+
+        elif status_filter == "cancelled":
+            sessions = sessions.filter(status="cancelled")
+
+        serializer = HandHoldingParticipantSessionSerializer(sessions, many=True)
+        return Response(serializer.data)
+
+class ParticipantSessionListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, participant_id):
+
+        status_filter = request.GET.get("status")
+
+        # ✅ Get participant
+        participant = get_object_or_404(
+            HandHoldingParticipant,
+            id=participant_id
+        )
+
+        # =========================
+        # 🔥 AUTO COMPLETE LOGIC
+        # =========================
+        now = timezone.now()
+
+        today_sessions = HandHoldingParticipantSession.objects.select_related("slot").filter(
+            handholding_participant=participant,
+            session_date__date=now.date(),
+            status__in=["booked", "rescheduled", "in_progress"]
+        )
+
+        for session in today_sessions:
+            if session.slot and session.slot.end_time:
+
+                end_time_obj = datetime.strptime(
+                    session.slot.end_time, "%I:%M %p"
+                ).time()
+
+                session_end_datetime = datetime.combine(
+                    session.session_date.date(),
+                    end_time_obj
+                )
+
+                now_naive = now.replace(tzinfo=None)
+
+                if now_naive >= (session_end_datetime - timedelta(minutes=30)):
+                    session.status = "completed"
+                    session.completed_at = now
+                    session.save(update_fields=["status", "completed_at"])
+
+        # =========================
+        # ✅ FETCH ONLY THIS PARTICIPANT DATA
+        # =========================
+        sessions = HandHoldingParticipantSession.objects.select_related(
+            "handholding_participant__user", "slot"
+        ).filter(handholding_participant=participant)
+
+        # =========================
+        # 🔍 STATUS FILTER (SAME AS YOUR API)
+        # =========================
+        if status_filter == "not_booked":
+            sessions = sessions.filter(status="not_booked")
+
+        elif status_filter == "booked_rescheduled":
+            sessions = sessions.filter(
+                Q(status="booked") | Q(status="rescheduled")
+            )
+
+        elif status_filter == "pending":
+            sessions = sessions.filter(status="pending")
+
+        elif status_filter == "completed":
+            sessions = sessions.filter(status="completed")
+
+        elif status_filter == "cancelled":
+            sessions = sessions.filter(status="cancelled")
+
+        # =========================
+        # ✅ SAME RESPONSE FORMAT
+        # =========================
+        serializer = HandHoldingParticipantSessionSerializer(
+            sessions, many=True
+        )
+
+        return Response(serializer.data)
+    
+
+# ============================ Advertisement Views ============================
+
+class AdvertisementCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = AdvertisementSerializer(data=request.data)
+
+        if serializer.is_valid():
+            serializer.save(created_by=request.user)
+
+            return Response(
+                {
+                    "message": "Advertisement created successfully",
+                    "data": serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

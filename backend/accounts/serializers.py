@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from accounts.models import Permission, Role, RolePermission, User
+from event.models import HandHoldingParticipant
 from exam.models import UserExam
 from lead_registration.models import StudentProfile
 from payment.models import Payment
@@ -356,19 +357,52 @@ class StudentListSerializer(serializers.ModelSerializer):
     #     report = Report.objects.filter(user=obj.user).order_by("-uploaded_at").first()
     #     return report.report_status if report else "not_uploaded"       #locked, unlocked 
     
+    # def get_report_status(self, obj):
+    #     upp = (
+    #         UserProgramPackage.objects
+    #         .filter(user=obj.user)
+    #         .select_related("package")
+    #         .last()
+    #     )
+
+    #     # ❌ If no package OR aptitude_test False
+    #     if not upp or not upp.package or not upp.package.aptitude_test:
+    #         return "not_applicable"
+
+    #     # ✅ If aptitude_test True → return actual report status
+    #     report = (
+    #         Report.objects
+    #         .filter(user=obj.user)
+    #         .order_by("-uploaded_at")
+    #         .first()
+    #     )
+
+    #     return report.report_status if report else "not_received"
+    
     def get_report_status(self, obj):
+
         upp = (
             UserProgramPackage.objects
             .filter(user=obj.user)
             .select_related("package")
-            .last()
+            .order_by("-created_at")
+            .first()
         )
 
-        # ❌ If no package OR aptitude_test False
-        if not upp or not upp.package or not upp.package.aptitude_test:
+        # ❌ No package
+        if not upp or not upp.package:
             return "not_applicable"
 
-        # ✅ If aptitude_test True → return actual report status
+        package = upp.package
+
+        aptitude_test_status = package.aptitude_test
+        engineering_analysis_status = package.engineering_test_analysis
+
+        # ❌ BOTH FALSE → NOT APPLICABLE
+        if not aptitude_test_status and not engineering_analysis_status:
+            return "not_applicable"
+
+        # ✅ FETCH REPORT
         report = (
             Report.objects
             .filter(user=obj.user)
@@ -376,7 +410,12 @@ class StudentListSerializer(serializers.ModelSerializer):
             .first()
         )
 
-        return report.report_status if report else "not_received"
+        # ❌ NOT UPLOADED
+        if not report:
+            return "not_received"
+
+        # ✅ RETURN ACTUAL STATUS
+        return report.report_status
 
     # def get_exam_status(self, obj):
     #     qs = UserExam.objects.filter(user=obj.user)
@@ -499,5 +538,178 @@ class StudentListSerializer(serializers.ModelSerializer):
 
         return "Registration"
 
+class HandholdingUsersListSerializer(serializers.ModelSerializer):
+    first_name = serializers.SerializerMethodField()
+    last_name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()  
+    created_at = serializers.DateTimeField(read_only=True)
+    program_id = serializers.SerializerMethodField()
+    program_name = serializers.SerializerMethodField()
+    package_id = serializers.SerializerMethodField()
+    package_name = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    payment_status = serializers.SerializerMethodField()
+    payment_type = serializers.SerializerMethodField()
+    # created_at = serializers.DateTimeField()
+    method = serializers.SerializerMethodField()
+    preferred_counselling_mode = serializers.SerializerMethodField()
+    transaction_id = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
+    total_paid_amount = serializers.SerializerMethodField()
+    proof_file = serializers.SerializerMethodField()
+    next_not_booked_session_no = serializers.IntegerField(read_only=True)
+    # is_report_locked = serializers.SerializerMethodField()
+    
+
+    class Meta:
+        model = HandHoldingParticipant   
+        fields = [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "created_at",
+            "city",           
+            "program_id",
+            "program_name",
+            "package_id",
+            "package_name",
+            "price",
+            "payment_status",
+            "payment_type",
+            # "created_at",
+            "method",
+            "preferred_counselling_mode",
+            "transaction_id",
+            "amount",
+            "total_paid_amount", 
+            "proof_file",
+            "next_not_booked_session_no",
+            # "is_report_locked",
             
-            
+        ]
+    def get_preferred_counselling_mode(self, obj):
+        return obj.preferred_counselling_mode
+    
+    def get_first_name(self, obj):
+        return obj.user.first_name if obj.user else None
+
+    def get_last_name(self, obj):
+        return obj.user.last_name if obj.user else None
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else obj.email
+
+    def get_phone(self, obj):
+        return obj.user.phone if obj.user else None
+    
+
+    def get_student_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
+
+    def get_program_id(self, obj):
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        return upp.program.id if upp and upp.program else None
+
+    def get_program_name(self, obj):
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        return upp.program.name if upp and upp.program else None
+
+    def get_package_id(self, obj):
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        return upp.package.id if upp and upp.package else None
+
+    def get_package_name(self, obj):
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        return upp.package.name if upp and upp.package else None
+    
+    def get_price(self, obj):
+        upp = UserProgramPackage.objects.filter(user=obj.user).last()
+        return upp.package.price if upp and upp.package else None
+
+
+    def get_payment_status(self, obj):
+        upp = (
+            UserProgramPackage.objects
+            .filter(user=obj.user)
+            .select_related("package")
+            .last()
+        )
+
+        if not upp or not upp.package:
+            return "not_paid"
+
+        package_price = upp.package.price or 0
+
+        # 🔥 Sum ALL payments (previous + current)
+        total_paid = (
+            Payment.objects
+            .filter(user=obj.user)
+            .aggregate(total=Sum("amount"))["total"]
+            or 0
+        )
+
+        if total_paid == 0:
+            return "not_paid"
+        elif total_paid < package_price:
+            return "partial_paid"
+        else:
+            return "fully_paid"
+    
+    def get_payment_type(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.payment_type if payment else None
+    
+    # def get_created_at(self, obj):
+    #     payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+    #     return payment.created_at if payment else None
+    
+    def get_method(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.method if payment else None
+    
+    def get_transaction_id(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.transaction_id if payment else None
+    
+    def get_amount(self, obj):
+        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        return payment.amount if payment else None
+    
+    def get_total_paid_amount(self, obj):
+        total = (
+            Payment.objects
+            .filter(user=obj.user)
+            .aggregate(total=Sum("amount"))["total"]
+        )
+        return total or 0
+    
+    def get_proof_file(self, obj):
+        payment = (
+            Payment.objects
+            .filter(user=obj.user)
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not payment or not payment.proof_file:
+            return None
+
+        request = self.context.get("request")
+        if not request:
+            return None
+
+        # 🔥 Return iframe-safe API URL
+        url = reverse(
+            "payment-report-image",
+            kwargs={"payment_id": payment.id}
+        )
+        return request.build_absolute_uri(url)
+    
+    # def get_report_status(self, obj):
+    #     report = Report.objects.filter(user=obj.user).order_by("-uploaded_at").first()
+    #     return report.report_status if report else "not_uploaded"       #locked, unlocked 
+    
+    

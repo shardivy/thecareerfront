@@ -77,6 +77,7 @@ class PackageCreateSerializer(serializers.ModelSerializer):
             "is_active",
             "aptitude_test",
             "engineering_test_analysis",
+            "is_handholding",
             "features"
         ]
 
@@ -118,6 +119,7 @@ class PackageListSerializer(serializers.ModelSerializer):
             "active_users",
             "aptitude_test",
             "engineering_test_analysis",
+            "is_handholding",
             "features"
         ]
 

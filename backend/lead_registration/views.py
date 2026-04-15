@@ -1,9 +1,11 @@
+from decimal import Decimal
 import random
 import string
+import threading
 from urllib import request
 from xml.parsers.expat import errors
 from django.shortcuts import get_object_or_404, render
-from event.models import HandHoldingParticipant
+from event.models import HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 from counselling_slot.models import Booking
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -26,7 +28,7 @@ from exam.models import Exam, UserExam
 from lead_registration.models import Hobby, Lead, ParentProfile, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from lead_registration.serializers import AddUserSerializer, HobbySerializer, LeadSerializer, ParentDetailSerializer, PaymentDetailSerializer, StreamSerializer, StudentAcademicHistorySerializer, StudentHobbySerializer, StudentProfileDetailSerializer, StudentRegistrationSerializer, StudentStreamSerializer, StudentSubjectPreferenceSerializer, SubjectSerializer, UserDetailSerializer, UserProgramPackageDetailSerializer, UserProgramPackageResponseSerializer
 from payment.models import Payment, PaymentLog
-from program_package.models import CollegeListAnalysis, PackageExam, Program, UserProgramPackage
+from program_package.models import CollegeListAnalysis, Package, PackageExam, Program, UserProgramPackage
 from report.models import Report, Review
 
 
@@ -414,7 +416,7 @@ class LeadListAPIView(APIView):
         try:
             leads = Lead.objects.select_related('program').order_by('-created_at')
 
-            serializer = LeadSerializer(leads, many=True)
+            serializer = LeadSerializer(leads, many=True, context={"request": request})
 
             logger.info(f"Leads fetched successfully | Count: {leads.count()}")
 
@@ -1565,27 +1567,16 @@ class ConvertLeadAPIView(APIView):
         payload = request.data.copy()
         payload["first_name"] = lead.first_name
         payload["last_name"] = lead.last_name
+        payload["email"] = lead.email
+
+        # ✅ Normalize phone
+        phone = request.data.get("phone") or lead.phone
+        if phone:
+            phone = phone.strip().replace(" ", "")
+        payload["phone"] = phone
 
         # 🔹 Check existing user
         existing_user = User.objects.filter(email=lead.email).first()
-
-        # if existing_user:
-        #     payload["email"] = existing_user.email
-        #     payload["phone"] = existing_user.phone
-        # else:
-        #     payload["email"] = lead.email
-        #     payload["phone"] = lead.phone
-        
-        payload["email"] = lead.email
-
-        # Use request phone if given, otherwise lead phone
-        # payload["phone"] = request.data.get("phone") or lead.phone
-        phone = request.data.get("phone") or lead.phone
-
-        if phone:
-            phone = phone.strip().replace(" ", "")
-
-        payload["phone"] = phone
 
         serializer = AddUserSerializer(
             data=payload,
@@ -1604,23 +1595,38 @@ class ConvertLeadAPIView(APIView):
         try:
             with transaction.atomic():
 
-                student_role = Role.objects.get(name="student")
+                # student_role = Role.objects.get(name="student")
+                # Decide role based on package
+                # =================================
+                # 🔹 PROGRAM & PACKAGE
+                # =================================
+                program = serializer.validated_data["program"]
+                package = serializer.validated_data.get("package")
+
+                # ✅ IMPORTANT: assign package first
+                if not package:
+                    package = Package.objects.filter(program=program).first()
+
+                # ✅ NOW detect correctly
+                is_handholding = package.is_handholding if package else False
+                
+                if is_handholding:
+                    user_role = Role.objects.get(name="handholding")
+                else:
+                    user_role = Role.objects.get(name="student")
+                
 
                 user = existing_user
                 password = None
 
-                # ---------------------------------
-                # 🔹 Create User if not exists
-                # ---------------------------------
+                # =================================
+                # 🔹 CREATE USER
+                # =================================
                 if not user:
 
-                    password = serializer.validated_data.get("password")
-
-                    if not password:
-                        password = generate_password()
+                    password = serializer.validated_data.get("password") or generate_password()
 
                     program = serializer.validated_data["program"]
-                    package = serializer.validated_data["package"]
                     prefix = PROGRAM_PREFIX_MAP.get(program.name)
 
                     first_name = serializer.validated_data["first_name"]
@@ -1633,27 +1639,25 @@ class ConvertLeadAPIView(APIView):
                         last_name=serializer.validated_data["last_name"],
                         email=lead.email,
                         phone=serializer.validated_data.get("phone"),
-                        role=student_role,
+                        role=user_role,
                         is_active=True
                     )
 
                     user.set_password(password)
                     user.save()
+
                 else:
-                    # user already exists → do NOT touch password
                     password = None
+                    if user.role != user_role:
+                        user.role = user_role
+                        user.save()
 
                 
-                    if user.role != student_role:
-                        user.role = student_role
-                        user.save()
-                        
-                # ---------------------------------
-                # 🔹 HandHolding Logic
-                # ---------------------------------
-                program = serializer.validated_data["program"]
 
-                if program.name.lower() == "hand holding program":
+                # =================================
+                # 🔹 HAND HOLDING LOGIC
+                # =================================
+                if is_handholding:
 
                     participant = HandHoldingParticipant.objects.filter(
                         email=lead.email
@@ -1664,160 +1668,197 @@ class ConvertLeadAPIView(APIView):
                         participant.mobile = user.phone
                         participant.email = user.email
 
-                        # ✅ Update only if missing
                         if not participant.photo:
                             participant.photo = serializer.validated_data.get("photo")
 
-                        if not participant.resume:
-                            participant.resume = serializer.validated_data.get("resume")
+                        if not participant.resume_file:
+                            participant.resume_file = serializer.validated_data.get("resume_file")
 
                         participant.save()
 
                     else:
-                        HandHoldingParticipant.objects.create(
+                        participant = HandHoldingParticipant.objects.create(
                             user=user,
                             email=user.email,
                             mobile=user.phone,
-                            full_address=serializer.validated_data.get("city", ""),
+                            full_address=serializer.validated_data.get("full_address", ""),
                             city=serializer.validated_data.get("city"),
-                            mode=serializer.validated_data.get("preferred_counselling_mode"),
+                            preferred_counselling_mode=serializer.validated_data.get("preferred_counselling_mode"),
+                    
                             photo=serializer.validated_data.get("photo"),
-                            resume=serializer.validated_data.get("resume"),
+                            resume_file=serializer.validated_data.get("resume_file"),
                         )
 
-                # ---------------------------------
-                # 🔹 Create Student Profile
-                # ---------------------------------
-                student_profile = StudentProfile.objects.create(
-                    user=user,
-                    study_class=serializer.validated_data.get("study_class"),
-                    current_academic_stage=serializer.validated_data.get("current_academic_stage"),
-                    current_academic_year=serializer.validated_data.get("current_academic_year"),
-                    school_college=serializer.validated_data.get("school_college"),
-                    city=serializer.validated_data.get("city"),
-                    preferred_counselling_mode=serializer.validated_data.get(
-                        "preferred_counselling_mode"
-                    ),
-                )
+                    # =================================
+                    # 🔹 ADD THIS PART (SESSION CREATION)
+                    # =================================
+                    # total_sessions = int(request.data.get("total_sessions", 10))
 
-                # ---------------------------------
-                # 🔹 Assign Program & Package
-                # ---------------------------------
-                upp = UserProgramPackage.objects.create(
-                    user=user,
-                    program=serializer.validated_data["program"],
-                    package=serializer.validated_data["package"],
-                    assigned_by="lead-conversion"
-                )
-
-                package = serializer.validated_data["package"]
-
-                # ---------------------------------
-                # 🔹 Exam or Booking
-                # ---------------------------------
-                if package.aptitude_test:
-                    UserExam.objects.create(
-                        user=user,
-                        status="not_started"
-                    )
-                else:
-                    Booking.objects.create(
-                        student=student_profile,
-                        status="not_booked"
-                    )
-
-                # ---------------------------------
-                # 🔹 Payment
-                # ---------------------------------
-                # payment = None
-                # amount = serializer.validated_data.get("amount")
-
-                # if amount:
-
-                #     package_price = package.price
-
-                #     if amount >= package_price:
-                #         payment_status = "fully_paid"
-                #     else:
-                #         payment_status = "partial_paid"
-
-                #     transaction_id = serializer.validated_data.get("transaction_id")
+                    # # Get all master sessions (based on ordering)
+                    # sessions = HandHoldingSession.objects.all().order_by("ordering")[:total_sessions]
                     
-                #      # Fix for duplicate '' error
-                #     if not transaction_id:
-                #         transaction_id = None
+                    
+                    sessions = HandHoldingSession.objects.all().order_by("ordering")
 
-                #     payment = Payment.objects.create(
-                #         user=user,
-                #         package=package,
-                #         amount=amount,
-                #         payment_type=serializer.validated_data.get("payment_type"),
-                #         method=serializer.validated_data.get("method"),
-                #         transaction_id=transaction_id,
-                #         proof_file=serializer.validated_data.get("proof_file"),
-                #         status=payment_status
-                #     )
-                
-                # ---------------------------------
-                # 🔹 Payment
-                # ---------------------------------
-                payment = None
-                amount = serializer.validated_data.get("amount", 0)
+                    # Existing session numbers
+                    existing_sessions = set(
+                        HandHoldingParticipantSession.objects.filter(
+                            handholding_participant=participant
+                        ).values_list("session_no", flat=True)
+                    )
 
-                package_price = package.price
+                    new_sessions = []
 
-                # ✅ Determine payment status
-                if amount == 0:
-                    payment_status = "not_paid"
-                elif amount < package_price:
-                    payment_status = "partial_paid"
+                    for i, session in enumerate(sessions, start=1):
+                        if i not in existing_sessions:
+                            new_sessions.append(
+                                HandHoldingParticipantSession(
+                                    handholding_participant=participant,
+                                    handholding_session=session,
+                                    session_no=i,
+                                    session_date=timezone.now(),
+                                    status="not_booked",
+                                    notes="",
+                                    conducted_by=request.user if request.user.is_authenticated else None
+                                )
+                            )
+
+                    HandHoldingParticipantSession.objects.bulk_create(new_sessions)
+
+                # =================================
+                # 🔹 STUDENT PROFILE (SKIP FOR HANDHOLDING)
+                # =================================
+                student_profile = None
+
+                if not is_handholding:
+                    student_profile = StudentProfile.objects.create(
+                        user=user,
+                        study_class=serializer.validated_data.get("study_class"),
+                        current_academic_stage=serializer.validated_data.get("current_academic_stage"),
+                        current_academic_year=serializer.validated_data.get("current_academic_year"),
+                        school_college=serializer.validated_data.get("school_college"),
+                        city=serializer.validated_data.get("city"),
+                        preferred_counselling_mode=serializer.validated_data.get(
+                            "preferred_counselling_mode"
+                        ),
+                    )
                 else:
-                    payment_status = "fully_paid"
+                    student_profile = None  # ✅ explicitly ensure
+                # =================================
+                # 🔹 PROGRAM PACKAGE (SKIP FOR HANDHOLDING)
+                # =================================
+                upp = None
 
-                transaction_id = serializer.validated_data.get("transaction_id")
+                # if package:
+                #     upp = UserProgramPackage.objects.create(
+                #         user=user,
+                #         program=program,
+                #         package=package,
+                #         assigned_by="lead-conversion"
+                #     )
+                # ✅ Ensure package exists for handholding
+                if is_handholding and not package:
+                    package = Package.objects.filter(program=program).first()
 
-                # Fix for duplicate '' error
-                if not transaction_id:
-                    transaction_id = None
+                # ✅ Create UPP
+                if program:
+                    upp = UserProgramPackage.objects.create(
+                        user=user,
+                        program=program,
+                        package=package,
+                        assigned_by="lead-conversion"
+                    )
 
-                payment = Payment.objects.create(
-                    user=user,
-                    package=package,
-                    amount=amount,
-                    payment_type=serializer.validated_data.get("payment_type"),
-                    method=serializer.validated_data.get("method"),
-                    transaction_id=transaction_id,
-                    proof_file=serializer.validated_data.get("proof_file"),
-                    status=payment_status
-                )
+                # =================================
+                # 🔹 EXAM / BOOKING
+                # =================================
+                if not is_handholding:
+                    if package and package.aptitude_test:
+                        UserExam.objects.create(
+                            user=user,
+                            status="not_started"
+                        )
+                    else:
+                        Booking.objects.create(
+                            student=student_profile,
+                            status="not_booked"
+                        )
 
-                # ---------------------------------
-                # 🔹 Update Lead
-                # ---------------------------------
+                # =================================
+                # 🔹 PAYMENT (SKIP FOR HANDHOLDING)
+                # =================================
+                payment = None
+
+                if package:
+
+                    amount = serializer.validated_data.get("amount", 0)
+                    # amount = serializer.validated_data.get("amount") or Decimal("0")
+                    # amount = serializer.validated_data.get("amount")
+                    package_price = package.price
+
+                    if amount == 0:
+                        payment_status = "not_paid"
+                    elif amount < package_price:
+                        payment_status = "partial_paid"
+                    else:
+                        payment_status = "fully_paid"
+
+                    transaction_id = serializer.validated_data.get("transaction_id") or None
+
+                    payment = Payment.objects.create(
+                        user=user,
+                        package=package,
+                        amount=amount,
+                        payment_type=serializer.validated_data.get("payment_type"),
+                        method=serializer.validated_data.get("method"),
+                        transaction_id=transaction_id,
+                        proof_file=serializer.validated_data.get("proof_file"),
+                        status=payment_status
+                    )
+
+                # =================================
+                # 🔹 UPDATE LEAD
+                # =================================
                 lead.status = "converted"
                 lead.save(update_fields=["status"])
 
-                # ---------------------------------
-                # 🔹 Send Email ONLY if new user created
-                # ---------------------------------
+                # =================================
+                # 🔹 SEND EMAIL
+                # =================================
                 if password:
                     try:
-                        send_credentials_email(user.email, password, program.name, package.name)
+                        # send_credentials_email(
+                        #     user.email,
+                        #     password,
+                        #     program.name,
+                        #     package.name if package else "Hand Holding"
+                        # )
+                        threading.Thread(
+                            target=send_credentials_email,
+                            args=(user.email, password, program.name, package.name if package else "Hand Holding")
+                        ).start()
                     except Exception as e:
-                        print("Email sending failed:", e)
+                        print("Email failed:", e)
 
+                # =================================
+                # 🔹 RESPONSE
+                # =================================
                 return Response(
                     {
                         "message": "Lead converted successfully",
                         "data": {
                             "user": UserDetailSerializer(user).data,
-                            "student_profile": StudentProfileDetailSerializer(student_profile).data,
-                            "program_package": UserProgramPackageDetailSerializer(upp).data,
+                            "student_profile": (
+                                StudentProfileDetailSerializer(student_profile).data
+                                if student_profile else None
+                            ),
+                            "program_package": (
+                                UserProgramPackageDetailSerializer(upp).data
+                                if upp else None
+                            ),
                             "payment": (
-                                PaymentDetailSerializer(
-                                    payment,
-                                    context={"request": request}
-                                ).data if payment else None
+                                PaymentDetailSerializer(payment, context={"request": request}).data
+                                if payment else None
                             )
                         }
                     },
@@ -1832,7 +1873,6 @@ class ConvertLeadAPIView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 
 

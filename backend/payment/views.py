@@ -1,7 +1,10 @@
+from decimal import Decimal
+
 from django.db import models
 from django.shortcuts import get_object_or_404, render
 
 from accounts.models import User
+from event.models import HandHoldingParticipant
 from counselling_slot.models import Booking
 from counselling_slot.tasks import create_system_notification
 from report.models import Report
@@ -186,88 +189,99 @@ class PaymentCreateAPIView(APIView):
         )
 
 
+
 # class VerifyPaymentAPIView(APIView):
 #     """
 #     Admin-only API to verify a payment.
 
-#     - Allows approval or rejection of a payment only when its status is
-#       `verification_pending`.
-#     - On approval, automatically determines whether the payment is
-#       `fully_paid` or `partial_paid` based on cumulative payments for the package.
-#     - Prevents overpayment: if cumulative payments exceed package price, returns error.
-#     - On rejection, resets the payment to `pending` and notifies the user via email and WhatsApp.
-#     """
-#     permission_classes = [IsAdmin | IsSuperAdmin]  
+#     - Approve:
+#         • Calculates cumulative payments
+#         • Sets status to fully_paid / partial_paid
+#         • Prevents overpayment
+#         • Assigns program/package if fully paid
 
+#     - Reject:
+#         • Sends email & WhatsApp notification
+#         • Logs the action
+#         • Permanently deletes the payment record
+#     """
+
+#     # permission_classes = [IsAdmin | IsSuperAdmin]
+#     permission_classes = [IsAuthenticated]
+
+#     @transaction.atomic
 #     def post(self, request, payment_id):
+
 #         action = request.data.get('action')
 #         payment = get_object_or_404(Payment, id=payment_id)
 
-#         if payment.status != 'verification_pending':
-#             return Response(
-#                 {"error": "Only verification_pending payments can be processed"},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         old_status = payment.status   # 🔹 capture old status
-
-#         package_price = payment.package.price
-
-#         total_paid = Payment.objects.filter(
-#             user=payment.user,
-#             package=payment.package,
-#             status__in=['fully_paid', 'partial_paid']
-#         ).aggregate(total=Sum('amount'))['total'] or 0
-
-#         cumulative_amount = total_paid + payment.amount
-
-#         # ❌ Prevent overpayment
-#         if action == 'approve' and cumulative_amount > package_price:
-#             return Response(
-#                 {
-#                     "success": False,
-#                     "error": f"Total payment exceeds package price. Please verify amounts." 
-                             
-#                 },
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         # ✅ APPROVE
-#         if action == 'approve':
-#             if cumulative_amount >= package_price:
-#                 payment.status = 'fully_paid'
-#             else:
-#                 payment.status = 'partial_paid'
-
-#         # ❌ REJECT
-#         elif action == 'reject':
-#             payment.status = 'pending'
-
-#         else:
+#         if action not in ['approve', 'reject']:
 #             return Response(
 #                 {"success": False, "error": "Invalid action. Use approve or reject"},
 #                 status=status.HTTP_400_BAD_REQUEST
 #             )
 
-#         # 🔹 Save payment
-#         payment.verified_by = request.user
-#         payment.save()
+#         old_status = payment.status
+#         package_price = payment.package.price
 
-#         # 🔹 Create payment log
-#         PaymentLog.objects.create(
-#             payment=payment,
-#             old_status=old_status,
-#             new_status=payment.status,
-#             changed_by=request.user
-#         )
+#         # Calculate total paid excluding current payment
+#         total_paid = Payment.objects.filter(
+#             user=payment.user,
+#             package=payment.package,
+#             status__in=['fully_paid', 'partial_paid']
+#         ).exclude(id=payment.id).aggregate(
+#             total=Sum('amount')
+#         )['total'] or 0
 
-#         # 🔹 Assign program/package on approval
+#         cumulative_amount = total_paid + payment.amount
+
+#         # ======================================
+#         # ✅ APPROVE LOGIC
+#         # ======================================
 #         if action == 'approve':
-#             UserProgramPackage.objects.get_or_create(
-#                 user=payment.user,
-#                 program=payment.package.program,
-#                 package=payment.package,
-#                 defaults={'assigned_by': request.user.email}
+
+#             # Prevent overpayment
+#             if cumulative_amount > package_price:
+#                 return Response(
+#                     {
+#                         "success": False,
+#                         "error": "Total payment exceeds package price."
+#                     },
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+#             # Determine payment status
+#             if cumulative_amount >= package_price:
+#                 payment.status = 'fully_paid'
+#             else:
+#                 payment.status = 'partial_paid'
+
+#             payment.verified_by = request.user
+#             payment.save()
+
+#             # Log status change
+#             PaymentLog.objects.create(
+#                 payment=payment,
+#                 old_status=old_status,
+#                 new_status=payment.status,
+#                 changed_by=request.user
+#             )
+
+#             # Assign program/package if fully paid
+#             if payment.status == 'fully_paid':
+#                 UserProgramPackage.objects.get_or_create(
+#                     user=payment.user,
+#                     program=payment.package.program,
+#                     package=payment.package,
+#                     defaults={'assigned_by': request.user.email}
+#                 )
+            
+#             # Send email
+#             send_payment_approved_email(
+#                 payment.user,
+#                 payment,
+#                 cumulative_amount,
+#                 package_price
 #             )
 
 #             return Response({
@@ -278,17 +292,216 @@ class PaymentCreateAPIView(APIView):
 #                 "package_price": package_price
 #             })
 
-#         # 🔹 Notify on rejection
-#         send_payment_reject_email(payment.user.email)
-#         send_payment_reject_whatsapp(payment.user.phone)
+#         # ======================================
+#         # ❌ REJECT LOGIC (DELETE RECORD)
+#         # ======================================
+#         elif action == 'reject':
 
-#         return Response({
-#             "success": True,
-#             "message": "Payment rejected and user notified",
-#             "payment_id": payment.id
-#         })
-        
-        
+#             # Send notifications
+#             send_payment_rejected_email(payment.user)
+#             # send_payment_reject_whatsapp(payment.user.phone)
+
+#             # Calculate remaining payments excluding this one
+#             remaining_paid = Payment.objects.filter(
+#                 user=payment.user,
+#                 package=payment.package,
+#                 status__in=['fully_paid', 'partial_paid']
+#             ).exclude(id=payment.id).aggregate(
+#                 total=Sum('amount')
+#             )['total'] or 0
+
+#             # Determine new status
+#             if remaining_paid == 0:
+#                 new_status = "not_paid"
+#             elif remaining_paid < package_price:
+#                 new_status = "partial_paid"
+#             else:
+#                 new_status = "fully_paid"
+
+#             # Update current payment
+#             payment.status = "not_paid"
+#             payment.verified_by = request.user
+#             payment.save()
+
+#             # Update other payments
+#             Payment.objects.filter(
+#                 user=payment.user,
+#                 package=payment.package
+#             ).exclude(id=payment.id).update(status=new_status)
+
+#             # Log action
+#             PaymentLog.objects.create(
+#                 payment=payment,
+#                 old_status=old_status,
+#                 new_status=new_status,
+#                 changed_by=request.user
+#             )
+
+#             return Response({
+#                 "success": True,
+#                 "message": "Payment rejected successfully",
+#                 "remaining_paid": remaining_paid,
+#                 "new_status": new_status
+#             })
+            
+# class VerifyPaymentAPIView(APIView):
+#     """
+#     Admin-only API to verify a payment.
+
+#     - Approve:
+#         • Calculates cumulative payments
+#         • Sets status to fully_paid / partial_paid
+#         • Prevents overpayment
+#         • Assigns program/package if fully paid
+
+#     - Reject:
+#         • Sends email & WhatsApp notification
+#         • Logs the action
+#         • Permanently deletes the payment record
+#     """
+
+#     # permission_classes = [IsAdmin | IsSuperAdmin]
+#     permission_classes = [IsAuthenticated]
+
+#     @transaction.atomic
+#     def post(self, request, payment_id):
+
+#         action = request.data.get('action')
+#         payment = get_object_or_404(Payment, id=payment_id)
+
+#         if action not in ['approve', 'reject']:
+#             return Response(
+#                 {"success": False, "error": "Invalid action. Use approve or reject"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         old_status = payment.status
+#         package_price = payment.package.price
+
+#         # Calculate total paid excluding current payment
+#         total_paid = Payment.objects.filter(
+#             user=payment.user,
+#             package=payment.package,
+#             status__in=['fully_paid', 'partial_paid']
+#         ).exclude(id=payment.id).aggregate(
+#             total=Sum('amount')
+#         )['total'] or 0
+
+#         cumulative_amount = total_paid + payment.amount
+
+#         # ======================================
+#         # ✅ APPROVE LOGIC
+#         # ======================================
+#         if action == 'approve':
+
+#             # Prevent overpayment
+#             if cumulative_amount > package_price:
+#                 return Response(
+#                     {
+#                         "success": False,
+#                         "error": "Total payment exceeds package price."
+#                     },
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
+
+#             # Determine payment status
+#             if cumulative_amount >= package_price:
+#                 payment.status = 'fully_paid'
+#             else:
+#                 payment.status = 'partial_paid'
+
+#             payment.verified_by = request.user
+#             payment.save()
+
+#             # Log status change
+#             PaymentLog.objects.create(
+#                 payment=payment,
+#                 old_status=old_status,
+#                 new_status=payment.status,
+#                 changed_by=request.user
+#             )
+
+#             # Assign program/package if fully paid
+#             if payment.status == 'fully_paid':
+#                 UserProgramPackage.objects.get_or_create(
+#                     user=payment.user,
+#                     program=payment.package.program,
+#                     package=payment.package,
+#                     defaults={'assigned_by': request.user.email}
+#                 )
+            
+#             # Send email
+#             send_payment_approved_email(
+#                 payment.user,
+#                 payment,
+#                 cumulative_amount,
+#                 package_price
+#             )
+
+#             return Response({
+#                 "success": True,
+#                 "message": "Payment approved successfully",
+#                 "payment_status": payment.status,
+#                 "cumulative_amount": cumulative_amount,
+#                 "package_price": package_price
+#             })
+
+#         # ======================================
+#         # ❌ REJECT LOGIC (DELETE RECORD)
+#         # ======================================
+#         elif action == 'reject':
+
+#             # Send notification
+#             send_payment_rejected_email(payment.user)
+
+#             # ❌ Mark this payment as not_paid (acts like rejected)
+#             payment.status = "not_paid"
+#             payment.amount = 0   # 🔥 IMPORTANT: make it zero so it doesn't affect total
+#             payment.verified_by = request.user
+#             payment.save()
+
+#             # ✅ Get only VALID payments (exclude not_paid)
+#             valid_payments = Payment.objects.filter(
+#                 user=payment.user,
+#                 package=payment.package,
+#                 status__in=["partial_paid", "fully_paid"]
+#             )
+
+#             total_paid = valid_payments.aggregate(
+#                 total=Sum("amount")
+#             )["total"] or 0
+
+#             # ✅ Determine correct status
+#             if total_paid == 0:
+#                 new_status = "not_paid"
+#             elif total_paid < package_price:
+#                 new_status = "partial_paid"
+#             else:
+#                 new_status = "fully_paid"
+
+#             # ✅ Update remaining payments properly
+#             for pay in valid_payments:
+#                 if total_paid >= package_price:
+#                     pay.status = "fully_paid"
+#                 else:
+#                     pay.status = "partial_paid"
+#                 pay.save()
+
+#             # ✅ Log action
+#             PaymentLog.objects.create(
+#                 payment=payment,
+#                 old_status=old_status,
+#                 new_status=new_status,
+#                 changed_by=request.user
+#             )
+
+#             return Response({
+#                 "success": True,
+#                 "message": "Payment rejected successfully",
+#                 "total_paid": total_paid,
+#                 "new_status": new_status
+#             })
+ 
 class VerifyPaymentAPIView(APIView):
     """
     Admin-only API to verify a payment.
@@ -300,12 +513,12 @@ class VerifyPaymentAPIView(APIView):
         • Assigns program/package if fully paid
 
     - Reject:
-        • Sends email & WhatsApp notification
-        • Logs the action
-        • Permanently deletes the payment record
+        • Allows only latest payment rejection
+        • Validates previous payment consistency
+        • Marks payment as not_paid (not deleted)
+        • Recalculates remaining payments properly
     """
 
-    # permission_classes = [IsAdmin | IsSuperAdmin]
     permission_classes = [IsAuthenticated]
 
     @transaction.atomic
@@ -321,25 +534,28 @@ class VerifyPaymentAPIView(APIView):
             )
 
         old_status = payment.status
-        package_price = payment.package.price
+        package_price = payment.package.price or Decimal("0")
+        current_amount = payment.amount or Decimal("0")
 
-        # Calculate total paid excluding current payment
+        # ======================================
+        # 🔹 COMMON: CALCULATE TOTAL (EXCLUDING CURRENT)
+        # ======================================
         total_paid = Payment.objects.filter(
             user=payment.user,
             package=payment.package,
             status__in=['fully_paid', 'partial_paid']
         ).exclude(id=payment.id).aggregate(
             total=Sum('amount')
-        )['total'] or 0
+        )['total'] or Decimal("0")
 
-        cumulative_amount = total_paid + payment.amount
+        cumulative_amount = total_paid + current_amount
 
         # ======================================
         # ✅ APPROVE LOGIC
         # ======================================
         if action == 'approve':
 
-            # Prevent overpayment
+            # ❌ Prevent overpayment
             if cumulative_amount > package_price:
                 return Response(
                     {
@@ -349,7 +565,7 @@ class VerifyPaymentAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Determine payment status
+            # ✅ Determine status
             if cumulative_amount >= package_price:
                 payment.status = 'fully_paid'
             else:
@@ -358,7 +574,7 @@ class VerifyPaymentAPIView(APIView):
             payment.verified_by = request.user
             payment.save()
 
-            # Log status change
+            # ✅ Log
             PaymentLog.objects.create(
                 payment=payment,
                 old_status=old_status,
@@ -366,7 +582,7 @@ class VerifyPaymentAPIView(APIView):
                 changed_by=request.user
             )
 
-            # Assign program/package if fully paid
+            # ✅ Assign program/package if fully paid
             if payment.status == 'fully_paid':
                 UserProgramPackage.objects.get_or_create(
                     user=payment.user,
@@ -374,8 +590,8 @@ class VerifyPaymentAPIView(APIView):
                     package=payment.package,
                     defaults={'assigned_by': request.user.email}
                 )
-            
-            # Send email
+
+            # ✅ Send email
             send_payment_approved_email(
                 payment.user,
                 payment,
@@ -392,43 +608,108 @@ class VerifyPaymentAPIView(APIView):
             })
 
         # ======================================
-        # ❌ REJECT LOGIC (DELETE RECORD)
+        # ❌ REJECT LOGIC (STRICT)
         # ======================================
         elif action == 'reject':
 
-            # Send notifications
-            send_payment_rejected_email(payment.user)
-            # send_payment_reject_whatsapp(payment.user.phone)
+            # ======================================
+            # ✅ STEP 1: ALLOW ONLY LATEST PAYMENT
+            # ======================================
+            latest_payment = Payment.objects.filter(
+                user=payment.user,
+                package=payment.package
+            ).order_by("-id").first()
 
-            # Calculate remaining payments excluding this one
-            remaining_paid = Payment.objects.filter(
+            if latest_payment.id != payment.id:
+                return Response(
+                    {
+                        "success": False,
+                        "error": "You can only reject the latest payment. Please handle newer payments first."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # ======================================
+            # ✅ STEP 2: VALIDATE PREVIOUS PAYMENT
+            # ======================================
+            previous_payment = Payment.objects.filter(
                 user=payment.user,
                 package=payment.package,
-                status__in=['fully_paid', 'partial_paid']
-            ).exclude(id=payment.id).aggregate(
-                total=Sum('amount')
-            )['total'] or 0
+                status__in=["partial_paid", "fully_paid"]
+            ).exclude(id=payment.id).order_by("-id").first()
+
+            if previous_payment:
+
+                previous_total = Payment.objects.filter(
+                    user=payment.user,
+                    package=payment.package,
+                    status__in=["partial_paid", "fully_paid"]
+                ).exclude(id=payment.id).aggregate(
+                    total=Sum("amount")
+                )["total"] or Decimal("0")
+
+                # ❌ Inconsistent data check
+                if previous_total > package_price:
+                    return Response(
+                        {
+                            "success": False,
+                            "error": "Previous payment data is inconsistent. Please fix previous payments before rejecting."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # ❌ Invalid previous payment
+                if previous_payment.amount is None or previous_payment.amount <= 0:
+                    return Response(
+                        {
+                            "success": False,
+                            "error": "Previous payment is not valid. Please update it before rejecting this payment."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # ======================================
+            # ✅ STEP 3: REJECT CURRENT PAYMENT
+            # ======================================
+            send_payment_rejected_email(payment.user)
+
+            payment.status = "not_paid"
+            payment.amount = Decimal("0")  # IMPORTANT
+            payment.verified_by = request.user
+            payment.save()
+
+            # ======================================
+            # ✅ STEP 4: RECALCULATE REMAINING PAYMENTS
+            # ======================================
+            valid_payments = Payment.objects.filter(
+                user=payment.user,
+                package=payment.package,
+                status__in=["partial_paid", "fully_paid"]
+            )
+
+            total_paid = valid_payments.aggregate(
+                total=Sum("amount")
+            )["total"] or Decimal("0")
 
             # Determine new status
-            if remaining_paid == 0:
+            if total_paid == 0:
                 new_status = "not_paid"
-            elif remaining_paid < package_price:
+            elif total_paid < package_price:
                 new_status = "partial_paid"
             else:
                 new_status = "fully_paid"
 
-            # Update current payment
-            payment.status = "not_paid"
-            payment.verified_by = request.user
-            payment.save()
+            # Update all valid payments
+            for pay in valid_payments:
+                if total_paid >= package_price:
+                    pay.status = "fully_paid"
+                else:
+                    pay.status = "partial_paid"
+                pay.save()
 
-            # Update other payments
-            Payment.objects.filter(
-                user=payment.user,
-                package=payment.package
-            ).exclude(id=payment.id).update(status=new_status)
-
-            # Log action
+            # ======================================
+            # ✅ STEP 5: LOG
+            # ======================================
             PaymentLog.objects.create(
                 payment=payment,
                 old_status=old_status,
@@ -439,10 +720,14 @@ class VerifyPaymentAPIView(APIView):
             return Response({
                 "success": True,
                 "message": "Payment rejected successfully",
-                "remaining_paid": remaining_paid,
+                "total_paid": total_paid,
                 "new_status": new_status
             })
-            
+ 
+ 
+ 
+ 
+ 
             
             
 # =================================================================================
@@ -566,12 +851,143 @@ class VerifyPaymentAPIView(APIView):
 
 from django.db.models import Sum, Max
 
+# class PaymentListAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+
+#         response_data = []
+
+#         # Get unique user + package combinations
+#         payment_groups = Payment.objects.values(
+#             "user_id", "package_id"
+#         ).distinct()
+
+#         for group in payment_groups:
+
+#             user_id = group["user_id"]
+#             package_id = group["package_id"]
+
+#             # All payments for that user + package
+#             payments = Payment.objects.filter(
+#                 user_id=user_id,
+#                 package_id=package_id
+#             ).select_related(
+#                 "user",
+#                 "user__student_profile",
+#                 "package",
+#                 "package__program"
+#             ).order_by("-created_at")
+
+#             if not payments.exists():
+#                 continue
+
+#             latest_payment = payments.first()
+
+#             # 🔥 SUM OF ALL PAYMENTS
+#             total_paid = payments.filter(
+#                 status__in=["partial_paid", "fully_paid", "verification_pending"]
+#             ).aggregate(
+#                 total=Sum("amount")
+#             )["total"] or 0
+
+#             package_price = latest_payment.package.price if latest_payment.package else 0
+
+#             # 🔥 Remaining amount
+#             remaining_amount = package_price - total_paid
+#             if remaining_amount < 0:
+#                 remaining_amount = 0
+
+#             # Payment status
+#             if latest_payment.status in ["verification_pending", "rejected"]:
+#                 payment_status = latest_payment.status
+#             else:
+#                 if total_paid == 0:
+#                     payment_status = "not_paid"
+#                 elif total_paid < package_price:
+#                     payment_status = "partial_paid"
+#                 else:
+#                     payment_status = "fully_paid"
+
+#             proof_url = None
+#             if latest_payment.proof_file:
+#                 url = reverse(
+#                     "payment-report-image",
+#                     kwargs={"payment_id": latest_payment.id}
+#                 )
+#                 proof_url = request.build_absolute_uri(url)
+
+#             response_data.append({
+#                 "user_id": latest_payment.user.id,
+#                 "student_id": (
+#                     latest_payment.user.student_profile.id
+#                     if getattr(latest_payment.user, "student_profile", None)
+#                     else None
+#                 ),
+#                 "is_handholding": (
+#                     latest_payment.package.is_handholding
+#                     if latest_payment.package else False
+#                 ),
+#                 "user_name": f"{latest_payment.user.first_name} {latest_payment.user.last_name}",
+#                 "email": latest_payment.user.email,
+
+#                 # Payment summary
+#                 "total_paid": float(total_paid),
+#                 "remaining_amount": float(remaining_amount),
+#                 "package_price": float(package_price),
+
+#                 # Last payment
+#                 "amount": float(latest_payment.amount),
+
+#                 "program_id": (
+#                     latest_payment.package.program.id
+#                     if latest_payment.package and latest_payment.package.program
+#                     else None
+#                 ),
+#                 "program": (
+#                     latest_payment.package.program.name
+#                     if latest_payment.package else None
+#                 ),
+#                 "package_id": latest_payment.package.id if latest_payment.package else None,
+#                 "package": latest_payment.package.name if latest_payment.package else None,
+
+#                 "payment_id": latest_payment.id,
+#                 "created_at": latest_payment.created_at,
+#                 "payment_date": latest_payment.payment_date,
+#                 "transaction_id": latest_payment.transaction_id,
+#                 "payment_status": payment_status,
+#                 "method": latest_payment.method,
+
+#                 "proof_file_url": proof_url,
+#             })
+
+#         return Response({
+#             "success": True,
+#             "count": len(response_data),
+#             "data": response_data
+#         }, status=status.HTTP_200_OK)
+ 
 class PaymentListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
 
         response_data = []
+
+        # 🔥 Preload all handholding participants (OPTIMIZED)
+        participants = HandHoldingParticipant.objects.all().values(
+            "id", "user_id", "email"
+        )
+
+        # Map by user_id
+        participant_by_user = {
+            p["user_id"]: p["id"] for p in participants if p["user_id"]
+        }
+
+        # Map by email (fallback)
+        participant_by_email = {
+            p["email"]: p["id"] for p in participants if p["email"]
+        }
 
         # Get unique user + package combinations
         payment_groups = Payment.objects.values(
@@ -583,7 +999,6 @@ class PaymentListAPIView(APIView):
             user_id = group["user_id"]
             package_id = group["package_id"]
 
-            # All payments for that user + package
             payments = Payment.objects.filter(
                 user_id=user_id,
                 package_id=package_id
@@ -599,21 +1014,60 @@ class PaymentListAPIView(APIView):
 
             latest_payment = payments.first()
 
-            # 🔥 SUM OF ALL PAYMENTS
+            # =====================================
+            # 🔹 SAFE HANDHOLDING DETECTION (FIXED)
+            # =====================================
+            is_handholding = False
+
+            if latest_payment.package:
+                is_handholding = (
+                    latest_payment.package.is_handholding
+                    or "hand" in latest_payment.package.name.lower()
+                )
+
+            if latest_payment.package and latest_payment.package.program:
+                is_handholding = (
+                    is_handholding
+                    or "hand" in latest_payment.package.program.name.lower()
+                )
+
+            # =====================================
+            # 🔹 GET HANDHOLDING PARTICIPANT ID
+            # =====================================
+            handholding_participant_id = None
+
+            if is_handholding:
+                # Try via user_id
+                handholding_participant_id = participant_by_user.get(
+                    latest_payment.user.id
+                )
+
+                # Fallback via email
+                if not handholding_participant_id:
+                    handholding_participant_id = participant_by_email.get(
+                        latest_payment.user.email
+                    )
+
+            # =====================================
+            # 🔹 TOTAL PAID
+            # =====================================
             total_paid = payments.filter(
                 status__in=["partial_paid", "fully_paid", "verification_pending"]
-            ).aggregate(
-                total=Sum("amount")
-            )["total"] or 0
+            ).aggregate(total=Sum("amount"))["total"] or 0
 
-            package_price = latest_payment.package.price if latest_payment.package else 0
+            package_price = (
+                latest_payment.package.price
+                if latest_payment.package else 0
+            )
 
-            # 🔥 Remaining amount
+            # Remaining amount
             remaining_amount = package_price - total_paid
             if remaining_amount < 0:
                 remaining_amount = 0
 
-            # Payment status
+            # =====================================
+            # 🔹 PAYMENT STATUS
+            # =====================================
             if latest_payment.status in ["verification_pending", "rejected"]:
                 payment_status = latest_payment.status
             else:
@@ -624,6 +1078,9 @@ class PaymentListAPIView(APIView):
                 else:
                     payment_status = "fully_paid"
 
+            # =====================================
+            # 🔹 PROOF FILE URL
+            # =====================================
             proof_url = None
             if latest_payment.proof_file:
                 url = reverse(
@@ -632,24 +1089,43 @@ class PaymentListAPIView(APIView):
                 )
                 proof_url = request.build_absolute_uri(url)
 
+            # =====================================
+            # 🔹 RESPONSE
+            # =====================================
             response_data.append({
-                "user_id": latest_payment.user.id,
+                "id": latest_payment.id,
+
+                # ✅ SAFE USER
+                "user_id": latest_payment.user.id if latest_payment.user else None,
+
                 "student_id": (
                     latest_payment.user.student_profile.id
-                    if getattr(latest_payment.user, "student_profile", None)
+                    if latest_payment.user and getattr(latest_payment.user, "student_profile", None)
                     else None
                 ),
-                "user_name": f"{latest_payment.user.first_name} {latest_payment.user.last_name}",
-                "email": latest_payment.user.email,
 
-                # Payment summary
-                "total_paid": float(total_paid),
-                "remaining_amount": float(remaining_amount),
-                "package_price": float(package_price),
+                "is_handholding": is_handholding,
 
-                # Last payment
-                "amount": float(latest_payment.amount),
+                "handholding_participant_id": handholding_participant_id,
 
+                # ✅ SAFE NAME
+                "user_name": (
+                    f"{latest_payment.user.first_name} {latest_payment.user.last_name}"
+                    if latest_payment.user else None
+                ),
+
+                # ✅ SAFE EMAIL
+                "email": latest_payment.user.email if latest_payment.user else None,
+
+                # ✅ SAFE FLOAT VALUES
+                "total_paid": float(total_paid or 0),
+                "remaining_amount": float(remaining_amount or 0),
+                "package_price": float(package_price or 0),
+
+                # ✅ FIX THIS ERROR
+                "amount": float(latest_payment.amount or 0),
+
+                # ✅ SAFE PACKAGE
                 "program_id": (
                     latest_payment.package.program.id
                     if latest_payment.package and latest_payment.package.program
@@ -657,8 +1133,10 @@ class PaymentListAPIView(APIView):
                 ),
                 "program": (
                     latest_payment.package.program.name
-                    if latest_payment.package else None
+                    if latest_payment.package and latest_payment.package.program
+                    else None
                 ),
+
                 "package_id": latest_payment.package.id if latest_payment.package else None,
                 "package": latest_payment.package.name if latest_payment.package else None,
 
@@ -666,17 +1144,23 @@ class PaymentListAPIView(APIView):
                 "created_at": latest_payment.created_at,
                 "payment_date": latest_payment.payment_date,
                 "transaction_id": latest_payment.transaction_id,
+
                 "payment_status": payment_status,
                 "method": latest_payment.method,
 
                 "proof_file_url": proof_url,
             })
-
         return Response({
             "success": True,
             "count": len(response_data),
             "data": response_data
         }, status=status.HTTP_200_OK)
+ 
+ 
+ 
+ 
+ 
+ 
         
 @method_decorator(xframe_options_exempt, name="dispatch")
 class PaymentProofFileView(APIView):
@@ -728,9 +1212,11 @@ class PaymentStatsAPIView(APIView):
 
         total_users = user_packages.count()
 
-        total_expected = sum(
-            item['package__price'] for item in user_packages
-        ) if user_packages else 0
+        total_expected = Payment.objects.values(
+            'user_id', 'package_id'
+        ).distinct().aggregate(
+            total=Sum('package__price')
+        )['total'] or 0
 
         # ==============================
         # 🔹 TOTAL COLLECTED
@@ -840,11 +1326,8 @@ class PaymentLogListAPIView(APIView):
             "total_logs": logs.count(),
             "data": serializer.data
         })
-        
+  
 # class StudentPaymentListAPIView(APIView):
-#     """
-#     Fetch all payments of a student using student_id
-#     """
 
 #     def get(self, request, student_id):
 #         student = get_object_or_404(StudentProfile, id=student_id)
@@ -852,103 +1335,23 @@ class PaymentLogListAPIView(APIView):
 
 #         payments = Payment.objects.filter(user=user).order_by("-created_at")
 
-#         # 🔹 Get program-package once
 #         upp = UserProgramPackage.objects.filter(
 #             user=user
 #         ).select_related("program", "package").first()
 
-#         # 🔹 Total Paid Amount
-#         total_paid = payments.aggregate(
-#             total=Sum("amount")
-#         )["total"] or 0
-
-#         # 🔹 Package Price
-#         package_price = upp.package.price if upp and upp.package else 0
-
-#         # 🔹 Remaining Amount
-#         remaining_amount = package_price - total_paid
-
-#         serializer = PaymentDetailSerializer(
-#             payments,
-#             many=True,
-#             context={
-#                 "request": request,
-#                 "payments": payments,
-#                 "upp": upp
-#             }
-#         )
-
-#         return Response(
-#             {
-#                 "message": "Student payment list fetched successfully",
-#                 "student_id": student.id,
-#                 "user_id": user.id,
-#                 "total_payments": payments.count(),
-#                 "package_price": package_price,
-#                 "total_paid": total_paid,
-#                 "remaining_amount": remaining_amount,
-#                 "data": serializer.data
-#             },
-#             status=status.HTTP_200_OK
-#         )
-
-
-# class StudentPaymentListAPIView(APIView):
-#     """
-#     Fetch all payments of a student using student_id
-#     """
-
-#     def get(self, request, student_id):
-#         student = get_object_or_404(StudentProfile, id=student_id)
-#         user = student.user
-
-#         payments = Payment.objects.filter(user=user).order_by("-created_at")
-
-#         # 🔹 Get program-package once
-#         upp = UserProgramPackage.objects.filter(
-#             user=user
-#         ).select_related("program", "package").first()
-
-#         # 🔹 Total Paid Amount (exclude not_paid entries)
 #         total_paid = payments.filter(
 #             status__in=["partial_paid", "fully_paid"]
 #         ).aggregate(total=Sum("amount"))["total"] or 0
 
-#         # 🔹 Package Price
 #         package_price = upp.package.price if upp and upp.package else 0
 
-#         # 🔹 Remaining Amount
-#         remaining_amount = package_price - total_paid
+#         remaining_amount = max(package_price - total_paid, 0)
 
-#         # 🔹 Payment Progress %
 #         if package_price > 0:
 #             payment_progress = round((total_paid / package_price) * 100, 2)
 #         else:
 #             payment_progress = 0
 
-#         # 🔥 Auto-create remaining payment entry
-#         if remaining_amount > 0 and upp:
-
-#             existing_pending = Payment.objects.filter(
-#                 user=user,
-#                 status="not_paid"
-#             ).exists()
-
-#             if not existing_pending:
-#                 Payment.objects.create(
-#                     user=user,
-#                     package=upp.package,
-#                     amount=remaining_amount,
-#                     payment_type=None,
-#                     method=None,
-#                     transaction_id=None,
-#                     status="not_paid"
-#                 )
-
-#                 payments = Payment.objects.filter(
-#                     user=user
-#                 ).order_by("-created_at")
-
 #         serializer = PaymentDetailSerializer(
 #             payments,
 #             many=True,
@@ -959,187 +1362,116 @@ class PaymentLogListAPIView(APIView):
 #             }
 #         )
 
-#         return Response(
-#             {
-#                 "message": "Student payment list fetched successfully",
-#                 "student_id": student.id,
-#                 "user_id": user.id,
-#                 "total_payments": payments.count(),
-#                 "package_price": package_price,
-#                 "total_paid": total_paid,
-#                 "remaining_amount": remaining_amount,
-#                 "payment_progress_percentage": payment_progress,  # ✅ NEW
-#                 "data": serializer.data
-#             },
-#             status=status.HTTP_200_OK
-#         )
-  
-  
-  
-  
-# class StudentPaymentListAPIView(APIView):
-#     """
-#     Fetch all payments of a student using student_id
-#     """
+#         payment_data = list(serializer.data)
 
-#     def get(self, request, student_id):
-#         student = get_object_or_404(StudentProfile, id=student_id)
-#         user = student.user
+#         # ✅ Add remaining amount as virtual record
+#         if remaining_amount > 0:
+#             payment_data.insert(0, {
+#                 "payment_id": None,
+#                 "amount": remaining_amount,
+#                 "status": "not_paid",
+#                 "payment_type": None,
+#                 "method": None,
+#                 "transaction_id": None,
+#                 "date": None
+#             })
 
-#         payments = Payment.objects.filter(user=user).order_by("-created_at")
-
-#         # 🔹 Get program-package
-#         upp = UserProgramPackage.objects.filter(
-#             user=user
-#         ).select_related("program", "package").first()
-
-#         # 🔹 Total Paid Amount
-#         total_paid = payments.filter(
-#             status__in=["partial_paid", "fully_paid"]
-#         ).aggregate(total=Sum("amount"))["total"] or 0
-
-#         # 🔹 Package Price
-#         package_price = upp.package.price if upp and upp.package else 0
-
-#         # 🔹 Remaining Amount
-#         remaining_amount = package_price - total_paid
-
-#         # 🔹 Payment Progress %
-#         if package_price > 0:
-#             payment_progress = round((total_paid / package_price) * 100, 2)
-#         else:
-#             payment_progress = 0
-
-#         # =================================================
-#         # 🔹 Handle Payment Status Logic
-#         # =================================================
-#         if upp:
-
-#             # Case 1: Fully Paid
-#             if total_paid >= package_price:
-
-#                 # Delete pending payments
-#                 Payment.objects.filter(
-#                     user=user,
-#                     status="not_paid"
-#                 ).delete()
-
-#                 # Update latest payment to fully_paid
-#                 last_payment = Payment.objects.filter(
-#                     user=user
-#                 ).exclude(status="not_paid").order_by("-created_at").first()
-
-#                 if last_payment and last_payment.status != "fully_paid":
-#                     last_payment.status = "fully_paid"
-#                     last_payment.save()
-
-#             # Case 2: Remaining Payment
-#             elif remaining_amount > 0:
-
-#                 existing_pending = Payment.objects.filter(
-#                     user=user,
-#                     status="not_paid"
-#                 ).exists()
-
-#                 if not existing_pending:
-#                     Payment.objects.create(
-#                         user=user,
-#                         package=upp.package,
-#                         amount=remaining_amount,
-#                         payment_type=None,
-#                         method=None,
-#                         transaction_id=None,
-#                         status="not_paid"
-#                     )
-
-#         # 🔹 Refresh payments queryset
-#         payments = Payment.objects.filter(user=user).order_by("-created_at")
-
-#         serializer = PaymentDetailSerializer(
-#             payments,
-#             many=True,
-#             context={
-#                 "request": request,
-#                 "payments": payments,
-#                 "upp": upp
-#             }
-#         )
-
-#         return Response(
-#             {
-#                 "message": "Student payment list fetched successfully",
-#                 "student_id": student.id,
-#                 "user_id": user.id,
-#                 "total_payments": payments.count(),
-#                 "package_price": package_price,
-#                 "total_paid": total_paid,
-#                 "remaining_amount": max(remaining_amount, 0),
-#                 "payment_progress_percentage": payment_progress,
-#                 "data": serializer.data
-#             },
-#             status=status.HTTP_200_OK
-#         )  
-  
+#         return Response({
+#             "message": "Student payment list fetched successfully",
+#             "student_id": student.id,
+#             "user_id": user.id,
+#             "total_payments": len(payment_data),
+#             "package_price": package_price,
+#             "total_paid": total_paid,
+#             "remaining_amount": remaining_amount,
+#             "payment_progress_percentage": payment_progress,
+#             "data": payment_data
+#         })
+ 
+ 
 class StudentPaymentListAPIView(APIView):
 
-    def get(self, request, student_id):
-        student = get_object_or_404(StudentProfile, id=student_id)
-        user = student.user
+    def get(self, request, student_id=None, participant_id=None):
 
-        payments = Payment.objects.filter(user=user).order_by("-created_at")
+        try:
+            # =========================
+            # 🔹 GET USER
+            # =========================
+            if student_id:
+                student = StudentProfile.objects.select_related("user").get(id=student_id)
+                user = student.user
 
-        upp = UserProgramPackage.objects.filter(
-            user=user
-        ).select_related("program", "package").first()
+            elif participant_id:
+                participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+                user = participant.user
 
-        total_paid = payments.filter(
-            status__in=["partial_paid", "fully_paid"]
-        ).aggregate(total=Sum("amount"))["total"] or 0
+            else:
+                return Response({
+                    "message": "student_id or participant_id is required"
+                }, status=400)
 
-        package_price = upp.package.price if upp and upp.package else 0
+            # =========================
+            # 🔹 SAME LOGIC (NO CHANGE BELOW)
+            # =========================
+            payments = Payment.objects.filter(user=user, amount__gt=0 ).order_by("-created_at")
 
-        remaining_amount = max(package_price - total_paid, 0)
+            upp = UserProgramPackage.objects.filter(
+                user=user
+            ).select_related("program", "package").first()
 
-        if package_price > 0:
-            payment_progress = round((total_paid / package_price) * 100, 2)
-        else:
-            payment_progress = 0
+            total_paid = payments.filter(
+                status__in=["partial_paid", "fully_paid"]
+            ).aggregate(total=Sum("amount"))["total"] or 0
 
-        serializer = PaymentDetailSerializer(
-            payments,
-            many=True,
-            context={
-                "request": request,
-                "payments": payments,
-                "upp": upp
-            }
-        )
+            package_price = upp.package.price if upp and upp.package else 0
+            remaining_amount = max(package_price - total_paid, 0)
 
-        payment_data = list(serializer.data)
+            payment_progress = round((total_paid / package_price) * 100, 2) if package_price > 0 else 0
 
-        # ✅ Add remaining amount as virtual record
-        if remaining_amount > 0:
-            payment_data.insert(0, {
-                "payment_id": None,
-                "amount": remaining_amount,
-                "status": "not_paid",
-                "payment_type": None,
-                "method": None,
-                "transaction_id": None,
-                "date": None
+            serializer = PaymentDetailSerializer(
+                payments,
+                many=True,
+                context={"request": request, "payments": payments, "upp": upp}
+            )
+
+            payment_data = list(serializer.data)
+
+            if remaining_amount > 0:
+                payment_data.insert(0, {
+                    "payment_id": None,
+                    "amount": remaining_amount,
+                    "status": "not_paid",
+                    "payment_type": None,
+                    "method": None,
+                    "transaction_id": None,
+                    "date": None
+                })
+
+            return Response({
+                "message": "Payment list fetched successfully",
+                "user_id": user.id,
+                "total_payments": len(payment_data),
+                "package_price": package_price,
+                "total_paid": total_paid,
+                "remaining_amount": remaining_amount,
+                "payment_progress_percentage": payment_progress,
+                "data": payment_data
             })
 
-        return Response({
-            "message": "Student payment list fetched successfully",
-            "student_id": student.id,
-            "user_id": user.id,
-            "total_payments": len(payment_data),
-            "package_price": package_price,
-            "total_paid": total_paid,
-            "remaining_amount": remaining_amount,
-            "payment_progress_percentage": payment_progress,
-            "data": payment_data
-        })
+        except StudentProfile.DoesNotExist:
+            return Response({"message": "Student not found"}, status=404)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({"message": "Participant not found"}, status=404)
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500) 
+ 
+ 
+ 
         
 class StudentPaymentProgressAPIView(APIView):
     """
@@ -1191,68 +1523,101 @@ class StudentPaymentProgressAPIView(APIView):
             
 class StudentPackagePaymentSummaryAPIView(APIView):
     """
-    Get payment summary by student_id + package_id
+    Get payment summary by student_id OR participant_id + package_id
     """
     permission_classes = [IsAdmin | IsSuperAdmin]
 
-    def get(self, request, student_id, package_id):
+    def get(self, request, package_id, student_id=None, participant_id=None):
 
-        # Get student
-        student = get_object_or_404(StudentProfile, id=student_id)
-        user = student.user
+        try:
+            # =========================
+            # 🔹 GET USER
+            # =========================
+            if student_id:
+                student = StudentProfile.objects.select_related("user").get(id=student_id)
+                user = student.user
+                name = f"{user.first_name} {user.last_name}"
 
-        # Get package
-        package = get_object_or_404(Package, id=package_id)
+            elif participant_id:
+                participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+                user = participant.user
+                name = f"{user.first_name} {user.last_name}"
 
-        # Get all payments for this student + package
-        payments = Payment.objects.filter(
-            user=user,
-            package=package
-        )
-
-        if not payments.exists():
-            return Response(
-                {
+            else:
+                return Response({
                     "success": False,
-                    "message": "No payment found for this student and package."
-                },
-                status=status.HTTP_404_NOT_FOUND
+                    "message": "student_id or participant_id is required"
+                }, status=400)
+
+            # =========================
+            # 🔹 PACKAGE
+            # =========================
+            package = get_object_or_404(Package, id=package_id)
+
+            # =========================
+            # 🔹 PAYMENTS
+            # =========================
+            payments = Payment.objects.filter(
+                user=user,
+                package=package
             )
 
-        total_paid = payments.filter(
-            status__in=["partial_paid", "fully_paid", "verification_pending"]
-        ).aggregate(
-            total=Sum("amount")
-        )["total"] or 0
+            if not payments.exists():
+                return Response(
+                    {
+                        "success": False,
+                        "message": "No payment found for this user and package."
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-        package_price = package.price
-        remaining_amount = max(package_price - total_paid, 0)
+            total_paid = payments.filter(
+                status__in=["partial_paid", "fully_paid", "verification_pending"]
+            ).aggregate(
+                total=Sum("amount")
+            )["total"] or 0
 
-        # Latest payment status
-        latest_payment = payments.order_by("-created_at").first()
+            package_price = package.price
+            remaining_amount = max(package_price - total_paid, 0)
 
-        return Response(
-            {
-                "success": True,
-                "data": {
-                    "student_id": student.id,
-                    "student_name": f"{user.first_name} {user.last_name}",
-                    "package_id": package.id,
-                    "package_name": package.name,
-                    "package_price": package_price,
-                    "total_paid": total_paid,
-                    "remaining_amount": remaining_amount,
-                    "payment_status": latest_payment.status
-                }
-            },
-            status=status.HTTP_200_OK
-        )
-        
+            latest_payment = payments.order_by("-created_at").first()
+
+            return Response(
+                {
+                    "success": True,
+                    "data": {
+                        "user_id": user.id,
+                        "name": name,
+                        "package_id": package.id,
+                        "package_name": package.name,
+                        "package_price": package_price,
+                        "total_paid": total_paid,
+                        "remaining_amount": remaining_amount,
+                        "payment_status": latest_payment.status
+                    }
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except StudentProfile.DoesNotExist:
+            return Response({"message": "Student not found"}, status=404)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({"message": "Participant not found"}, status=404)
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+            
+                   
 class UpdatePaymentStatusAPIView(APIView):
     """
     Update payment status anytime
     """
-    permission_classes = [IsAuthenticated]  # Add role permissions if needed
+    permission_classes = [IsAuthenticated]  
 
     @transaction.atomic
     def post(self, request, pk):
@@ -1535,3 +1900,70 @@ class PaymentReminderAPI(APIView):
             },
             status=status.HTTP_200_OK
         )
+        
+class PendingHandHoldingParticipantsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        participants = HandHoldingParticipant.objects.select_related("user")
+
+        result = []
+
+        for participant in participants:
+            user = participant.user
+
+            # 🔹 Get latest handholding package
+            upp = UserProgramPackage.objects.filter(
+                user=user,
+                package__is_handholding=True
+            ).select_related("package").order_by("-created_at").first()
+
+            if not upp or not upp.package:
+                continue
+
+            package = upp.package
+            package_price = package.price or Decimal("0")
+
+            # 🔹 Total paid
+            total_paid = Payment.objects.filter(
+                user=user,
+                package=package
+            ).exclude(status="not_paid").aggregate(
+                total=Sum("amount")
+            )["total"] or Decimal("0")
+
+            # 🔹 Payment status
+            if total_paid == 0:
+                payment_status = "not_paid"
+            elif total_paid < package_price:
+                payment_status = "partial_paid"
+            else:
+                payment_status = "fully_paid"
+
+            # ✅ FILTER
+            if payment_status in ["not_paid", "partial_paid"]:
+                result.append({
+                    "id": participant.id,
+                    "user_id": user.id,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "email": user.email,
+                    # "name": f"{user.first_name} {user.last_name}",
+
+                    # ✅ NEW FIELD ADDED
+                    "preferred_counselling_mode": participant.preferred_counselling_mode,
+
+                    "package_id": package.id,
+                    "package_name": package.name,
+                    "package_price": package_price,
+                    "total_paid": total_paid,
+                    "remaining_amount": package_price - total_paid,
+                    "payment_status": payment_status,
+                })
+
+        return Response({
+            "success": True,
+            "count": len(result),
+            "data": result
+        })

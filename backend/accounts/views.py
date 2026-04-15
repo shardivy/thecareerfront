@@ -1,7 +1,9 @@
 from collections import defaultdict
+from itertools import chain
 
 from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.hashers import check_password
+from event.models import HandHoldingParticipant, HandHoldingParticipantSession
 from content.models import Content
 from exam.models import UserExam
 from django.db.models.functions import TruncMonth
@@ -18,7 +20,7 @@ from rest_framework import status
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth.hashers import make_password
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Q, OuterRef, Subquery, Sum
 from django.utils.timezone import now
 from decimal import Decimal
 from calendar import month_abbr
@@ -27,7 +29,7 @@ from dateutil.relativedelta import relativedelta
 from django.db.models.functions import ExtractYear
 
 from accounts.permissions import IsAdmin, IsSuperAdmin
-from accounts.serializers import PermissionSerializer, RolePermissionSerializer, RoleSerializer, StudentListSerializer, UserSerializer
+from accounts.serializers import HandholdingUsersListSerializer, PermissionSerializer, RolePermissionSerializer, RoleSerializer, StudentListSerializer, UserSerializer
 from lead_registration.models import Lead, ParentProfile, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference
 from program_package.models import Package, UserProgramPackage
 from counselling_slot.models import Booking, Counsellor
@@ -782,7 +784,7 @@ class LoginAPIView(APIView):
 
         allowed_roles = [
             "superadmin", "admin", "lead_counsellor", 
-            "counsellor", "student", "parent", "ui_ux", "basic_user"
+            "counsellor", "student", "parent", "ui_ux", "basic_user", "handholding"
         ]
 
         if actual_role not in allowed_roles:
@@ -801,9 +803,11 @@ class LoginAPIView(APIView):
         user_package = user.userprogrampackage_set.first()
 
         aptitude_test_status = False
+        is_handholding_status = False
 
         if user_package and user_package.package:
             aptitude_test_status = user_package.package.aptitude_test
+            is_handholding_status = user_package.package.is_handholding
          
         response_data = {
             "access": str(refresh.access_token),
@@ -818,6 +822,7 @@ class LoginAPIView(APIView):
                 
             },
             "aptitude_test": aptitude_test_status,
+            "is_handholding": is_handholding_status,
             "message": "Login Successfully.",
             # "debug": {
             #     "password_validation": "success",
@@ -948,6 +953,39 @@ class ProfileUpdateAPIView(APIView):
             "is_active": user.is_active,
             "created_at": user.created_at
         }
+        # ==========================
+        # 🔹 Handholding Info
+        # ==========================
+            
+        if user.role and user.role.name.lower() == "handholding":
+
+                participant = HandHoldingParticipant.objects.filter(user=user).first()
+
+                if participant:
+                    response_data.update({
+                        "participant_id": participant.id,
+                        "mobile": participant.mobile,
+                        "email": participant.email,
+                        "show_profile": participant.show_profile,
+                        "full_address": participant.full_address,
+                        "city": participant.city,
+                        "state": participant.state,
+                        "pincode": participant.pincode,
+                        "preferred_counselling_mode": participant.preferred_counselling_mode,
+                        "total_sessions": participant.total_sessions,
+                        "completed_sessions": participant.completed_sessions,
+                        "status": participant.status,
+                        "certificate_issued": participant.certificate_issued,
+                        "photo": request.build_absolute_uri(participant.photo.url)
+                            if participant.photo else None,
+                        "resume_file": request.build_absolute_uri(participant.resume_file.url)
+                            if participant.resume_file else None,
+                        "created_at": participant.created_at
+                    })
+                else:
+                    response_data["handholding"] = None
+            
+        
 
         if student_profile:
 
@@ -967,7 +1005,8 @@ class ProfileUpdateAPIView(APIView):
                 "dob": student_profile.dob,
                 "complete_profile": student_profile.is_profile_complete
             })
-
+            
+            
             # ==========================
             # 🔹 Parent Info
             # ==========================
@@ -1081,7 +1120,7 @@ class ProfileUpdateAPIView(APIView):
                     "package_id": upp.package.id if upp.package else None,
                     "package": upp.package.name if upp.package else None,
                     "aptitude_test": aptitude_test_status,
-                    "engineering_test_analysis": upp.package.engineering_test_analysis 
+                    "engineering_test_analysis": upp.package.engineering_test_analysis if upp.package else False
                 })
             else:
                 response_data["aptitude_test"] = False
@@ -1160,6 +1199,45 @@ class ProfileUpdateAPIView(APIView):
         #         {"error": "Student profile does not exist"},
         #         status=status.HTTP_400_BAD_REQUEST
         #     )
+        
+        # ==========================
+        # 🔹 HANDHOLDING UPDATE
+        # ==========================
+        if user.role and user.role.name.lower() == "handholding":
+
+            participant, created = HandHoldingParticipant.objects.get_or_create(user=user)
+
+            participant.mobile = data.get("mobile", participant.mobile)
+            participant.email = data.get("email", participant.email)
+            participant.show_profile = data.get("show_profile", participant.show_profile)
+
+            participant.full_address = data.get("full_address", participant.full_address)
+            participant.city = data.get("city", participant.city)
+            participant.state = data.get("state", participant.state)
+            participant.pincode = data.get("pincode", participant.pincode)
+
+            participant.preferred_counselling_mode = data.get(
+                "preferred_counselling_mode",
+                participant.preferred_counselling_mode
+            )
+
+            participant.total_sessions = data.get(
+                "total_sessions",
+                participant.total_sessions
+            )
+
+            # ❗ optional fields
+            if "photo" in request.FILES:
+                participant.photo = request.FILES["photo"]
+
+            if "resume_file" in request.FILES:
+                participant.resume_file = request.FILES["resume_file"]
+
+            participant.save()
+
+            return Response({
+                "message": "Handholding profile updated successfully"
+            }, status=status.HTTP_200_OK)
 
         # ==========================
         # 🔹 Update Student Basic Info
@@ -2071,7 +2149,40 @@ class StudentListAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+        
+class HandholdingUsersListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+
+        # ✅ Subquery FIRST
+        not_booked_session = HandHoldingParticipantSession.objects.filter(
+            handholding_participant=OuterRef("pk"),
+            status="not_booked"
+        ).order_by("session_no")
+
+        # ✅ APPLY annotation here
+        handholding_users = HandHoldingParticipant.objects.select_related("user").annotate(
+            next_not_booked_session_no=Subquery(
+                not_booked_session.values("session_no")[:1]
+            )
+        )
+
+        # ✅ THEN serialize
+        serializer = HandholdingUsersListSerializer(
+            handholding_users,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Handholding users fetched successfully",
+                "data": serializer.data,
+            },
+            status=status.HTTP_200_OK
+        )
 
 class AdminDashboardAPIView(APIView):
     permission_classes = [IsAuthenticated]
