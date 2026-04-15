@@ -66,6 +66,67 @@ class PaymentCreateAPIView(APIView):
                 user=payment.user
             ).update(report_status="received_unlocked")
 
+    # def post(self, request):
+    #     serializer = PaymentCreateSerializer(
+    #         data=request.data,
+    #         context={"request": request}
+    #     )
+
+    #     if not serializer.is_valid():
+    #         return Response(
+    #             {
+    #                 "success": False,
+    #                 "errors": serializer.errors
+    #             },
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     with transaction.atomic():
+    #         payment = serializer.save()
+            
+    #         self.unlock_report_if_paid(payment)
+            
+    #         # =========================
+    #         # 🔔 SEND NOTIFICATION TO SUPERADMIN
+    #         # =========================
+    #         user_name = f"{payment.user.first_name} {payment.user.last_name}"
+    #         amount = payment.amount
+
+    #         title = "Payment Received"
+
+    #         message = (
+    #             f"User {user_name} has successfully made a payment of ₹{amount}."
+    #         )
+
+    #         admin_users = User.objects.filter(is_superuser=True)
+
+    #         for admin in admin_users:
+    #             admin_id = admin.id  # ✅ fix lambda issue
+
+    #             on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+    #                 admin_id,
+    #                 title,
+    #                 message
+    #             ))
+            
+    #     # send email
+    #     send_payment_created_email(payment.user, payment)
+
+    #     # ✅ THIS IS THE KEY LINE
+    #     response_data = PaymentResponseSerializer(
+    #         payment,
+    #         context={"request": request}
+    #     ).data
+
+    #     return Response(
+    #         {
+    #             "success": True,
+    #             "message": "Payment created successfully",
+    #             "data": response_data
+    #         },
+    #         status=status.HTTP_201_CREATED
+    #     )
+    
     def post(self, request):
         serializer = PaymentCreateSerializer(
             data=request.data,
@@ -93,30 +154,26 @@ class PaymentCreateAPIView(APIView):
             amount = payment.amount
 
             title = "Payment Received"
-
-            message = (
-                f"User {user_name} has successfully made a payment of ₹{amount}."
-            )
+            message = f"User {user_name} has successfully made a payment of ₹{amount}."
 
             admin_users = User.objects.filter(is_superuser=True)
 
             for admin in admin_users:
-                admin_id = admin.id  # ✅ fix lambda issue
+                admin_id = admin.id
 
-                # on_commit(lambda admin_id=admin_id: create_system_notification.delay(
-                #     admin_id,
-                #     title,
-                #     message
-                # ))
-            def send_notification(admin_id):
-                create_system_notification.delay(admin_id, title, message)
+                # ✅ CORRECT WAY
+                on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+                    admin_id,
+                    title,
+                    message
+                ))
 
-                on_commit(lambda admin_id=admin_id: send_notification(admin_id))
-            
-        # send email
-        send_payment_created_email(payment.user, payment)
+        # ✅ Send email AFTER transaction
+        try:
+            send_payment_created_email(payment.user, payment)
+        except Exception as e:
+            print("Email error:", e)
 
-        # ✅ THIS IS THE KEY LINE
         response_data = PaymentResponseSerializer(
             payment,
             context={"request": request}
