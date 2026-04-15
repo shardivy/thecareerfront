@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.db.models import Sum
 
+from counselling_slot.models import Booking
 from program_package.models import UserProgramPackage
 from payment.models import Payment
 from event.models import Advertisement, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
@@ -183,6 +184,8 @@ class HandHoldingParticipantSessionSerializer(serializers.ModelSerializer):
     )
     start_time = serializers.SerializerMethodField()
     end_time = serializers.SerializerMethodField()
+    
+    student_id = serializers.SerializerMethodField()
 
     class Meta:
         model = HandHoldingParticipantSession
@@ -197,7 +200,8 @@ class HandHoldingParticipantSessionSerializer(serializers.ModelSerializer):
             "end_time",
             "session_no",
             "session_date",
-            "status",           
+            "status", 
+            "student_id",          
         ]
         
     def get_start_time(self, obj):
@@ -205,7 +209,17 @@ class HandHoldingParticipantSessionSerializer(serializers.ModelSerializer):
 
     def get_end_time(self, obj):
         return obj.slot.end_time if obj.slot else None
-        
+    
+    def get_student_id(self, obj):  
+        if not obj.slot:
+            return None
+
+        booking = Booking.objects.filter(
+            slot=obj.slot
+        ).exclude(status="cancelled").select_related("student").first()
+
+        return booking.student.id if booking and booking.student else None
+            
 # ====================== Advertisement Serializer ======================
 
 class AdvertisementSerializer(serializers.ModelSerializer):

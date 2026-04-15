@@ -10,12 +10,19 @@ from datetime import datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
 from django.db.models import Max
+from django.core.files.base import ContentFile
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+import io
+import os
+from django.conf import settings
+
 
 from accounts.models import Role, User
+from event.utils import get_font_path
 from counselling_slot.models import Booking, Slot
 from event.serializers import AdvertisementSerializer, HandHoldingParticipantSerializer, HandHoldingParticipantSessionSerializer, HandHoldingSessionSerializer
 from program_package.models import Program
-from event.models import HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
+from event.models import Certificate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 from payment.models import Payment
 from lead_registration.models import Lead
 
@@ -483,6 +490,136 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
         }, status=status.HTTP_200_OK) 
         
               
+# class BookHandHoldingSessionAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+
+#         participant_id = request.data.get("participant_id")
+#         session_no = request.data.get("session_no")
+#         slot_id = request.data.get("slot_id")
+#         date = request.data.get("date")
+
+#         # =========================
+#         # 🔹 VALIDATION
+#         # =========================
+#         if not participant_id or not session_no or not slot_id or not date:
+#             return Response({
+#                 "message": "participant_id, session_no, slot_id and date are required"
+#             }, status=400)
+
+#         # ✅ Convert date string → date object
+#         try:
+#             selected_date = datetime.strptime(date, "%Y-%m-%d").date()
+#         except ValueError:
+#             return Response({
+#                 "message": "Invalid date format. Use YYYY-MM-DD"
+#             }, status=400)
+
+#         try:
+#             with transaction.atomic():
+
+#                 participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+
+#                 # session = HandHoldingParticipantSession.objects.get(
+#                 #     handholding_participant=participant,
+#                 #     session_no=session_no
+#                 # )
+#                 session, created = HandHoldingParticipantSession.objects.get_or_create(
+#                     handholding_participant=participant,
+#                     session_no=session_no,
+#                     defaults={
+#                         "status": "not_booked"
+#                     }
+#                 )
+
+#                 slot = Slot.objects.select_related("counsellor").get(
+#                     id=slot_id,
+#                     is_available=True,
+#                     is_deleted=False
+#                 )
+
+#                 # =========================
+#                 # 🔒 PREVENT DOUBLE BOOKING
+#                 # =========================
+#                 if session.status in ["booked", "completed"]:
+#                     return Response({
+#                         "message": "Session already booked/completed"
+#                     }, status=400)
+
+#                 # Check if slot already used
+#                 slot_used = HandHoldingParticipantSession.objects.filter(
+#                     slot=slot
+#                 ).exclude(id=session.id).exists()
+
+#                 if slot_used:
+#                     return Response({
+#                         "message": "This slot is already booked"
+#                     }, status=400)
+
+#                 # =========================
+#                 # 🔒 DATE VALIDATION
+#                 # =========================
+#                 if slot.date != selected_date:
+#                     return Response({
+#                         "message": "Selected date does not match slot date"
+#                     }, status=400)
+
+#                 # =========================
+#                 # 🔹 SET SESSION DATETIME
+#                 # =========================
+#                 session_datetime = datetime.combine(
+#                     selected_date,
+#                     datetime.strptime(slot.start_time, "%I:%M %p").time()
+#                 )
+
+#                 # =========================
+#                 # 🔹 UPDATE SESSION
+#                 # =========================
+#                 session.slot = slot
+#                 session.session_date = session_datetime
+#                 session.status = "booked"
+#                 session.conducted_by = slot.counsellor
+#                 session.save()
+
+#                 # =========================
+#                 # 🔹 BLOCK SLOT
+#                 # =========================
+#                 slot.is_available = False
+#                 slot.save(update_fields=["is_available"])
+
+#                 # =========================
+#                 # 🔹 RESPONSE
+#                 # =========================
+#                 return Response({
+#                     "message": "Session booked successfully",
+#                     "data": {
+#                         "participant_id": participant.id,
+#                         "session_no": session.session_no,
+#                         "slot_id": slot.id,
+#                         "date": selected_date,
+#                         "start_time": slot.start_time,
+#                         "end_time": slot.end_time,
+#                         "counsellor_id": slot.counsellor.id,
+#                         "counsellor_name": f"{slot.counsellor.first_name} {slot.counsellor.last_name}"
+#                     }
+#                 }, status=200)
+
+#         except HandHoldingParticipant.DoesNotExist:
+#             return Response({"message": "Participant not found"}, status=404)
+
+#         except HandHoldingParticipantSession.DoesNotExist:
+#             return Response({"message": "Session not found"}, status=404)
+
+#         except Slot.DoesNotExist:
+#             return Response({"message": "Slot not available"}, status=400)
+
+#         except Exception as e:
+#             return Response({
+#                 "message": "Something went wrong",
+#                 "error": str(e)
+#             }, status=500)
+
 class BookHandHoldingSessionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -512,20 +649,31 @@ class BookHandHoldingSessionAPIView(APIView):
         try:
             with transaction.atomic():
 
+                # =========================
+                # 🔹 GET PARTICIPANT
+                # =========================
                 participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
 
-                # session = HandHoldingParticipantSession.objects.get(
-                #     handholding_participant=participant,
-                #     session_no=session_no
-                # )
-                session, created = HandHoldingParticipantSession.objects.get_or_create(
+                # =========================
+                # 🔹 GET OR CREATE SESSION (FIXED)
+                # =========================
+                sessions = HandHoldingParticipantSession.objects.filter(
                     handholding_participant=participant,
-                    session_no=session_no,
-                    defaults={
-                        "status": "not_booked"
-                    }
-                )
+                    session_no=session_no
+                ).order_by("id")
 
+                if sessions.exists():
+                    session = sessions.first()
+                else:
+                    session = HandHoldingParticipantSession.objects.create(
+                        handholding_participant=participant,
+                        session_no=session_no,
+                        status="not_booked"
+                    )
+
+                # =========================
+                # 🔹 GET SLOT
+                # =========================
                 slot = Slot.objects.select_related("counsellor").get(
                     id=slot_id,
                     is_available=True,
@@ -537,10 +685,10 @@ class BookHandHoldingSessionAPIView(APIView):
                 # =========================
                 if session.status in ["booked", "completed"]:
                     return Response({
-                        "message": "Session already booked/completed"
+                        "message": "Session already booked or completed"
                     }, status=400)
 
-                # Check if slot already used
+                # Slot already used check
                 slot_used = HandHoldingParticipantSession.objects.filter(
                     slot=slot
                 ).exclude(id=session.id).exists()
@@ -600,9 +748,6 @@ class BookHandHoldingSessionAPIView(APIView):
 
         except HandHoldingParticipant.DoesNotExist:
             return Response({"message": "Participant not found"}, status=404)
-
-        except HandHoldingParticipantSession.DoesNotExist:
-            return Response({"message": "Session not found"}, status=404)
 
         except Slot.DoesNotExist:
             return Response({"message": "Slot not available"}, status=400)
@@ -1331,3 +1476,217 @@ class AdvertisementCreateAPIView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+# ============================ Certificate Views ============================
+
+import os
+import io
+import time
+from django.conf import settings
+from django.utils import timezone
+from django.core.files.base import ContentFile
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from PIL import Image, ImageDraw, ImageFont
+
+from .models import HandHoldingParticipant, Certificate
+from .utils import get_font_path
+
+
+class GenerateCertificateAPIView(APIView):
+
+    @staticmethod
+    def trim_whitespace(im):
+        # Convert to RGBA to preserve transparency
+        if im.mode != 'RGBA':
+            im = im.convert('RGBA')
+
+        # Get bounding box of non-empty pixels
+        bbox = im.getbbox()
+        if bbox:
+            im = im.crop(bbox)
+        return im
+
+    def post(self, request):
+        participant_ids = request.data.get("participant_ids", [])
+
+        if not participant_ids:
+            return Response({
+                "success": False,
+                "error": "participant_ids is required"
+            }, status=400)
+
+        certificates = []
+
+        for pid in participant_ids:
+            participant = HandHoldingParticipant.objects.filter(
+                id=pid
+            ).select_related("user").first()
+
+            if not participant or not participant.user:
+                continue
+
+            user = participant.user
+
+            # =========================
+            # 🎯 LOAD TEMPLATE
+            # =========================
+            template_path = os.path.join(settings.MEDIA_ROOT, "certificate-template.jpeg")
+            if not os.path.exists(template_path):
+                return Response({
+                    "success": False,
+                    "error": f"Template not found at {template_path}"
+                }, status=400)
+
+            image = Image.open(template_path)
+
+            # Always use RGB for certificates
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+
+            draw = ImageDraw.Draw(image)
+            
+            # =========================
+            # 📍 COLORS - KEEPING BLACK TEXT
+            # =========================
+            text_color = (251, 251, 251)   # pure white
+            # shadow_color = (200, 200, 200)  # light gray shadow
+
+            # =========================
+            # 🔤 FONT - SIGNIFICANTLY INCREASED NAME FONT SIZE
+            # =========================
+            font_path = get_font_path()
+            
+            # Increased name font to 120 for much larger text
+            try:
+                name_font = ImageFont.truetype(font_path, 90) if font_path and os.path.exists(font_path) else ImageFont.load_default()
+            except:
+                # Fallback to Arial with larger size if GreatVibes fails
+                try:
+                    name_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 90)
+                except:
+                    name_font = ImageFont.load_default()
+
+            # Date font size
+            try:
+                date_font = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 45)
+            except:
+                try:
+                    date_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 45)
+                except:
+                    date_font = ImageFont.load_default()
+
+            # =========================
+            # 🧑 DATA
+            # =========================
+            full_name = f"{user.first_name} {user.last_name}".strip()
+            if not full_name:
+                full_name = user.email.split('@')[0] if user.email else f"Participant_{pid}"
+            
+            today_date = timezone.now().strftime("%d %B %Y")
+
+            # =========================
+            # 📍 POSITIONS - ADJUSTED FOR LARGER FONT
+            # =========================
+            img_width, img_height = image.size
+            center_x = img_width // 2
+            
+            # Calculate text size to adjust position dynamically
+            try:
+                name_bbox = draw.textbbox((0, 0), full_name, font=name_font)
+                name_width = name_bbox[2] - name_bbox[0]
+                name_height = name_bbox[3] - name_bbox[1]
+            except:
+                name_width = len(full_name) * 80  # Rough estimate for 160px font
+                name_height = 160
+            
+            # Adjust Y position based on font size
+            # Move up more for larger font to keep it centered in the name area
+            name_y = 720  # Moved up from 760 to accommodate 160px font
+            date_y = 960
+            
+            # Further adjustment for very large names
+            if name_height > 150:
+                name_y = 700  # Move up even more for 160px font
+            
+            # Draw name with shadow (keep black text)
+            # shadow_offset = 4  # Increased shadow offset for larger font
+            draw.text(
+                (center_x , name_y ), 
+                full_name, 
+                font=name_font, 
+                # fill=shadow_color, 
+                anchor="mm"
+            )
+            draw.text(
+                (center_x, name_y), 
+                full_name, 
+                font=name_font, 
+                fill=text_color,  # Keep BLACK text
+                anchor="mm"
+            )
+
+            # Draw date with shadow (keep black text)
+            draw.text(
+                (center_x + 2, date_y + 2), 
+                today_date, 
+                font=date_font, 
+                # fill=shadow_color, 
+                anchor="mm"
+            )
+            draw.text(
+                (center_x, date_y), 
+                today_date, 
+                font=date_font, 
+                fill=text_color,  # Keep BLACK text
+                anchor="mm"
+            )
+
+            # =========================
+            # ✂️ TRIM WHITE/TRANSPARENT BORDERS
+            # =========================
+            image = self.trim_whitespace(image)
+
+            # Convert RGBA → RGB before saving as JPEG
+            if image.mode == "RGBA":
+                image = image.convert("RGB")
+
+            # =========================
+            # 💾 SAVE IMAGE
+            # =========================
+            buffer = io.BytesIO()
+            image.save(buffer, format="JPEG", quality=95)
+            buffer.seek(0)
+
+            file_name = f"certificate_participant_{pid}_{int(timezone.now().timestamp())}.jpeg"
+
+            certificate, _ = Certificate.objects.get_or_create(
+                user=user,
+                program_type="handholding"
+            )
+
+            certificate.certificate_file.save(
+                file_name,
+                ContentFile(buffer.read()),
+                save=False
+            )
+
+            certificate.certificate_status = "issued"
+            certificate.issued_at = timezone.now()
+            certificate.save()
+
+            certificates.append({
+                "participant_id": pid,
+                "user": user.id,
+                "name": full_name,
+                "certificate_file": request.build_absolute_uri(
+                    certificate.certificate_file.url
+                )
+            })
+
+        return Response({
+            "success": True,
+            "message": "Certificates generated successfully",
+            "data": certificates
+        }, status=201)
