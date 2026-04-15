@@ -4,7 +4,7 @@ from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import  IsAuthenticated
+from rest_framework.permissions import  IsAuthenticated, AllowAny
 
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from report.models import Report
@@ -18,7 +18,7 @@ class ProgramListAPIView(APIView):
     """
     List all programs with enrolled users count
     """
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [AllowAny]
     def get(self, request):
         programs = Program.objects.annotate(
             enrolled_users=Count("userprogrampackage", distinct=True)
@@ -180,6 +180,7 @@ class PackageCreateAPIView(APIView):
                     "is_active": package.is_active,
                     "aptitude_test": package.aptitude_test,
                     "engineering_test_analysis": package.engineering_test_analysis,
+                    "is_handholding": package.is_handholding,
                     "features": [
                         {
                             "id": feature.id,
@@ -233,6 +234,7 @@ class PackageCreateAPIView(APIView):
                     "is_active": package.is_active,
                     "aptitude_test": package.aptitude_test,
                     "engineering_test_analysis": package.engineering_test_analysis,
+                    "is_handholding": package.is_handholding,
                     "features": [
                         {
                             "id": f.id,
@@ -319,7 +321,7 @@ class DashboardCountAPIView(APIView):
  
 # Fetch packages for a specific program        
 class ProgramPackagesAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, program_id):
         program = get_object_or_404(Program, id=program_id, is_active=True)

@@ -22,9 +22,9 @@ class Payment(models.Model):
         ("verification_pending", "Verification Pending"),
     )
     
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    package = models.ForeignKey(Package, on_delete=models.CASCADE)
-    amount = models.DecimalField(max_digits=20, decimal_places=2)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
+    amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
     payment_type = models.CharField(max_length=50, choices=PAYMENTTYPE_CHOICE, null=True, blank=True)
     method = models.CharField(max_length=200, choices=METHOD_CHOICE, null=True, blank=True)
     status = models.CharField(max_length=50, choices=STATUS_CHOICE, default='verification_pending')
@@ -36,7 +36,10 @@ class Payment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
-        return f"{self.user.first_name} - {self.payment_type}"
+        user_name = self.user.first_name if self.user else "No User"
+        payment_type = self.payment_type if self.payment_type else "No Type"
+
+        return f"{user_name} - {payment_type}"
     
 
 class PaymentLog(models.Model):

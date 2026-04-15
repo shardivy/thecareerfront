@@ -1,8 +1,10 @@
 from decimal import Decimal
+from urllib import request
 
 from rest_framework import serializers
 
 from accounts.models import User
+from event.models import HandHoldingParticipant
 from lead_registration.models import Hobby, Lead, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from program_package.models import Package, Program, UserProgramPackage
 from program_package.serializers import PackageSerializer, ProgramSerializer
@@ -20,12 +22,52 @@ class LeadPackageSerializer(serializers.ModelSerializer):
             "is_active",
             "created_at",
         )
+        
+class HandHoldingParticipantSerializer(serializers.ModelSerializer):
+    photo = serializers.SerializerMethodField()
+    resume_file = serializers.SerializerMethodField()
+    proof_file = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = HandHoldingParticipant
+        fields = [
+            "show_profile",
+            "photo",
+            "resume_file",
+            "proof_file", 
+            "full_address",
+            "city",
+            "state",
+            "preferred_counselling_mode",
+            "payment"
+        ]
+        
+    def get_photo(self, obj):
+        request = self.context.get("request")
+        if obj.photo:
+            return request.build_absolute_uri(obj.photo.url)
+        return None
+
+    def get_resume_file(self, obj):
+        request = self.context.get("request")
+        if obj.resume_file:
+            return request.build_absolute_uri(obj.resume_file.url)
+        return None
+    
+    def get_proof_file(self, obj):
+        request = self.context.get("request")
+
+        if obj.payment and obj.payment.proof_file:
+            return request.build_absolute_uri(obj.payment.proof_file.url)
+
+        return None
 
 
 class LeadSerializer(serializers.ModelSerializer):
     program_detail = ProgramSerializer(source='program', read_only=True)
     package_detail = serializers.SerializerMethodField()
-    preferred_counselling_mode = serializers.SerializerMethodField() 
+    preferred_counselling_mode = serializers.SerializerMethodField()
+    handholding_details = serializers.SerializerMethodField() 
        
     class Meta:
         model = Lead
@@ -39,23 +81,49 @@ class LeadSerializer(serializers.ModelSerializer):
             'program',
             'program_detail',
             'package_detail',
+            'handholding_details',
             'source',
             'status',
             'date',
         )
         read_only_fields = ('status',) 
         
+    # def get_preferred_counselling_mode(self, obj):
+    #     try:
+    #         user = User.objects.filter(email=obj.email).first()
+    #         if not user:
+    #             return None
+
+    #         profile = getattr(user, "student_profile", None)
+    #         if not profile:
+    #             return None
+
+    #         return profile.preferred_counselling_mode
+    #     except Exception:
+    #         return None
     def get_preferred_counselling_mode(self, obj):
         try:
             user = User.objects.filter(email=obj.email).first()
             if not user:
                 return None
 
+            # ✅ 1. Try StudentProfile (normal users)
             profile = getattr(user, "student_profile", None)
-            if not profile:
-                return None
+            if profile and profile.preferred_counselling_mode:
+                return profile.preferred_counselling_mode
 
-            return profile.preferred_counselling_mode
+            # ✅ 2. Fallback to HandHoldingParticipant
+            participant = HandHoldingParticipant.objects.filter(user=user).first()
+
+            if not participant:
+                # fallback via email (important)
+                participant = HandHoldingParticipant.objects.filter(email=obj.email).first()
+
+            if participant:
+                return participant.mode
+
+            return None
+
         except Exception:
             return None
         
@@ -73,6 +141,29 @@ class LeadSerializer(serializers.ModelSerializer):
 
 
         except Exception:
+            return None
+    
+    def get_handholding_details(self, obj):
+        try:
+            user = User.objects.filter(email=obj.email).first()
+
+            participant = None
+
+            # ✅ First try via user
+            if user:
+                participant = HandHoldingParticipant.objects.filter(user=user).first()
+
+            # ✅ Fallback via email
+            if not participant and obj.email:
+                participant = HandHoldingParticipant.objects.filter(email=obj.email).first()
+
+            if not participant:
+                return None
+
+            return HandHoldingParticipantSerializer(participant, context={"request": self.context.get("request")}).data
+
+        except Exception as e:
+            print("ERROR:", e)
             return None
 
     def validate_phone(self, value):
@@ -100,6 +191,10 @@ class AddUserSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False)
     phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     password = serializers.CharField(required=False, write_only=True)
+    
+    photo = serializers.FileField(required=False, allow_null=True)
+    resume_file = serializers.FileField(required=False, allow_null=True)
+    show_profile = serializers.BooleanField(required=False, default=False)
 
 
     # -------------------------
@@ -116,7 +211,7 @@ class AddUserSerializer(serializers.Serializer):
     # Program & Package
     # -------------------------
     program = serializers.PrimaryKeyRelatedField(queryset=Program.objects.all())
-    package = serializers.PrimaryKeyRelatedField(queryset=Package.objects.all())
+    package = serializers.PrimaryKeyRelatedField(queryset=Package.objects.all(), required=False, allow_null=True)
 
     # -------------------------
     # Payment (optional)
@@ -171,42 +266,87 @@ class AddUserSerializer(serializers.Serializer):
     # -------------------------
     # Cross-field Validation
     # -------------------------
+    # def validate(self, attrs):
+    #     package = attrs.get("package")
+    #     program = attrs.get("program")
+    #     amount = attrs.get("amount")
+    #     payment_type = attrs.get("payment_type")
+
+    #     # ✅ Ensure package belongs to program (recommended)
+    #     if package and program:
+    #         if package.program != program:
+    #             raise serializers.ValidationError(
+    #                 {"package": "Selected package does not belong to the selected program."}
+    #             )
+
+    #     # ✅ Validate payment rules
+    #     if amount is not None:
+
+    #         package_price = package.price
+
+
+    #         # ❌ Minimum amount check
+    #         # if amount < Decimal("500"):
+    #         #     raise serializers.ValidationError(
+    #         #         {"amount": "Minimum payment amount must be ₹500."}
+    #         #     )
+
+    #         # ❌ Exceeding package amount
+    #         if amount > package_price:
+    #             raise serializers.ValidationError(
+    #                 {"amount": f"Amount cannot exceed package price ₹{package_price}."}
+    #             )
+
+    #         # ❌ Payment type required if amount provided
+    #         # if not payment_type:
+    #         #     raise serializers.ValidationError(
+    #         #         {"payment_type": "Payment type is required when amount is provided."}
+    #         #     )
+
+    #     return attrs
+    
     def validate(self, attrs):
         package = attrs.get("package")
         program = attrs.get("program")
         amount = attrs.get("amount")
         payment_type = attrs.get("payment_type")
 
-        # ✅ Ensure package belongs to program (recommended)
-        if package and program:
-            if package.program != program:
-                raise serializers.ValidationError(
-                    {"package": "Selected package does not belong to the selected program."}
-                )
+        is_handholding = package.is_handholding if package else False
 
-        # ✅ Validate payment rules
-        if amount is not None:
+        # ================================
+        # ✅ PACKAGE VALIDATION
+        # ================================
+        if not is_handholding:
+            # Package required for other programs
+            if not package:
+                raise serializers.ValidationError({
+                    "package": "This field is required."
+                })
 
-            package_price = package.price
+            # Ensure package belongs to program
+            if package and program and package.program != program:
+                raise serializers.ValidationError({
+                    "package": "Selected package does not belong to the selected program."
+                })
 
+        # ================================
+        # ✅ PAYMENT VALIDATION
+        # ================================
+        if amount is not None and not is_handholding:
 
-            # ❌ Minimum amount check
-            # if amount < Decimal("500"):
-            #     raise serializers.ValidationError(
-            #         {"amount": "Minimum payment amount must be ₹500."}
-            #     )
+            package_price = package.price if package else Decimal("0")
 
             # ❌ Exceeding package amount
             if amount > package_price:
-                raise serializers.ValidationError(
-                    {"amount": f"Amount cannot exceed package price ₹{package_price}."}
-                )
+                raise serializers.ValidationError({
+                    "amount": f"Amount cannot exceed package price ₹{package_price}."
+                })
 
-            # ❌ Payment type required if amount provided
-            # if not payment_type:
-            #     raise serializers.ValidationError(
-            #         {"payment_type": "Payment type is required when amount is provided."}
-            #     )
+            # (Optional) enforce payment type
+            # if amount > 0 and not payment_type:
+            #     raise serializers.ValidationError({
+            #         "payment_type": "Payment type is required when amount is provided."
+            #     })
 
         return attrs
 

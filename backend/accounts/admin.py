@@ -4,6 +4,7 @@ from .models import Role, User
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "email",
         "role",
         "is_staff",

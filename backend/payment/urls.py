@@ -1,6 +1,6 @@
 from django.urls import path
 
-from payment.views import PaymentCreateAPIView, PaymentListAPIView, PaymentLogListAPIView, PaymentProofFileView, PaymentReminderAPI, PaymentStatsAPIView, PendingPaymentUsersAPIView, StudentPackagePaymentSummaryAPIView, StudentPaymentDetailAPIView, StudentPaymentListAPIView, StudentPaymentProgressAPIView, UpdatePaymentStatusAPIView, VerifyPaymentAPIView
+from payment.views import PaymentCreateAPIView, PaymentListAPIView, PaymentLogListAPIView, PaymentProofFileView, PaymentReminderAPI, PaymentStatsAPIView, PendingHandHoldingParticipantsAPIView, PendingPaymentUsersAPIView, StudentPackagePaymentSummaryAPIView, StudentPaymentDetailAPIView, StudentPaymentListAPIView, StudentPaymentProgressAPIView, UpdatePaymentStatusAPIView, VerifyPaymentAPIView
 
 
 urlpatterns = [
@@ -24,6 +24,11 @@ urlpatterns = [
         name="student-payment-list"
     ),
     path(
+        "payments/participant/<int:participant_id>/",
+        StudentPaymentListAPIView.as_view(),
+        name="participant-payment-list"
+    ),
+    path(
     "student/<int:student_id>/payment-progress/",
     StudentPaymentProgressAPIView.as_view(),
     name="student-payment-progress"
@@ -32,6 +37,11 @@ urlpatterns = [
     "student-payment-summary/<int:student_id>/<int:package_id>/",
     StudentPackagePaymentSummaryAPIView.as_view(),
     name="student-package-payment-summary"
+),
+    path(
+    "participant-payment-summary/<int:participant_id>/<int:package_id>/",
+    StudentPackagePaymentSummaryAPIView.as_view(),
+    name="participant-package-payment-summary"
 ),
     path(
     "payments/<int:pk>/update-status/",
@@ -47,7 +57,12 @@ urlpatterns = [
     "students/<int:student_id>/payment-reminder/",
     PaymentReminderAPI.as_view(),
     name="payment-reminder",
-),    
+),   
+    path(
+        "handholding/pending-participants/",
+        PendingHandHoldingParticipantsAPIView.as_view(),
+        name="pending-handholding-participants"
+    ), 
 # ========================= Student Payment Summary API =========================
 
     path(

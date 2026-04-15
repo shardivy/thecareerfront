@@ -38,7 +38,8 @@ class Role(models.Model):
         ('student', 'Student'),
         ('parent', 'Parent'),
         ('basic_user', 'Basic User'),
-        ('ui_ux', 'UI/UX')
+        ('ui_ux', 'UI/UX'),
+        ('handholding', 'Handholding')
     )
 
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)

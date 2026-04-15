@@ -26,6 +26,7 @@ class Package(models.Model):
     is_active = models.BooleanField(default=True)
     aptitude_test = models.BooleanField(default=False)
     engineering_test_analysis = models.BooleanField(default=False)
+    is_handholding = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 
 from accounts.models import User
+from counselling_slot.models import Slot
 from payment.models import Payment
 
 class Event(models.Model):
@@ -40,6 +41,14 @@ class Event(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    
+class HandHoldingSession(models.Model):
+    title = models.CharField(max_length=200, null=True)
+    description = models.TextField(null=True, blank=True)
+    ordering = models.PositiveIntegerField(default=1)
+    # created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
 
 class HandHoldingParticipant(models.Model):
@@ -61,14 +70,15 @@ class HandHoldingParticipant(models.Model):
 
     mobile = models.CharField(max_length=15, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
+    show_profile = models.BooleanField(default=False)
 
-    full_address = models.TextField()
+    full_address = models.TextField(null=True, blank=True)
     city = models.CharField(max_length=100, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True)
     pincode = models.CharField(max_length=10, null=True, blank=True)
 
-    mode = models.CharField(max_length=10, choices=MODE_CHOICES, null=True, blank=True)
-    total_sessions = models.PositiveIntegerField(default=10, null=True, blank=True)
+    preferred_counselling_mode = models.CharField(max_length=10, choices=MODE_CHOICES, null=True, blank=True)
+    total_sessions = models.PositiveIntegerField(null=True, blank=True)
     completed_sessions = models.PositiveIntegerField(default=0)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
@@ -80,17 +90,31 @@ class HandHoldingParticipant(models.Model):
         return f"{self.user} - Handholding"
 
 
-class HandHoldingSession(models.Model):
+class HandHoldingParticipantSession(models.Model):
     STATUS_CHOICES = (
-        ('pending', 'Pending'),
+        ('not_booked', 'Not Booked'),
+        ('booked', 'Booked'),
+        ('in_progress', 'In Progress'),
+        ('rescheduled', 'Rescheduled'),
         ('completed', 'Completed'),
+        ('pending', 'Pending'),
+        ('cancelled', 'Cancelled'),
+    )
+    
+    slot = models.ForeignKey(
+        'counselling_slot.Slot',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column='slot_id'
     )
 
-    participant = models.ForeignKey(
+    handholding_participant = models.ForeignKey(
         HandHoldingParticipant,
         on_delete=models.CASCADE,
         related_name='sessions'
     )
+    handholding_session = models.ForeignKey(HandHoldingSession, on_delete=models.CASCADE, null=True, blank=True)
 
     conducted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -100,14 +124,12 @@ class HandHoldingSession(models.Model):
     )
 
     session_no = models.PositiveIntegerField()
-    session_date = models.DateTimeField()
+    session_date = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
-    notes = models.TextField(blank=True)
-
+    notes = models.TextField(blank=True, null=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    class Meta:
-        unique_together = ('participant', 'session_no')
 
 
 class Certificate(models.Model):
@@ -115,9 +137,13 @@ class Certificate(models.Model):
         ('handholding', 'Handholding'),
     )
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    program_type = models.CharField(max_length=50, choices=PROGRAM_TYPE_CHOICES)
-    certificate_file = models.FileField(upload_to='certificates/')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    program_type = models.CharField(max_length=50, choices=PROGRAM_TYPE_CHOICES, null=True, blank=True)
+    certificate_file = models.FileField(upload_to='certificates/', null=True, blank=True)
+    certificate_status = models.CharField(max_length=20, choices=(
+        ('pending', 'Pending'),
+        ('issued', 'Issued'),
+    ), default='pending')
     issued_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -131,18 +157,19 @@ class Advertisement(models.Model):
         ('completed', 'Completed'),
     )
 
-    advertiser_name = models.CharField(max_length=200)
-    contact_mobile = models.CharField(max_length=15)
+    advertisement_name = models.CharField(max_length=200, null=True, blank=True)
+    advertiser_name = models.CharField(max_length=200, null=True, blank=True)
+    contact_mobile = models.CharField(max_length=15, null=True, blank=True)
     contact_email = models.EmailField()
 
-    ad_platform = models.CharField(max_length=100)
+    ad_platform = models.CharField(max_length=100, null=True, blank=True)
 
-    ad_start_date = models.DateField()
-    ad_end_date = models.DateField()
+    ad_start_date = models.DateField(null=True, blank=True)
+    ad_end_date = models.DateField(null=True, blank=True)
 
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
+    ad_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
 
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -152,6 +179,7 @@ class Advertisement(models.Model):
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.advertiser_name
