@@ -1,0 +1,6 @@
+import os
+from django.conf import settings
+
+font_path = os.path.join(settings.BASE_DIR, "fonts", "GreatVibes-Regular.ttf")
+
+name_font = ImageFont.truetype(font_path, 90)

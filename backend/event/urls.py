@@ -1,6 +1,6 @@
 from django.urls import path
 
-from event.views import AdvertisementCreateAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CreateHandHoldingSessionAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, MarkSessionCompletedAPIView, ParticipantSessionListAPIView, RescheduleSessionAPIView
+from event.views import AdvertisementCreateAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CreateHandHoldingSessionAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, MarkSessionCompletedAPIView, ParticipantSessionListAPIView, RescheduleSessionAPIView
 
 urlpatterns = [
     path('handholding/register/', HandHoldingRegisterAPIView.as_view(), name='handholding-register'),
@@ -25,5 +25,9 @@ urlpatterns = [
     # ================ Advertisement URLs ====================
     
     path("advertisement/", AdvertisementCreateAPIView.as_view(), name="create-advertisement"),
+    
+    # ===================== Certificate URLs ====================
+    
+    path("generate-certificates/", GenerateCertificateAPIView.as_view())
     
 ]

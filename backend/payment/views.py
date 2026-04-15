@@ -630,40 +630,29 @@ class VerifyPaymentAPIView(APIView):
                 )
 
             # ======================================
-            # ✅ STEP 2: VALIDATE PREVIOUS PAYMENT
+            # ✅ STEP 2: VALIDATE PREVIOUS PAYMENT (FIXED)
             # ======================================
-            previous_payment = Payment.objects.filter(
+            previous_payments = Payment.objects.filter(
                 user=payment.user,
                 package=payment.package,
-                status__in=["partial_paid", "fully_paid"]
-            ).exclude(id=payment.id).order_by("-id").first()
+                status__in=["partial_paid", "fully_paid"],
+                amount__gt=0   # ✅ IMPORTANT FIX
+            ).exclude(id=payment.id).order_by("-id")
+
+            previous_payment = previous_payments.first()
 
             if previous_payment:
 
-                previous_total = Payment.objects.filter(
-                    user=payment.user,
-                    package=payment.package,
-                    status__in=["partial_paid", "fully_paid"]
-                ).exclude(id=payment.id).aggregate(
+                previous_total = previous_payments.aggregate(
                     total=Sum("amount")
                 )["total"] or Decimal("0")
 
-                # ❌ Inconsistent data check
+                # ❌ Over total check
                 if previous_total > package_price:
                     return Response(
                         {
                             "success": False,
                             "error": "Previous payment data is inconsistent. Please fix previous payments before rejecting."
-                        },
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-                # ❌ Invalid previous payment
-                if previous_payment.amount is None or previous_payment.amount <= 0:
-                    return Response(
-                        {
-                            "success": False,
-                            "error": "Previous payment is not valid. Please update it before rejecting this payment."
                         },
                         status=status.HTTP_400_BAD_REQUEST
                     )
