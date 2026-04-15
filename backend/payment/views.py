@@ -37,6 +37,19 @@ from program_package.models import Package, UserProgramPackage
 
 User = get_user_model()
 
+def safe_notify(admin_id, title, message):
+        try:
+            # ✅ Try async (Celery)
+            create_system_notification.delay(admin_id, title, message)
+        except Exception as e:
+            print("❌ Celery failed, using sync:", str(e))
+            try:
+                # ✅ Fallback to direct call
+                create_system_notification(admin_id, title, message)
+            except Exception as inner_e:
+                print("❌ Sync notification also failed:", str(inner_e))
+
+
 class PaymentCreateAPIView(APIView):
     """
     Create Payment (Online / Offline)
@@ -127,6 +140,79 @@ class PaymentCreateAPIView(APIView):
     #         status=status.HTTP_201_CREATED
     #     )
     
+    # def post(self, request):
+    #     serializer = PaymentCreateSerializer(
+    #         data=request.data,
+    #         context={"request": request}
+    #     )
+
+    #     if not serializer.is_valid():
+    #         return Response(
+    #             {
+    #                 "success": False,
+    #                 "errors": serializer.errors
+    #             },
+    #             status=status.HTTP_400_BAD_REQUEST
+    #         )
+
+    #     with transaction.atomic():
+    #         payment = serializer.save()
+            
+    #         self.unlock_report_if_paid(payment)
+            
+    #         # =========================
+    #         # 🔔 SEND NOTIFICATION TO SUPERADMIN
+    #         # =========================
+    #         user_name = f"{payment.user.first_name} {payment.user.last_name}"
+    #         amount = payment.amount
+
+    #         title = "Payment Received"
+    #         message = f"User {user_name} has successfully made a payment of ₹{amount}."
+
+    #         admin_users = User.objects.filter(is_superuser=True)
+
+    #         for admin in admin_users:
+    #             admin_id = admin.id
+                
+    #             print(f"DEBUG: Preparing notification for admin_id={admin_id}")
+
+
+    #             # ✅ CORRECT WAY
+    #             # on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+    #             #     admin_id,
+    #             #     title,
+    #             #     message
+    #             # ))
+                
+    #             try:
+    #                 print(f"DEBUG: Calling notification function for {admin_id}")
+    #                 create_system_notification(admin_id, title, message)  # ⚠️ NOT .delay
+    #             except Exception as e:
+    #                 print("❌ Notification error:", str(e))
+                            
+
+    #     # ✅ Send email AFTER transaction
+    #     try:
+    #         send_payment_created_email(payment.user, payment)
+    #     except Exception as e:
+    #         print("Email error:", e)
+
+    #     response_data = PaymentResponseSerializer(
+    #         payment,
+    #         context={"request": request}
+    #     ).data
+
+    #     return Response(
+    #         {
+    #             "success": True,
+    #             "message": "Payment created successfully",
+    #             "data": response_data
+    #         },
+    #         status=status.HTTP_201_CREATED
+    #     )
+    
+    
+
     def post(self, request):
         serializer = PaymentCreateSerializer(
             data=request.data,
@@ -160,23 +246,15 @@ class PaymentCreateAPIView(APIView):
 
             for admin in admin_users:
                 admin_id = admin.id
-                
+
                 print(f"DEBUG: Preparing notification for admin_id={admin_id}")
 
-
-                # ✅ CORRECT WAY
-                # on_commit(lambda admin_id=admin_id: create_system_notification.delay(
-                #     admin_id,
-                #     title,
-                #     message
-                # ))
-                
-                try:
-                    print(f"DEBUG: Calling notification function for {admin_id}")
-                    create_system_notification(admin_id, title, message)  # ⚠️ NOT .delay
-                except Exception as e:
-                    print("❌ Notification error:", str(e))
-                            
+                # ✅ ALWAYS SAFE
+                on_commit(lambda admin_id=admin_id: safe_notify(
+                    admin_id,
+                    title,
+                    message
+                ))
 
         # ✅ Send email AFTER transaction
         try:
