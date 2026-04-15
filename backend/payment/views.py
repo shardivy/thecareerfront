@@ -103,11 +103,15 @@ class PaymentCreateAPIView(APIView):
             for admin in admin_users:
                 admin_id = admin.id  # ✅ fix lambda issue
 
-                on_commit(lambda admin_id=admin_id: create_system_notification.delay(
-                    admin_id,
-                    title,
-                    message
-                ))
+                # on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+                #     admin_id,
+                #     title,
+                #     message
+                # ))
+            def send_notification(admin_id):
+                create_system_notification.delay(admin_id, title, message)
+
+                on_commit(lambda admin_id=admin_id: send_notification(admin_id))
             
         # send email
         send_payment_created_email(payment.user, payment)
