@@ -160,13 +160,23 @@ class PaymentCreateAPIView(APIView):
 
             for admin in admin_users:
                 admin_id = admin.id
+                
+                print(f"DEBUG: Preparing notification for admin_id={admin_id}")
+
 
                 # ✅ CORRECT WAY
-                on_commit(lambda admin_id=admin_id: create_system_notification.delay(
-                    admin_id,
-                    title,
-                    message
-                ))
+                # on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+                #     admin_id,
+                #     title,
+                #     message
+                # ))
+                
+                try:
+                    print(f"DEBUG: Calling notification function for {admin_id}")
+                    create_system_notification(admin_id, title, message)  # ⚠️ NOT .delay
+                except Exception as e:
+                    print("❌ Notification error:", str(e))
+                            
 
         # ✅ Send email AFTER transaction
         try:
