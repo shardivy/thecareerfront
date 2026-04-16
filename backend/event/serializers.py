@@ -4,7 +4,7 @@ from django.db.models import Sum
 from counselling_slot.models import Booking
 from program_package.models import UserProgramPackage
 from payment.models import Payment
-from event.models import Advertisement, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
+from event.models import Advertisement, Certificate, CertificateTemplate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 
 class HandHoldingSessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,10 +39,22 @@ class HandHoldingParticipantSerializer(serializers.ModelSerializer):
     next_session_status = serializers.CharField(read_only=True)
     progress = serializers.SerializerMethodField()
     session_status = serializers.SerializerMethodField() 
+    certificate_status = serializers.SerializerMethodField()
 
     class Meta:
         model = HandHoldingParticipant
         fields = "__all__"
+        
+    def get_certificate_status(self, obj):
+        cert = Certificate.objects.filter(
+            user=obj.user,
+            program_type="handholding"
+        ).order_by("-issued_at").first()
+
+        if not cert:
+            return "pending"
+
+        return cert.certificate_status
         
     def get_user_program_package(self, obj):
         return UserProgramPackage.objects.filter(
@@ -235,5 +247,24 @@ class AdvertisementSerializer(serializers.ModelSerializer):
 
         if start and end and end < start:
             raise serializers.ValidationError("End date cannot be before start date")
+
+        return data
+    
+    
+# ============================ Certificate Template Serializer ============================
+
+class CertificateTemplateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CertificateTemplate
+        fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        request = self.context.get("request")
+
+        if instance.template_file and request:
+            data["template_file"] = request.build_absolute_uri(instance.template_file.url)
 
         return data

@@ -15,6 +15,7 @@ from datetime import timedelta
 from django.utils.timezone import now
 from calendar import monthrange
 from django.db.models import Count
+from django.core.exceptions import ObjectDoesNotExist
 
 from datetime import datetime
 from django.utils import timezone
@@ -870,10 +871,20 @@ class DateWiseSlotListAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
+def safe_notify(admin_id, title, message):
+    try:
+        create_system_notification.delay(admin_id, title, message)
+    except Exception as e:
+        print("❌ Celery failed, fallback:", str(e))
+        try:
+            create_system_notification(admin_id, title, message)
+        except Exception as inner_e:
+            print("❌ Sync notify failed:", str(inner_e))
        
 class BookingCreateAPIView(APIView):
     # permission_classes = [IsAdmin | IsSuperAdmin | IsCounsellor]
     permission_classes = [IsAuthenticated]
+    
     
     # def post(self, request):
     #     serializer = BookingCreateSerializer(data=request.data)
@@ -887,59 +898,55 @@ class BookingCreateAPIView(APIView):
     #     created_bookings = []
 
     #     with transaction.atomic():
+
     #         for slot in slots:
-
-    #             # ✅ Create booking
-    #             booking = Booking.objects.create(
-    #                 student=student,
-    #                 slot=slot,
-    #                 date=date,
-    #                 status="booked"
-    #             )
-
-    #             # ✅ Send email (optional)
-    #             send_booking_created_email(student.user, slots, date)
-
-    #             # ✅ Prepare notification data
-    #             student_name = f"{student.user.first_name} {student.user.last_name}"
-
-    #             title = "New Booking Created"
-
-    #             message = (
-    #                 f"Student {student_name} has created a counselling slot "
-    #                 f"on {date} ({slot.start_time} - {slot.end_time})."
-    #             )
-
-    #             # ✅ Send notification to all admins (ASYNC via Celery)
-    #             admin_users = User.objects.filter(is_staff=True)
-
-    #             for admin in admin_users:
-    #                 on_commit(lambda admin_id=admin.id: create_system_notification.delay(
-    #                     admin_id,
-    #                     title,
-    #                     message
-    #                 ))
-
-    #             # ✅ Assign counsellors
     #             for item in counsellors:
+
+    #                 booking = Booking.objects.create(
+    #                     student=student,
+    #                     slot=slot,
+    #                     date=date,
+    #                     status="booked"
+    #                 )
+
     #                 BookingCounsellor.objects.create(
     #                     booking=booking,
     #                     counsellor=item["counsellor_id"],
     #                     role=item["role"]
     #                 )
 
-    #             # ✅ Response data
-    #             created_bookings.append({
-    #                 "booking_id": booking.id,
-    #                 "status": booking.status,
-    #                 "slot": {
-    #                     "id": slot.id,
-    #                     "date": slot.date,
-    #                     "start_time": slot.start_time,
-    #                     "end_time": slot.end_time,
-    #                     "mode": slot.mode,
-    #                 }
-    #             })
+    #                 created_bookings.append({
+    #                     "booking_id": booking.id,
+    #                     "counsellor_id": item["counsellor_id"].id,
+    #                     "status": booking.status,
+    #                     "slot": {
+    #                         "id": slot.id,
+    #                         "date": slot.date,
+    #                         "start_time": slot.start_time,
+    #                         "end_time": slot.end_time,
+    #                         "mode": slot.mode,
+    #                     }
+    #                 })
+
+    #         # send email once
+    #         send_booking_created_email(student.user, slots, date)
+
+    #         student_name = f"{student.user.first_name} {student.user.last_name}"
+
+    #         title = "New Booking Created"
+
+    #         message = (
+    #             f"Student {student_name} has created a counselling slot on {date}."
+    #         )
+
+    #         admin_users = User.objects.filter(is_staff=True)
+
+    #         for admin in admin_users:
+    #             on_commit(lambda admin_id=admin.id: create_system_notification.delay(
+    #                 admin_id,
+    #                 title,
+    #                 message
+    #             ))
 
     #     return Response(
     #         {
@@ -947,8 +954,7 @@ class BookingCreateAPIView(APIView):
     #             "data": created_bookings
     #         },
     #         status=status.HTTP_201_CREATED
-    #     )
-     
+    #     ) 
     def post(self, request):
         serializer = BookingCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -991,21 +997,30 @@ class BookingCreateAPIView(APIView):
                         }
                     })
 
-            # send email once
-            send_booking_created_email(student.user, slots, date)
+            # =========================
+            # 📧 EMAIL
+            # =========================
+            try:
+                send_booking_created_email(student.user, slots, date)
+            except Exception as e:
+                print("❌ Email error:", str(e))
 
+            # =========================
+            # 🔔 NOTIFICATION (FIXED)
+            # =========================
             student_name = f"{student.user.first_name} {student.user.last_name}"
 
             title = "New Booking Created"
-
-            message = (
-                f"Student {student_name} has created a counselling slot on {date}."
-            )
+            message = f"Student {student_name} has created a counselling slot on {date}."
 
             admin_users = User.objects.filter(is_staff=True)
 
             for admin in admin_users:
-                on_commit(lambda admin_id=admin.id: create_system_notification.delay(
+                admin_id = admin.id  # ✅ FIXED (capture here)
+
+                print(f"DEBUG: Sending booking notification to {admin_id}")
+
+                on_commit(lambda admin_id=admin_id: safe_notify(
                     admin_id,
                     title,
                     message
@@ -1017,7 +1032,7 @@ class BookingCreateAPIView(APIView):
                 "data": created_bookings
             },
             status=status.HTTP_201_CREATED
-        ) 
+        )
         
     # def put(self, request, booking_id):
     #     # serializer = BookingCreateSerializer(data=request.data)
@@ -1210,27 +1225,35 @@ class BookingCreateAPIView(APIView):
                     BookingCounsellor.objects.filter(booking=base_booking)
                 )
 
-                # create cancelled history
-                cancelled_booking = Booking.objects.create(
-                    student=base_booking.student,
-                    slot=base_booking.slot,
-                    date=base_booking.date,
-                    status="cancelled"
-                )
-
-                # copy counsellors to cancelled booking
-                for c in existing_counsellors:
-                    BookingCounsellor.objects.create(
-                        booking=cancelled_booking,
-                        counsellor=c.counsellor,
-                        role=c.role
+                # ✅ ADD THIS CONDITION
+                if base_booking.status != "pending":
+                    # create cancelled history
+                    cancelled_booking = Booking.objects.create(
+                        student=base_booking.student,
+                        slot=base_booking.slot,
+                        date=base_booking.date,
+                        status="cancelled"
                     )
+
+                    # copy counsellors to cancelled booking
+                    for c in existing_counsellors:
+                        BookingCounsellor.objects.create(
+                            booking=cancelled_booking,
+                            counsellor=c.counsellor,
+                            role=c.role
+                        )
 
                 # update existing booking
                 base_booking.student = student
                 base_booking.slot = slot
                 base_booking.date = date
-                base_booking.status = "rescheduled"
+
+                # ✅ keep status logic clean
+                if base_booking.status == "pending":
+                    base_booking.status = "booked"   # or "rescheduled" if your flow requires
+                else:
+                    base_booking.status = "rescheduled"
+
                 base_booking.save()
 
                 # remove old counsellors
@@ -1238,7 +1261,7 @@ class BookingCreateAPIView(APIView):
                     booking=base_booking
                 ).delete()
 
-                # add counsellors to same booking
+                # add counsellors
                 for item in counsellors:
                     BookingCounsellor.objects.create(
                         booking=base_booking,
@@ -1490,6 +1513,57 @@ class BookingCreateAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
+# class CancelBookingAPIView(APIView):
+
+#     def post(self, request, booking_id):
+
+#         try:
+#             booking = Booking.objects.get(id=booking_id)
+#         except Booking.DoesNotExist:
+#             return Response(
+#                 {"message": "Booking not found"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         with transaction.atomic():
+
+#             # get counsellors
+#             existing_counsellors = list(
+#                 BookingCounsellor.objects.filter(booking=booking)
+#             )
+
+#             # create cancelled history entry
+#             cancelled_booking = Booking.objects.create(
+#                 student=booking.student,
+#                 slot=booking.slot,
+#                 date=booking.date,
+#                 status="cancelled"
+#             )
+
+#             # copy counsellors to cancelled booking
+#             for c in existing_counsellors:
+#                 BookingCounsellor.objects.create(
+#                     booking=cancelled_booking,
+#                     counsellor=c.counsellor,
+#                     role=c.role
+#                 )
+
+#             # update existing booking to pending
+#             booking.status = "pending"
+#             booking.save()
+
+#         return Response(
+#             {
+#                 "message": "Booking cancelled successfully",
+#                 "data": {
+#                     "cancelled_booking_id": cancelled_booking.id,
+#                     "updated_booking_id": booking.id,
+#                     "updated_status": booking.status
+#                 }
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
 class CancelBookingAPIView(APIView):
 
     def post(self, request, booking_id):
@@ -1504,43 +1578,25 @@ class CancelBookingAPIView(APIView):
 
         with transaction.atomic():
 
-            # get counsellors
-            existing_counsellors = list(
-                BookingCounsellor.objects.filter(booking=booking)
-            )
+            # ❌ Remove all counsellors
+            BookingCounsellor.objects.filter(booking=booking).delete()
 
-            # create cancelled history entry
-            cancelled_booking = Booking.objects.create(
-                student=booking.student,
-                slot=booking.slot,
-                date=booking.date,
-                status="cancelled"
-            )
-
-            # copy counsellors to cancelled booking
-            for c in existing_counsellors:
-                BookingCounsellor.objects.create(
-                    booking=cancelled_booking,
-                    counsellor=c.counsellor,
-                    role=c.role
-                )
-
-            # update existing booking to pending
+            # ❌ Clear booking details
             booking.status = "pending"
+            booking.date = None
+            booking.slot = None   # assuming slot is FK
             booking.save()
 
         return Response(
             {
-                "message": "Booking cancelled successfully",
+                "message": "Booking moved to pending successfully",
                 "data": {
-                    "cancelled_booking_id": cancelled_booking.id,
-                    "updated_booking_id": booking.id,
-                    "updated_status": booking.status
+                    "booking_id": booking.id,
+                    "status": booking.status
                 }
             },
             status=status.HTTP_200_OK
-        )
-           
+        )          
 
 class SessionDashboardCountAPIView(APIView):
     permission_classes = [IsAuthenticated]

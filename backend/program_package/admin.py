@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from program_package.models import Answer, CollegeListAnalysis, Package, PackageExam, PackageFeature, Program, QuestionAnswer, UserProgramPackage
+from program_package.models import Answer, CollegeListAnalysis, LandingPage, Package, PackageExam, PackageFeature, Program, QuestionAnswer, UserProgramPackage
 
 @admin.register(Program)
 class ProgramAdmin(admin.ModelAdmin):
@@ -158,3 +158,30 @@ class AnswerAdmin(admin.ModelAdmin):
     )
 
     # ordering = ("-created_at",)
+    
+@admin.register(LandingPage)
+class LandingPageAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "id",
+        "program",
+        "package",
+        "enterprise_name",
+        "flyer_image",
+        "created_at",
+        "updated_at",
+    )
+
+    list_filter = (
+        "program",
+        "package",
+        "created_at",
+    )
+
+    search_fields = (
+        "enterprise_name",
+        "contact_details",
+        "description",
+    )
+
+    

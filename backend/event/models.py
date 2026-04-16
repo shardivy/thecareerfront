@@ -131,6 +131,27 @@ class HandHoldingParticipantSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+class CertificateTemplate(models.Model):
+    name = models.CharField(max_length=255)
+
+    template_file = models.ImageField(upload_to="certificate_templates/")
+
+    # positions (customizable per template)
+    name_x = models.IntegerField(default=0)
+    name_y = models.IntegerField(default=800)
+
+    date_x = models.IntegerField(default=0)
+    date_y = models.IntegerField(default=950)
+
+    name_font_size = models.IntegerField(default=80)
+    date_font_size = models.IntegerField(default=45)
+
+    text_color = models.CharField(max_length=20, default="252,252,200")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
 
 
 class Certificate(models.Model):
@@ -139,6 +160,13 @@ class Certificate(models.Model):
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    template = models.ForeignKey(
+        CertificateTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="certificates"
+    )
     program_type = models.CharField(max_length=50, choices=PROGRAM_TYPE_CHOICES, null=True, blank=True)
     certificate_file = models.FileField(upload_to='certificates/', null=True, blank=True)
     certificate_status = models.CharField(max_length=20, choices=(

@@ -145,3 +145,26 @@ class Answer(models.Model):
 
     def __str__(self):
         return f"Answer to {self.question} by {self.question.user}"
+    
+    
+class LandingPage(models.Model):
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
+    description = models.TextField(blank=True, null=True)
+    flyer_image = models.ImageField(upload_to="landing_page_flyers/", null=True, blank=True)
+    process1 = models.CharField(max_length=255, blank=True, null=True)
+    process2 = models.CharField(max_length=255, blank=True, null=True)
+    process3 = models.CharField(max_length=255, blank=True, null=True)
+    process4 = models.CharField(max_length=255, blank=True, null=True)
+    contact_details = models.CharField(max_length=255, blank=True, null=True)
+    enterprise_name = models.CharField(max_length=255, blank=True, null=True)
+    registration_details1 = models.TextField(blank=True, null=True)
+    registration_details2 = models.TextField(blank=True, null=True)
+    registration_details3 = models.TextField(blank=True, null=True)
+    registration_details4 = models.TextField(blank=True, null=True)
+    instructions1 = models.TextField(max_length=255, blank=True, null=True)
+    instructions2 = models.TextField(max_length=255, blank=True, null=True)
+    instructions3 = models.TextField(max_length=255, blank=True, null=True)
+    instructions4 = models.TextField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
