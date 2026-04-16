@@ -1,6 +1,6 @@
 from django.urls import path
 
-from program_package.views import  ActiveProgramListAPIView, AddProgramAPIView, AddQuestionAPIView, CollegeListAnalysisListAPIView, CollegeListAnalysisStatusAPIView, DashboardCountAPIView, EngineeringAnalysisDashboardAPIView, PackageCreateAPIView, PackageListAPIView, ProgramListAPIView, ProgramPackageDetailAPIView, ProgramPackagesAPIView, StartQuestionAPIView, SubmitMultipleAnswersAPIView, UpdateMultipleAnswersAPIView, UpdateProgramAPIView
+from program_package.views import  ActiveProgramListAPIView, AddProgramAPIView, AddQuestionAPIView, CollegeListAnalysisListAPIView, CollegeListAnalysisStatusAPIView, CreateLandingPageAPIView, DashboardCountAPIView, EngineeringAnalysisDashboardAPIView, LandingPageByPackageAPIView, PackageCreateAPIView, PackageListAPIView, ProgramListAPIView, ProgramPackageDetailAPIView, ProgramPackagesAPIView, StartQuestionAPIView, SubmitMultipleAnswersAPIView, UpdateMultipleAnswersAPIView, UpdateProgramAPIView
 
 
 urlpatterns = [
@@ -34,4 +34,10 @@ urlpatterns = [
     path("answers/update/<int:student_id>/", UpdateMultipleAnswersAPIView.as_view(), name="update-multiple-answers"),
     path("college-analysis/status/<int:student_id>/", CollegeListAnalysisStatusAPIView.as_view(), name="college-analysis-status"),
     path("engineering-analysis/dashboard/", EngineeringAnalysisDashboardAPIView.as_view(), name="engineering-analysis-dashboard"),
+    
+    # ======================= Landing Page URL ============================
+    
+     path("landing-page/", CreateLandingPageAPIView.as_view(), name="create-landing-page"),
+     path("landing-page/<int:pk>/", CreateLandingPageAPIView.as_view()),
+     path("landing-page/package/<int:package_id>/", LandingPageByPackageAPIView.as_view()),
 ]

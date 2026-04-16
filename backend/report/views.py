@@ -22,7 +22,7 @@ from reportlab.pdfgen import canvas
 from django.utils import timezone
 from openpyxl import Workbook
 from django.http import HttpResponse
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Sum
 
 from report.serializers import CompletedExamReportSerializer, EngineeringTestAnalysisReportSerializer
 from exam.models import UserExam
@@ -114,10 +114,14 @@ class CompletedExamReportAPIView(APIView):
         for report in reports:
             user = report.user
 
-            # Student Profile
+            # =============================
+            # 🔹 Student Profile
+            # =============================
             student_profile = StudentProfile.objects.filter(user=user).first()
 
-            # Program + Package
+            # =============================
+            # 🔹 Program + Package
+            # =============================
             user_program = (
                 UserProgramPackage.objects
                 .filter(user=user)
@@ -126,25 +130,42 @@ class CompletedExamReportAPIView(APIView):
             )
 
             # 🚫 Skip Engineering Test Analysis students
-            if user_program and user_program.package.engineering_test_analysis:
+            if user_program and user_program.package and user_program.package.engineering_test_analysis:
                 continue
 
-            # Exam status
+            # =============================
+            # 🔹 Exam status
+            # =============================
             user_exam = (
                 UserExam.objects
                 .filter(user=user, exam=report.exam)
                 .first()
             )
 
-            # Latest Payment
-            payment = (
-                Payment.objects
-                .filter(user=user)
-                .order_by('-created_at')
-                .first()
-            )
+            # =============================
+            # 🔹 ✅ ACTUAL PAYMENT STATUS (CUMULATIVE)
+            # =============================
+            payment_status = None
 
-            # File URL
+            if user_program and user_program.package:
+                package_price = user_program.package.price
+
+                total_paid = (
+                    Payment.objects
+                    .filter(user=user, package=user_program.package)
+                    .aggregate(total=Sum('amount'))["total"] or 0
+                )
+
+                if total_paid == 0:
+                    payment_status = "not_paid"
+                elif total_paid < package_price:
+                    payment_status = "partial_paid"
+                else:
+                    payment_status = "fully_paid"
+
+            # =============================
+            # 🔹 File URL
+            # =============================
             file_url = None
             if report.file_path:
                 pdf_url = reverse(
@@ -153,6 +174,9 @@ class CompletedExamReportAPIView(APIView):
                 )
                 file_url = request.build_absolute_uri(pdf_url)
 
+            # =============================
+            # 🔹 Response
+            # =============================
             response_data.append({
                 "id": report.id,
                 "user_id": user.id,
@@ -178,7 +202,8 @@ class CompletedExamReportAPIView(APIView):
                 "file_path": file_url,
                 "uploaded_at": report.uploaded_at,
 
-                "payment_status": payment.status if payment else None,
+                # ✅ FINAL FIXED FIELD
+                "payment_status": payment_status,
             })
 
         serializer = CompletedExamReportSerializer(response_data, many=True)
@@ -186,8 +211,10 @@ class CompletedExamReportAPIView(APIView):
         return Response({
             "count": len(serializer.data),
             "data": serializer.data
-        })     
+        })
         
+        
+               
 class CompletedExamReportStudentIDAPIView(APIView):
     """
     Fetch ALL reports OR reports for a specific student.

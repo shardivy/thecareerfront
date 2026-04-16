@@ -4,7 +4,7 @@ from django.db.models import Sum
 from counselling_slot.models import Booking
 from program_package.models import UserProgramPackage
 from payment.models import Payment
-from event.models import Advertisement, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
+from event.models import Advertisement, CertificateTemplate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 
 class HandHoldingSessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -235,5 +235,24 @@ class AdvertisementSerializer(serializers.ModelSerializer):
 
         if start and end and end < start:
             raise serializers.ValidationError("End date cannot be before start date")
+
+        return data
+    
+    
+# ============================ Certificate Template Serializer ============================
+
+class CertificateTemplateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = CertificateTemplate
+        fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        request = self.context.get("request")
+
+        if instance.template_file and request:
+            data["template_file"] = request.build_absolute_uri(instance.template_file.url)
 
         return data

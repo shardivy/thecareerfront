@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import (
+    CertificateTemplate,
     Event,
     HandHoldingParticipant,
     HandHoldingParticipantSession,
@@ -56,6 +57,69 @@ class HandHoldingSessionAdmin(admin.ModelAdmin):
     list_filter = ("status", "session_date")
     search_fields = ("handholding_participant__email",)
     # ordering = ("session_no",)
+
+@admin.register(CertificateTemplate)
+class CertificateTemplateAdmin(admin.ModelAdmin):
+    
+    list_display = (
+        "id",
+        "name",
+        "template_preview",
+        "name_position",
+        "date_position",
+        "name_font_size",
+        "date_font_size",
+        "text_color",
+        "created_at",
+    )
+
+    list_filter = ("created_at",)
+
+    search_fields = ("name",)
+
+    readonly_fields = ("created_at", "template_preview")
+
+    fieldsets = (
+        ("Basic Info", {
+            "fields": ("name", "template_file", "template_preview")
+        }),
+        ("Name Position", {
+            "fields": ("name_x", "name_y", "name_font_size")
+        }),
+        ("Date Position", {
+            "fields": ("date_x", "date_y", "date_font_size")
+        }),
+        ("Style", {
+            "fields": ("text_color",)
+        }),
+        ("Meta", {
+            "fields": ("created_at",)
+        }),
+    )
+
+    # =========================
+    # 🔍 Template Preview in Admin
+    # =========================
+    def template_preview(self, obj):
+        if obj.template_file:
+            return f'<img src="{obj.template_file.url}" width="200" />'
+        return "-"
+    
+    template_preview.allow_tags = True
+    template_preview.short_description = "Preview"
+
+    # =========================
+    # 📍 Position Display
+    # =========================
+    def name_position(self, obj):
+        return f"({obj.name_x}, {obj.name_y})"
+    
+    name_position.short_description = "Name Position"
+
+    def date_position(self, obj):
+        return f"({obj.date_x}, {obj.date_y})"
+    
+    date_position.short_description = "Date Position"
 
 
 # ✅ Certificate Admin

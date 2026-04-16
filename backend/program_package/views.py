@@ -9,8 +9,8 @@ from rest_framework.permissions import  IsAuthenticated, AllowAny
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from report.models import Report
 from lead_registration.models import StudentProfile
-from program_package.models import Answer, CollegeListAnalysis, Package, PackageFeature, Program, QuestionAnswer, UserProgramPackage
-from program_package.serializers import CollegeListAnalysisSerializer, PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer, ProgramWithPackagesSerializer, QuestionAnswerSerializer
+from program_package.models import Answer, CollegeListAnalysis, LandingPage, Package, PackageFeature, Program, QuestionAnswer, UserProgramPackage
+from program_package.serializers import CollegeListAnalysisSerializer, LandingPageSerializer, PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer, ProgramWithPackagesSerializer, QuestionAnswerSerializer
 from django.db.models import Count, Sum
 
 
@@ -927,3 +927,176 @@ class EngineeringAnalysisDashboardAPIView(APIView):
             "reports_uploaded": report_uploaded_count,
             "pending_report_upload": pending_report_count
         })
+        
+class CreateLandingPageAPIView(APIView):
+    permission_classes = [AllowAny]  # remove if not needed
+    
+    def get(self, request):
+
+        queryset = LandingPage.objects.select_related("program", "package").all().order_by("-created_at")
+
+        serializer = LandingPageSerializer(
+            queryset,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(
+            {
+                "success": True,
+                "count": len(serializer.data),
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+    def post(self, request):
+
+        serializer = LandingPageSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+
+        if serializer.is_valid():
+            landing_page = serializer.save()
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Landing page created successfully",
+                    "data": LandingPageSerializer(
+                        landing_page,
+                        context={"request": request}
+                    ).data
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        return Response(
+            {
+                "success": False,
+                "errors": serializer.errors
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+    def put(self, request, pk):
+        try:
+            landing_page = LandingPage.objects.get(id=pk)
+        except LandingPage.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Landing page not found"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            serializer = LandingPageSerializer(
+                landing_page,
+                data=request.data,
+                partial=True,  # ✅ allows partial update
+                context={"request": request}
+            )
+
+            if serializer.is_valid():
+                updated_landing_page = serializer.save()
+
+                return Response(
+                    {
+                        "success": True,
+                        "message": "Landing page updated successfully",
+                        "data": LandingPageSerializer(
+                            updated_landing_page,
+                            context={"request": request}
+                        ).data
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            return Response(
+                {
+                    "success": False,
+                    "errors": serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Something went wrong",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    def delete(self, request, pk):
+        try:
+            landing_page = LandingPage.objects.get(id=pk)
+        except LandingPage.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Landing page not found"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            landing_page.delete()
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "Landing page deleted successfully"
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to delete landing page",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+class LandingPageByPackageAPIView(APIView):
+
+    def get(self, request, package_id):
+        try:
+            landing_pages = (
+                LandingPage.objects
+                .filter(package_id=package_id)
+                .select_related("program", "package")
+            )
+
+            if not landing_pages.exists():
+                return Response({
+                    "success": False,
+                    "message": "No landing page found for this package"
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            serializer = LandingPageSerializer(
+                landing_pages,
+                many=True,
+                context={"request": request}
+            )
+
+            return Response({
+                "success": True,
+                "count": len(serializer.data),
+                "data": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

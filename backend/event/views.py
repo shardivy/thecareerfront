@@ -20,9 +20,9 @@ from django.conf import settings
 from accounts.models import Role, User
 from event.utils import get_font_path
 from counselling_slot.models import Booking, Slot
-from event.serializers import AdvertisementSerializer, HandHoldingParticipantSerializer, HandHoldingParticipantSessionSerializer, HandHoldingSessionSerializer
+from event.serializers import AdvertisementSerializer, CertificateTemplateSerializer, HandHoldingParticipantSerializer, HandHoldingParticipantSessionSerializer, HandHoldingSessionSerializer
 from program_package.models import Program
-from event.models import Certificate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
+from event.models import Certificate, CertificateTemplate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 from payment.models import Payment
 from lead_registration.models import Lead
 
@@ -1481,32 +1481,285 @@ class AdvertisementCreateAPIView(APIView):
 # ============================ Certificate Views ============================
 
 
-class GenerateCertificateAPIView(APIView):
+# class GenerateCertificateAPIView(APIView):
 
-    @staticmethod
-    def trim_whitespace(im):
-        # Convert to RGBA to preserve transparency
-        if im.mode != 'RGBA':
-            im = im.convert('RGBA')
+#     @staticmethod
+#     def trim_whitespace(im):
+#         # Convert to RGBA to preserve transparency
+#         if im.mode != 'RGBA':
+#             im = im.convert('RGBA')
 
-        # Get bounding box of non-empty pixels
-        bbox = im.getbbox()
-        if bbox:
-            im = im.crop(bbox)
-        return im
+#         # Get bounding box of non-empty pixels
+#         bbox = im.getbbox()
+#         if bbox:
+#             im = im.crop(bbox)
+#         return im
 
-    def post(self, request):
-        participant_ids = request.data.get("participant_ids", [])
+#     def post(self, request):
+#         participant_ids = request.data.get("participant_ids", [])
 
-        if not participant_ids:
+#         if not participant_ids:
+#             return Response({
+#                 "success": False,
+#                 "error": "participant_ids is required"
+#             }, status=400)
+
+#         certificates = []
+
+#         for pid in participant_ids:
+#             participant = HandHoldingParticipant.objects.filter(
+#                 id=pid
+#             ).select_related("user").first()
+
+#             if not participant or not participant.user:
+#                 continue
+
+#             user = participant.user
+
+#             # =========================
+#             # 🎯 LOAD TEMPLATE
+#             # =========================
+#             template_path = os.path.join(settings.MEDIA_ROOT, "certificate-template.jpeg")
+#             if not os.path.exists(template_path):
+#                 return Response({
+#                     "success": False,
+#                     "error": f"Template not found at {template_path}"
+#                 }, status=400)
+
+#             image = Image.open(template_path)
+
+#             # Always use RGB for certificates
+#             if image.mode != 'RGB':
+#                 image = image.convert('RGB')
+
+#             draw = ImageDraw.Draw(image)
+            
+#             # =========================
+#             # 📍 COLORS
+#             # =========================
+#             text_color = (252, 252, 200)  # Black text for name and date
+
+#             # =========================
+#             # 🔤 FONT - ARIAL BOLD FOR NAME
+#             # =========================
+#             try:
+#                 # Use Arial Bold for the name (professional look)
+#                 name_font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 80)
+#             except:
+#                 try:
+#                     # Fallback to regular Arial if Bold not available
+#                     name_font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 80)
+#                 except:
+#                     try:
+#                         # Fallback for Linux/Mac
+#                         name_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 80)
+#                     except:
+#                         name_font = ImageFont.load_default()
+
+#             # =========================
+#             # 🔤 DATE FONT
+#             # =========================
+#             try:
+#                 date_font = ImageFont.truetype("C:/Windows/Fonts/timesbd.ttf", 45)
+#             except:
+#                 try:
+#                     date_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 45)
+#                 except:
+#                     date_font = ImageFont.load_default()
+
+#             # =========================
+#             # 🧑 DATA
+#             # =========================
+#             full_name = f"{user.first_name} {user.last_name}".strip()
+#             if not full_name:
+#                 full_name = user.email.split('@')[0] if user.email else f"Participant_{pid}"
+            
+#             today_date = timezone.now().strftime("%d %B %Y")
+
+#             # =========================
+#             # 📍 POSITIONS
+#             # =========================
+#             img_width, img_height = image.size
+#             center_x = img_width // 2
+            
+#             # Name position - adjust this value to move name up/down
+#             name_y = 805  # Increase to move down, decrease to move up
+#             date_y = 960  # Date position
+            
+#             # Draw name (single draw to avoid duplication)
+#             draw.text(
+#                 (center_x, name_y), 
+#                 full_name, 
+#                 font=name_font, 
+#                 fill=text_color,
+#                 anchor="mm"
+#             )
+
+#             # Draw date
+#             draw.text(
+#                 (center_x, date_y), 
+#                 today_date, 
+#                 font=date_font, 
+#                 fill=text_color,
+#                 anchor="mm"
+#             )
+
+#             # =========================
+#             # ✂️ TRIM WHITE/TRANSPARENT BORDERS
+#             # =========================
+#             image = self.trim_whitespace(image)
+
+#             # Convert RGBA → RGB before saving as JPEG
+#             if image.mode == "RGBA":
+#                 image = image.convert("RGB")
+
+#             # =========================
+#             # 💾 SAVE IMAGE
+#             # =========================
+#             buffer = io.BytesIO()
+#             image.save(buffer, format="JPEG", quality=95)
+#             buffer.seek(0)
+
+#             file_name = f"certificate_participant_{pid}_{int(timezone.now().timestamp())}.jpeg"
+
+#             certificate, _ = Certificate.objects.get_or_create(
+#                 user=user,
+#                 program_type="handholding"
+#             )
+
+#             certificate.certificate_file.save(
+#                 file_name,
+#                 ContentFile(buffer.read()),
+#                 save=False
+#             )
+
+#             certificate.certificate_status = "issued"
+#             certificate.issued_at = timezone.now()
+#             certificate.save()
+
+#             certificates.append({
+#                 "participant_id": pid,
+#                 "user": user.id,
+#                 "name": full_name,
+#                 "certificate_file": request.build_absolute_uri(
+#                     certificate.certificate_file.url
+#                 )
+#             })
+
+#         return Response({
+#             "success": True,
+#             "message": "Certificates generated successfully",
+#             "data": certificates
+#         }, status=201)
+
+class CertificateTemplateAPIView(APIView):
+    
+    def get(self, request):
+        try:
+            templates = CertificateTemplate.objects.all().order_by("-created_at")
+
+            serializer = CertificateTemplateSerializer(
+                templates,
+                many=True,
+                context={"request": request}
+            )
+
+            return Response({
+                "success": True,
+                "count": len(serializer.data),
+                "data": serializer.data
+            }, status=200)
+
+        except Exception as e:
             return Response({
                 "success": False,
-                "error": "participant_ids is required"
+                "message": "Failed to fetch templates",
+                "error": str(e)
+            }, status=500)
+
+    def post(self, request):
+        serializer = CertificateTemplateSerializer(data=request.data, context={"request": request})
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "success": True,
+                "data": serializer.data
+            }, status=201)
+
+        return Response({
+            "success": False,
+            "errors": serializer.errors
+        }, status=400)
+        
+    def put(self, request, pk):
+        try:
+            template = CertificateTemplate.objects.get(id=pk)
+        except CertificateTemplate.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Template not found"
+            }, status=404)
+
+        try:
+            serializer = CertificateTemplateSerializer(
+                template,
+                data=request.data,
+                partial=True,  # ✅ allows partial update
+                context={"request": request}
+            )
+
+            if serializer.is_valid():
+                serializer.save()
+                return Response({
+                    "success": True,
+                    "message": "Template updated successfully",
+                    "data": serializer.data
+                }, status=200)
+
+            return Response({
+                "success": False,
+                "errors": serializer.errors
             }, status=400)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+
+
+class GenerateCertificateAPIView(APIView):
+
+    def post(self, request):
+
+        template_id = request.data.get("template_id")
+        participant_ids = request.data.get("participant_ids", [])
+
+        if not template_id:
+            return Response({"error": "template_id is required"}, status=400)
+
+        if not participant_ids:
+            return Response({"error": "participant_ids is required"}, status=400)
+
+        # =========================
+        # 🎯 GET TEMPLATE
+        # =========================
+        template = get_object_or_404(CertificateTemplate, id=template_id)
+
+        template_path = template.template_file.path
+
+        if not os.path.exists(template_path):
+            return Response({"error": "Template file not found"}, status=400)
+
+        # parse color
+        text_color = tuple(map(int, template.text_color.split(",")))
 
         certificates = []
 
         for pid in participant_ids:
+
             participant = HandHoldingParticipant.objects.filter(
                 id=pid
             ).select_related("user").first()
@@ -1517,110 +1770,78 @@ class GenerateCertificateAPIView(APIView):
             user = participant.user
 
             # =========================
-            # 🎯 LOAD TEMPLATE
+            # 🖼 LOAD TEMPLATE
             # =========================
-            template_path = os.path.join(settings.MEDIA_ROOT, "certificate-template.jpeg")
-            if not os.path.exists(template_path):
-                return Response({
-                    "success": False,
-                    "error": f"Template not found at {template_path}"
-                }, status=400)
-
             image = Image.open(template_path)
 
-            # Always use RGB for certificates
             if image.mode != 'RGB':
                 image = image.convert('RGB')
 
             draw = ImageDraw.Draw(image)
-            
-            # =========================
-            # 📍 COLORS
-            # =========================
-            text_color = (252, 252, 200)  # Black text for name and date
 
             # =========================
-            # 🔤 FONT - ARIAL BOLD FOR NAME
+            # 🔤 FONT
             # =========================
             try:
-                # Use Arial Bold for the name (professional look)
-                name_font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 80)
+                name_font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", template.name_font_size)
+                date_font = ImageFont.truetype("C:/Windows/Fonts/timesbd.ttf", template.date_font_size)
             except:
-                try:
-                    # Fallback to regular Arial if Bold not available
-                    name_font = ImageFont.truetype("C:/Windows/Fonts/times.ttf", 80)
-                except:
-                    try:
-                        # Fallback for Linux/Mac
-                        name_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 80)
-                    except:
-                        name_font = ImageFont.load_default()
+                name_font = ImageFont.load_default()
+                date_font = ImageFont.load_default()
 
             # =========================
-            # 🔤 DATE FONT
+            # 🧑 DATA (REMOVE PREFIX)
             # =========================
-            try:
-                date_font = ImageFont.truetype("C:/Windows/Fonts/timesbd.ttf", 45)
-            except:
-                try:
-                    date_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 45)
-                except:
-                    date_font = ImageFont.load_default()
+            first_name = user.first_name or ""
+            last_name = user.last_name or ""
 
-            # =========================
-            # 🧑 DATA
-            # =========================
-            full_name = f"{user.first_name} {user.last_name}".strip()
+            # ✅ Remove prefix like "HH - ", "ABC - "
+            if " - " in first_name:
+                first_name = first_name.split(" - ", 1)[1]
+
+            full_name = f"{first_name} {last_name}".strip()
+
+            # fallback
             if not full_name:
-                full_name = user.email.split('@')[0] if user.email else f"Participant_{pid}"
-            
+                full_name = user.email.split("@")[0]
+
             today_date = timezone.now().strftime("%d %B %Y")
 
             # =========================
             # 📍 POSITIONS
             # =========================
-            img_width, img_height = image.size
-            center_x = img_width // 2
-            
-            # Name position - adjust this value to move name up/down
-            name_y = 805  # Increase to move down, decrease to move up
-            date_y = 960  # Date position
-            
-            # Draw name (single draw to avoid duplication)
+            img_width, _ = image.size
+
+            name_x = template.name_x or img_width // 2
+            date_x = template.date_x or img_width // 2
+
+            # =========================
+            # ✍️ DRAW TEXT
+            # =========================
             draw.text(
-                (center_x, name_y), 
-                full_name, 
-                font=name_font, 
+                (name_x, template.name_y),
+                full_name,
+                font=name_font,
                 fill=text_color,
                 anchor="mm"
             )
 
-            # Draw date
             draw.text(
-                (center_x, date_y), 
-                today_date, 
-                font=date_font, 
+                (date_x, template.date_y),
+                today_date,
+                font=date_font,
                 fill=text_color,
                 anchor="mm"
             )
 
             # =========================
-            # ✂️ TRIM WHITE/TRANSPARENT BORDERS
-            # =========================
-            image = self.trim_whitespace(image)
-
-            # Convert RGBA → RGB before saving as JPEG
-            if image.mode == "RGBA":
-                image = image.convert("RGB")
-
-            # =========================
-            # 💾 SAVE IMAGE
+            # 💾 SAVE
             # =========================
             buffer = io.BytesIO()
             image.save(buffer, format="JPEG", quality=95)
             buffer.seek(0)
 
-            file_name = f"certificate_participant_{pid}_{int(timezone.now().timestamp())}.jpeg"
+            file_name = f"certificate_{pid}_{int(timezone.now().timestamp())}.jpeg"
 
             certificate, _ = Certificate.objects.get_or_create(
                 user=user,
@@ -1651,3 +1872,82 @@ class GenerateCertificateAPIView(APIView):
             "message": "Certificates generated successfully",
             "data": certificates
         }, status=201)
+        
+class IssuedCertificateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            certificates = (
+                Certificate.objects
+                .select_related("user", "template")
+                .filter(
+                    program_type="handholding",
+                    certificate_status="issued"
+                )
+                .order_by("-issued_at")
+            )
+
+            data = []
+
+            for cert in certificates:
+                user = cert.user
+
+                # Get participant
+                participant = HandHoldingParticipant.objects.filter(
+                    user=user
+                ).first()
+
+                # ✅ Session counts
+                total_sessions = 0
+                completed_sessions = 0
+
+                if participant:
+                    sessions_qs = HandHoldingParticipantSession.objects.filter(
+                        handholding_participant=participant
+                    )
+
+                    total_sessions = sessions_qs.count()
+
+                    completed_sessions = sessions_qs.filter(
+                        status="completed"
+                    ).count()
+
+                data.append({
+                    "certificate_id": cert.id,
+                    "user_id": user.id if user else None,
+                    "name": f"{user.first_name} {user.last_name}" if user else None,
+                    "email": user.email if user else None,
+                    "phone": getattr(user, "phone", None),
+
+                    "participant_id": participant.id if participant else None,
+
+                    # ✅ Sessions info added
+                    "total_sessions": total_sessions,
+                    "completed_sessions": completed_sessions,
+
+                    "template_id": cert.template.id if cert.template else None,
+                    "template_name": cert.template.name if cert.template else None,
+
+                    "certificate_status": cert.certificate_status,
+                    "issued_at": cert.issued_at,
+
+                    "certificate_file": request.build_absolute_uri(
+                        cert.certificate_file.url
+                    ) if cert.certificate_file else None
+                })
+
+            return Response({
+                "success": True,
+                "count": len(data),
+                "data": data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "Failed to fetch issued certificates",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)     
+        
+        

@@ -145,3 +145,17 @@ class Answer(models.Model):
 
     def __str__(self):
         return f"Answer to {self.question} by {self.question.user}"
+    
+    
+class LandingPage(models.Model):
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
+    package = models.ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
+    description = models.TextField(blank=True, null=True)
+    flyer_image = models.ImageField(upload_to="landing_page_flyers/", null=True, blank=True)
+    process = models.TextField(blank=True, null=True)
+    contact_details = models.CharField(max_length=255, blank=True, null=True)
+    enterprise_name = models.CharField(max_length=255, blank=True, null=True)
+    registration_details = models.TextField(blank=True, null=True)
+    instructions = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

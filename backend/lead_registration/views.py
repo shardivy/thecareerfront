@@ -5,7 +5,7 @@ import threading
 from urllib import request
 from xml.parsers.expat import errors
 from django.shortcuts import get_object_or_404, render
-from event.models import HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
+from event.models import Certificate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 from counselling_slot.models import Booking
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -1564,7 +1564,7 @@ class ConvertLeadAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        payload = request.data.copy()
+        payload = request.data.dict()
         payload["first_name"] = lead.first_name
         payload["last_name"] = lead.last_name
         payload["email"] = lead.email
@@ -1724,6 +1724,17 @@ class ConvertLeadAPIView(APIView):
                             )
 
                     HandHoldingParticipantSession.objects.bulk_create(new_sessions)
+                    
+                # =================================
+                # 🔹 CERTIFICATE CREATION (HANDHOLDING)
+                # =================================
+                Certificate.objects.get_or_create(
+                    user=user,
+                    program_type="handholding",
+                    defaults={
+                        "certificate_status": "pending"
+                    }
+                )
 
                 # =================================
                 # 🔹 STUDENT PROFILE (SKIP FOR HANDHOLDING)

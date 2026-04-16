@@ -1,6 +1,6 @@
 from django.urls import path
 
-from event.views import AdvertisementCreateAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CreateHandHoldingSessionAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, MarkSessionCompletedAPIView, ParticipantSessionListAPIView, RescheduleSessionAPIView
+from event.views import AdvertisementCreateAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateTemplateAPIView, CreateHandHoldingSessionAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkSessionCompletedAPIView, ParticipantSessionListAPIView, RescheduleSessionAPIView
 
 urlpatterns = [
     path('handholding/register/', HandHoldingRegisterAPIView.as_view(), name='handholding-register'),
@@ -28,6 +28,9 @@ urlpatterns = [
     
     # ===================== Certificate URLs ====================
     
-    path("generate-certificates/", GenerateCertificateAPIView.as_view())
+    path("certificate-template/", CertificateTemplateAPIView.as_view(), name="certificate-template"),
+    path("certificate-template/<int:pk>/", CertificateTemplateAPIView.as_view(), name="certificate-template-detail"),
+    path("generate-certificates/", GenerateCertificateAPIView.as_view()),
+    path("issued-certificates/", IssuedCertificateAPIView.as_view()),
     
 ]
