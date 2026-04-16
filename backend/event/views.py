@@ -1857,6 +1857,10 @@ class GenerateCertificateAPIView(APIView):
             certificate.certificate_status = "issued"
             certificate.issued_at = timezone.now()
             certificate.save()
+            
+            # ✅ UPDATE PARTICIPANT CERTIFICATE STATUS
+            participant.certificate_issued = True
+            participant.save(update_fields=["certificate_issued"])
 
             certificates.append({
                 "participant_id": pid,

@@ -4,7 +4,7 @@ from django.db.models import Sum
 from counselling_slot.models import Booking
 from program_package.models import UserProgramPackage
 from payment.models import Payment
-from event.models import Advertisement, CertificateTemplate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
+from event.models import Advertisement, Certificate, CertificateTemplate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 
 class HandHoldingSessionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -39,10 +39,22 @@ class HandHoldingParticipantSerializer(serializers.ModelSerializer):
     next_session_status = serializers.CharField(read_only=True)
     progress = serializers.SerializerMethodField()
     session_status = serializers.SerializerMethodField() 
+    certificate_status = serializers.SerializerMethodField()
 
     class Meta:
         model = HandHoldingParticipant
         fields = "__all__"
+        
+    def get_certificate_status(self, obj):
+        cert = Certificate.objects.filter(
+            user=obj.user,
+            program_type="handholding"
+        ).order_by("-issued_at").first()
+
+        if not cert:
+            return "pending"
+
+        return cert.certificate_status
         
     def get_user_program_package(self, obj):
         return UserProgramPackage.objects.filter(
