@@ -37,6 +37,7 @@ import handholdingUsersReducer from "./hhSlices/handholdingUsersSlice";
 import handholdingPaymentReducer from "./hhSlices/handholdingPaymentSlice";
 import sessionBookingReducer from "./hhSlices/sessionBookingSlice";
 import landingPageReducer from "./adminSlices/landingPageSlice";
+import certificateReducer from "./hhSlices/certificateSlice";
 
 const store = configureStore({
   reducer: {
@@ -77,6 +78,7 @@ const store = configureStore({
         handholdingUsers: handholdingUsersReducer,
         handholdingPayment: handholdingPaymentReducer,
         sessionBooking: sessionBookingReducer,
+        certificate: certificateReducer,
 
   },
 });

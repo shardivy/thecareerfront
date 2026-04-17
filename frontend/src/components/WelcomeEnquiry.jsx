@@ -195,6 +195,7 @@ onClick={() => {
       programName: activeProgramName,
       packageId: pkg.id,
       packageName: pkg.name,
+      isAptitude: pkg.aptitude_test,
       // price: pkg.price,
       // features: pkg.features,
     },

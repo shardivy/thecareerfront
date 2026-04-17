@@ -40,7 +40,7 @@ import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
 import { getSessionBookings, cancelSession } from "../../../hhSlices/sessionBookingSlice";
 import { getHandholdingParticipants ,getCardStats ,updateHandholdingParticipant} from "../../../hhSlices/handholdingUsersSlice";
-
+import { getCertificateTemplates } from "../../../hhSlices/certificateSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -75,7 +75,8 @@ const HandholdingManagement = () => {
   const [bookingSearch, setBookingSearch] = useState("");
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [selectedCancelBooking, setSelectedCancelBooking] = useState(null);
-
+ const [previewModalOpen, setPreviewModalOpen] = useState(false);
+const [previewTemplate, setPreviewTemplate] = useState(null);
 
 
 
@@ -87,7 +88,7 @@ const HandholdingManagement = () => {
   const { list: bookingsData, loading: bookingsLoading, } = useSelector((state) => state.sessionBooking);
   const {participants,participantsLoading,} = useSelector((state) => state.handholdingUsers);
   const { cardStats, cardStatsLoading } = useSelector((state) => state.handholdingUsers);
-
+  const { templates, loading: templateLoading } = useSelector((state) => state.certificate);
 
   useEffect(() => {
     if (activeTab === "bookings") {
@@ -104,6 +105,14 @@ const HandholdingManagement = () => {
   useEffect(() => {
   dispatch(getCardStats());
 }, [dispatch]);
+
+useEffect(() => {
+  if (activeTab === "certificates") {
+    dispatch(getCertificateTemplates());
+  }
+}, [activeTab, dispatch]);  
+
+
 
   const formattedBookings = bookingsData.map((item) => {
     const statusMap = {
@@ -198,13 +207,9 @@ const HandholdingManagement = () => {
     }
   };
 
-
-  const handlePreview = (record) => {
-    // Example URL (change based on your backend route)
-    const url = `/certificate-preview/${record.id}`;
-
-    window.open(url, "_blank");
-  };
+const handlePreview = (record) => {
+  window.open(record.template_file, "_blank");
+};
 
   /* ================= STATS ================= */
  const stats = [
@@ -229,6 +234,8 @@ const HandholdingManagement = () => {
     icon: <TrophyOutlined style={{ fontSize: 22, color: token.colorError }} />,
   },
 ];
+
+const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
 
 
   /* ================= SESSION TEMPLATE ================= */
@@ -1116,129 +1123,85 @@ const HandholdingManagement = () => {
                 padding: 0, // ❗ remove extra outer padding
               }}
             >
-              <Row gutter={[16, 16]}>
-                {[
-                  {
-                    name: "Career Discovery Certificate",
-                    desc: "Standard certificate for career discovery program completion",
-                    color: "#6366f1",
-                  },
-                  {
-                    name: "Professional Skills Certificate",
-                    desc: "Certificate for professional development program completion",
-                    color: "#10b981",
-                  },
-                ].map((item, index) => (
-                  <Col xs={24} sm={24} md={12} key={index}>
-                    <Card
-                      hoverable
-                      style={{
-                        borderRadius: 18,
-                        overflow: "hidden",
-                        border: "none",
-                        background: "#ffffffcc",
-                        backdropFilter: "blur(10px)",
-                        boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-                        transition: "all 0.3s ease",
-                      }}
-                      bodyStyle={{ padding: screens.xs ? 10 : 20 }}
-                    >
-                      {/* TOP STRIP */}
-                      <div
-                        style={{
-                          height: 5,
-                          background: item.color,
-                          borderRadius: 10,
-                          marginBottom: 10,
-                        }}
-                      />
+          <Row gutter={[16, 16]}>
+  {templateLoading ? (
+    <Spin />
+  ) : (
+    
+    templates?.map((item, index) => {
+      const bgColor = colors[index % colors.length]; // 🔥 alternating
 
-                      <Space direction="vertical" style={{ width: "100%" }}>
+      return (
+        <Col xs={24} sm={24} md={12} key={item.id || index}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: 18,
+              overflow: "hidden",
+              border: "none",
+              background: "#ffffffcc",
+              backdropFilter: "blur(10px)",
+              boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+            }}
+          >
+            {/* TOP STRIP */}
+            <div
+              style={{
+                height: 5,
+                background: bgColor, // ✅ dynamic color here also
+                borderRadius: 10,
+                marginBottom: 10,
+              }}
+            />
 
-                        {/* HEADER */}
-                        <Row justify="space-between" align="middle">
-                          <Text strong style={{ fontSize: screens.xs ? 14 : 16 }}>
-                            {item.name}
-                          </Text>
-
-                          <Tag
-                            color="success"
-                            style={{
-                              borderRadius: 20,
-                              padding: screens.xs ? "1px 8px" : "4px 10px",
-                              fontSize: screens.xs ? 10 : 12,
-                            }}
-                          >
-                            Active
-                          </Tag>
-                        </Row>
-
-                        {/* DESCRIPTION */}
-                        <Text
-                          style={{
-                            color: "#6b7280",
-                            fontSize: screens.xs ? 12 : 13,
-                          }}
-                        >
-                          {item.desc}
-                        </Text>
-
-                        {/* PREVIEW BOX */}
-                        <div
-                          style={{
-                            height: screens.xs ? 90 : 120,
-                            borderRadius: 10,
-                            background:
-                              "linear-gradient(135deg, #eef2ff, #f0fdf4)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 500,
-                            color: "#555",
-                            fontSize: screens.xs ? 12 : 14,
-                            marginTop: 8,
-                          }}
-                        >
-                          📄 Preview
-                        </div>
-
-                        {/* ACTION BUTTONS */}
-                        <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
-                          <Col xs={24} sm={12}>
-                            <Button
-                              block
-                              icon={<EyeOutlined />}
-                              size={screens.xs ? "middle" : "default"}
-                              onClick={() => {
-                                message.info(`Previewing ${item.name}`);
-                              }}
-                            >
-                              Preview
-                            </Button>
-                          </Col>
-
-                          <Col xs={24} sm={12}>
-                            <Button
-                              type="primary"
-                              block
-                              size={screens.xs ? "middle" : "default"}
-                              onClick={() => {
-                                message.success(`Using ${item.name}`);
-                              }}
-                              style={{
-                                background: item.color,
-                                border: "none",
-                              }}
-                            >
-                              Use Template
-                            </Button>
-                          </Col>
-                        </Row>
-                      </Space>
-                    </Card>
-                  </Col>
-                ))}
+            <Space direction="vertical" style={{ width: "100%" }}>
+              
+              {/* HEADER */}
+              <Row justify="space-between" align="middle">
+                <Text strong>{item.name}</Text>
+                <Tag color="success">Active</Tag>
               </Row>
+
+              {/* DESCRIPTION */}
+              <Text style={{ color: "#6b7280" }}>
+                {item.description}
+              </Text>
+
+              {/* PREVIEW BOX */}
+              <div
+                style={{
+                  height: 120,
+                  borderRadius: 10,
+                  background: "#f5f5f5",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                📄 Preview
+              </div>
+
+              {/* BUTTON */}
+              <Button
+                block
+                icon={<EyeOutlined />}
+                onClick={() => handlePreview(item)}
+                style={{
+                  marginTop: 10,
+                  background: bgColor, // ✅ alternating color
+                  color: "#fff",
+                  border: "none",
+                }}
+              >
+                Preview
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+      );
+    })
+  )}
+</Row>
             </Card>
           </>
         )}
@@ -1375,28 +1338,7 @@ const HandholdingManagement = () => {
       <GenerateCertificateModal
         open={generateModalOpen}
         onClose={() => setGenerateModalOpen(false)}
-        templates={[
-          {
-            id: 1,
-            name: "Career Discovery Certificate",
-            description: "Standard certificate",
-            preview: "/cert1.png",
-          },
-          {
-            id: 2,
-            name: "Professional Skills Certificate",
-            description: "Professional program",
-            preview: "/cert2.png",
-          },
-          {
-            id: 2,
-            name: "Professional Skills Certificate",
-            description: "Professional program",
-            preview: "/cert3.png",
-          },
-        ]}
-        students={users.filter(u => u.completedSessions === u.totalSessions)} // only completed users
-      />
+       />
 
       <Modal
         title="Issued Certificates"
@@ -1467,6 +1409,8 @@ const HandholdingManagement = () => {
           <strong>{selectedSession?.title}</strong>?
         </p>
       </Modal>
+
+     
     </div>
   );
 };

@@ -1,36 +1,46 @@
-import React from "react";
-import { Card, Typography, Button, Divider, Row, Col } from "antd";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState, useRef } from "react";
+import { Card, Typography, Button, Divider, Row, Col, Grid , Modal} from "antd";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { useEffect } from "react";
 import { fetchLandingPageByPackage } from "../adminSlices/landingPageSlice";
-import { useLocation } from "react-router-dom";
+import { PlayCircleOutlined, UserAddOutlined, WhatsAppOutlined } from "@ant-design/icons";
 
 const { Title, Paragraph } = Typography;
+const { useBreakpoint } = Grid;
 
 const AptitudeDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const packageId = location.state?.packageId;
-
   const dispatch = useDispatch();
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
+  const isAptitude = location.state?.isAptitude;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+const videoRef = useRef(null);
 
   const toArray = (obj, key) => {
     const arr = [];
-
     for (let i = 1; i <= 4; i++) {
       const val = obj?.[`${key}${i}`];
-      if (val && val.trim()) {
-        arr.push(val);
-      }
+      if (val && val.trim()) arr.push(val);
     }
-
     return arr;
   };
 
   const landing = useSelector(
     (state) => state.landingPage.currentPackageLanding
   );
+
+  const handleClose = () => {
+  setIsModalOpen(false);
+
+  if (videoRef.current) {
+    videoRef.current.pause();
+    videoRef.current.currentTime = 0;
+  }
+};
 
   const normalizedLanding = landing
     ? {
@@ -47,167 +57,192 @@ const AptitudeDetails = () => {
     }
   }, [packageId, dispatch]);
 
-
-
-
   return (
     <div
       style={{
         minHeight: "100vh",
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
         background: "#f5f7fb",
-        padding: "30px 20px",
+        overflow: "hidden",
+        gap: isMobile ? "0px" : "20px",
       }}
     >
-      {/* MAIN ROW */}
-      <Row justify="center" gutter={[30, 30]}>
-
-        {/* LEFT IMAGE */}
-        <Col xs={24} md={8}>
-          <div
+      <div
+        style={{
+          width: isMobile ? "100%" : "45%",   // ✅ reduced width
+          padding: isMobile ? "16px 16px 0" : "30px 20px 30px 90px", // ✅ added left padding
+        }}
+      >
+        <div
+          style={{
+            height: isMobile ? "240px" : "calc(100vh - 60px)",
+            minHeight: isMobile ? "240px" : "auto",
+            borderRadius: "16px",
+            overflow: "hidden",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
+            background: "#000",
+          }}
+        >
+          <img
+            src={landing?.flyer_image || "/apti-flayer.jpeg"}
+            alt="Aptitude Test"
             style={{
               width: "100%",
-              height: "700px",              // ✅ FIXED HEIGHT
-              borderRadius: "16px",
-              overflow: "hidden",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-              background: "#000",
+              height: "100%",
+              objectFit: "cover",
             }}
-          >
-            <img
-              src={landing?.flyer_image || "/apti-flayer.jpeg"}
-              alt="Aptitude Test"
-              style={{
-                width: "100%",
-                height: "100%",             // ✅ fill container
-                objectFit: "cover",        // ✅ important
-              }}
-            />
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          width: isMobile ? "100%" : "65%",
+          height: isMobile ? "auto" : "100vh",
+          overflowY: isMobile ? "visible" : "auto",
+          padding: isMobile ? "16px" : "30px 20px",
+        }}
+      >
+        <Card
+          style={{
+            borderRadius: "16px",
+            background: "#ffffff",
+            border: "none",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+          }}
+          bodyStyle={{ padding: isMobile ? 16 : 24 }}
+        >
+          <div>
+            <Title level={isMobile ? 5 : 4} style={{ marginBottom: 8 }}>
+              Aptitude Test {landing?.package_details?.name || "-"}
+            </Title>
+
+            <Paragraph style={{ fontSize: isMobile ? "12px" : "13px", marginBottom: 10 }}>
+              {landing?.package_details?.description}
+            </Paragraph>
           </div>
-        </Col>
 
-        {/* RIGHT CARD */}
-        <Col xs={24} md={14}>
-          <Card
-            style={{
-              width: "100%",
-              borderRadius: "16px",
-              background: "#ffffff",
-              border: "none",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-            }}
-            bodyStyle={{
-              display: "flex",
-              flexDirection: "column",
-              padding: "16px",
-            }}
-          >
-            {/* TOP */}
-            <div>
-              <Title level={4}>
-                🎯 {landing?.package_details?.name || "-"}
-              </Title>
+          <Divider style={{ margin: "10px 0" }} />
 
-              <Paragraph style={{ fontSize: "13px", marginBottom: 10 }}>
-                {landing?.package_details?.description}
-              </Paragraph>
-            </div>
+          <div>
+            <Title level={5} style={{ marginBottom: 6 }}>
+              🕒 Process
+            </Title>
+
+            <Row gutter={[8, 8]}>
+              {normalizedLanding?.process?.map((item, i) => (
+                <Col xs={24} sm={12} key={i}>
+                  <ul style={{ paddingLeft: "18px", margin: 0 }}>
+                    <li>{item}</li>
+                  </ul>
+                </Col>
+              ))}
+            </Row>
 
             <Divider style={{ margin: "10px 0" }} />
 
-            {/* CONTENT */}
-            <div>
+            <div style={{ fontSize: isMobile ? "12px" : "13px", lineHeight: "1.8" }}>
               <Title level={5} style={{ marginBottom: 6 }}>
-                🕒 Process
+                ✨ Features
               </Title>
 
-              <ul>
-                {normalizedLanding?.process?.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
 
-              <Divider style={{ margin: "10px 0" }} />
-
-              <div style={{ fontSize: "13px", lineHeight: "1.8" }}>
+              <Row gutter={[8, 8]}>
                 {landing?.package_details?.features?.map((f, index) => {
                   const icons = ["🔍", "🏫", "🎯", "📊"];
 
                   return (
-                    <div key={f.id || index}>
-                      {icons[index % icons.length]} {f.description}
-                    </div>
+                    <Col xs={24} sm={12} key={f.id || index}>
+                      <div>
+                        {icons[index % icons.length]} {f.description}
+                      </div>
+                    </Col>
                   );
                 })}
-              </div>
+              </Row>
+
+            </div>
+          </div>
+
+          <Divider />
+
+          <div>
+            <div
+              style={{
+                background: "#f0f5ff",
+                padding: isMobile ? "12px" : "10px 14px",
+                borderRadius: "8px",
+                border: "1px solid #d6e4ff",
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                justifyContent: "center",
+                alignItems: "center",
+                gap: "10px",
+                textAlign: "center",
+              }}
+            >
+              <span style={{ fontSize: "12px", color: "#555" }}>Total Fees</span>
+              {!isMobile && <span>-</span>}
+              <Title level={5} style={{ color: "#1677ff", margin: 0 }}>
+                ₹ {landing?.package_details?.price}
+              </Title>
             </div>
 
-            {/* BOTTOM */}
-            <div>
-              <Divider />
+            <Paragraph
+              style={{
+                textAlign: "center",
+                marginTop: 8,
+                fontSize: "12px",
+                wordBreak: "break-word",
+              }}
+            >
+              📞 <b>For Enquiries:  </b> {landing?.contact_details?.replace(/,/g, " | ")}
+            </Paragraph>
 
-              {/* PRICE */}
-              <div
-                style={{
-                  background: "#f0f5ff",
-                  padding: "10px",
-                  borderRadius: "8px",
-                  textAlign: "center",
-                  border: "1px solid #d6e4ff",
-                }}
-              >
-                <Title level={5} style={{ color: "#1677ff", margin: 0 }}>
-                  ₹ {landing?.package_details?.price}
-                </Title>
-                <span style={{ fontSize: "12px" }}>Total Fees</span>
+            <Divider style={{ margin: "10px 0" }} />
+
+            <Paragraph
+              style={{
+                textAlign: "center",
+                fontSize: "13px",
+                fontWeight: 600,
+                color: "#333",
+                marginBottom: 0,
+              }}
+            >
+              🏢 {landing?.enterprise_name}
+            </Paragraph>
+
+            <Divider style={{ margin: "10px 0" }} />
+
+            <div
+              style={{
+                textAlign: "left",
+                fontSize: isMobile ? "12px" : "13px",
+                color: "#555",
+                padding: isMobile ? "0" : "8px",
+              }}
+            >
+              {/* <b>📝 Registration Details:</b> */}
+              <Title level={5} style={{ marginBottom: 6 }}>
+                📝 Registration Details:
+              </Title>
+
+              <div style={{ marginTop: "4px" }}>
+                Please share the following details:
               </div>
 
-              {/* CONTACT */}
-              <Paragraph
-                style={{
-                  textAlign: "center",
-                  marginTop: 8,
-                  fontSize: "12px",
-                }}
-              >
-                📞{" "}
-                {landing?.contact_details?.replace(/,/g, " | ")}
-              </Paragraph>
 
-              <Divider style={{ margin: "10px 0" }} />
+              <Row gutter={[8, 8]} style={{ marginTop: "6px" }}>
+                {normalizedLanding?.registration_details?.map((item, i) => (
+                  <Col xs={24} sm={12} md={8} key={i}>
+                    <div style={{ lineHeight: "1.6" }}>👉 {item}</div>
+                  </Col>
+                ))}
+              </Row>
 
-
-              <Paragraph
-                style={{
-                  textAlign: "center",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  color: "#333",
-                  marginBottom: 0,
-                }}
-              >
-                🏢 {landing?.enterprise_name}
-              </Paragraph>
-
-              <Divider style={{ margin: "10px 0" }} />
-
-              <div
-                style={{
-                  textAlign: "left",   // ✅ change this from center → left
-                  fontSize: "13px",
-                  color: "#555",
-                  padding: "8px",
-                }}
-              >
-                <b>📝 Registration Details:</b>
-
-                <div style={{ marginTop: "6px", lineHeight: "1.6" }}>
-                  {normalizedLanding?.registration_details?.map((item, i) => (
-                    <div key={i}>👉 {item}</div>
-                  ))}
-                </div>
-
-
-                {/* STATIC PAYMENT INFO */}
+              <div style={{ marginTop: "12px" }}>
                 <div
                   style={{
                     marginTop: "12px",
@@ -216,38 +251,42 @@ const AptitudeDetails = () => {
                     border: "1px solid #b7eb8f",
                     borderRadius: "8px",
                     textAlign: "left",
+                    wordBreak: "break-word",
                   }}
                 >
                   <div>📸 Kindly share the fees paid screenshot after payment.</div>
 
                   <div style={{ marginTop: "6px" }}>
-                    💳 <b>Payment Details (GPay / PhonePe):</b><br />
+                    💳 <b>Payment Details (GPay / PhonePe):</b>
+                    <br />
                     📱 99226 95424
                   </div>
 
                   <div style={{ marginTop: "6px" }}>
-                    💰 <b>Session Fees:</b><br />
-                    🔹 Online Session: ₹{landing?.package_details?.price} (via GPay)<br />
-                    🔹 Offline Session: ₹500 via GPay + ₹{landing?.package_details?.price - 500} cash at the time of counseling
+                    💰 <b>Session Fees:</b>
+                    <br />
+                    Online Session: Rs.{landing?.package_details?.price} (via GPay)
+                    <br />
+                    Offline Session: Rs.500 via GPay + Rs.
+                    {(landing?.package_details?.price || 0) - 500} cash at the
+                    time of counseling
                   </div>
                 </div>
               </div>
 
-
               <Paragraph
                 style={{
-                  fontSize: "13px",
+                  fontSize: isMobile ? "12px" : "13px",
                   lineHeight: "1.7",
                   background: "#fff7e6",
                   padding: "10px",
                   borderRadius: "8px",
                   border: "1px solid #ffe58f",
-
+                  marginTop: 16,
+                  marginBottom: 0,
                 }}
               >
                 <b>⚠️ IMPORTANT before you enroll:</b>
-                <br />
-
                 <div style={{ marginTop: "6px" }}>
                   {normalizedLanding?.instructions?.map((item, i) => (
                     <div
@@ -261,73 +300,105 @@ const AptitudeDetails = () => {
                     </div>
                   ))}
                 </div>
-
               </Paragraph>
-            </div>
-          </Card>
-        </Col>
-      </Row>
 
-      {/* BUTTON SECTION */}
-      <div
-        style={{
-          maxWidth: "950px",
-          margin: "20px auto 0",
-          display: "flex",
-          justifyContent: "flex-end",
-        }}
-      >
+  {isAptitude && (
+  <div
+    style={{
+      marginTop: "12px",
+      display: "flex",              // ✅ ADD THIS
+      justifyContent: "center",
+      alignItems: "center",
+      gap: "6px",                  // ✅ controls spacing
+      fontSize: isMobile ? "12px" : "13px",
+      fontWeight: 500,
+      flexWrap: "wrap",            // ✅ mobile safe
+    }}
+  >
+    <PlayCircleOutlined style={{ color: "#000000" }} />
+
+    <span>Want to know more?</span>
+
+    <span
+      style={{
+        color: "#1677ff",
+        cursor: "pointer",
+        textDecoration: "underline",
+        fontWeight: 600,
+      }}
+      onClick={() => setIsModalOpen(true)}
+    >
+      Watch Now
+    </span>
+  </div>
+)}       </div>
+          </div>
+        </Card>
+
         <Row
-          gutter={[12, 12]}
-          style={{
-            width: "100%",
-            maxWidth: "500px",
-          }}
+          gutter={[6, 6]}
+          justify="center"
+          style={{ marginTop: 20 }}
         >
-          {/* CREATE ACCOUNT */}
-          <Col xs={24} sm={12}>
+          <Col xs={24} sm={12} md={8} style={{ display: "flex", justifyContent: "center" }}>
             <Button
               type="primary"
-              block
               size="large"
-              style={{
-                borderRadius: "10px",
-                height: "48px",
-                fontWeight: "600",
-              }}
+              icon={<UserAddOutlined />}   // ✅ ICON ADDED
+              style={{ padding: "20px", width: "90%" }}
               onClick={() => navigate("/register")}
             >
               Create Student Account
             </Button>
           </Col>
 
-          {/* WHATSAPP */}
-          <Col xs={24} sm={12}>
+          <Col xs={24} sm={12} md={8} style={{ display: "flex", justifyContent: "center" }}>
             <Button
-              block
               size="large"
+              icon={<WhatsAppOutlined />}  // ✅ ICON ADDED
               style={{
                 background: "#25D366",
                 color: "#fff",
-                border: "none",
-                borderRadius: "10px",
-                height: "48px",
-                fontWeight: "600",
+                padding: "20px",
+                width: "90%",
               }}
-              onClick={() => {
-                window.open(
-                  "https://wa.me/919922695424?text=I am interested in Aptitude Test",
-                  "_blank"
-                );
-              }}
+              onClick={() =>
+                window.open("https://wa.me/919922695424", "_blank")
+              }
             >
               Send WhatsApp Enquiry
             </Button>
           </Col>
         </Row>
       </div>
+
+       <Modal
+        open={isModalOpen}
+        onCancel={handleClose}
+        footer={null}
+        centered
+        width={1000}
+        destroyOnHidden
+      >
+        <div style={{ position: 'relative', width: '100%' }}>
+          <video
+            ref={videoRef}
+            controls
+            autoPlay
+            style={{
+              width: '100%',
+              height: 'auto',
+              display: 'block'
+            }}
+          >
+            <source src="/abhinav-video.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      </Modal>
     </div>
   );
 };
 
 export default AptitudeDetails;
+
