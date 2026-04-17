@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db import models
-from django.db.models import Count, Q, OuterRef, Subquery
+from django.db.models import F, Count, Q, OuterRef, Subquery
 from datetime import datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
@@ -1954,4 +1954,33 @@ class IssuedCertificateAPIView(APIView):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)     
         
-        
+class DashboardStatsAPIView(APIView):
+
+    def get(self, request):
+
+        # 1️⃣ Total Sessions Count
+        total_sessions = HandHoldingSession.objects.count()
+
+        # 2️⃣ Active Users (Certificate Pending)
+        active_users_count = Certificate.objects.filter(
+            certificate_status="pending",
+            program_type="handholding"
+        ).values("user").distinct().count()
+
+        # 3️⃣ Completed Users (All Sessions Completed)
+        completed_users_count = HandHoldingParticipant.objects.filter(
+            total_sessions=F('completed_sessions')
+        ).count()
+
+        # 4️⃣ Certificate Issued Count
+        certificate_issued_count = Certificate.objects.filter(
+            certificate_status="issued",
+            program_type="handholding"
+        ).values("user").distinct().count()
+
+        return Response({
+            "total_sessions": total_sessions,
+            "active_users_count": active_users_count,
+            "completed_users_count": completed_users_count,
+            "certificate_issued_count": certificate_issued_count
+        })

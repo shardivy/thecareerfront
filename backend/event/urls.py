@@ -1,9 +1,10 @@
 from django.urls import path
 
-from event.views import AdvertisementCreateAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateTemplateAPIView, CreateHandHoldingSessionAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkSessionCompletedAPIView, ParticipantSessionListAPIView, RescheduleSessionAPIView
+from event.views import AdvertisementCreateAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateTemplateAPIView, CreateHandHoldingSessionAPIView, DashboardStatsAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkSessionCompletedAPIView, ParticipantSessionListAPIView, RescheduleSessionAPIView
 
 urlpatterns = [
     path('handholding/register/', HandHoldingRegisterAPIView.as_view(), name='handholding-register'),
+    path('card-count/', DashboardStatsAPIView.as_view(), name='dashboard-stats'),
     
     path("handholding-session/", CreateHandHoldingSessionAPIView.as_view()),
     path("handholding-session/<int:session_id>/", CreateHandHoldingSessionAPIView.as_view()),
