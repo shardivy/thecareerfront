@@ -36,7 +36,7 @@ import handholdingSessionReducer from "./hhSlices/handholdingSessionSlice";
 import handholdingUsersReducer from "./hhSlices/handholdingUsersSlice";
 import handholdingPaymentReducer from "./hhSlices/handholdingPaymentSlice";
 import sessionBookingReducer from "./hhSlices/sessionBookingSlice";
-
+import landingPageReducer from "./adminSlices/landingPageSlice";
 
 const store = configureStore({
   reducer: {
@@ -70,6 +70,7 @@ const store = configureStore({
         questions: questionReducer,
         collegeAnalysis: collegeAnalysisReducer,
         review: reviewReducer,
+        landingPage: landingPageReducer,
 
         hhRegister: hhRegisterReducer,
         hhSession: handholdingSessionReducer,

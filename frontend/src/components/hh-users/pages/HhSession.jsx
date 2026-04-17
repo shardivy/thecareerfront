@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   Typography,
@@ -35,6 +35,7 @@ import StudentProfileModal from "../../counsellor/modals/StudentProfileModal";
 import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
 import { getStudentProfile } from "../../../adminSlices/profileSlice";
 import { fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
+import { getParticipantSessions } from "../../../hhSlices/sessionBookingSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -49,10 +50,19 @@ const getStatusTag = (status) => {
   switch (status) {
     case "completed":
       return <Tag color="green">Completed</Tag>;
+
     case "booked":
       return <Tag color="blue">Booked</Tag>;
-    case "available":
-      return <Tag color="gold">Available</Tag>;
+
+    case "not_booked":
+      return <Tag color="default">Not Booked</Tag>;
+
+    case "rescheduled":
+      return <Tag color="orange">Rescheduled</Tag>;
+
+    case "in_progress":
+      return <Tag color="purple">In Progress</Tag>;
+
     default:
       return <Tag>Locked</Tag>;
   }
@@ -67,7 +77,9 @@ const getButton = (session, navigate, isMobile, openModal) => {
   switch (session.status) {
     case "completed":
       return null;
+
     case "booked":
+    case "in_progress":
       return (
         <Button
           {...commonProps}
@@ -77,7 +89,9 @@ const getButton = (session, navigate, isMobile, openModal) => {
           Join Session
         </Button>
       );
-    case "available":
+
+    case "not_booked":
+    case "rescheduled":
       return (
         <Button
           {...commonProps}
@@ -87,6 +101,7 @@ const getButton = (session, navigate, isMobile, openModal) => {
           Book Now
         </Button>
       );
+
     default:
       return (
         <Button {...commonProps} disabled>
@@ -109,31 +124,41 @@ const HhSession = () => {
   );
   const { notes } = useSelector((state) => state.counsellors);
 
-  // 🔹 Generate sessions
-  const [sessions, setSessions] = useState(
-    Array.from({ length: totalSessions }, (_, i) => {
-      let status = "locked";
-
-      if (i < completedSessions) status = "completed";
-      else if (i < bookedSessions) status = "booked";
-      else if (i === bookedSessions) status = "available";
-
-      return {
-        id: i + 1,
-        title: `Session ${i + 1}`,
-        counsellors: {
-          lead: i < bookedSessions ? "Dr. Sharma" : null,
-          assistant: i < 2 ? "Ms. Priya" : null, // optional
-        },
-        date: i < bookedSessions ? "12 Apr 2026" : null,
-        time: i < bookedSessions ? "6:00 PM" : null,
-        mode: i % 2 === 0 ? "online" : "offline",
-        status,
-        student_id: i + 100, // Mock student ID
-        report_file: i < bookedSessions ? `https://example.com/report${i}.pdf` : null,
-      };
-    })
+  const { participantSessions, loading } = useSelector(
+    (state) => state.sessionBooking
   );
+
+  const participantId = localStorage.getItem("participant_id");
+  useEffect(() => {
+    if (participantId) {
+      dispatch(getParticipantSessions(participantId));
+    }
+  }, [dispatch, participantId]);
+
+  // 🔹 Generate sessions
+  const sessions = participantSessions || [];
+
+  const formattedSessions = sessions.map((item, index) => ({
+    id: item.id,
+    session_no: item.session_no,   // ✅ ADD THIS
+  participant_id: item.participant_id, // ✅ ADD THIS
+    title: `Session ${index + 1}`,
+    counsellors: {
+      lead: item?.lead_counsellor_name || "Not Assigned",
+      assistant: item?.assistant_counsellor_name || null,
+    },
+    date: item?.date || null,
+   time:
+    item.start_time && item.end_time
+      ? `${item.start_time} - ${item.end_time}`
+      : null,
+
+    mode: item?.mode || "online",
+    status: item?.status || "locked",
+    student_id: item?.student_id,
+    report_file: item?.report_file || null,
+
+  }));
 
   // 🔹 Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -245,7 +270,7 @@ const HhSession = () => {
           gap: 16,
         }}
       >
-        {sessions.map((session) => (
+        {formattedSessions.map((session) => (
           <Card
             key={session.id}
             style={{
@@ -261,9 +286,13 @@ const HhSession = () => {
                   size={48}
                   icon={<VideoCameraOutlined />}
                   style={{
-                    backgroundColor: session.status === "completed" ? "#52c41a" :
-                      session.status === "booked" ? "#1890ff" :
-                        session.status === "available" ? "#faad14" : "#d9d9d9"
+                    backgroundColor:
+                      session.status === "completed" ? "#52c41a" :
+                        session.status === "booked" ? "#1E40AF" :
+                          session.status === "not_booked" ? "#d9d9d9" :
+                            session.status === "rescheduled" ? "#fa8c16" :
+                              session.status === "in_progress" ? "#722ed1" :
+                                "#d9d9d9"
                   }}
                 />
                 <div>
@@ -312,7 +341,7 @@ const HhSession = () => {
                   </Text>
                 </Card>
               </Col>
-             
+
               <Col xs={24} sm={12} md={6}>
                 <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
                   <Text style={{ fontSize: 12, color: "#6b7280" }}>Mode</Text>
@@ -333,7 +362,7 @@ const HhSession = () => {
                 </Card>
               </Col>
 
-               <Col xs={24} sm={12} md={6}>
+              <Col xs={24} sm={12} md={6}>
                 <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
                   <Text style={{ fontSize: 12, color: "#6b7280" }}>Progress</Text>
                   <br />
@@ -345,85 +374,89 @@ const HhSession = () => {
               </Col>
             </Row>
 
-          <Divider style={{ margin: "24px 0" }} />
+            <Divider style={{ margin: "24px 0" }} />
 
-{/* Action Buttons */}
-<Row
-  gutter={[8, 8]}
-  wrap={true}
-  style={{ 
-    marginBottom: 12,
-    flexWrap: isMobile ? "wrap" : "nowrap",
-    overflowX: isMobile ? "visible" : "auto"
-  }}
->
-  {!isMobile && <Col flex="auto" />}
-  
-  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-    <Button
-      icon={<UserOutlined />}
-      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-      onClick={() => handleViewProfile(session)}
-      disabled={session.status === "locked"}
-    >
-      View Profile
-    </Button>
-  </Col>
+            {/* Action Buttons */}
+            <Row
+              gutter={[8, 8]}
+              wrap={true}
+              style={{
+                marginBottom: 12,
+                flexWrap: isMobile ? "wrap" : "nowrap",
+                overflowX: isMobile ? "visible" : "auto"
+              }}
+            >
+              {!isMobile && <Col flex="auto" />}
 
-  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-    <Button
-      icon={<EyeOutlined />}
-      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-      onClick={() => handleViewReport(session)}
-      disabled={session.status === "locked" || !session.report_file}
-    >
-      View Report
-    </Button>
-  </Col>
+              <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                <Button
+                  icon={<UserOutlined />}
+                  style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                  onClick={() => handleViewProfile(session)}
+                  disabled={session.status === "locked"}
+                >
+                  View Profile
+                </Button>
+              </Col>
 
-  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-    <Button
-      icon={<FileTextOutlined />}
-      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-      onClick={() => handleViewNotes(session)}
-      disabled={session.status === "locked"}
-    >
-      {session.status === "completed" ? "View Notes" : "Add Notes"}
-    </Button>
-  </Col>
+              <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                <Button
+                  icon={<EyeOutlined />}
+                  style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                  onClick={() => handleViewReport(session)}
+                  disabled={session.status === "locked" || !session.report_file}
+                >
+                  View Report
+                </Button>
+              </Col>
 
-  {session.status === "booked" && session.mode === "offline" && (
-    <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-      <Button
-        icon={<EnvironmentOutlined />}
-        style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-        onClick={() => navigate(`/location/${session.id}`)}
-      >
-        View Location
-      </Button>
-    </Col>
-  )}
+              <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                <Button
+                  icon={<FileTextOutlined />}
+                  style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                  onClick={() => handleViewNotes(session)}
+                  disabled={session.status === "locked"}
+                >
+                  {session.status === "completed" ? "View Notes" : "Add Notes"}
+                </Button>
+              </Col>
 
-  {getButton(session, navigate, false, openBookingModal) && (
-    <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-      <Button
-        icon={session.status === "booked" ? <VideoCameraOutlined /> : <CheckOutlined />}
-        style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-        type={session.status === "available" || session.status === "booked" ? "primary" : undefined}
-        onClick={() => {
-          if (session.status === "available") {
-            openBookingModal(session);
-          } else if (session.status === "booked") {
-            window.open("https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09", "_blank");
-          }
-        }}
-        disabled={session.status === "locked"}
-      >
-        {session.status === "booked" ? "Join Session" : session.status === "available" ? "Book Now" : ""}
-      </Button>
-    </Col>
-  )}
-</Row>
+              {session.status === "booked" && session.mode === "offline" && (
+                <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                  <Button
+                    icon={<EnvironmentOutlined />}
+                    style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                    onClick={() => navigate(`/location/${session.id}`)}
+                  >
+                    View Location
+                  </Button>
+                </Col>
+              )}
+
+              {getButton(session, navigate, false, openBookingModal) && (
+                <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                  <Button
+                    icon={session.status === "booked" ? <VideoCameraOutlined /> : <CheckOutlined />}
+                    style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                    type={
+                      ["not_booked", "booked", "in_progress", "rescheduled"].includes(session.status)
+                        ? "primary"
+                        : undefined
+                    }
+                    onClick={() => {
+                      if (session.status === "not_booked") {
+                        openBookingModal(session);
+                      } else if (session.status === "booked") {
+                        window.open("https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09", "_blank");
+                      }
+                    }}
+                    disabled={session.status === "locked"}
+                  >
+                    {session.status === "booked" ? "Join Session" : session.status === "not_booked" ? "Book Now" : ""}
+                  </Button>
+                </Col>
+              )}
+            </Row>
           </Card>
         ))}
       </div>
@@ -434,6 +467,8 @@ const HhSession = () => {
         session={selectedSession}
         onConfirm={(slot) => {
           console.log("Booked:", selectedSession, slot);
+
+          dispatch(getParticipantSessions(participantId));
         }}
       />
 

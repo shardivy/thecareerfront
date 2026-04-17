@@ -58,8 +58,8 @@ const amount = isFreeUser
   const isMobile = !screens.md;
   const isTablet = screens.md && !screens.lg;
 
-  const adminWhatsApp = "919876543210";
-  const adminPhone = "9876543210";
+  const adminWhatsApp = "9922695424";
+  const adminPhone = "9922695424";
 
 
   /* ================= FETCH AMOUNT FROM API ================= */
@@ -167,7 +167,7 @@ useEffect(() => {
                   }}
                 >
                   <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=UPI-LINK"
+                    src="/scanner.jpeg"
                     alt="QR"
                     style={{
                       width: isMobile ? 180 : isTablet ? 220 : 260,
@@ -184,22 +184,25 @@ useEffect(() => {
                 </div>
               )}
 
-              {mode === "BANK" && (
-                <div
-                  style={{
-                    padding: isMobile ? 16 : 24,
-                    border: `1px solid ${token.colorBorder}`,
-                    borderRadius: 16,
-                    background: token.colorBgElevated,
-                    fontSize: isMobile ? 13 : 15,
-                  }}
-                >
-                  <p><b>Account Name:</b> ABC Services</p>
-                  <p><b>Account Number:</b> 123456789012</p>
-                  <p><b>IFSC Code:</b> SBIN0001234</p>
-                  <p><b>Bank:</b> State Bank of India</p>
-                </div>
-              )}
+             {mode === "BANK" && (
+  <div
+    style={{
+      padding: isMobile ? 16 : 24,
+      border: `1px solid ${token.colorBorder}`,
+      borderRadius: 16,
+      background: token.colorBgElevated,
+      fontSize: isMobile ? 13 : 15,
+      lineHeight: 1.8,
+    }}
+  >
+    <p><b>Account Name:</b> Reena Bhutada</p>
+    <p><b>Account Number:</b> 20194273045</p>
+    <p><b>Bank:</b> State Bank of India</p>
+    <p><b>Branch:</b> Bavdhan, Pune - 411021</p>
+    <p><b>IFSC Code:</b> SBIN0013280</p>
+    <p><b>Mobile:</b> 9922695424</p>
+  </div>
+)}
             </Col>
 
             {/* RIGHT COLUMN */}

@@ -16,6 +16,7 @@ import {
   message,
   Input,
   Select,
+  Spin,
 } from "antd";
 import {
   UserOutlined,
@@ -37,9 +38,9 @@ import CertificateTemplateModal from "../modals/CertificateTemplateModal";
 import HHSessionBookingModal from "../modals/HHSessionBookingModal";
 import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
-import { getSessionBookings, cancelSession  } from "../../../hhSlices/sessionBookingSlice";
-import { getHandholdingParticipants } from "../../../hhSlices/handholdingUsersSlice";
-import { updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
+import { getSessionBookings, cancelSession } from "../../../hhSlices/sessionBookingSlice";
+import { getHandholdingParticipants ,getCardStats ,updateHandholdingParticipant} from "../../../hhSlices/handholdingUsersSlice";
+
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -73,70 +74,68 @@ const HandholdingManagement = () => {
   const [bookingStatusFilter, setBookingStatusFilter] = useState("booked_group");
   const [bookingSearch, setBookingSearch] = useState("");
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
-const [selectedCancelBooking, setSelectedCancelBooking] = useState(null);
+  const [selectedCancelBooking, setSelectedCancelBooking] = useState(null);
 
-  
+
 
 
   /* ================= PAGINATION STATE ================= */
-  const [sessionPagination, setSessionPagination] = useState({current: 1, pageSize: 5,});
+  const [sessionPagination, setSessionPagination] = useState({ current: 1, pageSize: 5, });
+  const [issuedPagination, setIssuedPagination] = useState({ current: 1, pageSize: 5, });
+  const [userPagination, setUserPagination] = useState({ current: 1, pageSize: 5, });
+  const [bookingPagination, setBookingPagination] = useState({ current: 1, pageSize: 5, });
+  const { list: bookingsData, loading: bookingsLoading, } = useSelector((state) => state.sessionBooking);
+  const {participants,participantsLoading,} = useSelector((state) => state.handholdingUsers);
+  const { cardStats, cardStatsLoading } = useSelector((state) => state.handholdingUsers);
 
-  const [issuedPagination, setIssuedPagination] = useState({current: 1,pageSize: 5,});
 
-  const [userPagination, setUserPagination] = useState({current: 1,pageSize: 5,});
+  useEffect(() => {
+    if (activeTab === "bookings") {
+      dispatch(getSessionBookings());
+    }
+  }, [activeTab, dispatch]);
 
-  const [bookingPagination, setBookingPagination] = useState({current: 1, pageSize: 5,});
+  useEffect(() => {
+    if (activeTab === "users") {
+      dispatch(getHandholdingParticipants());
+    }
+  }, [activeTab, dispatch]);
 
-  const { list: bookingsData,loading: bookingsLoading,} = useSelector((state) => state.sessionBooking);
+  useEffect(() => {
+  dispatch(getCardStats());
+}, [dispatch]);
 
-const {
-  participants,
-  participantsLoading,
-} = useSelector((state) => state.handholdingUsers);
+  const formattedBookings = bookingsData.map((item) => {
+    const statusMap = {
+      not_started: "not_booked",  // 👈 temporary backend mismatch fix
+      not_booked: "not_booked",
+      booked: "booked",
+      rescheduled: "rescheduled",
+      pending: "pending",
+      completed: "completed",
+      cancelled: "cancelled",
+    };
 
-useEffect(() => {
-  if (activeTab === "bookings") {
-    dispatch(getSessionBookings());
-  }
-}, [activeTab, dispatch]);
-
-useEffect(() => {
-  if (activeTab === "users") {
-    dispatch(getHandholdingParticipants());
-  }
-}, [activeTab, dispatch]);
-
-const formattedBookings = bookingsData.map((item) => {
-  const statusMap = {
-    not_started: "not_booked",  // 👈 temporary backend mismatch fix
-    not_booked: "not_booked",
-    booked: "booked",
-    rescheduled: "rescheduled",
-    pending: "pending",
-    completed: "completed",
-    cancelled: "cancelled",
-  };
-
-  return {
-    id: item.id,
-    name: `${item.first_name} ${item.last_name}`,
-    email: item.email,
-    participant_id: item.participant_id,
-    session: `Session ${item.session_no}`,
-        session_no: item.session_no,  
-    date: item.session_date?.split("T")[0],
-     time:
-      item.start_time && item.end_time
-        ? `${item.start_time} - ${item.end_time}`
+    return {
+      id: item.id,
+      name: `${item.first_name} ${item.last_name}`,
+      email: item.email,
+      participant_id: item.participant_id,
+      session: `Session ${item.session_no}`,
+      session_no: item.session_no,
+      date: item.session_date?.split("T")[0],
+      time:
+        item.start_time && item.end_time
+          ? `${item.start_time} - ${item.end_time}`
+          : "-",
+      status: statusMap[item.status] || "not_booked",
+      preferred_counselling_mode: item.preferred_counselling_mode
+        ? item.preferred_counselling_mode.charAt(0).toUpperCase() + item.preferred_counselling_mode.slice(1)
         : "-",
-    status: statusMap[item.status] || "not_booked", 
-     preferred_counselling_mode: item.preferred_counselling_mode
-      ? item.preferred_counselling_mode.charAt(0).toUpperCase() + item.preferred_counselling_mode.slice(1)
-      : "-",
-    
-  };
-});
-  
+
+    };
+  });
+
 
   const handleEditBooking = (record) => {
     setSelectedBooking(record);
@@ -161,29 +160,29 @@ const formattedBookings = bookingsData.map((item) => {
   };
 
   const handleCancel = (record) => {
-  setSelectedCancelBooking(record);
-  setCancelModalOpen(true);
-};
+    setSelectedCancelBooking(record);
+    setCancelModalOpen(true);
+  };
 
-const confirmCancelBooking = async () => {
-  try {
-    await dispatch(
-      cancelSession({
-        participant_id: selectedCancelBooking.participant_id,
-    session_no: selectedCancelBooking.session_no,
-      })
-    ).unwrap();
+  const confirmCancelBooking = async () => {
+    try {
+      await dispatch(
+        cancelSession({
+          participant_id: selectedCancelBooking.participant_id,
+          session_no: selectedCancelBooking.session_no,
+        })
+      ).unwrap();
 
-    message.success("Booking cancelled successfully");
+      message.success("Booking cancelled successfully");
 
-    dispatch(getSessionBookings()); // refresh list
-  } catch (err) {
-    message.error(err?.message || "Cancel failed");
-  } finally {
-    setCancelModalOpen(false);
-    setSelectedCancelBooking(null);
-  }
-};
+      dispatch(getSessionBookings()); // refresh list
+    } catch (err) {
+      message.error(err?.message || "Cancel failed");
+    } finally {
+      setCancelModalOpen(false);
+      setSelectedCancelBooking(null);
+    }
+  };
 
 
   const confirmDelete = async () => {
@@ -208,44 +207,33 @@ const confirmCancelBooking = async () => {
   };
 
   /* ================= STATS ================= */
-  const stats = [
-    {
-      title: "Total Sessions",
-      value: 10,
-      icon: (
-        <FileTextOutlined style={{ fontSize: 22, color: token.colorPrimary }} />
-      ),
-    },
-    {
-      title: "Active Users",
-      value: 25,
-      icon: (
-        <UserOutlined style={{ fontSize: 22, color: token.colorSuccess }} />
-      ),
-    },
-    {
-      title: "Completed Users",
-      value: 12,
-      icon: (
-        <CheckCircleOutlined
-          style={{ fontSize: 22, color: token.colorWarning }}
-        />
-      ),
-    },
-    {
-      title: "Certificates Issued",
-      value: 8,
-      icon: (
-        <TrophyOutlined style={{ fontSize: 22, color: token.colorError }} />
-      ),
-    },
-  ];
-
+ const stats = [
+  {
+    title: "Total Sessions",
+    value: cardStats?.total_sessions || 0,
+    icon: <FileTextOutlined style={{ fontSize: 22, color: token.colorPrimary }} />,
+  },
+  {
+    title: "Active Users",
+    value: cardStats?.active_users_count || 0,
+    icon: <UserOutlined style={{ fontSize: 22, color: token.colorSuccess }} />,
+  },
+  {
+    title: "Completed Users",
+    value: cardStats?.completed_users_count || 0,
+    icon: <CheckCircleOutlined style={{ fontSize: 22, color: token.colorWarning }} />,
+  },
+  {
+    title: "Certificates Issued",
+    value: cardStats?.certificate_issued_count || 0,
+    icon: <TrophyOutlined style={{ fontSize: 22, color: token.colorError }} />,
+  },
+];
 
 
   /* ================= SESSION TEMPLATE ================= */
   const { sessions, loading } = useSelector((state) => state.hhSession);
-  
+
 
 
   useEffect(() => {
@@ -331,37 +319,37 @@ const confirmCancelBooking = async () => {
   ];
 
   /* ================= USERS ================= */
-const users = (participants || []).map((item) => ({
-  id: item.id,
+  const users = (participants || []).map((item) => ({
+    id: item.id,
 
-  // UI FORM FIELDS (IMPORTANT)
-  firstName: item.first_name || "",
-  lastName: item.last_name || "",
-  email: item.email || "",
-  mobile: item.mobile || "",
+    // UI FORM FIELDS (IMPORTANT)
+    firstName: item.first_name || "",
+    lastName: item.last_name || "",
+    email: item.email || "",
+    mobile: item.mobile || "",
 
-  city: item.city || "",
-  address: item.full_address || "",
-  preferred_counselling_mode: item.preferred_counselling_mode || "",
-  showProfile: item.show_profile ?? false,
+    city: item.city || "",
+    address: item.full_address || "",
+    preferred_counselling_mode: item.preferred_counselling_mode || "",
+    showProfile: item.show_profile ?? false,
 
-  photo: item.photo || null,
-  resume: item.resume_file || null,
-  payment_proof: item.proof_file || null,
+    photo: item.photo || null,
+    resume: item.resume_file || null,
+    payment_proof: item.proof_file || null,
 
-  // TABLE FIELDS
-  name: `${item.first_name || ""} ${item.last_name || ""}`,
- progressPercent: item.progress?.percentage || 0,
-  progressLabel: item.progress?.label || "0/0",
-  sessionStatus: item.session_status || "pending",
-  paymentStatus: (item.payment_status || "not_paid").toLowerCase(),
-certificationStatus: item.certificate_issued ? "issued" : "pending",
-  program_name: item.program_name || "-",
-  package_name: item.package_name || "-",
-  package_price: item.package_price || 0,             
-  total_paid_amount: item.total_paid_amount || 0,     
-  remaining_amount: item.remaining_amount || 0,  
-}));
+    // TABLE FIELDS
+    name: `${item.first_name || ""} ${item.last_name || ""}`,
+    progressPercent: item.progress?.percentage || 0,
+    progressLabel: item.progress?.label || "0/0",
+    sessionStatus: item.session_status || "pending",
+    paymentStatus: (item.payment_status || "not_paid").toLowerCase(),
+    certificationStatus: item.certificate_issued ? "issued" : "pending",
+    program_name: item.program_name || "-",
+    package_name: item.package_name || "-",
+    package_price: item.package_price || 0,
+    total_paid_amount: item.total_paid_amount || 0,
+    remaining_amount: item.remaining_amount || 0,
+  }));
 
   // ✅ NOW it's safe
   const issuedUsers = users.filter(
@@ -386,61 +374,61 @@ certificationStatus: item.certificate_issued ? "issued" : "pending",
     },
     {
       title: "Progress",
-     render: (_, record) => (
-  <div>
-    <Progress
-      percent={record.progressPercent}
-      size={screens.xs ? "small" : "default"}
-    />
-    <Text>{record.progressLabel} Sessions</Text>
-  </div>
-),
+      render: (_, record) => (
+        <div>
+          <Progress
+            percent={record.progressPercent}
+            size={screens.xs ? "small" : "default"}
+          />
+          <Text>{record.progressLabel} Sessions</Text>
+        </div>
+      ),
     },
     {
       title: "Session Status",
       width: 120,
-     render: (_, record) => {
-  const status = record.sessionStatus;
+      render: (_, record) => {
+        const status = record.sessionStatus;
 
-  let color = "default";
-  let label = "Pending";
+        let color = "default";
+        let label = "Pending";
 
-  if (status === "completed") {
-    color = "success";
-    label = "Completed";
-  } else if (status === "in_progress") {
-    color = "processing";
-    label = "In Progress";
-  } else if (status === "not_started") {
-    color = "default";
-    label = "Not Started";
-  }
+        if (status === "completed") {
+          color = "success";
+          label = "Completed";
+        } else if (status === "in_progress") {
+          color = "processing";
+          label = "In Progress";
+        } else if (status === "not_started") {
+          color = "default";
+          label = "Not Started";
+        }
 
-  return <Tag color={color}>{label}</Tag>;
-}
+        return <Tag color={color}>{label}</Tag>;
+      }
     },
- {
-  title: "Payment Status",
-  render: (_, record) => {
-    const status = record.paymentStatus?.toLowerCase();
+    {
+      title: "Payment Status",
+      render: (_, record) => {
+        const status = record.paymentStatus?.toLowerCase();
 
-    let color = "default";
-    let label = status;
+        let color = "default";
+        let label = status;
 
-    if (status === "fully_paid") {
-      color = "success";
-      label = "Fully Paid";
-    } else if (status === "partial_paid") {
-      color = "warning";
-      label = "Partial Paid";
-    } else if (status === "not_paid") {
-      color = "error";
-      label = "Not Paid";
-    }
+        if (status === "fully_paid") {
+          color = "success";
+          label = "Fully Paid";
+        } else if (status === "partial_paid") {
+          color = "warning";
+          label = "Partial Paid";
+        } else if (status === "not_paid") {
+          color = "error";
+          label = "Not Paid";
+        }
 
-    return <Tag color={color}>{label}</Tag>;
-  },
-},
+        return <Tag color={color}>{label}</Tag>;
+      },
+    },
     {
       title: "Certification Status",
       width: 120,
@@ -612,115 +600,158 @@ certificationStatus: item.certificate_issued ? "issued" : "pending",
   //     status: "not_booked",
   //   },
   // ];
-const bookingColumns = React.useMemo(() => {
-  const baseColumns = [
-    {
-      title: "Sr No",
-      width: 60,
-      render: (_, __, index) => index + 1,
-    },
-    {
-      title: "Username / Email",
-      width: 150,
-      render: (_, record) => (
-        <div>
-          <Text strong>{record.name}</Text>
-          <div>{record.email}</div>
-        </div>
-      ),
-    },
-    {
-      title: "Date & Time",
-      render: (_, record) => (
-        <div>
-          <Text strong>{record.date}</Text>
-          <div>{record.time}</div>
-        </div>
-      ),
-    },
-   {
-  title: "Preferred Counselling Mode",
-  width: 150,
-  render: (_, record) => {
-    let color = "default";
-    let text = record.preferred_counselling_mode;
+  const bookingColumns = React.useMemo(() => {
+    const baseColumns = [
+      {
+        title: "Sr No",
+        width: 60,
+        render: (_, __, index) => index + 1,
+      },
+      {
+        title: "Username / Email",
+        width: 150,
+        render: (_, record) => (
+          <div>
+            <Text strong>{record.name}</Text>
+            <div>{record.email}</div>
+          </div>
+        ),
+      },
+      {
+        title: "Date & Time",
+        render: (_, record) => (
+          <div>
+            <Text strong>{record.date}</Text>
+            <div>{record.time}</div>
+          </div>
+        ),
+      },
+      {
+        title: "Preferred Counselling Mode",
+        width: 150,
+        render: (_, record) => {
+          let color = "default";
+          let text = record.preferred_counselling_mode;
 
-    if (record.preferred_counselling_mode === "Online") {
-      color = "blue";
-      text = "Online";
-    } else if (record.preferred_counselling_mode === "Offline") {
-      color = "green";
-      text = "Offline";
-      } else {
-      color = "default";
-      text = record.preferred_counselling_mode || "N/A";
+          if (record.preferred_counselling_mode === "Online") {
+            color = "blue";
+            text = "Online";
+          } else if (record.preferred_counselling_mode === "Offline") {
+            color = "green";
+            text = "Offline";
+          } else {
+            color = "default";
+            text = record.preferred_counselling_mode || "N/A";
+          }
+
+          return <Tag color={color}>{text}</Tag>;
+        },
+      },
+      {
+        title: "Status",
+        render: (_, record) => {
+          let color = "default";
+          let text = record.status;
+
+          if (record.status === "booked") {
+            color = "green";
+            text = "Booked";
+          } else if (record.status === "rescheduled") {
+            color = "orange";
+            text = "Rescheduled";
+          } else if (record.status === "not_booked") {
+            color = "red";
+            text = "Not Booked";
+          } else if (record.status === "pending") {
+            color = "blue";
+            text = "Pending";
+          } else if (record.status === "completed") {
+            color = "green";
+            text = "Completed";
+          } else if (record.status === "cancelled") {
+            color = "red";
+            text = "Cancelled";
+          }
+
+          return <Tag color={color}>{text}</Tag>;
+        },
+      },
+    ];
+
+    // ❌ REMOVE ACTION COLUMN FOR CANCELLED TAB
+    if (bookingStatusFilter === "cancelled") {
+      return baseColumns;
     }
 
-    return <Tag color={color}>{text}</Tag>;
-  },
-},
-    {
-      title: "Status",
-      render: (_, record) => {
-        let color = "default";
-        let text = record.status;
+    // ✅ ADD ACTION COLUMN FOR OTHER TABS
+    return [
+      ...baseColumns,
+      {
+        title: "Actions",
+        render: (_, record) => {
 
-        if (record.status === "booked") {
-          color = "green";
-          text = "Booked";
-        } else if (record.status === "rescheduled") {
-          color = "orange";
-          text = "Rescheduled";
-        } else if (record.status === "not_booked") {
-          color = "red";
-          text = "Not Booked";
-        } else if (record.status === "pending") {
-          color = "blue";
-          text = "Pending";
-        } else if (record.status === "completed") {
-          color = "green";
-          text = "Completed";
-        } else if (record.status === "cancelled") {
-          color = "red";
-          text = "Cancelled";
-        }
+          if (record.status === "not_booked") {
+            return (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setSelectedBooking(record);
+                  setBookingMode("create");
+                  setBookingModalOpen(true);
+                }}
+              >
+                Book Session
+              </Button>
+            );
+          }
 
-        return <Tag color={color}>{text}</Tag>;
-      },
-    },
-  ];
+          if (["booked", "rescheduled"].includes(record.status)) {
+            return (
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  onClick={() => handleEditBooking(record)}
+                >
+                  Reschedule
+                </Button>
 
-  // ❌ REMOVE ACTION COLUMN FOR CANCELLED TAB
-  if (bookingStatusFilter === "cancelled") {
-    return baseColumns;
-  }
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleCancel(record)}
+                >
+                  Cancel
+                </Button>
+              </Space>
+            );
+          }
 
-  // ✅ ADD ACTION COLUMN FOR OTHER TABS
-  return [
-    ...baseColumns,
-    {
-      title: "Actions",
-      render: (_, record) => {
+          if (record.status === "completed") {
+            return (
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  onClick={() => handleEditBooking(record)}
+                >
+                  Reschedule
+                </Button>
 
-        if (record.status === "not_booked") {
-          return (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setSelectedBooking(record);
-                setBookingMode("create");
-                setBookingModalOpen(true);
-              }}
-            >
-              Book Session
-            </Button>
-          );
-        }
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleCancel(record)}
+                >
+                  Cancel
+                </Button>
+              </Space>
+            );
+          }
 
-        if (["booked", "rescheduled"].includes(record.status)) {
-          return (
-            <Space>
+          if (record.status === "pending") {
+            return (
               <Button
                 type="primary"
                 icon={<EditOutlined />}
@@ -728,57 +759,14 @@ const bookingColumns = React.useMemo(() => {
               >
                 Reschedule
               </Button>
+            );
+          }
 
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleCancel(record)}
-              >
-                Cancel
-              </Button>
-            </Space>
-          );
-        }
-
-        if (record.status === "completed") {
-          return (
-            <Space>
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                onClick={() => handleEditBooking(record)}
-              >
-                Reschedule
-              </Button>
-
-              <Button
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleCancel(record)}
-              >
-                Cancel
-              </Button>
-            </Space>
-          );
-        }
-
-        if (record.status === "pending") {
-          return (
-            <Button
-              type="primary"
-              icon={<EditOutlined />}
-              onClick={() => handleEditBooking(record)}
-            >
-              Reschedule
-            </Button>
-          );
-        }
-
-        return null;
+          return null;
+        },
       },
-    },
-  ];
-}, [bookingStatusFilter]);
+    ];
+  }, [bookingStatusFilter]);
   const issuedColumns = [
     {
       title: "Sr No",
@@ -815,22 +803,22 @@ const bookingColumns = React.useMemo(() => {
     }
   ];
 
-const filteredBookings = formattedBookings.filter((item) => {
-  const matchesSearch =
-    item.name?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
-    item.email?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
-    item.session?.toLowerCase().includes(bookingSearch.toLowerCase());
+  const filteredBookings = formattedBookings.filter((item) => {
+    const matchesSearch =
+      item.name?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+      item.email?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+      item.session?.toLowerCase().includes(bookingSearch.toLowerCase());
 
-  let matchesStatus = true;
+    let matchesStatus = true;
 
-  if (bookingStatusFilter === "booked_group") {
-    matchesStatus = ["booked", "rescheduled"].includes(item.status);
-  } else if (bookingStatusFilter) {
-    matchesStatus = item.status === bookingStatusFilter;
-  }
+    if (bookingStatusFilter === "booked_group") {
+      matchesStatus = ["booked", "rescheduled"].includes(item.status);
+    } else if (bookingStatusFilter) {
+      matchesStatus = item.status === bookingStatusFilter;
+    }
 
-  return matchesSearch && matchesStatus;
-});
+    return matchesSearch && matchesStatus;
+  });
 
   return (
     <div>
@@ -867,7 +855,9 @@ const filteredBookings = formattedBookings.filter((item) => {
                   <Text style={{ color: token.colorTextSecondary, fontSize: 16 }}>
                     {item.title}
                   </Text>
-                  <Title level={3}>{item.value}</Title>
+                <Title level={3}>
+  {cardStatsLoading ? <Spin size="small" /> : item.value}
+</Title>
                 </div>
                 {item.icon}
               </div>
@@ -971,9 +961,9 @@ const filteredBookings = formattedBookings.filter((item) => {
                   size="large"
                   style={{ width: "100%" }}
                 >
-                 <Select.Option value="fully_paid">Fully Paid</Select.Option>
-<Select.Option value="partial_paid">Partial Paid</Select.Option>
-<Select.Option value="not_paid">Not Paid</Select.Option>
+                  <Select.Option value="fully_paid">Fully Paid</Select.Option>
+                  <Select.Option value="partial_paid">Partial Paid</Select.Option>
+                  <Select.Option value="not_paid">Not Paid</Select.Option>
                 </Select>
               </Col>
 
@@ -998,7 +988,7 @@ const filteredBookings = formattedBookings.filter((item) => {
               columns={userColumns}
               dataSource={filteredUsers}
               rowKey="id"
-               loading={participantsLoading} 
+              loading={participantsLoading}
               scroll={{ x: "max-content" }}
               pagination={{
                 ...userPagination,
@@ -1287,18 +1277,18 @@ const filteredBookings = formattedBookings.filter((item) => {
 
             {/* TABLE */}
             <Table
-  columns={bookingColumns}
-  dataSource={filteredBookings}
-  rowKey="id"
-  loading={bookingsLoading}
-  scroll={{ x: "max-content" }}
-  pagination={{
-    ...bookingPagination,
-    showSizeChanger: true,
-    pageSizeOptions: [5, 10, 20, 50],
-  }}
-  onChange={(pag) => setBookingPagination(pag)}
-/>
+              columns={bookingColumns}
+              dataSource={filteredBookings}
+              rowKey="id"
+              loading={bookingsLoading}
+              scroll={{ x: "max-content" }}
+              pagination={{
+                ...bookingPagination,
+                showSizeChanger: true,
+                pageSizeOptions: [5, 10, 20, 50],
+              }}
+              onChange={(pag) => setBookingPagination(pag)}
+            />
           </>
         )}
 
@@ -1345,30 +1335,30 @@ const filteredBookings = formattedBookings.filter((item) => {
         user={selectedUser}
       />
 
-<EditHHUserModal
-  open={editModalOpen}
-  onCancel={() => setEditModalOpen(false)}
-  userData={selectedUser}
-  onSubmit={async (formData) => {
-    try {
-      await dispatch(updateHandholdingParticipant({
-        id: formData.get("id"),
-        payload: formData
-      })).unwrap();
+      <EditHHUserModal
+        open={editModalOpen}
+        onCancel={() => setEditModalOpen(false)}
+        userData={selectedUser}
+        onSubmit={async (formData) => {
+          try {
+            await dispatch(updateHandholdingParticipant({
+              id: formData.get("id"),
+              payload: formData
+            })).unwrap();
 
-      message.success("User updated successfully");
+            message.success("User updated successfully");
 
-      // ✅ REFRESH USERS LIST
-      dispatch(getHandholdingParticipants());
+            // ✅ REFRESH USERS LIST
+            dispatch(getHandholdingParticipants());
 
-      setEditModalOpen(false);
-      setSelectedUser(null);
+            setEditModalOpen(false);
+            setSelectedUser(null);
 
-    } catch (err) {
-      message.error(err?.message || "Update failed");
-    }
-  }}
-/>
+          } catch (err) {
+            message.error(err?.message || "Update failed");
+          }
+        }}
+      />
 
       <CertificateTemplateModal
         open={certificateModalOpen}
@@ -1441,23 +1431,23 @@ const filteredBookings = formattedBookings.filter((item) => {
       />
 
       <Modal
-  title="Cancel Booking"
-  open={cancelModalOpen}
-  centered
-  onOk={confirmCancelBooking}
-  onCancel={() => {
-    setCancelModalOpen(false);
-    setSelectedCancelBooking(null);
-  }}
-  okText="Yes, Cancel"
-     okType="default"
-  okButtonProps={{ danger: true }}
->
-  <p>
-    Are you sure you want to cancel session for{" "}
-    <strong>{selectedCancelBooking?.name}</strong>?
-  </p>
-</Modal>
+        title="Cancel Booking"
+        open={cancelModalOpen}
+        centered
+        onOk={confirmCancelBooking}
+        onCancel={() => {
+          setCancelModalOpen(false);
+          setSelectedCancelBooking(null);
+        }}
+        okText="Yes, Cancel"
+        okType="default"
+        okButtonProps={{ danger: true }}
+      >
+        <p>
+          Are you sure you want to cancel session for{" "}
+          <strong>{selectedCancelBooking?.name}</strong>?
+        </p>
+      </Modal>
 
       <Modal
         title="Delete Session"

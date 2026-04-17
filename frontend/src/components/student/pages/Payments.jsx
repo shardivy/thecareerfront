@@ -238,6 +238,7 @@ package:
           <Button
             size={isMobile ? "small" : "middle"}
             icon={<FileTextOutlined />}
+            disabled
           >
             {isMobile ? "Invoice" : "View Invoice"}
           </Button>

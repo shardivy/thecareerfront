@@ -64,7 +64,8 @@ const JourneySteps = ({
         return progressData.analysis === "completed" || progressData.analysis === "in_progress";
 
       case "Analysis Report":
-        return progressData.analysis === "completed";
+        return progressData.report === "received_unlocked";
+
       case "Counselling Slot Booking":
         return (
           progressData.counselling_slot_booking === "booked" ||
@@ -97,7 +98,7 @@ const JourneySteps = ({
         return progressData.analysis === "in_progress";
 
       case "Analysis Report":
-        return progressData.analysis === "in_progress";
+        return progressData.analysis === "received_locked";
 
       case "Review":
         return progressData.review === "in_process";
@@ -189,8 +190,11 @@ const JourneySteps = ({
     if (label === "Questionnaire" && progressData.analysis === "in_progress")
       return `${label} - In Progress`;
 
-    if (label === "Analysis Report" && progressData.report === "completed")
-      return `${label} - Completed`;
+ if (label === "Analysis Report" && progressData.report === "received_unlocked")
+  return `${label} - Completed`;
+
+if (label === "Analysis Report" && progressData.report === "received_locked")
+  return `${label} - Locked`;
 
     if (label === "Review") {
       if (progressData.review === "in_process")

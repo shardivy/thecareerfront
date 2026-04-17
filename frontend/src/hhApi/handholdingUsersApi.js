@@ -39,3 +39,9 @@ export const updateHandholdingParticipantApi = async (id, payload) => {
   );
   return response.data;
 };
+
+// ✅ NEW: Card Stats API
+export const getCardStatsApi = async () => {
+  const response = await axiosInstance.get("/event/card-count/");
+  return response.data;
+};

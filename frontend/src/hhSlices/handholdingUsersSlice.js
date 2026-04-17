@@ -4,6 +4,7 @@ import { fetchHandholdingUsersApi ,
   getParticipantSessionsApi,
   updateHandholdingParticipantApi,
   getPendingParticipantsApi,
+  getCardStatsApi ,
 } from "../hhApi/handholdingUsersApi";
 
 // ✅ THUNK
@@ -71,6 +72,19 @@ export const fetchPendingParticipants = createAsyncThunk(
   }
 );
 
+export const getCardStats = createAsyncThunk(
+  "handholdingUsers/getCardStats",
+  async (_, { rejectWithValue }) => {
+    try {
+      return await getCardStatsApi();
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data || "Failed to fetch stats"
+      );
+    }
+  }
+);
+
 const handholdingUsersSlice = createSlice({
   name: "handholdingUsers",
   initialState: {
@@ -83,6 +97,8 @@ const handholdingUsersSlice = createSlice({
     loading: false,
       participantsLoading: false,
     error: null,
+    cardStats: null,
+cardStatsLoading: false,
   },
   reducers: {},
 
@@ -158,6 +174,18 @@ state.list = newData.sort((a, b) => b.id - a.id);
 })
 .addCase(fetchPendingParticipants.rejected, (state, action) => {
   state.pendingLoading = false;
+  state.error = action.payload;
+})
+
+.addCase(getCardStats.pending, (state) => {
+  state.cardStatsLoading = true;
+})
+.addCase(getCardStats.fulfilled, (state, action) => {
+  state.cardStatsLoading = false;
+  state.cardStats = action.payload?.data || action.payload;
+})
+.addCase(getCardStats.rejected, (state, action) => {
+  state.cardStatsLoading = false;
   state.error = action.payload;
 })
   },

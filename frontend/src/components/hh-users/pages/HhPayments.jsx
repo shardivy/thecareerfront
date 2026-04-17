@@ -22,7 +22,11 @@ import {
 
 import UploadPaymentModal from "../modals/HhBookSessionModal";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchStudentPaymentHistory, fetchStudentPaymentProgress } from "../../../adminSlices/paymentSlice";
+import {
+  fetchHandholdingPaymentDetails,
+  
+} from "../../../hhSlices/handholdingPaymentSlice";
+
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -37,17 +41,13 @@ const HhPayments = () => {
   const dispatch = useDispatch();
 
 
-  const { historyList, historyLoading } = useSelector(
-    (state) => state.payment
-  );
+const { details, data, loading } = useSelector(
+  (state) => state.handholdingPayment
+);
 
-  const { progressData, progressLoading } = useSelector(
-    (state) => state.payment
-  );
-
-  const totalFee = Number(progressData?.package_price) || 0;
-  const paidAmount = Number(progressData?.total_paid) || 0;
-  const dueAmount = Number(progressData?.remaining_amount) || 0;
+  const totalFee = Number(data?.amount) || 0;
+const paidAmount = Number(data?.total_paid) || 0;
+const dueAmount = Number(data?.remaining_amount) || 0;
 
   const summaryData = {
     totalFee,
@@ -59,16 +59,13 @@ const HhPayments = () => {
     totalFee > 0 ? Math.min((paidAmount / totalFee) * 100, 100) : 0;
 
 
-  useEffect(() => {
-    const studentId = localStorage.getItem("studentId");
+ useEffect(() => {
+  const participantId = localStorage.getItem("participant_id"); 
 
-    console.log("Student ID from localStorage:", studentId);
-
-    if (studentId) {
-      dispatch(fetchStudentPaymentHistory(studentId));
-      dispatch(fetchStudentPaymentProgress(studentId));
-    }
-  }, [dispatch]);
+  if (participantId) {
+    dispatch(fetchHandholdingPaymentDetails(participantId));
+     }
+}, [dispatch]);
 
 
 
@@ -90,6 +87,7 @@ const HhPayments = () => {
     return text.length > 5 ? `${text.slice(0, 5)}...` : text;
   };
 
+  const historyList = details?.data || [];
 
   const formattedHistory = historyList.map((item, index) => {
     const rawDate = item.payment_date || item.created_at;
@@ -327,7 +325,7 @@ package:
         <Table
           columns={columns}
           dataSource={formattedHistory}
-          loading={historyLoading}
+          loading={loading}
           size={isMobile ? "small" : "middle"}
           scroll={{ x: "max-content" }}
         />
