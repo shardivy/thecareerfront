@@ -125,8 +125,8 @@ class CertificateTemplateAdmin(admin.ModelAdmin):
 # ✅ Certificate Admin
 @admin.register(Certificate)
 class CertificateAdmin(admin.ModelAdmin):
-    list_display = ("user", "program_type", "issued_at")
-    list_filter = ("program_type",)
+    list_display = ("user", "program_type", "certificate_status", "issued_at")
+    list_filter = ("program_type", "certificate_status")
     search_fields = ("user__email",)
 
 

@@ -757,117 +757,135 @@ class VerifyPaymentAPIView(APIView):
             })
 
         # ======================================
-        # ❌ REJECT LOGIC (STRICT)
+        # REJECT LOGIC - SAFE & FLEXIBLE
         # ======================================
-        elif action == 'reject':
+        if action == "reject":
+            with transaction.atomic():
 
-            # ======================================
-            # ✅ STEP 1: ALLOW ONLY LATEST PAYMENT
-            # ======================================
-            latest_payment = Payment.objects.filter(
-                user=payment.user,
-                package=payment.package
-            ).order_by("-id").first()
+                # ✅ GET VERIFIED AMOUNT
+                verified_amount_str = request.data.get("verifiedAmount")
 
-            if latest_payment.id != payment.id:
-                return Response(
-                    {
-                        "success": False,
-                        "error": "You can only reject the latest payment. Please handle newer payments first."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # ======================================
-            # ✅ STEP 2: VALIDATE PREVIOUS PAYMENT (FIXED)
-            # ======================================
-            previous_payments = Payment.objects.filter(
-                user=payment.user,
-                package=payment.package,
-                status__in=["partial_paid", "fully_paid"],
-                amount__gt=0   # ✅ IMPORTANT FIX
-            ).exclude(id=payment.id).order_by("-id")
-
-            previous_payment = previous_payments.first()
-
-            if previous_payment:
-
-                previous_total = previous_payments.aggregate(
-                    total=Sum("amount")
-                )["total"] or Decimal("0")
-
-                # ❌ Over total check
-                if previous_total > package_price:
+                if not verified_amount_str:
                     return Response(
-                        {
-                            "success": False,
-                            "error": "Previous payment data is inconsistent. Please fix previous payments before rejecting."
-                        },
+                        {"success": False, "error": "verifiedAmount is required."},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-            # ======================================
-            # ✅ STEP 3: REJECT CURRENT PAYMENT
-            # ======================================
-            send_payment_rejected_email(payment.user)
+                try:
+                    verified_amount = Decimal(str(verified_amount_str))
+                except Exception:
+                    return Response(
+                        {"success": False, "error": "Invalid verifiedAmount format."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
-            payment.status = "not_paid"
-            payment.amount = Decimal("0")  # IMPORTANT
-            payment.verified_by = request.user
-            payment.save()
+                try:
+                    # ✅ LOCK PAYMENTS
+                    payments_qs = Payment.objects.select_for_update().filter(
+                        user=payment.user,
+                        package=payment.package
+                    )
 
-            # ======================================
-            # ✅ STEP 4: RECALCULATE REMAINING PAYMENTS
-            # ======================================
-            valid_payments = Payment.objects.filter(
-                user=payment.user,
-                package=payment.package,
-                status__in=["partial_paid", "fully_paid"]
-            )
+                    # ✅ GET LAST VALID PAYMENT (NOT REJECTED)
+                    payment = payments_qs.filter(
+                        status__in=["partial_paid", "fully_paid"],
+                        amount__gt=0   # 🔥 IMPORTANT FIX
+                    ).order_by("-created_at", "-id").first()
 
-            total_paid = valid_payments.aggregate(
-                total=Sum("amount")
-            )["total"] or Decimal("0")
+                    if not payment:
+                        return Response(
+                            {
+                                "success": False,
+                                "error": "No valid payment found to reject (all payments already rejected)."
+                            },
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
 
-            # Determine new status
-            if total_paid == 0:
-                new_status = "not_paid"
-            elif total_paid < package_price:
-                new_status = "partial_paid"
-            else:
-                new_status = "fully_paid"
+                    old_status = payment.status
+                    actual_payment_amount = payment.amount or Decimal("0")
 
-            # Update all valid payments
-            for pay in valid_payments:
-                if total_paid >= package_price:
-                    pay.status = "fully_paid"
-                else:
-                    pay.status = "partial_paid"
-                pay.save()
+                    # ✅ AMOUNT MATCH VALIDATION
+                    if verified_amount != actual_payment_amount:
+                        return Response(
+                            {
+                                "success": False,
+                                "error": f"Amount mismatch! Passed ₹{verified_amount}, but last payment is ₹{actual_payment_amount}",
+                            },
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
 
-            # ======================================
-            # ✅ STEP 5: LOG
-            # ======================================
-            PaymentLog.objects.create(
-                payment=payment,
-                old_status=old_status,
-                new_status=new_status,
-                changed_by=request.user
-            )
+                    # ======================================
+                    # ✅ REJECT PAYMENT
+                    # ======================================
+                    payment.status = "not_paid"
+                    payment.amount = Decimal("0")
+                    payment.verified_by = request.user
+                    payment.save(update_fields=["status", "amount", "verified_by"])
 
-            return Response({
-                "success": True,
-                "message": "Payment rejected successfully",
-                "total_paid": total_paid,
-                "new_status": new_status
-            })
- 
- 
- 
- 
- 
-            
-            
+                    # ======================================
+                    # ✅ UPDATE PREVIOUS PAYMENTS
+                    # ======================================
+                    previous_payments = payments_qs.filter(
+                        status__in=["partial_paid", "fully_paid"]
+                    )
+
+                    previous_total = previous_payments.aggregate(
+                        total=Sum("amount")
+                    )["total"] or Decimal("0")
+
+                    for prev in previous_payments:
+                        if prev.status != "partial_paid":
+                            prev.status = "partial_paid"
+                            prev.save(update_fields=["status"])
+
+                    # ======================================
+                    # ✅ REMOVE PACKAGE ASSIGNMENT
+                    # ======================================
+                    UserProgramPackage.objects.filter(
+                        user=payment.user,
+                        program=payment.package.program,
+                        package=payment.package
+                    ).delete()
+
+                    # ======================================
+                    # ✅ LOG
+                    # ======================================
+                    PaymentLog.objects.create(
+                        payment=payment,
+                        old_status=old_status,
+                        new_status="not_paid",
+                        changed_by=request.user
+                    )
+
+                    # ======================================
+                    # ✅ EMAIL
+                    # ======================================
+                    send_payment_rejected_email(payment.user)
+
+                    return Response(
+                        {
+                            "success": True,
+                            "message": "Last payment rejected successfully.",
+                            "payment_id": payment.id,
+                            "rejected_amount": float(actual_payment_amount),
+                            "remaining_total": float(previous_total),
+                        },
+                        status=status.HTTP_200_OK
+                    )
+
+                except Exception as e:
+                    return Response(
+                        {
+                            "success": False,
+                            "error": f"Something went wrong: {str(e)}"
+                        },
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+        
+                
+        
+        
+        
 # =================================================================================
 
 # class PaymentListAPIView(APIView):
@@ -1226,6 +1244,16 @@ class PaymentListAPIView(APIView):
                     kwargs={"payment_id": latest_payment.id}
                 )
                 proof_url = request.build_absolute_uri(url)
+                
+            # =====================================
+            # 🔹 LAST VALID PAYMENT AMOUNT (FIX)
+            # =====================================
+            last_payment_with_amount = payments.exclude(
+                amount__isnull=True
+            ).exclude(
+                amount=0
+            ).order_by("-created_at").first()
+
 
             # =====================================
             # 🔹 RESPONSE
@@ -1261,7 +1289,7 @@ class PaymentListAPIView(APIView):
                 "package_price": float(package_price or 0),
 
                 # ✅ FIX THIS ERROR
-                "amount": float(latest_payment.amount or 0),
+                "amount": float(last_payment_with_amount.amount) if last_payment_with_amount else 0,
 
                 # ✅ SAFE PACKAGE
                 "program_id": (
@@ -1657,6 +1685,54 @@ class StudentPaymentProgressAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+        
+class HandholdingPaymentProgressAPIView(APIView):
+    """
+    Fetch payment progress summary of a student
+    """
+
+    def get(self, request, participant_id):
+        participant = get_object_or_404(HandHoldingParticipant, id=participant_id)
+        user = participant.user
+
+        # 🔹 Get program-package
+        upp = UserProgramPackage.objects.filter(
+            user=user
+        ).select_related("package").first()
+
+        # 🔹 Get payments (exclude not_paid)
+        payments = Payment.objects.filter(
+            user=user,
+            status__in=["partial_paid", "fully_paid"]
+        )
+
+        # 🔹 Total Paid
+        total_paid = payments.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
+
+        # 🔹 Package Price
+        package_price = upp.package.price if upp and upp.package else 0
+
+        # 🔹 Remaining
+        remaining_amount = package_price - total_paid
+
+        # 🔹 Progress %
+        if package_price > 0:
+            payment_progress = round((total_paid / package_price) * 100, 2)
+        else:
+            payment_progress = 0
+
+        return Response(
+            {
+                "package_price": package_price,
+                "total_paid": total_paid,
+                "remaining_amount": remaining_amount,
+                "payment_progress_percentage": payment_progress
+            },
+            status=status.HTTP_200_OK
+        )        
+        
 
             
 class StudentPackagePaymentSummaryAPIView(APIView):
