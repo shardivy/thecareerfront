@@ -19,6 +19,7 @@ import logging
 from accounts.constants import PROGRAM_PREFIX_MAP
 from django.db.models import Sum
 from django.utils import timezone
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from accounts.models import Role, User
 from accounts.permissions import IsAdmin, IsSuperAdmin
@@ -1544,6 +1545,7 @@ class AdminUserFullUpdateAPIView(APIView):
 #             )
 
 class ConvertLeadAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
     """
     Convert Lead → User → StudentProfile → Program → Package → Payment
     """
@@ -1564,7 +1566,8 @@ class ConvertLeadAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        payload = request.data.dict()
+        payload = request.data.dict()  # Make it mutable
+        # payload._mutable = True
         payload["first_name"] = lead.first_name
         payload["last_name"] = lead.last_name
         payload["email"] = lead.email
@@ -1658,6 +1661,12 @@ class ConvertLeadAPIView(APIView):
                 # 🔹 HAND HOLDING LOGIC
                 # =================================
                 if is_handholding:
+                    resume_file = serializer.validated_data.get("resume_file")
+                    photo = serializer.validated_data.get("photo")
+                    
+                    print(f"Resume file received: {resume_file}")
+                    print(f"Resume file name: {resume_file.name if resume_file else 'None'}")
+                    print(f"Photo received: {photo}")
 
                     participant = HandHoldingParticipant.objects.filter(
                         email=lead.email
@@ -1668,15 +1677,19 @@ class ConvertLeadAPIView(APIView):
                         participant.mobile = user.phone
                         participant.email = user.email
 
-                        if not participant.photo:
-                            participant.photo = serializer.validated_data.get("photo")
-
-                        if not participant.resume_file:
-                            participant.resume_file = serializer.validated_data.get("resume_file")
+                        # ✅ FIX: Assign file fields properly
+                        if resume_file:
+                            participant.resume_file = resume_file  # This should work if field is FileField
+                            
+                        if photo:
+                            participant.photo = photo
+                            
+                        participant.show_profile = serializer.validated_data.get("show_profile", participant.show_profile)
 
                         participant.save()
 
                     else:
+                        # ✅ FIX: Create with file fields
                         participant = HandHoldingParticipant.objects.create(
                             user=user,
                             email=user.email,
@@ -1684,9 +1697,9 @@ class ConvertLeadAPIView(APIView):
                             full_address=serializer.validated_data.get("full_address", ""),
                             city=serializer.validated_data.get("city"),
                             preferred_counselling_mode=serializer.validated_data.get("preferred_counselling_mode"),
-                    
-                            photo=serializer.validated_data.get("photo"),
-                            resume_file=serializer.validated_data.get("resume_file"),
+                            resume_file=resume_file,  # This should work
+                            photo=photo,  # This should work
+                            show_profile=serializer.validated_data.get("show_profile")
                         )
 
                     # =================================

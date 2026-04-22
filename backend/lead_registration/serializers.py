@@ -57,8 +57,13 @@ class HandHoldingParticipantSerializer(serializers.ModelSerializer):
     def get_proof_file(self, obj):
         request = self.context.get("request")
 
-        if obj.payment and obj.payment.proof_file:
-            return request.build_absolute_uri(obj.payment.proof_file.url)
+        payment = Payment.objects.filter(
+            user=obj.user,
+            proof_file__isnull=False
+        ).exclude(proof_file="").order_by("-created_at").first()
+
+        if payment and payment.proof_file and request:
+            return request.build_absolute_uri(payment.proof_file.url)
 
         return None
 
@@ -243,67 +248,29 @@ class AddUserSerializer(serializers.Serializer):
 
         return value
 
-    def validate_phone(self, value):
-        if not value:
-            return value
+    # def validate_phone(self, value):
+    #     if not value:
+    #         return value
 
-        # normalize phone (optional but recommended)
-        phone = value.strip().replace(" ", "")
+    #     # normalize phone (optional but recommended)
+    #     phone = value.strip().replace(" ", "")
 
-        user_id = self.context.get("user_id")
+    #     user_id = self.context.get("user_id")
 
-        qs = User.objects.filter(phone=phone)
+    #     qs = User.objects.filter(phone=phone)
 
-        # ✅ exclude current user (VERY IMPORTANT)
-        if user_id:
-            qs = qs.exclude(id=user_id)
+    #     # ✅ exclude current user (VERY IMPORTANT)
+    #     if user_id:
+    #         qs = qs.exclude(id=user_id)
 
-        if qs.exists():
-            raise serializers.ValidationError("Phone number already exists.")
+    #     if qs.exists():
+    #         raise serializers.ValidationError("Phone number already exists.")
 
-        return phone
+    #     return phone
 
     # -------------------------
     # Cross-field Validation
     # -------------------------
-    # def validate(self, attrs):
-    #     package = attrs.get("package")
-    #     program = attrs.get("program")
-    #     amount = attrs.get("amount")
-    #     payment_type = attrs.get("payment_type")
-
-    #     # ✅ Ensure package belongs to program (recommended)
-    #     if package and program:
-    #         if package.program != program:
-    #             raise serializers.ValidationError(
-    #                 {"package": "Selected package does not belong to the selected program."}
-    #             )
-
-    #     # ✅ Validate payment rules
-    #     if amount is not None:
-
-    #         package_price = package.price
-
-
-    #         # ❌ Minimum amount check
-    #         # if amount < Decimal("500"):
-    #         #     raise serializers.ValidationError(
-    #         #         {"amount": "Minimum payment amount must be ₹500."}
-    #         #     )
-
-    #         # ❌ Exceeding package amount
-    #         if amount > package_price:
-    #             raise serializers.ValidationError(
-    #                 {"amount": f"Amount cannot exceed package price ₹{package_price}."}
-    #             )
-
-    #         # ❌ Payment type required if amount provided
-    #         # if not payment_type:
-    #         #     raise serializers.ValidationError(
-    #         #         {"payment_type": "Payment type is required when amount is provided."}
-    #         #     )
-
-    #     return attrs
     
     def validate(self, attrs):
         package = attrs.get("package")
@@ -510,33 +477,33 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
         
     def get_program_id(self, obj):
         upp = self.context.get("upp")
-        if not upp or not upp.program:
-            return None
-        return upp.program.id
-        
+        if upp:
+            return getattr(upp.program, "id", None)
+        return None
+
     def get_program(self, obj):
         upp = self.context.get("upp")
-        if not upp or not upp.program:
-            return None
-        return upp.program.name
+        if upp:
+            return getattr(upp.program, "name", None)
+        return None
 
     def get_package_id(self, obj):
         upp = self.context.get("upp")
-        if not upp or not upp.package:
-            return None
-        return upp.package.id
+        if upp:
+            return getattr(upp.package, "id", None)
+        return None
 
     def get_package(self, obj):
         upp = self.context.get("upp")
-        if not upp or not upp.package:
-            return None
-        return upp.package.name
-    
+        if upp:
+            return getattr(upp.package, "name", None)
+        return None
+
     def get_package_price(self, obj):
         upp = self.context.get("upp")
-        if not upp or not upp.package:
-            return None
-        return upp.package.price
+        if upp:
+            return getattr(upp.package, "price", None)
+        return None
 
 
 # ============================ Student Registration form serializers below =========================

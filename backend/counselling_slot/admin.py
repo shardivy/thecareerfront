@@ -29,6 +29,7 @@ class SlotAdmin(admin.ModelAdmin):
         "end_time",
         "mode",
         "is_available",
+        "is_handholding_session_available",
         "created_at",
     )
 

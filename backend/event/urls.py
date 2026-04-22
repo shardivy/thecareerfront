@@ -1,6 +1,6 @@
 from django.urls import path
 
-from event.views import AdvertisementCreateAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateTemplateAPIView, CreateHandHoldingSessionAPIView, DashboardStatsAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkSessionCompletedAPIView, ParticipantSessionListAPIView, RescheduleSessionAPIView
+from event.views import AdvertisementCreateAPIView, AdvertisementDashboardCountAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateDashboardCountAPIView, CertificateTemplateAPIView, CounsellorStudentBookingByIdAPIView, CreateHandHoldingSessionAPIView, DashboardStatsAPIView, EventCreateAPIView, EventDashboardCountAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkEventCompletedAPIView, MarkSessionCompletedAPIView, ParticipantCertificateAPIView, ParticipantSessionListAPIView, ParticipantSessionProgressAPIView, PendingCertificateParticipantsAPIView, RescheduleSessionAPIView, SendReminderByEventAPIView
 
 urlpatterns = [
     path('handholding/register/', HandHoldingRegisterAPIView.as_view(), name='handholding-register'),
@@ -17,15 +17,16 @@ urlpatterns = [
     path("cancel-session/",CancelSessionAPIView.as_view(),name="cancel-session"),
     path("participant-sessions/<int:participant_id>/",ParticipantSessionListAPIView.as_view(),name="participant-session-list"),
     path("participants/",HandHoldingSessionListAPIView.as_view(),name="handholding-participants"),
-    path(
-    "single-participant/<int:participant_id>/",
-    ParticipantSessionListAPIView.as_view(),
-    name="participant-sessions"
-),
+    path("single-participant/<int:participant_id>/",ParticipantSessionListAPIView.as_view(),name="participant-sessions"),
+    path('participant-session-progress/<int:participant_id>/',ParticipantSessionProgressAPIView.as_view(),name='participant-session-progress'),
+    
+    path("handholding/counsellor-bookings/<int:counsellor_id>/", CounsellorStudentBookingByIdAPIView.as_view()),
     
     # ================ Advertisement URLs ====================
     
+    path("stats/", AdvertisementDashboardCountAPIView.as_view(), name="advertisement-dashboard-stats"),
     path("advertisement/", AdvertisementCreateAPIView.as_view(), name="create-advertisement"),
+    path('advertisement/<int:ad_id>/', AdvertisementCreateAPIView.as_view()),
     
     # ===================== Certificate URLs ====================
     
@@ -33,5 +34,16 @@ urlpatterns = [
     path("certificate-template/<int:pk>/", CertificateTemplateAPIView.as_view(), name="certificate-template-detail"),
     path("generate-certificates/", GenerateCertificateAPIView.as_view()),
     path("issued-certificates/", IssuedCertificateAPIView.as_view()),
+    path('pending-certificates/', PendingCertificateParticipantsAPIView.as_view()),
+    path("certificates/participant/<int:participant_id>/",ParticipantCertificateAPIView.as_view(),name="participant-certificates"),
+    path('certificate-stats/', CertificateDashboardCountAPIView.as_view(), name='certificate-dashboard-stats'),
+    
+    # ============================ Event URLs ============================
+    
+    path('event-dashboard-count/', EventDashboardCountAPIView.as_view()),
+    path("events/", EventCreateAPIView.as_view(), name="create-event"),
+    path("events/<int:event_id>/", EventCreateAPIView.as_view(), name="event-detail"),
+    path('send-reminder/<int:event_id>/', SendReminderByEventAPIView.as_view()),
+    path('mark-event-completed/<int:event_id>/', MarkEventCompletedAPIView.as_view()),
     
 ]

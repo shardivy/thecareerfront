@@ -13,13 +13,46 @@ from .models import (
 # ✅ Event Admin
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
+
+    # =========================
+    # 🔹 LIST DISPLAY
+    # =========================
     list_display = (
-        "title", "event_type", "event_mode",
-        "event_date", "status", "conducted_by"
+        "id",
+        "seminar_webinar_name",
+        "event_type",
+        "event_mode",
+        "venue_type",
+        "event_start_date",
+        "event_end_date",
+        "session_status",
+        "is_paid",
+        "amount",
+        "conducted_by",
+        "created_at",
     )
-    list_filter = ("event_type", "event_mode", "status")
-    search_fields = ("title", "institute_name", "concerned_person_name")
-    # ordering = ("-event_date",)
+
+    # =========================
+    # 🔹 FILTERS
+    # =========================
+    list_filter = (
+        "event_type",
+        "event_mode",
+        "venue_type",
+        "session_status",
+        "is_paid",
+        "created_at",
+    )
+
+    # =========================
+    # 🔹 SEARCH
+    # =========================
+    search_fields = (
+        "seminar_webinar_name",
+        "concerned_person_name",
+        "concerned_person_email",
+        "transaction_id",
+    )
     
 @admin.register(HandHoldingSession)
 class HandHoldingSessionAdmin(admin.ModelAdmin):

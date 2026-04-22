@@ -464,6 +464,7 @@ class RejectUserExamAPIView(APIView):
         # ✅ FIX: check old status, not current
         if old_status == "completed":
             user_exam.completed_at = None
+            user_exam.approved_by = None
                         
         user_exam.save()
         

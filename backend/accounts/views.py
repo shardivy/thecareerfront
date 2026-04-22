@@ -962,6 +962,11 @@ class ProfileUpdateAPIView(APIView):
                 participant = HandHoldingParticipant.objects.filter(user=user).first()
 
                 if participant:
+                    payment = Payment.objects.filter(
+                        user=user,
+                        proof_file__isnull=False
+                    ).exclude(proof_file="").order_by("-created_at").first()
+                    
                     response_data.update({
                         "participant_id": participant.id,
                         "mobile": participant.mobile,
@@ -980,6 +985,8 @@ class ProfileUpdateAPIView(APIView):
                             if participant.photo else None,
                         "resume_file": request.build_absolute_uri(participant.resume_file.url)
                             if participant.resume_file else None,
+                        "proof_file": request.build_absolute_uri(payment.proof_file.url)
+                            if payment and payment.proof_file else None,
                         "created_at": participant.created_at
                     })
                 else:
@@ -1104,26 +1111,46 @@ class ProfileUpdateAPIView(APIView):
         # ==========================
         # 🔹 Program & Package
         # ==========================
-        if user.role and user.role.name.lower() == "student":
+        # if user.role and user.role.name.lower() == "student":
             
-            upp = UserProgramPackage.objects.select_related("package", "program").filter(user=user).first()
+        #     upp = UserProgramPackage.objects.select_related("package", "program").filter(user=user).first()
 
-            aptitude_test_status = False
+        #     aptitude_test_status = False
 
-            if upp:
-                if upp.package:
-                    aptitude_test_status = upp.package.aptitude_test
+        #     if upp:
+        #         if upp.package:
+        #             aptitude_test_status = upp.package.aptitude_test
 
-                response_data.update({
-                    "program_id": upp.program.id if upp.program else None,
-                    "program": upp.program.name if upp.program else None,
-                    "package_id": upp.package.id if upp.package else None,
-                    "package": upp.package.name if upp.package else None,
-                    "aptitude_test": aptitude_test_status,
-                    "engineering_test_analysis": upp.package.engineering_test_analysis if upp.package else False
-                })
-            else:
-                response_data["aptitude_test"] = False
+        #         response_data.update({
+        #             "program_id": upp.program.id if upp.program else None,
+        #             "program": upp.program.name if upp.program else None,
+        #             "package_id": upp.package.id if upp.package else None,
+        #             "package": upp.package.name if upp.package else None,
+        #             "aptitude_test": aptitude_test_status,
+        #             "engineering_test_analysis": upp.package.engineering_test_analysis if upp.package else False
+        #         })
+        #     else:
+        #         response_data["aptitude_test"] = False
+        upp = UserProgramPackage.objects.select_related("package", "program").filter(user=user).first()
+
+        if upp:
+            response_data.update({
+                "program_id": upp.program.id if upp.program else None,
+                "program": upp.program.name if upp.program else None,
+                "package_id": upp.package.id if upp.package else None,
+                "package": upp.package.name if upp.package else None,
+                "aptitude_test": upp.package.aptitude_test if upp.package else False,
+                "engineering_test_analysis": upp.package.engineering_test_analysis if upp.package else False
+            })
+        else:
+            response_data.update({
+                "program_id": None,
+                "program": None,
+                "package_id": None,
+                "package": None,
+                "aptitude_test": False,
+                "engineering_test_analysis": False
+            })
 
             payments = Payment.objects.filter(user=user)
             response_data["payments"] = [
@@ -1146,6 +1173,10 @@ class ProfileUpdateAPIView(APIView):
     
     @transaction.atomic
     def put(self, request):
+        print(">>> PUT request received at view <<<")
+        print(f"Request path: {request.path}")
+        print(f"Request method: {request.method}")
+        
         user = request.user
         data = request.data
 
@@ -1156,89 +1187,222 @@ class ProfileUpdateAPIView(APIView):
             return Response({"error": "Role cannot be updated"}, status=400)
         
         # ==========================
-        # 🔹 Validate Preferences & Hobbies
+        # 🔹 Validate Preferences & Hobbies (Only for students)
         # ==========================
-        liked_subject_ids = data.get("liked_subject_ids")
-        disliked_subject_ids = data.get("disliked_subject_ids")
-        # moderate_subject_ids = data.get("moderate_subject_ids")
-        hobby_ids = data.get("hobby_ids")
+        # Only validate if user is a student (handholding users don't need these)
+        if user.role and user.role.name.lower() == "student":
+            liked_subject_ids = data.get("liked_subject_ids")
+            disliked_subject_ids = data.get("disliked_subject_ids")
+            hobby_ids = data.get("hobby_ids")
 
-        errors = {}
+            errors = {}
 
-        if liked_subject_ids is not None and len(liked_subject_ids) == 0:
-            errors["liked_subjects"] = "Liked subjects are compulsory to complete the profile"
+            if liked_subject_ids is not None and len(liked_subject_ids) == 0:
+                errors["liked_subjects"] = "Liked subjects are compulsory to complete the profile"
 
-        if disliked_subject_ids is not None and len(disliked_subject_ids) == 0:
-            errors["disliked_subjects"] = "Disliked subjects are compulsory to complete the profile"
+            if disliked_subject_ids is not None and len(disliked_subject_ids) == 0:
+                errors["disliked_subjects"] = "Disliked subjects are compulsory to complete the profile"
 
-        # if moderate_subject_ids is not None and len(moderate_subject_ids) == 0:
-        #     errors["moderate_subjects"] = "Moderate subjects are compulsory to complete the profile"
+            if hobby_ids is not None and len(hobby_ids) == 0:
+                errors["hobbies"] = "Hobbies are compulsory to complete the profile"
 
-        if hobby_ids is not None and len(hobby_ids) == 0:
-            errors["hobbies"] = "Hobbies are compulsory to complete the profile"
-
-        if errors:
-            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+            if errors:
+                return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
         # ==========================
-        # 🔹 Update User
+        # 🔹 Update User (Common for all roles)
         # ==========================
         user.first_name = data.get("first_name", user.first_name)
         user.last_name = data.get("last_name", user.last_name)
         user.phone = data.get("phone", user.phone)
         user.save()
-
-        if not (user.role and user.role.name.lower() == "student"):
-            return Response({"message": "Profile updated"}, status=200)
-
-        student_profile, created = StudentProfile.objects.get_or_create(user=user)
-        # student_profile = StudentProfile.objects.filter(user=user).first()
-
-        # if not student_profile:
-        #     return Response(
-        #         {"error": "Student profile does not exist"},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
         
         # ==========================
         # 🔹 HANDHOLDING UPDATE
         # ==========================
         if user.role and user.role.name.lower() == "handholding":
-
+            print("✅ Entering handholding block")
             participant, created = HandHoldingParticipant.objects.get_or_create(user=user)
 
-            participant.mobile = data.get("mobile", participant.mobile)
-            participant.email = data.get("email", participant.email)
-            participant.show_profile = data.get("show_profile", participant.show_profile)
+            print("CREATED:", created)
+            print("ID:", participant.id)
+            print("REQUEST FILES:", request.FILES)
+            print("REQUEST DATA:", data)
 
-            participant.full_address = data.get("full_address", participant.full_address)
-            participant.city = data.get("city", participant.city)
-            participant.state = data.get("state", participant.state)
-            participant.pincode = data.get("pincode", participant.pincode)
+            # ==========================
+            # TEXT FIELDS for HandHoldingParticipant
+            # ==========================
+            if "mobile" in data:
+                participant.mobile = data.get("mobile")
+            
+            if "email" in data:
+                participant.email = data.get("email")
+                
+            if "show_profile" in data:
+                participant.show_profile = data.get("show_profile")
+            
+            if "full_address" in data:
+                participant.full_address = data.get("full_address")
+                print(f"Updating full_address to: {participant.full_address}")
+                
+            if "city" in data:
+                participant.city = data.get("city")
+                print(f"Updating city to: {participant.city}")
+                
+            if "state" in data:
+                participant.state = data.get("state")
+                
+            if "pincode" in data:
+                participant.pincode = data.get("pincode")
+                
+            if "preferred_counselling_mode" in data:
+                participant.preferred_counselling_mode = data.get("preferred_counselling_mode")
+                
+            if "total_sessions" in data:
+                participant.total_sessions = data.get("total_sessions")
 
-            participant.preferred_counselling_mode = data.get(
-                "preferred_counselling_mode",
-                participant.preferred_counselling_mode
-            )
+            # ==========================
+            # FILE FIELDS for HandHoldingParticipant
+            # ==========================
+            photo = request.FILES.get("photo")
+            if photo:
+                print(f"Photo received: {photo.name}, size: {photo.size}")
+                participant.photo = photo
 
-            participant.total_sessions = data.get(
-                "total_sessions",
-                participant.total_sessions
-            )
+            resume_file = request.FILES.get("resume_file")
+            if resume_file:
+                print(f"Resume received: {resume_file.name}, size: {resume_file.size}")
+                participant.resume_file = resume_file
 
-            # ❗ optional fields
-            if "photo" in request.FILES:
-                participant.photo = request.FILES["photo"]
-
-            if "resume_file" in request.FILES:
-                participant.resume_file = request.FILES["resume_file"]
-
+            # ==========================
+            # SAVE HandHoldingParticipant
+            # ==========================
             participant.save()
+            
+            # ==========================
+            # HANDLE PROOF FILE IN PAYMENT MODEL
+            # ==========================
+            proof_file = request.FILES.get("proof_file")
+            if proof_file:
+                print(f"Proof received: {proof_file.name}, size: {proof_file.size}")
+                
+                # Get or create a payment record for this user
+                # You might want to filter by specific package or status
+                payment, payment_created = Payment.objects.get_or_create(
+                    user=user,
+                    status='verification_pending',  # or whatever status makes sense
+                    defaults={
+                        'proof_file': proof_file,
+                        'payment_type': 'offline',  # default value, adjust as needed
+                        'method': 'cash',  # default value, adjust as needed
+                    }
+                )
+                
+                # If payment already exists, update the proof_file
+                if not payment_created:
+                    payment.proof_file = proof_file
+                    payment.save()
+                    print(f"Updated proof_file for existing payment ID: {payment.id}")
+                else:
+                    print(f"Created new payment record with proof_file ID: {payment.id}")
+            
+            # Refresh from database to get proper file URLs
+            participant.refresh_from_db()
+            
+            # Print values after save to verify
+            print("=" * 50)
+            print("AFTER SAVE - HandHoldingParticipant:")
+            print(f"  full_address: {participant.full_address}")
+            print(f"  city: {participant.city}")
+            print(f"  state: {participant.state}")
+            print(f"  pincode: {participant.pincode}")
+            
+            # Safely print file URLs
+            if participant.resume_file:
+                try:
+                    print(f"  resume_file: {participant.resume_file.url}")
+                except (ValueError, AttributeError):
+                    print("  resume_file: File saved but URL not available yet")
+            else:
+                print("  resume_file: None")
+                
+            if participant.photo:
+                try:
+                    print(f"  photo: {participant.photo.url}")
+                except (ValueError, AttributeError):
+                    print("  photo: File saved but URL not available yet")
+            else:
+                print("  photo: None")
+            
+            # Print payment proof file info
+            if proof_file:
+                try:
+                    payment.refresh_from_db()
+                    if payment.proof_file:
+                        print(f"\nPAYMENT - proof_file: {payment.proof_file.url}")
+                    else:
+                        print("\nPAYMENT - proof_file: Saved but URL not available yet")
+                except Exception as e:
+                    print(f"\nPAYMENT - Error getting proof_file URL: {e}")
+            print("=" * 50)
+
+            # Prepare response data
+            response_data = {
+                "full_address": participant.full_address,
+                "city": participant.city,
+                "state": participant.state,
+                "pincode": participant.pincode,
+                "mobile": participant.mobile,
+                "email": participant.email,
+                "show_profile": participant.show_profile,
+                "preferred_counselling_mode": participant.preferred_counselling_mode,
+                "total_sessions": participant.total_sessions,
+            }
+            
+            # Add file URLs only if they exist
+            if participant.photo:
+                try:
+                    response_data["photo"] = participant.photo.url
+                except (ValueError, AttributeError):
+                    response_data["photo"] = None
+            else:
+                response_data["photo"] = None
+                
+            if participant.resume_file:
+                try:
+                    response_data["resume_file"] = participant.resume_file.url
+                except (ValueError, AttributeError):
+                    response_data["resume_file"] = None
+            else:
+                response_data["resume_file"] = None
+            
+            # Add payment proof file URL to response if it exists
+            if proof_file:
+                try:
+                    payment.refresh_from_db()
+                    if payment.proof_file:
+                        response_data["proof_file"] = payment.proof_file.url
+                    else:
+                        response_data["proof_file"] = None
+                except Exception:
+                    response_data["proof_file"] = None
+            else:
+                response_data["proof_file"] = None
 
             return Response({
-                "message": "Handholding profile updated successfully"
+                "message": "Handholding profile updated successfully",
+                "data": response_data
             }, status=status.HTTP_200_OK)
+        
+        # ==========================
+        # 🔹 STUDENT UPDATE
+        # ==========================
+        if not (user.role and user.role.name.lower() == "student"):
+            return Response({"message": "Profile updated"}, status=200)
 
+        print("✅ Entering student block")
+        student_profile, created = StudentProfile.objects.get_or_create(user=user)
+        
         # ==========================
         # 🔹 Update Student Basic Info
         # ==========================
@@ -1259,12 +1423,8 @@ class ProfileUpdateAPIView(APIView):
             "specialization",
             student_profile.specialization
         )
-        # student_profile.previous_class_percentage = data.get(
-        #     "previous_class_percentage",
-        #     student_profile.previous_class_percentage
-        # )
+        
         previous_percentage = data.get("previous_class_percentage")
-
         if previous_percentage not in ["", None]:
             student_profile.previous_class_percentage = previous_percentage
 
@@ -1285,28 +1445,23 @@ class ProfileUpdateAPIView(APIView):
         parent_data = data.get("parent", {})
 
         if parent_data:
-
             parent_profile = student_profile.parent
 
             # If parent profile does not exist OR parent user is same as student
             if not parent_profile or parent_profile.user == user:
-
                 parent_user = User.objects.create(
                     first_name="Parent",
                     last_name="",
                     email=f"parent_{user.id}_{timezone.now().timestamp()}@temp.com",
                     role=None
                 )
-
                 parent_profile = ParentProfile.objects.create(
                     user=parent_user
                 )
 
             parent_name = parent_data.get("parent_name")
-
             if parent_name:
                 name_parts = parent_name.split(" ", 1)
-
                 parent_profile.user.first_name = name_parts[0]
                 parent_profile.user.last_name = name_parts[1] if len(name_parts) > 1 else ""
                 parent_profile.user.save()
@@ -1314,20 +1469,16 @@ class ProfileUpdateAPIView(APIView):
             parent_profile.profession = parent_data.get(
                 "profession", parent_profile.profession
             )
-
             parent_profile.organization_name = parent_data.get(
                 "organization_name", parent_profile.organization_name
             )
-
             parent_profile.education_level = parent_data.get(
                 "education_level", parent_profile.education_level
             )
-
             parent_profile.father_background = parent_data.get(
                 "father_background",
                 parent_profile.father_background
             )
-
             parent_profile.mother_background = parent_data.get(
                 "mother_background",
                 parent_profile.mother_background
@@ -1336,17 +1487,13 @@ class ProfileUpdateAPIView(APIView):
                 "location",
                 parent_profile.location
             )
-
             parent_profile.annual_income_range = parent_data.get(
                 "annual_income_range", parent_profile.annual_income_range
             )
-
             parent_profile.expectations_from_student = parent_data.get(
                 "expectations_from_student", parent_profile.expectations_from_student
             )
-
             parent_profile.save()
-
             student_profile.parent = parent_profile
             student_profile.save()
 
@@ -1354,7 +1501,6 @@ class ProfileUpdateAPIView(APIView):
         # 🔹 Academic History
         # ==========================
         academic_history = data.get("academic_history", [])
-
         if academic_history:
             StudentAcademicHistory.objects.filter(
                 student_profile=student_profile
@@ -1369,10 +1515,8 @@ class ProfileUpdateAPIView(APIView):
                     end_year=record.get("end_year"),
                     board_name=record.get("board_name"),
                     coaching_entrance=record.get("coaching_entrance"),
-                    # current_class_percentage=record.get("current_class_percentage"),
                     current_class_percentage=current_percentage if current_percentage not in ["", None] else None,
                     special_notes=record.get("special_notes"),
-
                     is_current=record.get("is_current", False),
                 )
 
@@ -1395,20 +1539,11 @@ class ProfileUpdateAPIView(APIView):
         moderate_subject_ids = data.get("moderate_subject_ids")
 
         if liked_subject_ids is not None or disliked_subject_ids is not None:
-
             # Delete existing preferences
             StudentSubjectPreference.objects.filter(
                 student_profile=student_profile
             ).delete()
 
-            # Create liked subjects
-            # if liked_subject_ids:
-            #     for subject_id in liked_subject_ids:
-            #         StudentSubjectPreference.objects.create(
-            #             student_profile=student_profile,
-            #             subject_id=subject_id,
-            #             preference_type=True
-            #         )
             if liked_subject_ids:
                 for subject_id in liked_subject_ids:
                     StudentSubjectPreference.objects.create(
@@ -1416,15 +1551,6 @@ class ProfileUpdateAPIView(APIView):
                         subject_id=subject_id,
                         preference_type="like"
                     )
-
-            # Create disliked subjects
-            # if disliked_subject_ids:
-            #     for subject_id in disliked_subject_ids:
-            #         StudentSubjectPreference.objects.create(
-            #             student_profile=student_profile,
-            #             subject_id=subject_id,
-            #             preference_type=False
-            #         )
             
             if disliked_subject_ids:
                 for subject_id in disliked_subject_ids:
@@ -1446,7 +1572,6 @@ class ProfileUpdateAPIView(APIView):
         # 🔹 Hobbies
         # ==========================
         hobby_ids = data.get("hobby_ids")
-
         if hobby_ids is not None:
             # Delete old hobbies
             StudentHobby.objects.filter(
@@ -1468,8 +1593,6 @@ class ProfileUpdateAPIView(APIView):
         return Response({
             "message": "Profile updated! Redirecting to dashboard..."
         }, status=status.HTTP_200_OK)
-
-
 
 def build_student_profile_response(request, user, student_profile=None):
 
@@ -1837,10 +1960,22 @@ class StudentProfileByIdAPIView(APIView):
             student_profile.specialization
         )
 
-        student_profile.previous_class_percentage = data.get(
-            "previous_class_percentage",
-            student_profile.previous_class_percentage
-        )
+        # student_profile.previous_class_percentage = data.get(
+        #     "previous_class_percentage",
+        #     student_profile.previous_class_percentage
+        # )
+        percentage = data.get("previous_class_percentage")
+
+        if percentage in ["", None]:
+            student_profile.previous_class_percentage = None
+        else:
+            try:
+                student_profile.previous_class_percentage = float(percentage)
+            except:
+                return Response(
+                    {"error": "previous_class_percentage must be a valid number"},
+                    status=400
+                )
 
         student_profile.board_exam_year = data.get(
             "board_exam_year",
@@ -1942,6 +2077,18 @@ class StudentProfileByIdAPIView(APIView):
             ).delete()
 
             for record in academic_history:
+                percentage = record.get("current_class_percentage")
+
+                if percentage in ["", None]:
+                    percentage = None
+                else:
+                    try:
+                        percentage = float(percentage)
+                    except:
+                        return Response(
+                            {"error": "current_class_percentage must be a valid number"},
+                            status=400
+                        )
 
                 StudentAcademicHistory.objects.create(
                     student_profile=student_profile,
@@ -1950,7 +2097,7 @@ class StudentProfileByIdAPIView(APIView):
                     end_year=record.get("end_year"),
                     board_name=record.get("board_name"),
                     coaching_entrance=record.get("coaching_entrance"),
-                    current_class_percentage=record.get("current_class_percentage"),
+                    current_class_percentage=percentage,
                     special_notes=record.get("special_notes"),
                     is_current=record.get("is_current", False)
                 )
