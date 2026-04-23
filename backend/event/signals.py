@@ -29,7 +29,7 @@ def create_sessions_for_all_participants(sender, instance, created, **kwargs):
                     handholding_session=instance,
                     session_no=session_number,
                     session_date=instance.created_at,  # or timezone.now()
-                    status='not_started'
+                    status='not_booked'
                 )
             )
 
