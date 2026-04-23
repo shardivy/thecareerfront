@@ -225,7 +225,7 @@ class AddUserSerializer(serializers.Serializer):
         max_digits=20, decimal_places=2, required=False, allow_null=True
     )
     payment_type = serializers.ChoiceField(
-        choices=Payment.PAYMENTTYPE_CHOICE, required=False
+        choices=Payment.PAYMENTTYPE_CHOICE, required=False, allow_null=True, allow_blank=True
     )
     transaction_id = serializers.CharField(
         required=False, allow_blank=True, allow_null=True
