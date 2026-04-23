@@ -1569,7 +1569,8 @@ class ConvertLeadAPIView(APIView):
         payload = request.data.dict()  # Make it mutable
         # payload._mutable = True
         payload["first_name"] = lead.first_name
-        payload["last_name"] = lead.last_name
+        # payload["last_name"] = lead.last_name
+        payload["last_name"] = request.data.get("last_name", lead.last_name)
         payload["email"] = lead.email
 
         # ✅ Normalize phone
@@ -1650,10 +1651,20 @@ class ConvertLeadAPIView(APIView):
                     user.save()
 
                 else:
+                    # password = None
+                    # if user.role != user_role:
+                    #     user.role = user_role
+                    #     user.save()
                     password = None
+
+                    user.first_name = serializer.validated_data.get("first_name", user.first_name)
+                    user.last_name = serializer.validated_data.get("last_name", user.last_name)
+                    user.phone = serializer.validated_data.get("phone", user.phone)
+
                     if user.role != user_role:
                         user.role = user_role
-                        user.save()
+
+                    user.save()
 
                 
 
@@ -1793,16 +1804,49 @@ class ConvertLeadAPIView(APIView):
                         assigned_by="lead-conversion"
                     )
 
+                # # =================================
+                # # 🔹 EXAM / BOOKING
+                # # =================================
+                # if not is_handholding:
+                #     if package and package.aptitude_test:
+                #         UserExam.objects.create(
+                #             user=user,
+                #             status="not_started"
+                #         )
+                #     else:
+                #         Booking.objects.create(
+                #             student=student_profile,
+                #             status="not_booked"
+                #         )
+                
                 # =================================
-                # 🔹 EXAM / BOOKING
+                # 🔹 EXAM / BOOKING / ENGINEERING ANALYSIS
                 # =================================
                 if not is_handholding:
+
+                    # ✅ Aptitude Test
                     if package and package.aptitude_test:
                         UserExam.objects.create(
                             user=user,
                             status="not_started"
                         )
-                    else:
+
+                    # ✅ Engineering Test Analysis (🔥 ADD THIS)
+                    if package and package.engineering_test_analysis:
+                        CollegeListAnalysis.objects.create(
+                            user=user,
+                            program=program,
+                            package=package,
+                            status="not_started",
+                        )
+
+                        Booking.objects.create(
+                            student=student_profile,
+                            status="not_booked"
+                        )
+
+                    # ✅ Default Booking
+                    if package and not package.aptitude_test and not package.engineering_test_analysis:
                         Booking.objects.create(
                             student=student_profile,
                             status="not_booked"
