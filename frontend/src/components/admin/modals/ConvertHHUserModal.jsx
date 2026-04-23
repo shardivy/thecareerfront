@@ -228,13 +228,13 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
                                 {/* BASIC DETAILS */}
                                 <Col xs={24} sm={12}>
                                     <Form.Item name="firstName" label="First Name">
-                                        <Input disabled />
+                                        <Input  />
                                     </Form.Item>
                                 </Col>
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item name="lastName" label="Last Name">
-                                        <Input disabled />
+                                        <Input  />
                                     </Form.Item>
                                 </Col>
 

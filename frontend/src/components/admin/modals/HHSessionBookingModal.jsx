@@ -157,6 +157,7 @@ useEffect(() => {
       student_name: data.student_name,
       email: data.email,
       phone: data.phone,
+       counsellor_name: data.counsellor_name,
     });
   }
 
@@ -199,6 +200,8 @@ const mergedSlots = bookedRescheduledSlots.map((b) => ({
   student_name: b.student_name,
   email: b.email,
   phone: b.phone,
+
+   counsellor_name: b.counsellor_name,
 }));
 
 const filteredSlots = mergedSlots.filter((slot) => {
@@ -560,6 +563,12 @@ const handleMarkCompleted = () => {
 
             {selectedSlot && (
   <Card style={{ marginTop: 16 }} title="Session Details">
+
+       <p>
+      <b>Counsellor Name:</b>{" "}
+      {selectedSlot.counsellor_name || "-"}
+    </p>
+
     <p>
       <b>Student Name:</b>{" "}
       {selectedSlot.student_name || form.getFieldValue("student")?.label || "-"}

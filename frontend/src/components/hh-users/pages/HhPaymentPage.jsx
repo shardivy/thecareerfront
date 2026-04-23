@@ -209,8 +209,13 @@ const HhPaymentPage = () => {
               <Divider />
 
               <Alert
-                message="After Payment"
-                description="Send screenshot to WhatsApp for confirmation."
+                message="After making payment"
+                description={
+                  <>
+                    Please send payment screenshot to Admin's WhatsApp{" "}
+                    <a href="tel:9922695424">9922695424</a> or contact Admin for confirmation.
+                  </>
+                }
                 type="info"
                 showIcon
                 style={{ marginBottom: 24 }}

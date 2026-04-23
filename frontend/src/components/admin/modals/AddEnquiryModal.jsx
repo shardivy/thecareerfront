@@ -312,7 +312,7 @@ useEffect(() => {
                   ]}
 
                 >
-                  <Input placeholder="Enter first name" disabled={isConvert} />
+                  <Input placeholder="Enter first name" />
                 </Form.Item>
               </Col>
 
@@ -330,7 +330,7 @@ useEffect(() => {
                   ]}
 
                 >
-                  <Input placeholder="Enter last name" disabled={isConvert} />
+                  <Input placeholder="Enter last name" />
                 </Form.Item>
               </Col>
 

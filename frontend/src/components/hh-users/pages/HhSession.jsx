@@ -197,6 +197,14 @@ const HhSession = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [reportLoading, setReportLoading] = useState(true);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+
+  const openGoogleMap = () => {
+    window.open(
+      "https://maps.google.com/?q=Abhinav+Career+Scope+Bavdhan+Pune",
+      "_blank"
+    );
+  };
 
   const openBookingModal = (session) => {
     setSelectedSession(session);
@@ -278,18 +286,18 @@ const HhSession = () => {
 
 
   const formattedSessionsWithLock = formattedSessions.map((session, index, arr) => {
-  const previousSession = arr[index - 1];
+    const previousSession = arr[index - 1];
 
-  const isFirstSession = index === 0;
+    const isFirstSession = index === 0;
 
-  const isUnlocked =
-    isFirstSession || previousSession?.status === "completed";
+    const isUnlocked =
+      isFirstSession || previousSession?.status === "completed";
 
-  return {
-    ...session,
-    isUnlocked,
-  };
-});
+    return {
+      ...session,
+      isUnlocked,
+    };
+  });
 
 
   return (
@@ -322,7 +330,7 @@ const HhSession = () => {
           gap: 16,
         }}
       >
-      {formattedSessionsWithLock.map((session) => (
+        {formattedSessionsWithLock.map((session) => (
           <Card
             key={session.id}
             style={{
@@ -448,7 +456,7 @@ const HhSession = () => {
                       icon={<UserOutlined />}
                       style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
                       onClick={() => handleViewProfile(session)}
-disabled={!session.isUnlocked}
+                      disabled={!session.isUnlocked || session.status == "not_booked"}
                     >
                       View Profile
                     </Button>
@@ -459,7 +467,7 @@ disabled={!session.isUnlocked}
                       icon={<EyeOutlined />}
                       style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
                       onClick={() => handleViewReport(session)}
-                  disabled={!session.isUnlocked}
+                      disabled={!session.isUnlocked || session.status == "not_booked"}
                     >
                       View Report
                     </Button>
@@ -470,7 +478,7 @@ disabled={!session.isUnlocked}
                       icon={<FileTextOutlined />}
                       style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
                       onClick={() => handleViewNotes(session)}
-disabled={!session.isUnlocked}
+                      disabled={!session.isUnlocked || session.status == "not_booked"}
                     >
                       View/Add Notes
                     </Button>
@@ -478,17 +486,18 @@ disabled={!session.isUnlocked}
 
                 </>
               )}
-              {session.status === "booked" && session.mode === "offline" && (
-                <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-                  <Button
-                    icon={<EnvironmentOutlined />}
-                    style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                    onClick={() => navigate(`/location/${session.id}`)}
-                  >
-                    View Location
-                  </Button>
-                </Col>
-              )}
+              {["booked", "rescheduled"].includes(session.status) &&
+                session.mode === "offline" && (
+                  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                    <Button
+                      icon={<EnvironmentOutlined />}
+                      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                      onClick={() => setIsLocationModalOpen(true)}
+                    >
+                      View Location
+                    </Button>
+                  </Col>
+                )}
 
               {getButton(session, navigate, false, openBookingModal) && (
                 <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
@@ -503,13 +512,13 @@ disabled={!session.isUnlocked}
                     onClick={() => {
                       if (session.status === "not_booked") {
                         openBookingModal(session);
-                      } else if (session.status === "booked") {
+                      } else if (session.status === "booked" || session.status === "rescheduled") {
                         window.open("https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09", "_blank");
                       }
                     }}
-            disabled={!session.isUnlocked}
+                    disabled={!session.isUnlocked}
                   >
-                    {session.status === "booked" ? "Join Session" : session.status === "not_booked" ? "Book Now" : ""}
+                    {session.status === "booked" || session.status === "rescheduled" ? "Join Session" : session.status === "not_booked" ? "Book Now" : ""}
                   </Button>
                 </Col>
               )}
@@ -667,6 +676,77 @@ disabled={!session.isUnlocked}
             <Empty description="No report available for this session" />
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={isLocationModalOpen}
+        onCancel={() => setIsLocationModalOpen(false)}
+        footer={null}
+        width={620}
+      >
+        <div style={{ padding: 2 }}>
+          <div style={{ marginBottom: 20 }}>
+            <Title level={4} style={{ marginBottom: 6, color: "#111827" }}>
+              📍 Counselling Office
+            </Title>
+
+            <Text type="secondary">
+              Please arrive on time for your offline counselling session
+            </Text>
+          </div>
+
+          <div
+            style={{
+              borderRadius: 12,
+              background: "#f5f7ff",
+              padding: 16,
+              marginBottom: 20,
+              boxShadow: "0 3px 8px rgba(0,0,0,0.08)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
+              <Avatar
+                size={48}
+                icon={<UserOutlined />}
+                style={{ backgroundColor: "#3b82f6", marginRight: 12 }}
+              />
+              <div>
+                <Text strong style={{ fontSize: 16 }}>
+                  Mrs. Reena Bhutada
+                </Text>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 8, paddingLeft: 4 }}>
+              <Text strong style={{ display: "block", marginBottom: 4 }}>
+                🏢 Office Address
+              </Text>
+
+              <Text style={{ lineHeight: 1.5 }}>
+                Abhinav Career Scope, Pune <br />
+                Bhagwati Maestros, Miller 403 <br />
+                LMD Chowk, Above Indian Smart Bazaar <br />
+                Bavdhan, Pune – 411021
+              </Text>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: 10,
+            }}
+          >
+            <Button onClick={() => setIsLocationModalOpen(false)}>
+              Close
+            </Button>
+
+            <Button type="primary" onClick={openGoogleMap}>
+              📍 Open in Google Maps
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

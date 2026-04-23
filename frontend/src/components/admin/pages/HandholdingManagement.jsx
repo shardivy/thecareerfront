@@ -41,7 +41,7 @@ import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
 import { getSessionBookings, cancelSession } from "../../../hhSlices/sessionBookingSlice";
 import { getHandholdingParticipants, getCardStats, updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
-import { getCertificateTemplates, getIssuedCertificates , getCertificateStats } from "../../../hhSlices/certificateSlice";
+import { getCertificateTemplates, getIssuedCertificates, getCertificateStats } from "../../../hhSlices/certificateSlice";
 import UploadCertificateTemplateModal from "../modals/UploadCertificateTemplateModal.jsx";
 
 const { Title, Text } = Typography;
@@ -110,12 +110,12 @@ const HandholdingManagement = () => {
     dispatch(getCardStats());
   }, [dispatch]);
 
-useEffect(() => {
-  if (activeTab === "certificates") {
-    dispatch(getCertificateTemplates());
-    dispatch(getCertificateStats()); 
-  }
-}, [activeTab, dispatch]);
+  useEffect(() => {
+    if (activeTab === "certificates") {
+      dispatch(getCertificateTemplates());
+      dispatch(getCertificateStats());
+    }
+  }, [activeTab, dispatch]);
 
   useEffect(() => {
     if (issuedModalOpen) {
@@ -224,6 +224,21 @@ useEffect(() => {
   const handlePreview = (record) => {
     window.open(record.template_file, "_blank");
   };
+
+  const canBookSession = (record) => {
+  // Session 1 always enabled
+  if (record.session_no === 1) return true;
+
+  // Find previous session for same participant
+  const previousSession = formattedBookings.find(
+    (item) =>
+      item.participant_id === record.participant_id &&
+      item.session_no === record.session_no - 1
+  );
+
+  // Enable only if previous session completed
+  return previousSession?.status === "completed";
+};
 
   /* ================= STATS ================= */
   const stats = [
@@ -368,9 +383,9 @@ useEffect(() => {
       item.certificate_status ||
       (item.certificate_issued ? "issued" : "pending")
     ).toLowerCase(),
-      program_id: item.program_id,
+    program_id: item.program_id,
     program_name: item.program_name || "-",
-    package_id:item.package_id || "-",
+    package_id: item.package_id || "-",
     package_name: item.package_name || "-",
     package_price: item.package_price || 0,
     total_paid_amount: item.total_paid_amount || 0,
@@ -570,30 +585,30 @@ useEffect(() => {
     item.title?.toLowerCase().includes(sessionSearch.toLowerCase())
   );
 
-const filteredUsers = users
-  .filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-      item.email.toLowerCase().includes(userSearch.toLowerCase());
+  const filteredUsers = users
+    .filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+        item.email.toLowerCase().includes(userSearch.toLowerCase());
 
-    const matchesPayment =
-      !paymentFilter || item.paymentStatus === paymentFilter;
+      const matchesPayment =
+        !paymentFilter || item.paymentStatus === paymentFilter;
 
-    const matchesCertification =
-      !certificationFilter || item.certificationStatus === certificationFilter;
+      const matchesCertification =
+        !certificationFilter || item.certificationStatus === certificationFilter;
 
-    return matchesSearch && matchesPayment && matchesCertification;
-  })
-  .sort((a, b) => {
-    // ✅ push issued to bottom
-    if (a.certificationStatus === "issued" && b.certificationStatus !== "issued") {
-      return 1;
-    }
-    if (a.certificationStatus !== "issued" && b.certificationStatus === "issued") {
-      return -1;
-    }
-    return 0;
-  });
+      return matchesSearch && matchesPayment && matchesCertification;
+    })
+    .sort((a, b) => {
+      // ✅ push issued to bottom
+      if (a.certificationStatus === "issued" && b.certificationStatus !== "issued") {
+        return 1;
+      }
+      if (a.certificationStatus !== "issued" && b.certificationStatus === "issued") {
+        return -1;
+      }
+      return 0;
+    });
 
 
   const filteredCertificates = completedUsers.filter((item) =>
@@ -749,17 +764,20 @@ const filteredUsers = users
 
           if (record.status === "not_booked") {
             return (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setSelectedBooking(record);
-                  setBookingMode("create");
-                  setBookingModalOpen(true);
-                }}
-              >
-                Book Session
-              </Button>
+             <Button
+  type="primary"
+  icon={<PlusOutlined />}
+  disabled={!canBookSession(record)}
+  onClick={() => {
+    if (!canBookSession(record)) return;
+
+    setSelectedBooking(record);
+    setBookingMode("create");
+    setBookingModalOpen(true);
+  }}
+>
+  Book Session
+</Button>
             );
           }
 
@@ -918,7 +936,8 @@ const filteredUsers = users
     },
   ];
 
-  const filteredBookings = formattedBookings.filter((item) => {
+const filteredBookings = formattedBookings
+  .filter((item) => {
     const matchesSearch =
       item.name?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
       item.email?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
@@ -933,6 +952,22 @@ const filteredUsers = users
     }
 
     return matchesSearch && matchesStatus;
+  })
+  .sort((a, b) => {
+    // Only apply sorting in Not Booked tab
+    if (bookingStatusFilter === "not_booked") {
+      const aCanBook = canBookSession(a);
+      const bCanBook = canBookSession(b);
+
+      // Enabled Book Session first
+      if (aCanBook && !bCanBook) return -1;
+      if (!aCanBook && bCanBook) return 1;
+
+      // optional: keep session order ascending
+      return a.session_no - b.session_no;
+    }
+
+    return 0;
   });
 
   return (
@@ -1160,9 +1195,9 @@ const filteredUsers = users
                       <Text strong>Pending Generation</Text>
                     </Space>
 
-      <Title level={2} style={{ margin: 0 }}>
-  {statsLoading ? <Spin size="small" /> : certificateStats?.pending_certificate_users || 0}
-</Title>
+                    <Title level={2} style={{ margin: 0 }}>
+                      {statsLoading ? <Spin size="small" /> : certificateStats?.pending_certificate_users || 0}
+                    </Title>
 
                     <Text type="colorTextSecondary">
                       Students awaiting certificates
@@ -1190,9 +1225,9 @@ const filteredUsers = users
                       <Text strong>Ready to Issue</Text>
                     </Space>
 
-  <Title level={2} style={{ margin: 0 }}>
-  {statsLoading ? <Spin size="small" /> : certificateStats?.certificate_templates || 0}
-</Title>
+                    <Title level={2} style={{ margin: 0 }}>
+                      {statsLoading ? <Spin size="small" /> : certificateStats?.certificate_templates || 0}
+                    </Title>
 
                     <Text type="colorTextSecondary">
                       Certificates ready for delivery
@@ -1219,9 +1254,9 @@ const filteredUsers = users
                       <Text strong>Issued</Text>
                     </Space>
 
-                 <Title level={2} style={{ margin: 0 }}>
-  {statsLoading ? <Spin size="small" /> : certificateStats?.issued_certificate_users || 0}
-</Title>
+                    <Title level={2} style={{ margin: 0 }}>
+                      {statsLoading ? <Spin size="small" /> : certificateStats?.issued_certificate_users || 0}
+                    </Title>
 
                     <Text type="colorTextSecondary">
                       Successfully delivered

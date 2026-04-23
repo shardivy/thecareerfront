@@ -168,12 +168,12 @@ const SeminarWebinarManagement = () => {
         /* EVENT NAME */
         {
             title: "Event",
-            width: 180,
+            width: 160,
             render: (_, record) => (
                 <div>
                     <Text strong>{record.seminar_webinar_name}</Text>
                     <div>
-                        {record.event_start_date} | {record.event_start_time}
+                        {record.event_start_date} | {record.event_end_date}
                     </div>
                 </div>
             ),
