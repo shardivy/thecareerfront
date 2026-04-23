@@ -71,8 +71,8 @@ const AdminLogin = () => {
           break;
 
 
-        default:
-          navigate("/student/dashboard");
+       default:
+  message.warning("No dashboard assigned for this role");
       }
     }
   }, [success, successMessage, complete_profile, user, navigate]);

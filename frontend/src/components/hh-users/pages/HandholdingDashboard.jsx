@@ -20,7 +20,7 @@ import {
 } from "@ant-design/icons";
 import HhJourneySteps from "./HhJourneySteps";
 import { useDispatch, useSelector } from "react-redux";
-import { getParticipantSessions } from "../../../hhSlices/handholdingUsersSlice";
+import { getParticipantSessions, getDashboardStats } from "../../../hhSlices/handholdingUsersSlice";
 import { getProfile } from "../../../adminSlices/profileSlice";
 
 const { Title, Text } = Typography;
@@ -35,6 +35,11 @@ const HandholdingDashboard = () => {
     const { participantSessions } = useSelector(
         (state) => state.handholdingUsers
     );
+    const { dashboardStats, dashboardStatsLoading } = useSelector(
+        (state) => state.handholdingUsers
+    );
+
+    const data = dashboardStats?.data || dashboardStats || {};
 
     const { profile } = useSelector((state) => state.profile);
 
@@ -50,11 +55,13 @@ const HandholdingDashboard = () => {
     useEffect(() => {
         if (participantId) {
             dispatch(getParticipantSessions(participantId));
+            dispatch(getDashboardStats(participantId));
         }
     }, [dispatch, participantId]);
 
     /* ================= SESSION CALCULATION ================= */
     const sessions = participantSessions?.data || participantSessions || [];
+    const journeyData = participantSessions?.journey || [];
 
     const totalSessions = sessions.length;
 
@@ -73,29 +80,51 @@ const HandholdingDashboard = () => {
     const stats = [
         {
             title: "Completed Sessions",
-            value: completedSessions,
+            value: data.completed_sessions || 0,
             icon: <CheckCircleOutlined />,
             color: token.colorSuccess,
         },
         {
             title: "Pending Sessions",
-            value: pendingSessions,
+            value: data.pending_sessions || 0,
             icon: <ClockCircleOutlined />,
             color: token.colorWarning,
         },
         {
             title: "Next Session",
-            value: sessions[completedSessions]?.session_no || "-",
+            value: data.next_session_no || "-",
             icon: <CalendarOutlined />,
             color: token.colorPrimary,
         },
         {
             title: "Progress",
-            value: `${progressPercent}%`,
+            value: `${Math.round(data.progress_percentage || 0)}%`,
             icon: <TrophyOutlined />,
             color: token.colorInfo,
         },
     ];
+
+
+    const formattedJourney = journeyData.map((item) => {
+        let status = item.status?.toLowerCase();
+
+        // 🎯 PAYMENT LOGIC (same as modal)
+        if (item.step?.toLowerCase() === "payment") {
+            if (status === "fully_paid") {
+                status = "completed";        // ✅ green
+            } else if (status === "partial_paid") {
+                status = "partial_paid";     // 🟠 orange
+            } else if (status === "not_paid") {
+                status = "not_paid";         // 🔵 active
+            }
+        }
+
+        return {
+            ...item,
+            status,
+        };
+    });
+
 
     return (
         <div
@@ -109,6 +138,7 @@ const HandholdingDashboard = () => {
             <HhJourneySteps
                 totalSessions={totalSessions}
                 completedSessions={completedSessions}
+                journeyData={formattedJourney}
             />
 
             {/* ================= CTA ================= */}

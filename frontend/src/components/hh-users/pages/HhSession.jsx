@@ -27,6 +27,7 @@ import {
   CheckOutlined,
   EyeOutlined,
   DownloadOutlined,
+  PlusOutlined,
 } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -36,13 +37,14 @@ import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
 import { getStudentProfile } from "../../../adminSlices/profileSlice";
 import { fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
 import { getParticipantSessions } from "../../../hhSlices/sessionBookingSlice";
+import dayjs from "dayjs";
+import HhSessionNotesModal from "../modals/HhSessionNotesModal";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 
 // 🔹 Config
-const totalSessions = 10;
 const bookedSessions = 3;
 const completedSessions = 2;
 
@@ -124,9 +126,12 @@ const HhSession = () => {
   );
   const { notes } = useSelector((state) => state.counsellors);
 
-  const { participantSessions, loading } = useSelector(
+  const { participantSessions, totalSessions, loading } = useSelector(
     (state) => state.sessionBooking
   );
+
+
+
 
   const participantId = localStorage.getItem("participant_id");
   useEffect(() => {
@@ -137,26 +142,49 @@ const HhSession = () => {
 
   // 🔹 Generate sessions
   const sessions = participantSessions || [];
+  const showProfile = JSON.parse(localStorage.getItem("show_profile")) || false;
+
 
   const formattedSessions = sessions.map((item, index) => ({
     id: item.id,
-    session_no: item.session_no,   // ✅ ADD THIS
-  participant_id: item.participant_id, // ✅ ADD THIS
+    session_no: item.session_no,
+    participant_id: item.participant_id,
+    booking_id: item.booking_id,
+
+    studentName: item.student_name,
+    studentEmail: item.student_email || "N/A",
+    studentPhone: item.student_phone || "N/A",
+
+    counsellorList: item.counsellor
+      ? [{ counsellor_name: item.counsellor }]
+      : [],
+
+    startTime: item.start_time || null,
+    endTime: item.end_time || null,
+
+    time:
+      item.start_time && item.end_time
+        ? `${item.start_time} - ${item.end_time}`
+        : "N/A",
+
+
     title: `Session ${index + 1}`,
     counsellors: {
       lead: item?.lead_counsellor_name || "Not Assigned",
       assistant: item?.assistant_counsellor_name || null,
     },
-    date: item?.date || null,
-   time:
-    item.start_time && item.end_time
-      ? `${item.start_time} - ${item.end_time}`
-      : null,
+    date: item?.date && dayjs(item.date).isValid()
+      ? dayjs(item.date).format("DD-MM-YYYY")
+      : "Not Scheduled",
+
 
     mode: item?.mode || "online",
     status: item?.status || "locked",
-    student_id: item?.student_id,
+    student_id: item?.student_id || item?.id,
     report_file: item?.report_file || null,
+    show_profile:
+      item?.show_profile === true ||
+      item?.show_profile === "true"
 
   }));
 
@@ -195,10 +223,18 @@ const HhSession = () => {
 
   // 🔹 View/Add Notes Handler
   const handleViewNotes = (session) => {
-    dispatch(fetchCounsellingNote(session.id)).then(() => {
-      setSelectedSession(session);
-      setNotesModal(true);
-    });
+    const bookingId = session.booking_id;
+
+    dispatch(fetchCounsellingNote(bookingId))
+      .unwrap()
+      .then(() => {
+        setSelectedSession({
+          ...session,
+          booking_id: bookingId, // IMPORTANT normalization
+        });
+        setNotesModal(true);
+      })
+      .catch(() => message.error("Failed to load notes"));
   };
 
   // 🔹 Handle PDF Download
@@ -240,6 +276,22 @@ const HhSession = () => {
     }
   };
 
+
+  const formattedSessionsWithLock = formattedSessions.map((session, index, arr) => {
+  const previousSession = arr[index - 1];
+
+  const isFirstSession = index === 0;
+
+  const isUnlocked =
+    isFirstSession || previousSession?.status === "completed";
+
+  return {
+    ...session,
+    isUnlocked,
+  };
+});
+
+
   return (
     <div
       style={{
@@ -270,7 +322,7 @@ const HhSession = () => {
           gap: 16,
         }}
       >
-        {formattedSessions.map((session) => (
+      {formattedSessionsWithLock.map((session) => (
           <Card
             key={session.id}
             style={{
@@ -368,13 +420,14 @@ const HhSession = () => {
                   <br />
                   <Text strong style={{ fontSize: 14 }}>
                     <TrophyOutlined style={{ marginRight: 4 }} />
-                    {session.id} of {totalSessions}
+                    {session.session_no} of {totalSessions}
                   </Text>
                 </Card>
               </Col>
             </Row>
 
             <Divider style={{ margin: "24px 0" }} />
+
 
             {/* Action Buttons */}
             <Row
@@ -388,39 +441,43 @@ const HhSession = () => {
             >
               {!isMobile && <Col flex="auto" />}
 
-              <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-                <Button
-                  icon={<UserOutlined />}
-                  style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                  onClick={() => handleViewProfile(session)}
-                  disabled={session.status === "locked"}
-                >
-                  View Profile
-                </Button>
-              </Col>
+              {showProfile === true && (
+                <>
+                  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                    <Button
+                      icon={<UserOutlined />}
+                      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                      onClick={() => handleViewProfile(session)}
+disabled={!session.isUnlocked}
+                    >
+                      View Profile
+                    </Button>
+                  </Col>
 
-              <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-                <Button
-                  icon={<EyeOutlined />}
-                  style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                  onClick={() => handleViewReport(session)}
-                  disabled={session.status === "locked" || !session.report_file}
-                >
-                  View Report
-                </Button>
-              </Col>
+                  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                    <Button
+                      icon={<EyeOutlined />}
+                      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                      onClick={() => handleViewReport(session)}
+                  disabled={!session.isUnlocked}
+                    >
+                      View Report
+                    </Button>
+                  </Col>
 
-              <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-                <Button
-                  icon={<FileTextOutlined />}
-                  style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                  onClick={() => handleViewNotes(session)}
-                  disabled={session.status === "locked"}
-                >
-                  {session.status === "completed" ? "View Notes" : "Add Notes"}
-                </Button>
-              </Col>
+                  <Col xs={24} sm={24} md="0 1 180px" style={isMobile ? {} : { minWidth: 180, maxWidth: 200 }}>
+                    <Button
+                      icon={<FileTextOutlined />}
+                      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                      onClick={() => handleViewNotes(session)}
+disabled={!session.isUnlocked}
+                    >
+                      View/Add Notes
+                    </Button>
+                  </Col>
 
+                </>
+              )}
               {session.status === "booked" && session.mode === "offline" && (
                 <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
                   <Button
@@ -436,7 +493,7 @@ const HhSession = () => {
               {getButton(session, navigate, false, openBookingModal) && (
                 <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
                   <Button
-                    icon={session.status === "booked" ? <VideoCameraOutlined /> : <CheckOutlined />}
+                    icon={session.status === "booked" ? <VideoCameraOutlined /> : <PlusOutlined />}
                     style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
                     type={
                       ["not_booked", "booked", "in_progress", "rescheduled"].includes(session.status)
@@ -450,13 +507,15 @@ const HhSession = () => {
                         window.open("https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09", "_blank");
                       }
                     }}
-                    disabled={session.status === "locked"}
+            disabled={!session.isUnlocked}
                   >
                     {session.status === "booked" ? "Join Session" : session.status === "not_booked" ? "Book Now" : ""}
                   </Button>
                 </Col>
               )}
             </Row>
+
+
           </Card>
         ))}
       </div>
@@ -465,6 +524,7 @@ const HhSession = () => {
         open={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
         session={selectedSession}
+        participantId={participantId}
         onConfirm={(slot) => {
           console.log("Booked:", selectedSession, slot);
 
@@ -489,10 +549,13 @@ const HhSession = () => {
         footer={null}
         width={screens.xs ? "95%" : 900}
       >
-        <SessionNotesModal
-          session={selectedSession}
+        <HhSessionNotesModal
+          session={{
+            ...selectedSession,
+            id: selectedSession?.booking_id, // normalize HERE
+          }}
           onClose={() => setNotesModal(false)}
-          isViewMode={!!notes?.[selectedSession?.id]}
+          isViewMode={!!notes?.[selectedSession?.booking_id]}
         />
       </Modal>
 

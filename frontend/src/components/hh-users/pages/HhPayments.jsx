@@ -24,7 +24,7 @@ import UploadPaymentModal from "../modals/HhBookSessionModal";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchHandholdingPaymentDetails,
-  
+  fetchPaymentProgress ,
 } from "../../../hhSlices/handholdingPaymentSlice";
 
 
@@ -41,13 +41,12 @@ const HhPayments = () => {
   const dispatch = useDispatch();
 
 
-const { details, data, loading } = useSelector(
-  (state) => state.handholdingPayment
-);
+const { details, data, loading } = useSelector((state) => state.handholdingPayment);
+const { progress } = useSelector((state) => state.handholdingPayment);
 
-  const totalFee = Number(data?.amount) || 0;
-const paidAmount = Number(data?.total_paid) || 0;
-const dueAmount = Number(data?.remaining_amount) || 0;
+const totalFee = Number(progress?.package_price) || 0;
+const paidAmount = Number(progress?.total_paid) || 0;
+const dueAmount = Number(progress?.remaining_amount) || 0;
 
   const summaryData = {
     totalFee,
@@ -55,16 +54,16 @@ const dueAmount = Number(data?.remaining_amount) || 0;
     dueAmount,
   };
 
-  const paymentProgress =
-    totalFee > 0 ? Math.min((paidAmount / totalFee) * 100, 100) : 0;
-
+const paymentProgress =
+  Number(progress?.payment_progress_percentage) || 0;
 
  useEffect(() => {
-  const participantId = localStorage.getItem("participant_id"); 
+  const participantId = localStorage.getItem("participant_id");
 
   if (participantId) {
     dispatch(fetchHandholdingPaymentDetails(participantId));
-     }
+    dispatch(fetchPaymentProgress(participantId)); 
+  }
 }, [dispatch]);
 
 
@@ -226,7 +225,7 @@ package:
             type="primary"
             size={isMobile ? "small" : "middle"}
             icon={<CreditCardOutlined />}
-            onClick={() => navigate("/student/payment-page")}
+            onClick={() => navigate("/handholding/payment-page")}
           >
             {isMobile ? "Pay Now" : "Pay Now"}
           </Button>
@@ -235,6 +234,7 @@ package:
           <Button
             size={isMobile ? "small" : "middle"}
             icon={<FileTextOutlined />}
+            disabled
           >
             {isMobile ? "Invoice" : "View Invoice"}
           </Button>

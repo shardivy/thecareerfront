@@ -1,75 +1,195 @@
-import React from "react";
+import React, { useEffect } from "react";
+import dayjs from "dayjs";
 import {
   Modal,
   Form,
   Input,
   DatePicker,
+  TimePicker,
   InputNumber,
   Row,
   Col,
+  message
 } from "antd";
+
+import { useDispatch, useSelector } from "react-redux";
+
+import {
+  createAdvertisement,
+  updateAdvertisement,
+  getAdvertisements
+} from "../../../adminSlices/advertisementSlice";
 
 const AddAdvertisementModal = ({
   open,
   onCancel,
-  onSubmit,
-  loading = false,
   initialValues = null,
+  mode = "add", // add | edit | view
 }) => {
-  const [form] = Form.useForm();
 
-  const handleOk = async () => {
+  const [form] = Form.useForm();
+  const dispatch = useDispatch();
+
+  const { loading } = useSelector(
+    (state) => state.advertisement
+  );
+
+  const isView = mode === "view";
+  const isEdit = mode === "edit";
+
+  useEffect(() => {
+    if (open) {
+
+      if (initialValues) {
+        form.setFieldsValue({
+          campaignName: initialValues.advertisement_name,
+          advertiserName: initialValues.advertiser_name,
+          advertiserEmail: initialValues.contact_email,
+          mobile: initialValues.contact_mobile,
+          amount: initialValues.amount,
+
+          startDate: initialValues.ad_start_date
+            ? dayjs(initialValues.ad_start_date)
+            : null,
+
+          endDate: initialValues.ad_end_date
+            ? dayjs(initialValues.ad_end_date)
+            : null,
+
+          startTime:
+            initialValues?.ad_start_time &&
+              initialValues.ad_start_time !== "null"
+              ? dayjs(initialValues.ad_start_time, "hh:mm A")
+              : null,
+
+          endTime:
+            initialValues?.ad_end_time &&
+              initialValues.ad_end_time !== "null"
+              ? dayjs(initialValues.ad_end_time, "hh:mm A")
+              : null,
+        });
+      } else {
+        form.resetFields();
+      }
+    }
+  }, [initialValues, open]);
+
+
+
+  const handleSubmit = async () => {
+
     try {
+
       const values = await form.validateFields();
 
       const payload = {
-        ...values,
+        advertisement_name: values.campaignName,
+        advertiser_name: values.advertiserName,
+        contact_mobile: values.mobile,
+        contact_email: values.advertiserEmail,
+
+        ad_start_date: values.startDate?.format("YYYY-MM-DD"),
+        ad_end_date: values.endDate?.format("YYYY-MM-DD"),
+
+        ad_start_time: values.startTime?.format("hh:mm A"),
+        ad_end_time: values.endTime?.format("hh:mm A"),
+
+        amount: values.amount,
       };
 
-      onSubmit?.(payload);
+      if (isEdit) {
+
+        await dispatch(
+          updateAdvertisement({
+            id: initialValues.id,
+            payload
+          })
+        ).unwrap();
+
+        message.success("Advertisement updated successfully");
+
+      } else {
+
+        await dispatch(
+          createAdvertisement(payload)
+        ).unwrap();
+
+        message.success("Advertisement created successfully");
+      }
+
+      dispatch(getAdvertisements());
+
       form.resetFields();
+      onCancel();
+
     } catch (err) {
-      console.log("Validation failed:", err);
+      console.log(err);
+      message.error(
+        isEdit
+          ? "Failed to update advertisement"
+          : "Failed to create advertisement"
+      );
     }
+
   };
+
 
   return (
     <Modal
       open={open}
-      title={initialValues ? "Edit Advertisement" : "Add Advertisement"}
-      onCancel={() => {
-        form.resetFields();
-        onCancel?.();
-      }}
-      onOk={handleOk}
-      confirmLoading={loading}
-      okText="Save"
       width={700}
       destroyOnClose
+      onCancel={() => {
+        form.resetFields();
+        onCancel();
+      }}
+      onOk={!isView ? handleSubmit : onCancel}
+      confirmLoading={loading}
+      okText={
+        isView
+          ? "Close"
+          : isEdit
+            ? "Update"
+            : "Save"
+      }
+      cancelButtonProps={{
+        style: {
+          display: isView ? "none" : "inline-block"
+        }
+      }}
+      title={
+        isView
+          ? "View Advertisement"
+          : isEdit
+            ? "Edit Advertisement"
+            : "Add Advertisement"
+      }
     >
+
       <Form
         form={form}
         layout="vertical"
-        initialValues={initialValues || {}}
       >
-        {/* Campaign Name */}
+
         <Form.Item
           name="campaignName"
           label="Advertisement / Campaign Name"
-          rules={[{ required: true, message: "Please enter campaign name" }]}
+          rules={[
+            { required: true }
+          ]}
         >
-          <Input placeholder="Enter campaign name" />
+          <Input disabled={isView} />
         </Form.Item>
 
-        {/* Advertiser Info */}
+
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
               name="advertiserName"
               label="Advertiser Name"
-              rules={[{ required: true, message: "Enter advertiser name" }]}
+              rules={[{ required: true }]}
             >
-              <Input placeholder="Enter advertiser name" />
+              <Input disabled={isView} />
             </Form.Item>
           </Col>
 
@@ -77,40 +197,36 @@ const AddAdvertisementModal = ({
             <Form.Item
               name="advertiserEmail"
               label="Advertiser Email"
-              rules={[
-                { required: true, message: "Enter email" },
-                { type: "email", message: "Invalid email" },
-              ]}
+              rules={[{ required: true }]}
             >
-              <Input placeholder="Enter email" />
+              <Input disabled={isView} />
             </Form.Item>
           </Col>
         </Row>
 
-        {/* Mobile */}
+
         <Form.Item
           name="mobile"
           label="Mobile Number"
-          rules={[
-            { required: true, message: "Enter mobile number" },
-            {
-              pattern: /^[0-9]{10}$/,
-              message: "Enter valid 10-digit number",
-            },
-          ]}
+          rules={[{ required: true }]}
         >
-          <Input placeholder="Enter mobile number" maxLength={10} />
+          <Input
+            maxLength={10}
+            disabled={isView}
+          />
         </Form.Item>
 
-        {/* Dates */}
+
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
               name="startDate"
               label="Start Date"
-              rules={[{ required: true, message: "Select start date" }]}
             >
-              <DatePicker style={{ width: "100%" }} />
+              <DatePicker
+                style={{ width: "100%" }}
+                disabled={isView}
+              />
             </Form.Item>
           </Col>
 
@@ -118,26 +234,59 @@ const AddAdvertisementModal = ({
             <Form.Item
               name="endDate"
               label="End Date"
-              rules={[{ required: true, message: "Select end date" }]}
             >
-              <DatePicker style={{ width: "100%" }} />
+              <DatePicker
+                style={{ width: "100%" }}
+                disabled={isView}
+              />
             </Form.Item>
           </Col>
         </Row>
 
-        {/* Amount */}
+
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="startTime"
+              label="Start Time"
+            >
+              <TimePicker
+                style={{ width: "100%" }}
+                format="hh:mm A"
+                use12Hours
+                disabled={isView}
+              />
+            </Form.Item>
+          </Col>
+
+          <Col span={12}>
+            <Form.Item
+              name="endTime"
+              label="End Time"
+            >
+              <TimePicker
+                style={{ width: "100%" }}
+                format="hh:mm A"
+                use12Hours
+                disabled={isView}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+
         <Form.Item
           name="amount"
           label="Amount"
-          rules={[{ required: true, message: "Enter amount" }]}
         >
           <InputNumber
             style={{ width: "100%" }}
-            min={0}
-            placeholder="Enter amount"
+            disabled={isView}
           />
         </Form.Item>
+
       </Form>
+
     </Modal>
   );
 };

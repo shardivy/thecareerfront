@@ -713,7 +713,7 @@ const PaymentManagement = () => {
           </Tabs.TabPane>
 
           {/* 🔹 TAB 2: HANDHOLDING PAYMENTS */}
-          {/* <Tabs.TabPane tab="Handholding Payments" key="handholding">
+          <Tabs.TabPane tab="Handholding Payments" key="handholding">
             <Card>
               {renderTableContent(
                 filteredData.filter(
@@ -721,7 +721,7 @@ const PaymentManagement = () => {
                 )
               )}
             </Card>
-          </Tabs.TabPane> */}
+          </Tabs.TabPane>
 
         </Tabs>
 

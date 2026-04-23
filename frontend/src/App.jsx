@@ -63,6 +63,7 @@ import RegisterDetails from "./components/RegisterDetails";
 import SeminarWebinarManagement from "./components/admin/pages/SeminarWebinarManagement";
 import Advertisement from "./components/admin/pages/Advertisement";
 import HhProfile from "./components/hh-users/pages/HhProfile";
+import HhPaymentPage from "./components/hh-users/pages/HhPaymentPage";
 
 
 
@@ -162,6 +163,7 @@ const App = () => {
               <Route path="payments" element={<HhPayments />} />
               <Route path="certificates" element={<HhCertificates />} />
               <Route path="profile" element={<HhProfile />} />
+              <Route path="payment-page" element={<HhPaymentPage />} />
           </Route>
 
       </Routes>

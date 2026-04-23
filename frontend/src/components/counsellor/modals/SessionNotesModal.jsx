@@ -60,6 +60,23 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
       .join(" ");
   };
 
+  const cleanFileName = (url) => {
+  if (!url) return "file";
+
+  let name = url.split("/").pop();
+
+  // remove query params if any
+  name = name.split("?")[0];
+
+  // truncate long names
+  if (name.length > 25) {
+    const ext = name.split(".").pop();
+    name = name.substring(0, 18) + "..." + ext;
+  }
+
+  return name;
+};
+
   /* LOAD NOTES */
   useEffect(() => {
     if (session?.id && notesState[session.id]) {
@@ -72,7 +89,7 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
 
       setUploadedFiles(
         filesArray.map((file, index) => ({
-          name: file.url.split("/").pop() || `File-${index + 1}`,
+         name: cleanFileName(file.url) || `File-${index + 1}`,
           url: file.url,
           type: file.url.endsWith(".pdf") ? "application/pdf" : "image/*",
           key: file.key, // store backend key

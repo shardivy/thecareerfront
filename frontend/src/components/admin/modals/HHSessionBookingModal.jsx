@@ -40,7 +40,8 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
   const [primaryCounsellorId, setPrimaryCounsellorId] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [markCompletedEnabled, setMarkCompletedEnabled] = useState(false);
-  const [filter, setFilter] = useState(mode === "view" ? "Booked" : "All"); // Default filter
+  const [filter, setFilter] = useState(mode === "view" ? "Available" : "All"); // Default filter
+  const slotData = data?.slot || data; // 👈 IMPORTANT FIX
 
  const students = useSelector(
   (state) => state.handholdingUsers.list ?? []
@@ -192,7 +193,7 @@ const mergedSlots = bookedRescheduledSlots.map((b) => ({
   start_time: b.start_time,
   end_time: b.end_time,
   status: b.status,
-  is_available: true,
+   is_handholding_session_available: b.is_handholding_session_available,
 
   // ✅ ADD THESE
   student_name: b.student_name,
@@ -200,15 +201,7 @@ const mergedSlots = bookedRescheduledSlots.map((b) => ({
   phone: b.phone,
 }));
 
- const filteredSlots = mergedSlots.filter((slot) => {
-  const expired = isSlotExpired(slot);
-
-  const isAvailableLike =
-    slot.status === "available" || slot.status === "pending";
-
-  const isBookedLike =
-    slot.status === "booked" || slot.status === "rescheduled";
-
+const filteredSlots = mergedSlots.filter((slot) => {
   if (isView) {
     return selectedSlot ? slot.id === selectedSlot.id : false;
   }
@@ -216,11 +209,13 @@ const mergedSlots = bookedRescheduledSlots.map((b) => ({
   if (filter === "All") return true;
 
   if (filter === "Available") {
-    return isAvailableLike && !expired;
+    return slot.is_handholding_session_available === true;
+    // ❌ removed !expired
   }
 
   if (filter === "Booked") {
-    return isBookedLike || expired;
+    return slot.is_handholding_session_available === false;
+    // ❌ removed || expired
   }
 
   return true;
@@ -527,7 +522,10 @@ const handleMarkCompleted = () => {
                         // disabled={slot.status === "booked" ||
                         //   slot.status === "rescheduled" || !slot.is_available || isSlotExpired(slot)}
                         //  disabled={slot.status === !slot.is_available}
-                          disabled={false}
+                        disabled={
+  !slot.is_handholding_session_available ||
+  isSlotExpired(slot)
+}
                         onClick={() => {
                          
                           

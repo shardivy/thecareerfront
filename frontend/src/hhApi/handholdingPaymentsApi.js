@@ -18,3 +18,11 @@ export const getHandholdingSummaryApi = async (
 
   return response.data;
 };
+
+
+export const getPaymentProgressApi = async (participantId) => {
+  const response = await axiosInstance.get(
+    `/payment/participant/${participantId}/payment-progress/`
+  );
+  return response.data;
+};

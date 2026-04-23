@@ -31,16 +31,18 @@ const HHLogin = () => {
   useSelector((state) => state.auth);
 
     /* ========= SUCCESS ========= */
-  useEffect(() => {
-  if (success) {
-    sessionStorage.removeItem("profileWarningShown");
-    message.success(successMessage);
+ useEffect(() => {
+    if (success) {
+        sessionStorage.removeItem("profileWarningShown");
+        message.success(successMessage);
 
-    if (is_handholding) {
-      navigate("/handholding/dashboard");
+        if (user?.role === "handholding") {
+            navigate("/handholding/dashboard");
+        } else {
+            navigate("/handholding/dashboard"); // fallback route
+        }
     }
-  }
-}, [success, successMessage, is_handholding, navigate]);
+}, [success, successMessage, user, navigate]);
 
     /* ========= ERROR ========= */
     useEffect(() => {

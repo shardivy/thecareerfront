@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import dayjs from "dayjs";
 import {
   Row,
@@ -23,6 +23,8 @@ import {
   BellOutlined,
 } from "@ant-design/icons";
 import AddAdvertisementModal from "../modals/AddAdvertisementModal";
+import { useDispatch, useSelector } from "react-redux";
+import { getAdvertisements , getAdvertisementStats} from "../../../adminSlices/advertisementSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -33,75 +35,64 @@ const Advertisement = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
 
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 5,
-  });
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 5, });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [selectedAd, setSelectedAd] = useState(null);
 
+  const dispatch = useDispatch();
+
+  const { advertisementList = [], statsData={}, loading } = useSelector((state) => state.advertisement);
+
+  useEffect(() => {
+    dispatch(getAdvertisements());
+    dispatch(getAdvertisementStats());
+  }, []);
+
+  const data = Array.isArray(advertisementList) ? advertisementList : [];
+
   /* ================= STATS ================= */
   const stats = [
     {
       title: "Total Ads",
-      value: 18,
+      value: statsData?.total_ads || 0,
       icon: <PictureOutlined style={{ fontSize: 22, color: token.colorPrimary }} />,
     },
     {
-      title: "Active Ads",
-      value: 10,
+      title: "Live Ads",
+       value: statsData?.live_ads || 0,
       icon: <CheckCircleOutlined style={{ fontSize: 22, color: token.colorSuccess }} />,
     },
     {
       title: "Scheduled",
-      value: 5,
+     value: statsData?.scheduled_ads || 0,
       icon: <ClockCircleOutlined style={{ fontSize: 22, color: token.colorWarning }} />,
     },
     {
-      title: "Notifications",
-      value: 2400,
-      icon: <BellOutlined style={{ fontSize: 22, color: token.colorError }} />,
-    },
+    title: "Completed",
+    value: statsData?.completed_ads || 0,
+    icon: (<CheckCircleOutlined style={{fontSize: 22,color: "#722ed1", }}/>),
+  },
   ];
 
-  /* ================= DATA ================= */
-  const data = [
-    {
-      id: 1,
-      campaignName: "Summer Course Banner",
-      advertiserName: "ABC Pvt Ltd",
-      advertiserEmail: "abc@gmail.com",
-      mobile: "9876543210",
-      startDate: "2026-04-01",
-      endDate: "2026-04-30",
-      amount: 5000,
-      status: "active",
-    },
-    {
-      id: 2,
-      campaignName: "Scholarship Popup",
-      advertiserName: "XYZ Ltd",
-      advertiserEmail: "xyz@gmail.com",
-      mobile: "9123456780",
-      startDate: "2026-04-10",
-      endDate: "2026-05-10",
-      amount: 8000,
-      status: "scheduled",
-    },
-  ];
 
   /* ================= FILTER ================= */
-  const filteredData = data.filter((item) => {
-    const matchesSearch =
-      item.campaignName.toLowerCase().includes(search.toLowerCase()) ||
-      item.advertiserName.toLowerCase().includes(search.toLowerCase());
+const filteredData = data.filter((item) => {
+  const campaign = (item?.advertisement_name || "").toLowerCase();
+  const advertiser = (item?.advertiser_name || "").toLowerCase();
+  const searchText = search.toLowerCase();
 
-    const matchesStatus = !statusFilter || item.status === statusFilter;
+  const matchesSearch =
+    campaign.includes(searchText) ||
+    advertiser.includes(searchText);
 
-    return matchesSearch && matchesStatus;
-  });
+  const matchesStatus =
+    !statusFilter ||
+    item?.ad_status?.toLowerCase() === statusFilter.toLowerCase();
+
+  return matchesSearch && matchesStatus;
+});
 
   /* ================= COLUMNS ================= */
   const columns = [
@@ -111,57 +102,75 @@ const Advertisement = () => {
       render: (_, __, index) =>
         (pagination.current - 1) * pagination.pageSize + index + 1,
     },
-   {
-  title: "Advertisement / Campaign Name",
-  dataIndex: "campaignName",
-  render: (text) => <Text strong>{text}</Text>,
-},
-   {
-  title: "Advertiser Info",
-  render: (_, record) => (
-    <div>
-      <div>
-        <Text strong>{record.advertiserName}</Text>
-      </div>
-      <div>
-        {record.advertiserEmail}
-      </div>
-    </div>
-  ),
-},
+
+    {
+      title: "Advertisement / Campaign Name",
+      width: 170,
+      dataIndex: "advertisement_name",
+      render: (text) => <Text strong>{text || "-"}</Text>,
+    },
+
+    {
+      title: "Advertiser Info",
+      render: (_, record) => (
+        <div>
+          <div>
+            <Text strong>{record?.advertiser_name || "-"}</Text>
+          </div>
+          <div>
+            {record?.contact_email || "-"}
+          </div>
+        </div>
+      ),
+    },
+
     {
       title: "Advertiser Mobile",
-      dataIndex: "mobile",
+      dataIndex: "contact_mobile",
+      render: (text) => text || "-"
     },
+
     {
       title: "Amount",
       dataIndex: "amount",
-      render: (val) => `₹${val}`,
+      render: (val) => `₹${val || 0}`,
     },
-   {
-  title: "Start Date",
-  dataIndex: "startDate",
-  render: (date) => <span>{date}</span>,
-},
-{
-  title: "End Date",
-  dataIndex: "endDate",
-  render: (date) => <span>{date}</span>,
-},
-    {
-      title: "Status",
-      dataIndex: "status",
-      render: (status) => {
-        const color =
-          status === "active"
-            ? "green"
-            : status === "scheduled"
-            ? "orange"
-            : "red";
 
-        return <Tag color={color}>{status.toUpperCase()}</Tag>;
-      },
+    {
+      title: "Start Date",
+      dataIndex: "ad_start_date",
+      render: (date) => date || "-"
     },
+
+    {
+      title: "End Date",
+      dataIndex: "ad_end_date",
+      render: (date) => date || "-"
+    },
+
+    {
+  title: "Status",
+  dataIndex: "ad_status",
+  render: (status) => {
+    const safeStatus = (status || "scheduled").toLowerCase();
+
+    const color =
+      safeStatus === "active"
+        ? "green"
+        : safeStatus === "scheduled"
+        ? "orange"
+        : safeStatus === "completed"
+        ? "green"
+        : "red"; 
+
+    return (
+      <Tag color={color}>
+        {safeStatus.toUpperCase()}
+      </Tag>
+    );
+  },
+},
+
     {
       title: "Actions",
       render: (_, record) => (
@@ -171,8 +180,12 @@ const Advertisement = () => {
             onClick={() => {
               setSelectedAd({
                 ...record,
-                startDate: record.startDate ? dayjs(record.startDate) : null,
-                endDate: record.endDate ? dayjs(record.endDate) : null,
+                startDate: record.ad_start_date
+                  ? dayjs(record.ad_start_date)
+                  : null,
+                endDate: record.ad_end_date
+                  ? dayjs(record.ad_end_date)
+                  : null,
               });
               setModalMode("view");
               setIsModalOpen(true);
@@ -187,8 +200,12 @@ const Advertisement = () => {
             onClick={() => {
               setSelectedAd({
                 ...record,
-                startDate: record.startDate ? dayjs(record.startDate) : null,
-                endDate: record.endDate ? dayjs(record.endDate) : null,
+                startDate: record.ad_start_date
+                  ? dayjs(record.ad_start_date)
+                  : null,
+                endDate: record.ad_end_date
+                  ? dayjs(record.ad_end_date)
+                  : null,
               });
               setModalMode("edit");
               setIsModalOpen(true);
@@ -225,18 +242,85 @@ const Advertisement = () => {
       </Row>
 
       {/* STATS */}
+      {/* STATS */}
       <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         {stats.map((item, index) => (
-          <Col xs={24} sm={12} md={6} key={index}>
-            <Card style={{ borderRadius: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+          <Col
+            xs={24}
+            sm={12}
+            md={12}
+            lg={6}
+            key={index}
+            style={{ display: "flex" }}
+          >
+            <Card
+              bordered={false}
+              style={{
+                borderRadius: 16,
+                padding: "14px 16px",
+                width: "100%",
+                height: "100%",
+                background: "#fff",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)", // 👈 light shadow
+              }}
+              bodyStyle={{
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "space-between",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  height: "100%",
+                }}
+              >
+                {/* LEFT SIDE */}
                 <div>
-                  <Text>{item.title}</Text>
-                  <Title level={3} style={{ margin: 0 }}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "#8c8c8c",
+                      fontWeight: 500,
+                    }}
+                  >
+                    {item.title}
+                  </Text>
+
+                  <Title
+                    level={2}
+                    style={{
+                      margin: "6px 0 0 0",
+                      fontWeight: 600,
+                    }}
+                  >
                     {item.value}
                   </Title>
+
+                  {item.subText && (
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: "#a0a0a0",
+                      }}
+                    >
+                      {item.subText}
+                    </Text>
+                  )}
                 </div>
-                <div>{item.icon}</div>
+
+                {/* ICON */}
+                <div
+                  style={{
+                    fontSize: 28,
+                    opacity: 0.85,
+                  }}
+                >
+                  {item.icon}
+                </div>
               </div>
             </Card>
           </Col>
@@ -263,9 +347,9 @@ const Advertisement = () => {
               style={{ width: "100%" }}
               onChange={(val) => setStatusFilter(val)}
             >
-              <Option value="active">Active</Option>
+              <Option value="live">Live</Option>
               <Option value="scheduled">Scheduled</Option>
-              <Option value="expired">Expired</Option>
+              <Option value="completed">Completed</Option>
             </Select>
           </Col>
         </Row>
@@ -288,6 +372,7 @@ const Advertisement = () => {
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         initialValues={selectedAd}
+         mode={modalMode}
         loading={false}
         onSubmit={(values) => {
           const payload = {

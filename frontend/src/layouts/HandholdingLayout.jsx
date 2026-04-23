@@ -61,7 +61,15 @@ useEffect(() => {
   if (profile?.participant_id) {
     localStorage.setItem("participant_id", profile.participant_id);
   }
-}, [profile]);
+
+  // Store show_profile
+  if (profile?.show_profile !== undefined) {
+    localStorage.setItem(
+      "show_profile",
+      JSON.stringify(profile.show_profile)
+    );
+  }
+}, [profile]);;
 
   /* ================= MENU ================= */
   const menuItems = [
@@ -106,7 +114,7 @@ useEffect(() => {
 
   const handleLogout = () => {
     localStorage.clear();
-    navigate("/");
+    navigate("/hhlogin");
   };
 
   /* ================= BREADCRUMB ================= */

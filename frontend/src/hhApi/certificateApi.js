@@ -24,3 +24,41 @@ export const generateCertificatesApi = async (payload) => {
 
   return response.data;
 };
+
+// ✅ NEW: Issued certificates API
+export const getIssuedCertificatesApi = async (params) => {
+  const response = await axiosInstance.get("/event/issued-certificates/", {
+    params, // for pagination (page, page_size)
+  });
+
+  return response.data;
+};
+
+  // ✅ CREATE CERTIFICATE TEMPLATE
+export const createCertificateTemplateApi = async (formData) => {
+  const response = await axiosInstance.post(
+    "/event/certificate-template/",
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
+};
+
+
+export const getParticipantCertificateApi = async (participantId) => {
+  const response = await axiosInstance.get(
+    `/event/certificates/participant/${participantId}/`
+  );
+  return response.data;
+};
+
+// ✅ CERTIFICATE STATS API
+export const getCertificateStatsApi = async () => {
+  const response = await axiosInstance.get("/event/certificate-stats/");
+  return response.data;
+};

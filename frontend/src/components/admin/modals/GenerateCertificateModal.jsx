@@ -53,7 +53,7 @@ const GenerateCertificateModal = ({ open, onClose }) => {
   // ================= SUBMIT =================
   const handleSubmit = async () => {
     if (!selectedTemplate || selectedStudents.length === 0) {
-      message.warning("Please select a template and at least one student");
+      message.warning("Please select a template and at least one user");
       return;
     }
 
@@ -83,8 +83,14 @@ const GenerateCertificateModal = ({ open, onClose }) => {
         </div>
       }
       open={open}
+      centered
       onCancel={onClose}
       width={850}
+        bodyStyle={{
+    maxHeight: "70vh",   // 🔥 control height
+    overflowY: "auto",   // 🔥 enable scroll
+    paddingRight: 12,    // optional (avoid scrollbar overlap)
+  }}
       footer={[
         <Button key="cancel" onClick={onClose}>
           Cancel
@@ -156,12 +162,12 @@ const GenerateCertificateModal = ({ open, onClose }) => {
       </Row>
 
       {/* ================= STUDENT SECTION ================= */}
-      <Title level={5}>Select Students</Title>
+      <Title level={5}>Select Users</Title>
 
       <Select
         mode="multiple"
         allowClear
-        placeholder="Select students"
+        placeholder="Select users"
         style={{ width: "100%", marginBottom: 20 }}
         value={selectedStudents}
         onChange={setSelectedStudents}

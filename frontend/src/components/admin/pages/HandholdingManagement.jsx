@@ -28,6 +28,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
+  DownOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import HHSessionModal from "../modals/HHSessionModal";
@@ -39,8 +40,9 @@ import HHSessionBookingModal from "../modals/HHSessionBookingModal";
 import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
 import { getSessionBookings, cancelSession } from "../../../hhSlices/sessionBookingSlice";
-import { getHandholdingParticipants ,getCardStats ,updateHandholdingParticipant} from "../../../hhSlices/handholdingUsersSlice";
-import { getCertificateTemplates } from "../../../hhSlices/certificateSlice";
+import { getHandholdingParticipants, getCardStats, updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
+import { getCertificateTemplates, getIssuedCertificates , getCertificateStats } from "../../../hhSlices/certificateSlice";
+import UploadCertificateTemplateModal from "../modals/UploadCertificateTemplateModal.jsx";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -75,9 +77,9 @@ const HandholdingManagement = () => {
   const [bookingSearch, setBookingSearch] = useState("");
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [selectedCancelBooking, setSelectedCancelBooking] = useState(null);
- const [previewModalOpen, setPreviewModalOpen] = useState(false);
-const [previewTemplate, setPreviewTemplate] = useState(null);
-
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
 
   /* ================= PAGINATION STATE ================= */
@@ -86,9 +88,11 @@ const [previewTemplate, setPreviewTemplate] = useState(null);
   const [userPagination, setUserPagination] = useState({ current: 1, pageSize: 5, });
   const [bookingPagination, setBookingPagination] = useState({ current: 1, pageSize: 5, });
   const { list: bookingsData, loading: bookingsLoading, } = useSelector((state) => state.sessionBooking);
-  const {participants,participantsLoading,} = useSelector((state) => state.handholdingUsers);
+  const { participants, participantsLoading, } = useSelector((state) => state.handholdingUsers);
   const { cardStats, cardStatsLoading } = useSelector((state) => state.handholdingUsers);
   const { templates, loading: templateLoading } = useSelector((state) => state.certificate);
+  const { issuedCertificates, issuedLoading, issuedTotal } = useSelector((state) => state.certificate);
+  const { certificateStats, statsLoading } = useSelector((state) => state.certificate);
 
   useEffect(() => {
     if (activeTab === "bookings") {
@@ -103,16 +107,26 @@ const [previewTemplate, setPreviewTemplate] = useState(null);
   }, [activeTab, dispatch]);
 
   useEffect(() => {
-  dispatch(getCardStats());
-}, [dispatch]);
+    dispatch(getCardStats());
+  }, [dispatch]);
 
 useEffect(() => {
   if (activeTab === "certificates") {
     dispatch(getCertificateTemplates());
+    dispatch(getCertificateStats()); 
   }
-}, [activeTab, dispatch]);  
+}, [activeTab, dispatch]);
 
-
+  useEffect(() => {
+    if (issuedModalOpen) {
+      dispatch(
+        getIssuedCertificates({
+          page: issuedPagination.current,
+          page_size: issuedPagination.pageSize,
+        })
+      );
+    }
+  }, [issuedModalOpen, issuedPagination, dispatch]);
 
   const formattedBookings = bookingsData.map((item) => {
     const statusMap = {
@@ -207,35 +221,35 @@ useEffect(() => {
     }
   };
 
-const handlePreview = (record) => {
-  window.open(record.template_file, "_blank");
-};
+  const handlePreview = (record) => {
+    window.open(record.template_file, "_blank");
+  };
 
   /* ================= STATS ================= */
- const stats = [
-  {
-    title: "Total Sessions",
-    value: cardStats?.total_sessions || 0,
-    icon: <FileTextOutlined style={{ fontSize: 22, color: token.colorPrimary }} />,
-  },
-  {
-    title: "Active Users",
-    value: cardStats?.active_users_count || 0,
-    icon: <UserOutlined style={{ fontSize: 22, color: token.colorSuccess }} />,
-  },
-  {
-    title: "Completed Users",
-    value: cardStats?.completed_users_count || 0,
-    icon: <CheckCircleOutlined style={{ fontSize: 22, color: token.colorWarning }} />,
-  },
-  {
-    title: "Certificates Issued",
-    value: cardStats?.certificate_issued_count || 0,
-    icon: <TrophyOutlined style={{ fontSize: 22, color: token.colorError }} />,
-  },
-];
+  const stats = [
+    {
+      title: "Total Sessions",
+      value: cardStats?.total_sessions || 0,
+      icon: <FileTextOutlined style={{ fontSize: 22, color: token.colorPrimary }} />,
+    },
+    {
+      title: "Active Users",
+      value: cardStats?.active_users_count || 0,
+      icon: <UserOutlined style={{ fontSize: 22, color: token.colorSuccess }} />,
+    },
+    {
+      title: "Completed Users",
+      value: cardStats?.completed_users_count || 0,
+      icon: <CheckCircleOutlined style={{ fontSize: 22, color: token.colorWarning }} />,
+    },
+    {
+      title: "Certificates Issued",
+      value: cardStats?.certificate_issued_count || 0,
+      icon: <TrophyOutlined style={{ fontSize: 22, color: token.colorError }} />,
+    },
+  ];
 
-const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
+  const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
 
 
   /* ================= SESSION TEMPLATE ================= */
@@ -348,10 +362,15 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
     name: `${item.first_name || ""} ${item.last_name || ""}`,
     progressPercent: item.progress?.percentage || 0,
     progressLabel: item.progress?.label || "0/0",
-    sessionStatus: item.session_status || "pending",
+    sessionStatus: (item.session_status || "pending").toLowerCase(),
     paymentStatus: (item.payment_status || "not_paid").toLowerCase(),
-    certificationStatus: item.certificate_issued ? "issued" : "pending",
+    certificationStatus: (
+      item.certificate_status ||
+      (item.certificate_issued ? "issued" : "pending")
+    ).toLowerCase(),
+      program_id: item.program_id,
     program_name: item.program_name || "-",
+    package_id:item.package_id || "-",
     package_name: item.package_name || "-",
     package_price: item.package_price || 0,
     total_paid_amount: item.total_paid_amount || 0,
@@ -452,8 +471,9 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
     {
       title: "Actions",
       render: (_, record) => {
-        const isCompleted =
-          record.completedSessions === record.totalSessions;
+        const isCompleted = record.sessionStatus === "completed";
+        const isCertificatePending = record.certificationStatus === "pending";
+        const isCertificateIssued = record.certificationStatus === "issued";
 
         return (
           <Space wrap>
@@ -477,18 +497,37 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
             </Button>
 
             {/* ✅ SHOW ONLY IF COMPLETED */}
-            {isCompleted && (
+            {(isCompleted && isCertificatePending) || isCertificateIssued ? (
               <Button
                 type="primary"
+                icon={
+                  isCertificateIssued
+                    ? <CheckCircleOutlined />
+                    : <FileTextOutlined />
+                }
+                disabled={isCertificateIssued}
+                style={
+                  isCertificateIssued
+                    ? {
+                      background: "#d9d9d9",
+                      borderColor: "#d9d9d9",
+                      color: "#5a5a5a",
+                      cursor: "not-allowed",
+                    }
+                    : {}
+                }
                 onClick={() => {
-                  setSelectedCertificateUser(record); // ✅ correct user
+                  if (isCertificateIssued) return;
+                  setSelectedCertificateUser(record);
                   setCertificateModalOpen(true);
                   setCertificateMode("issue");
                 }}
               >
-                Issue Certificate
+                {isCertificateIssued
+                  ? "Issued"
+                  : "Issue Certificate"}
               </Button>
-            )}
+            ) : null}
           </Space>
         );
       },
@@ -497,7 +536,7 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
 
   /* ================= CERTIFICATION ================= */
   const completedUsers = users.filter(
-    (u) => u.completedSessions === u.totalSessions
+    (u) => u.sessionStatus === "completed"
   );
 
   const certificateColumns = [
@@ -531,7 +570,8 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
     item.title?.toLowerCase().includes(sessionSearch.toLowerCase())
   );
 
-  const filteredUsers = users.filter((item) => {
+const filteredUsers = users
+  .filter((item) => {
     const matchesSearch =
       item.name.toLowerCase().includes(userSearch.toLowerCase()) ||
       item.email.toLowerCase().includes(userSearch.toLowerCase());
@@ -543,6 +583,16 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
       !certificationFilter || item.certificationStatus === certificationFilter;
 
     return matchesSearch && matchesPayment && matchesCertification;
+  })
+  .sort((a, b) => {
+    // ✅ push issued to bottom
+    if (a.certificationStatus === "issued" && b.certificationStatus !== "issued") {
+      return 1;
+    }
+    if (a.certificationStatus !== "issued" && b.certificationStatus === "issued") {
+      return -1;
+    }
+    return 0;
   });
 
 
@@ -774,6 +824,8 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
       },
     ];
   }, [bookingStatusFilter]);
+
+
   const issuedColumns = [
     {
       title: "Sr No",
@@ -781,11 +833,11 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
         (issuedPagination.current - 1) * issuedPagination.pageSize + index + 1,
     },
     {
-      title: "User",
+      title: "Usernme / Email",
       render: (_, record) => (
         <div>
           <Text strong>{record.name}</Text>
-          <div style={{ color: "#888" }}>{record.email}</div>
+          <div>{record.email}</div>
         </div>
       ),
     },
@@ -793,21 +845,77 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
       title: "Sessions",
       render: (_, record) => (
         <Text>
-          {record.completedSessions}/{record.totalSessions}
+          {record.completed_sessions}/{record.total_sessions}
+        </Text>
+      ),
+    },
+    {
+      title: "Issued Date",
+      render: (_, record) => (
+        <Text>
+          {new Date(record.issued_at).toLocaleDateString()}
         </Text>
       ),
     },
     {
       title: "Action",
-      render: (_, record) => (
-        <Button
-          icon={<EyeOutlined />}
-          onClick={() => handlePreview(record)}
-        >
-          View
-        </Button>
-      ),
-    }
+      render: (_, record) => {
+        const handleDownload = async () => {
+          try {
+            const response = await fetch(record.certificate_file);
+
+            if (!response.ok) throw new Error("Download failed");
+
+            const blob = await response.blob();
+
+            // ✅ Detect correct file type
+            const contentType = blob.type; // e.g. image/png or image/jpeg
+
+            let extension = "png"; // default
+
+            if (contentType.includes("jpeg")) extension = "jpg";
+            if (contentType.includes("png")) extension = "png";
+
+            const url = window.URL.createObjectURL(blob);
+
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `${record.name}_Certificate.${extension}`; // ✅ correct extension
+
+            document.body.appendChild(link);
+            link.click();
+
+            link.remove();
+            window.URL.revokeObjectURL(url);
+
+          } catch (err) {
+            console.error(err);
+          }
+        };
+
+        return (
+          <Space>
+            {/* VIEW */}
+            {/* <Button
+            icon={<EyeOutlined />}
+            onClick={() =>
+              window.open(record.certificate_file, "_blank")
+            }
+          >
+            View
+          </Button> */}
+
+            {/* DOWNLOAD */}
+            <Button
+              icon={<DownOutlined />}
+              onClick={handleDownload}
+            >
+              Download
+            </Button>
+          </Space>
+        );
+      },
+    },
   ];
 
   const filteredBookings = formattedBookings.filter((item) => {
@@ -845,7 +953,7 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
             <Card
               bordered={false}
               style={{
-                height: screens.xs ? 110 : 130,
+                height: screens.xs ? 110 : 150,
                 borderRadius: 12,
                 boxShadow: token.boxShadow,
               }}
@@ -862,9 +970,9 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
                   <Text style={{ color: token.colorTextSecondary, fontSize: 16 }}>
                     {item.title}
                   </Text>
-                <Title level={3}>
-  {cardStatsLoading ? <Spin size="small" /> : item.value}
-</Title>
+                  <Title level={3}>
+                    {cardStatsLoading ? <Spin size="small" /> : item.value}
+                  </Title>
                 </div>
                 {item.icon}
               </div>
@@ -873,24 +981,47 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
         ))}
       </Row>
 
-      {/* TABS */}
-      <Tabs
-        activeKey={activeTab}
-        onChange={(key) => {
-          setActiveTab(key);
 
-          // ✅ When clicking "Session Bookings"
-          if (key === "bookings") {
-            setBookingStatusFilter("booked_group"); // 👈 force active sub-tab
-          }
-        }}
-        items={[
-          { key: "users", label: "Handholding Users" },
-          { key: "sessions", label: "Session Template" },
-          { key: "bookings", label: "Session Bookings" },
-          { key: "certificates", label: "Certification" },
-        ]}
-      />
+      {/* TABS + ACTION BUTTON */}
+      <Row
+        justify="space-between"
+        align="middle"
+        style={{ marginBottom: 16 }}
+      >
+        {/* LEFT: Tabs */}
+        <Col flex="auto">
+          <Tabs
+            activeKey={activeTab}
+            onChange={(key) => {
+              setActiveTab(key);
+
+              if (key === "bookings") {
+                setBookingStatusFilter("booked_group");
+              }
+            }}
+            items={[
+              { key: "users", label: "Handholding Users" },
+              { key: "sessions", label: "Session Template" },
+              { key: "bookings", label: "Session Bookings" },
+              { key: "certificates", label: "Certification" },
+            ]}
+          />
+        </Col>
+
+        {/* RIGHT: Add Template Button */}
+        {activeTab === "certificates" && (
+          <Col>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              disabled
+              onClick={() => setUploadModalOpen(true)}
+            >
+              Add Template
+            </Button>
+          </Col>
+        )}
+      </Row>
 
       <Card>
         {/* SESSION TEMPLATE */}
@@ -1029,7 +1160,9 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
                       <Text strong>Pending Generation</Text>
                     </Space>
 
-                    <Title level={2} style={{ margin: 0 }}>1</Title>
+      <Title level={2} style={{ margin: 0 }}>
+  {statsLoading ? <Spin size="small" /> : certificateStats?.pending_certificate_users || 0}
+</Title>
 
                     <Text type="colorTextSecondary">
                       Students awaiting certificates
@@ -1057,7 +1190,9 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
                       <Text strong>Ready to Issue</Text>
                     </Space>
 
-                    <Title level={2} style={{ margin: 0 }}>1</Title>
+  <Title level={2} style={{ margin: 0 }}>
+  {statsLoading ? <Spin size="small" /> : certificateStats?.certificate_templates || 0}
+</Title>
 
                     <Text type="colorTextSecondary">
                       Certificates ready for delivery
@@ -1084,9 +1219,9 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
                       <Text strong>Issued</Text>
                     </Space>
 
-                    <Title level={2} style={{ margin: 0 }}>
-                      {issuedUsers.length}
-                    </Title>
+                 <Title level={2} style={{ margin: 0 }}>
+  {statsLoading ? <Spin size="small" /> : certificateStats?.issued_certificate_users || 0}
+</Title>
 
                     <Text type="colorTextSecondary">
                       Successfully delivered
@@ -1123,85 +1258,86 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
                 padding: 0, // ❗ remove extra outer padding
               }}
             >
-          <Row gutter={[16, 16]}>
-  {templateLoading ? (
-    <Spin />
-  ) : (
-    
-    templates?.map((item, index) => {
-      const bgColor = colors[index % colors.length]; // 🔥 alternating
 
-      return (
-        <Col xs={24} sm={24} md={12} key={item.id || index}>
-          <Card
-            hoverable
-            style={{
-              borderRadius: 18,
-              overflow: "hidden",
-              border: "none",
-              background: "#ffffffcc",
-              backdropFilter: "blur(10px)",
-              boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
-            }}
-          >
-            {/* TOP STRIP */}
-            <div
-              style={{
-                height: 5,
-                background: bgColor, // ✅ dynamic color here also
-                borderRadius: 10,
-                marginBottom: 10,
-              }}
-            />
+              <Row gutter={[16, 16]}>
+                {templateLoading ? (
+                  <Spin />
+                ) : (
 
-            <Space direction="vertical" style={{ width: "100%" }}>
-              
-              {/* HEADER */}
-              <Row justify="space-between" align="middle">
-                <Text strong>{item.name}</Text>
-                <Tag color="success">Active</Tag>
+                  templates?.map((item, index) => {
+                    const bgColor = colors[index % colors.length]; // 🔥 alternating
+
+                    return (
+                      <Col xs={24} sm={24} md={12} key={item.id || index}>
+                        <Card
+                          hoverable
+                          style={{
+                            borderRadius: 18,
+                            overflow: "hidden",
+                            border: "none",
+                            background: "#ffffffcc",
+                            backdropFilter: "blur(10px)",
+                            boxShadow: "0 6px 20px rgba(0,0,0,0.08)",
+                          }}
+                        >
+                          {/* TOP STRIP */}
+                          <div
+                            style={{
+                              height: 5,
+                              background: bgColor, // ✅ dynamic color here also
+                              borderRadius: 10,
+                              marginBottom: 10,
+                            }}
+                          />
+
+                          <Space direction="vertical" style={{ width: "100%" }}>
+
+                            {/* HEADER */}
+                            <Row justify="space-between" align="middle">
+                              <Text strong>{item.name}</Text>
+                              <Tag color="success">Active</Tag>
+                            </Row>
+
+                            {/* DESCRIPTION */}
+                            <Text style={{ color: "#6b7280" }}>
+                              {item.description}
+                            </Text>
+
+                            {/* PREVIEW BOX */}
+                            <div
+                              style={{
+                                height: 120,
+                                borderRadius: 10,
+                                background: "#f5f5f5",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              📄 Preview
+                            </div>
+
+                            {/* BUTTON */}
+                            <Button
+                              block
+                              icon={<EyeOutlined />}
+                              onClick={() => handlePreview(item)}
+                              style={{
+                                marginTop: 10,
+                                background: bgColor, // ✅ alternating color
+                                color: "#fff",
+                                border: "none",
+                              }}
+                            >
+                              Preview
+                            </Button>
+                          </Space>
+                        </Card>
+                      </Col>
+                    );
+                  })
+                )}
               </Row>
-
-              {/* DESCRIPTION */}
-              <Text style={{ color: "#6b7280" }}>
-                {item.description}
-              </Text>
-
-              {/* PREVIEW BOX */}
-              <div
-                style={{
-                  height: 120,
-                  borderRadius: 10,
-                  background: "#f5f5f5",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                📄 Preview
-              </div>
-
-              {/* BUTTON */}
-              <Button
-                block
-                icon={<EyeOutlined />}
-                onClick={() => handlePreview(item)}
-                style={{
-                  marginTop: 10,
-                  background: bgColor, // ✅ alternating color
-                  color: "#fff",
-                  border: "none",
-                }}
-              >
-                Preview
-              </Button>
-            </Space>
-          </Card>
-        </Col>
-      );
-    })
-  )}
-</Row>
             </Card>
           </>
         )}
@@ -1326,19 +1462,13 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
       <CertificateTemplateModal
         open={certificateModalOpen}
         onClose={() => setCertificateModalOpen(false)}
-        onSelect={(template) => {
-          if (certificateMode === "issue") {
-            message.success(`Certificate issued using ${template.name}`);
-          }
-          setCertificateModalOpen(false);
-        }}
-        showSelectButton={certificateMode === "issue"} // ✅ dynamic
+        selectedUser={selectedCertificateUser} // ✅ PASS USER
       />
 
       <GenerateCertificateModal
         open={generateModalOpen}
         onClose={() => setGenerateModalOpen(false)}
-       />
+      />
 
       <Modal
         title="Issued Certificates"
@@ -1350,9 +1480,13 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
       >
         <Table
           columns={issuedColumns}
-          dataSource={issuedUsers}
-          rowKey="id"
-          pagination={issuedPagination}
+          dataSource={issuedCertificates}
+          loading={issuedLoading}
+          rowKey="certificate_id"
+          pagination={{
+            ...issuedPagination,
+            total: issuedTotal,
+          }}
           onChange={(pag) => setIssuedPagination(pag)}
         />
       </Modal>
@@ -1370,6 +1504,12 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
 
           dispatch(getSessionBookings());
         }}
+      />
+
+      <UploadCertificateTemplateModal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+
       />
 
       <Modal
@@ -1410,7 +1550,7 @@ const colors = ["#6366f1", "#10b981"]; // indigo, green (you can change 2nd)
         </p>
       </Modal>
 
-     
+
     </div>
   );
 };

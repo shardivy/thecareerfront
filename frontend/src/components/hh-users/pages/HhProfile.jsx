@@ -67,10 +67,10 @@ useEffect(() => {
       phone: storedProfile.phone || "",
       preferred_counselling_mode:
         storedProfile.preferred_counselling_mode || "",
-      program_name: storedProfile.program_name || "",
-      package_name: storedProfile.package_name || "",
+        program_name: storedProfile.program || "",
+    package_name: storedProfile.package || "",
       city: storedProfile.city || "",
-      address: storedProfile.full_address || "",
+      full_address: storedProfile.full_address || "",
       photo: storedProfile.photo || null,
       resume: storedProfile.resume_file || null,
       receipt: storedProfile.proof_file || null,
@@ -94,7 +94,7 @@ useEffect(() => {
     program_name:"",
     package_name:"",
     city: "",
-    address: "",
+    full_address: "",
     photo: null,
     resume: null,
     receipt: null,
@@ -148,7 +148,7 @@ const handleSubmit = async () => {
       profile.preferred_counselling_mode
     );
     formData.append("city", profile.city);
-    formData.append("full_address", profile.address);
+    formData.append("full_address", profile.full_address);
 
     if (profile.photo instanceof File) {
       formData.append("photo", profile.photo);
@@ -396,8 +396,8 @@ return (
             <Text>Full Address</Text>
             <TextArea
               rows={3}
-              value={profile.address}
-              onChange={(e) => handleChange("address", e.target.value)}
+              value={profile.full_address}
+              onChange={(e) => handleChange("full_address", e.target.value)}
             />
           </Col>
         </Row>

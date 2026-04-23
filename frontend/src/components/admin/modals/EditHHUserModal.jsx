@@ -16,8 +16,9 @@ import {
 message,
 } from "antd";
 import { UploadOutlined, EyeOutlined } from "@ant-design/icons";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
+import { fetchPackagesByProgram } from "../../../adminSlices/packageSlice";
 
 const { Option } = Select;
 
@@ -33,6 +34,20 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [resumePreview, setResumePreview] = useState(null);
   const [paymentPreview, setPaymentPreview] = useState(null);
+    const { list: packages, loading: packagesLoading } = useSelector(
+  (state) => state.packages
+);
+
+useEffect(() => {
+  if (!open) return;
+
+  const programId = userData?.program_id;
+
+  if (programId) {
+    console.log("Fetching packages for program:", programId);
+    dispatch(fetchPackagesByProgram(programId));
+  }
+}, [open, userData?.program_id, dispatch]);
 
   /* ================= FILE HANDLER ================= */
   const handleFile = (type) => (e) => {
@@ -64,7 +79,7 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
   if (!open || !userData) return;
 
   form.resetFields(); // 🔥 IMPORTANT FIX
-  // console.log("userData inside modal:", userData);
+  console.log("userData inside modal:", userData);
 
   form.setFieldsValue({
     firstName: userData.firstName,
@@ -76,8 +91,10 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
     date: userData.date,
     city: userData.city,
     preferred_counselling_mode: userData.preferred_counselling_mode,
-    address: userData.address,
+      address: userData.address,
   showProfile: Boolean(userData.showProfile),
+    package_id: userData.package_id,
+  
   });
 
   if (userData.photo) setPhotoPreview(userData.photo);
@@ -86,6 +103,14 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
 
 }, [open, userData]);
 
+useEffect(() => {
+  if (packages.length && userData?.package_id) {
+    form.setFieldsValue({
+      package_id: userData.package_id,
+    });
+  }
+}, [packages, userData, form]);
+
   /* ================= SUBMIT ================= */
 const handleSubmit = async (values) => {
   const formData = new FormData();
@@ -93,10 +118,16 @@ const handleSubmit = async (values) => {
 Object.entries(values).forEach(([key, value]) => {
   if (key === "showProfile") {
     formData.append("show_profile", value ? "True" : "False");
-  } else {
+  } 
+  else if (key === "address") {
+    // ✅ IMPORTANT FIX
+    formData.append("full_address", value ?? "");
+  } 
+  else {
     formData.append(key, value ?? "");
   }
 });
+
   if (photo[0]?.originFileObj) {
     formData.append("photo", photo[0].originFileObj);
   }
@@ -182,6 +213,25 @@ Object.entries(values).forEach(([key, value]) => {
                     <Input />
                   </Form.Item>
                 </Col>
+
+                <Col xs={24} sm={12}>
+                 <Form.Item
+                   name="package_id"
+                   label="Counselling Service"
+                   rules={[{ required: true, message: "Please select service" }]}
+                 >
+                   <Select
+                     placeholder={packagesLoading ? "Loading services..." : "Select service"}
+                     loading={packagesLoading}
+                   >
+                     {packages.map((pkg) => (
+                       <Option key={pkg.id} value={pkg.id}>
+                         {pkg.name}
+                       </Option>
+                     ))}
+                   </Select>
+                 </Form.Item>
+               </Col>
 
                 <Col xs={24} sm={12}>
                   <Form.Item

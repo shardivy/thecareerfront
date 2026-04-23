@@ -45,3 +45,11 @@ export const getCardStatsApi = async () => {
   const response = await axiosInstance.get("/event/card-count/");
   return response.data;
 };
+
+// ✅ Dashboard Stats API (NEW)
+export const getDashboardStatsApi = async (participantId) => {
+  const response = await axiosInstance.get(
+    `/event/participant-session-progress/${participantId}/`
+  );
+  return response.data;
+};

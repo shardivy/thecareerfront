@@ -34,7 +34,7 @@ import { bookHandholdingSession, rescheduleSession, fetchBookedRescheduled } fro
 
 const { Title, Text } = Typography;
 
-const HhBookSessionModal = ({ open, onClose, session, onConfirm, rescheduleData }) => {
+const HhBookSessionModal = ({ open, onClose, session, onConfirm, rescheduleData, participantId }) => {
   const dispatch = useDispatch();
   const preferredMode = localStorage.getItem("preferredCounsellingMode") || "online";
   const [mode, setMode] = useState(preferredMode);
@@ -58,6 +58,8 @@ const HhBookSessionModal = ({ open, onClose, session, onConfirm, rescheduleData 
 const bookingLoading = useSelector((state) => state.sessionBooking.loading);
 
   const studentId = localStorage.getItem("studentId");
+
+
 
   // ================= FETCH DROPDOWNS =================
   useEffect(() => {
@@ -138,30 +140,27 @@ const bookingLoading = useSelector((state) => state.sessionBooking.loading);
     return now.isAfter(slotStart);
   };
 
-  const filteredSlots = slotsByDate.filter((slot) => {
-    const expired = isSlotExpired(slot);
+const filteredSlots = slotsByDate.filter((slot) => {
+  const expired = isSlotExpired(slot);
 
-    const isAvailableLike =
-      (slot.status === "available" || slot.status === "pending") &&
-      slot.is_available;
+  const isAvailable =
+    slot.is_handholding_session_available && !expired;
 
-    const isBookedLike =
-      slot.status === "booked" ||
-      slot.status === "rescheduled" ||
-      !slot.is_available;
+  const isBooked =
+    !slot.is_handholding_session_available || expired;
 
-    if (slotFilter === "all") return true;
+  if (slotFilter === "all") return true;
 
-    if (slotFilter === "available") {
-      return isAvailableLike && !expired;
-    }
+  if (slotFilter === "available") {
+    return isAvailable;
+  }
 
-    if (slotFilter === "booked") {
-      return isBookedLike || expired;
-    }
+  if (slotFilter === "booked") {
+    return isBooked;
+  }
 
-    return true;
-  });
+  return true;
+});
 
   // ================= CONFIRM BOOKING =================
   const handleConfirm = () => {
@@ -174,15 +173,13 @@ const bookingLoading = useSelector((state) => state.sessionBooking.loading);
       return;
     }
 
-    const payload = {
-      // student_id: rescheduleData?.student_id || null,
-      // student_id: Number(studentId),
-      date: dayjs(selectedDate).format("YYYY-MM-DD"),
-      slot_id: selectedSlot.slot_id,
-      mode,
-        participant_id: selectedSlot?.participant_id || session?.participant_id,
-  session_no: selectedSlot?.session_no || session?.session_no,
-    };
+   const payload = {
+  date: dayjs(selectedDate).format("YYYY-MM-DD"),
+  slot_id: selectedSlot.slot_id,
+  mode,
+  participant_id: participantId,   // ✅ ALWAYS SAFE
+  session_no: session?.session_no,
+};
 
     const action = rescheduleData
       ? rescheduleSession({
@@ -285,39 +282,43 @@ const bookingLoading = useSelector((state) => state.sessionBooking.loading);
                   {slotsLoading ? (
                     <Spin />
                   ) : filteredSlots.length ? (
-                    filteredSlots.map((slot) => (
-                      <Col xs={24} sm={12} md={8} key={slot.id}>
-                        <Button
-                          block
-                          size="large"
-                          type={
-                            selectedSlot &&
-                              (selectedSlot.id === slot.id ||
-                                selectedSlot.start_time === slot.start_time)
-                              ? "primary"
-                              : "default"
-                          }
-                          onClick={() => {
-                            // ONLY allow available slots to be selected
-                            // if (
-                            //   (slot.status === "available" || slot.status === "pending") &&
-                            //   slot.is_available &&
-                            //   !isSlotExpired(slot)
-                            // ) {
-                            //   setSelectedSlot(slot);
-                            // }
+                  filteredSlots.map((slot) => {
+  const isDisabled =
+    isSlotExpired(slot) ||
+    !slot.is_handholding_session_available;
 
-                            setSelectedSlot(slot);
-                          }}
-                          style={{
-                            borderRadius: 10,
-                            height: 48,
-                          }}
-                        >
-                          {slot.start_time} - {slot.end_time}
-                        </Button>
-                      </Col>
-                    ))
+  return (
+    <Col xs={24} sm={12} md={8} key={slot.id}>
+      <Button
+        block
+        size="large"
+        type={
+          selectedSlot &&
+          (selectedSlot.id === slot.id ||
+            selectedSlot.start_time === slot.start_time)
+            ? "primary"
+            : "default"
+        }
+        disabled={isDisabled}
+        onClick={() => {
+          if (!isDisabled) {
+            setSelectedSlot(slot);
+          }
+        }}
+        style={{
+          borderRadius: 10,
+          height: 48,
+          opacity: isDisabled ? 0.5 : 1,
+          cursor: isDisabled ? "not-allowed" : "pointer",
+        }}
+      >
+        {slot.start_time} - {slot.end_time}
+        {isSlotExpired(slot)}
+        {!slot.is_handholding_session_available }
+      </Button>
+    </Col>
+  );
+})
                   ) : (
                     <Text type="colorTextSecondary">No slots found</Text>
                   )}

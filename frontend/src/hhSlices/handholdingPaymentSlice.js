@@ -1,5 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getHandholdingPaymentDetailsApi, getHandholdingSummaryApi  } from "../hhApi/handholdingPaymentsApi";
+import { getHandholdingPaymentDetailsApi,
+   getHandholdingSummaryApi ,
+  getPaymentProgressApi ,
+ } from "../hhApi/handholdingPaymentsApi";
 
 // 🔥 THUNK
 export const fetchHandholdingPaymentDetails = createAsyncThunk(
@@ -31,12 +34,27 @@ export const fetchHandholdingSummary = createAsyncThunk(
   }
 );
 
+export const fetchPaymentProgress = createAsyncThunk(
+  "handholdingPayment/fetchProgress",
+  async (participantId, { rejectWithValue }) => {
+    try {
+      const res = await getPaymentProgressApi(participantId);
+      return res;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data || "Failed to fetch payment progress"
+      );
+    }
+  }
+);
+
 // 🔥 SLICE
 const handholdingPaymentSlice = createSlice({
   name: "handholdingPayment",
   initialState: {
     details: null,
       data: null,
+       progress: null, 
     loading: false,
     error: null,
   },
@@ -71,7 +89,19 @@ const handholdingPaymentSlice = createSlice({
       .addCase(fetchHandholdingSummary.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+
+      .addCase(fetchPaymentProgress.pending, (state) => {
+  state.loading = true;
+})
+.addCase(fetchPaymentProgress.fulfilled, (state, action) => {
+  state.loading = false;
+  state.progress = action.payload;
+})
+.addCase(fetchPaymentProgress.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
   },
 });
 

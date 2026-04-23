@@ -113,6 +113,7 @@ const sessionBookingSlice = createSlice({
     list: [],
     bookedRescheduledList: [],
     participantSessions: [], 
+      totalSessions: 0,
     loading: false,
     error: null,
   },
@@ -197,6 +198,7 @@ const sessionBookingSlice = createSlice({
 .addCase(getParticipantSessions.fulfilled, (state, action) => {
   state.loading = false;
   state.participantSessions = action.payload?.data || action.payload || [];
+    state.totalSessions = action.payload.total_sessions;
 })
 .addCase(getParticipantSessions.rejected, (state, action) => {
   state.loading = false;

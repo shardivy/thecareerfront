@@ -90,8 +90,12 @@ const JourneySteps = ({
         return progressData.exam === "in_progress";
       case "Report":
         return progressData.report === "received_locked";
-      case "Payment":
-        return progressData.payment === "partial_paid";
+        
+ case "Payment":
+  return (
+    progressData.payment === "not_paid" ||
+    progressData.payment === "partial_paid"
+  );
       case "Counselling Slot Booking":
         return progressData.counselling_slot_booking === "pending" || progressData.counselling_slot_booking === "not_booked";
       case "Questionnaire":
@@ -124,18 +128,25 @@ const JourneySteps = ({
   };
 
   // Get connector progress width
-  const getConnectorProgress = (label, index) => {
-    const stepNo = index + 1;
-    const isPartialPayment = label === "Payment" && progressData.payment === "partial_paid";
-    const isInProgress = isStepInProgress(label);
-    const isActive = stepNo === currentStep + 1;
-    const isCompleted = isStepCompleted(label);
+const getConnectorProgress = (label, index) => {
+  const stepNo = index + 1;
 
-    if (stepNo < currentStep + 1 || isPartialPayment || isInProgress || isActive || isCompleted) {
-      return "100%";
-    }
-    return "0%";
-  };
+  const isPaymentStep = label === "Payment";
+  const isCompleted = isStepCompleted(label);
+  const isInProgress = isStepInProgress(label);
+  const isActive = stepNo === currentStep + 1;
+
+  // ✅ Always show connector for payment step
+  if (isPaymentStep) {
+    return "100%";
+  }
+
+  if (stepNo < currentStep + 1 || isCompleted || isInProgress || isActive) {
+    return "100%";
+  }
+
+  return "0%";
+};
 
   // Handle step click navigation
   const handleStepClick = (label, index) => {

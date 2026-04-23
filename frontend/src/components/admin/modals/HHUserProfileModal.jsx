@@ -61,6 +61,19 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
             color: "default",
         };
 
+    const allSteps = journeyData.map((item) => {
+        let status = item.status?.toLowerCase();
+
+        // 🔥 FIX: convert fully_paid → completed
+        if (item.step?.toLowerCase() === "payment" && status === "fully_paid") {
+            status = "completed";
+        }
+
+        return {
+            label: item.step,
+            status,
+        };
+    });
     return (
         <Modal
             open={open}
@@ -179,31 +192,36 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
                             minWidth: user.totalSessions * 100,
                         }}
                     >
-                        {Array.from({ length: totalSessions }, (_, index) => {
+                        {allSteps.map((step, index) => {
                             const stepNo = index + 1;
 
                             const journeyItem = journeyData[index];
-                            const status = journeyItem?.status?.toLowerCase();
+                            // const status = journeyItem?.status?.toLowerCase();
+                            const status = step.status;
 
                             const isCompleted = status === "completed";
                             const isActive = status === "in_progress" || status === "booked";
+                            const isPartialPaid = status === "partial_paid";
+                            const isNotPaid = status === "not_paid";
                             const isRescheduled = status === "rescheduled";
 
                             // 🎨 STEP COLOR LOGIC
                             let stepColor = token.colorBorder;
 
                             if (isCompleted) {
-                                stepColor = token.colorSuccess;      // green
-                            } else if (isActive) {
-                                stepColor = token.colorPrimary;      // blue
+                                stepColor = token.colorSuccess;   // ✅ green
+                            } else if (isPartialPaid) {
+                                stepColor = "#fa8c16";            // 🟠 orange (AntD warning color)
+                            } else if (isActive || isNotPaid) {
+                                stepColor = token.colorPrimary;   // 🔵 blue
                             } else if (isRescheduled) {
-                                stepColor = "#722ed1";     // 🔥 ORANGE
+                                stepColor = "#722ed1";            // 🟣 purple
                             }
 
                             // 🔗 CONNECTOR PROGRESS
                             let progressWidth = "0%";
 
-                            if (isCompleted || isActive) {
+                            if (isCompleted || isActive || isPartialPaid || isRescheduled || isNotPaid) {
                                 progressWidth = "100%";
                             }
 
@@ -273,7 +291,7 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
                                             maxWidth: 120,
                                         }}
                                     >
-                                        Session {stepNo}
+                                        {step.label}
                                     </div>
                                 </div>
                             );
@@ -308,6 +326,17 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
                     />
 
                     {sessionHistory.map((session, index) => {
+
+                        const prevSession = sessionHistory[index - 1];
+
+                        const isFirst = index === 0;
+
+                        const isUnlocked =
+                            isFirst ||
+                            prevSession?.status?.toLowerCase() === "completed";
+
+                        const isDisabled = !isUnlocked;
+
                         const status = session.status?.toLowerCase();
 
                         const isCompleted = status === "completed";
@@ -374,9 +403,11 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
                                                         ? "success"
                                                         : isActive
                                                             ? "processing"
-                                                            : isRescheduled
-                                                                ? "#722ed1"
-                                                                : "default"
+                                                            : isNotBooked
+                                                                ? "default"
+                                                                : isRescheduled
+                                                                    ? "#722ed1"
+                                                                    : "default"
                                                 }
                                             >
                                                 {isCompleted
@@ -385,9 +416,11 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
                                                         ? "In Progress"
                                                         : isBooked
                                                             ? "Booked"
-                                                            : isRescheduled
-                                                                ? "Rescheduled"
-                                                                : "Pending"}
+                                                            : isNotBooked
+                                                                ? "Not Booked"
+                                                                : isRescheduled
+                                                                    ? "Rescheduled"
+                                                                    : "Pending"}
                                             </Tag>
 
                                             {/* 🔥 SHOW BUTTON ONLY IF NOT COMPLETED */}
@@ -396,28 +429,37 @@ const HHUserProfileModal = ({ open, onClose, user }) => {
                                                     size="small"
                                                     type="primary"
                                                     icon={<PlusOutlined />}
+                                                    disabled={isDisabled}
                                                     onClick={() => {
+                                                        if (isDisabled) {
+                                                            message.warning("Complete previous session first");
+                                                            return;
+                                                        }
+
                                                         setSelectedSessionData({
-                                                            participant_id: participantSessions.participant_id,  // ✅ from API root
-                                                            session_no: session.session_no,                      // ✅ from journey/history
+                                                            participant_id: participantSessions.participant_id,
+                                                            session_no: session.session_no,
                                                             status: session.status,
                                                             date: session.date,
+                                                            student_name: user.name,
+                                                            email: user.email,
+                                                            phone: user.phone,
+                                                            counsellor_name: session.counsellor,
                                                             slot: session.slot_id
                                                                 ? {
                                                                     slot_id: session.slot_id,
                                                                     start_time: session.start_time,
                                                                     end_time: session.end_time,
                                                                     status: session.status,
+                                                                    counsellor_name: session.counsellor,
                                                                 }
                                                                 : null,
                                                         });
 
                                                         setBookingModalOpen(true);
                                                     }}
-
-
                                                 >
-                                                    Book Session
+                                                    {isDisabled ? "Locked" : "Book Session"}
                                                 </Button>
                                             )}
                                         </Col>
