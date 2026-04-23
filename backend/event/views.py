@@ -2479,13 +2479,14 @@ class DashboardStatsAPIView(APIView):
         total_sessions = HandHoldingSession.objects.count()
 
         # 2️⃣ Active Users (Certificate Pending)
-        active_users_count = HandHoldingParticipant.objects.filter(
-            total_sessions__isnull=False,
-            completed_sessions__isnull=False,
-            total_sessions=F('completed_sessions'),   # ✅ sessions completed
-            user__certificate__certificate_status="pending",
-            user__certificate__program_type="handholding"
-        ).values("user").distinct().count()
+        # active_users_count = HandHoldingParticipant.objects.filter(
+        #     total_sessions__isnull=False,
+        #     completed_sessions__isnull=False,
+        #     total_sessions=F('completed_sessions'),   # ✅ sessions completed
+        #     user__certificate__certificate_status="pending",
+        #     user__certificate__program_type="handholding"
+        # ).values("user").distinct().count()
+        active_users_count = HandHoldingParticipant.objects.values("user").distinct().count()
 
         # 3️⃣ Completed Users (All Sessions Completed)
         completed_users_count = HandHoldingParticipant.objects.filter(
@@ -2505,21 +2506,78 @@ class DashboardStatsAPIView(APIView):
             "certificate_issued_count": certificate_issued_count
         })
         
+# class PendingCertificateParticipantsAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         try:
+
+#             participants = HandHoldingParticipant.objects.annotate(
+#                 total_count=Count('sessions', distinct=True),
+#                 completed_count=Count(
+#                     'sessions',
+#                     filter=Q(sessions__status__iexact='completed'),
+#                     distinct=True
+#                 )
+#             ).filter(
+#                 total_count__gt=0,                 # must have sessions
+#                 total_count=F('completed_count'),  # ALL sessions completed
+#                 # certificate_issued=False
+#             ).filter(
+#                 Q(certificate_issued=False) | Q(certificate_issued__isnull=True)
+#             ).select_related("user")
+
+#             data = []
+
+#             for p in participants:
+#                 user = p.user
+
+#                 data.append({
+#                     "participant_id": p.id,
+#                     "user_id": user.id if user else None,
+#                     "name": f"{user.first_name} {user.last_name}" if user else None,
+#                     "email": user.email if user else None,
+#                     "mobile": getattr(p, "mobile", None),
+
+#                     "total_sessions": p.total_count,
+#                     "completed_sessions": p.completed_count,
+
+#                     "certificate_issued": p.certificate_issued,
+#                     "status": p.status,
+#                     "created_at": p.created_at
+#                 })
+
+#             return Response({
+#                 "success": True,
+#                 "count": len(data),
+#                 "data": data
+#             }, status=status.HTTP_200_OK)
+
+#         except Exception as e:
+#             return Response({
+#                 "success": False,
+#                 "message": "Failed to fetch participants",
+#                 "error": str(e)
+#             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class PendingCertificateParticipantsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         try:
-
             participants = HandHoldingParticipant.objects.annotate(
-                total_count=Count('sessions'),
-                completed_count=Count(
-                    'sessions',
-                    filter=Q(sessions__status__iexact='completed')
+                total_sessions_count=Count(
+                    'sessions__session_no',
+                    distinct=True
+                ),
+                completed_sessions_count=Count(
+                    'sessions__session_no',
+                    filter=Q(sessions__status__iexact='completed'),
+                    distinct=True
                 )
             ).filter(
-                total_count__gt=0,                 # must have sessions
-                total_count=F('completed_count'),  # ALL sessions completed
+                total_sessions_count__gt=0,
+                total_sessions_count=F('completed_sessions_count'),
                 certificate_issued=False
             ).select_related("user")
 
@@ -2533,13 +2591,12 @@ class PendingCertificateParticipantsAPIView(APIView):
                     "user_id": user.id if user else None,
                     "name": f"{user.first_name} {user.last_name}" if user else None,
                     "email": user.email if user else None,
-                    "mobile": getattr(p, "mobile", None),
+                    "mobile": p.mobile,
 
-                    "total_sessions": p.total_count,
-                    "completed_sessions": p.completed_count,
+                    "total_sessions": p.total_sessions_count,
+                    "completed_sessions": p.completed_sessions_count,
 
                     "certificate_issued": p.certificate_issued,
-                    "status": p.status,
                     "created_at": p.created_at
                 })
 
@@ -2547,14 +2604,13 @@ class PendingCertificateParticipantsAPIView(APIView):
                 "success": True,
                 "count": len(data),
                 "data": data
-            }, status=status.HTTP_200_OK)
+            })
 
         except Exception as e:
             return Response({
                 "success": False,
-                "message": "Failed to fetch participants",
                 "error": str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            }, status=500)
 
 
 
@@ -2609,18 +2665,24 @@ class CertificateDashboardCountAPIView(APIView):
             # 1️⃣ Pending Certificate Users
             # (All sessions completed + certificate not issued)
             # =========================
-            pending_certificate_qs = Certificate.objects.filter(
-                user=OuterRef('user'),
-                certificate_status="pending",
-                program_type="handholding"
-            )
+            pending_count = HandHoldingParticipant.objects.annotate(
 
-            pending_count = HandHoldingParticipant.objects.filter(
-                total_sessions=F('completed_sessions')
-            ).annotate(
-                has_pending_cert=Exists(pending_certificate_qs)
+                total_sessions_count=Count(
+                    'sessions__session_no',
+                    distinct=True
+                ),
+
+                completed_sessions_count=Count(
+                    'sessions__session_no',
+                    filter=Q(sessions__status__iexact='completed'),
+                    distinct=True
+                )
+
             ).filter(
-                has_pending_cert=True
+                total_sessions_count__gt=0,
+                total_sessions_count=F('completed_sessions_count')   # ✅ ALL session_no completed
+            ).filter(
+                certificate_issued=False
             ).count()
 
             # =========================
@@ -3016,20 +3078,24 @@ class EventCreateAPIView(APIView):
 class SendReminderByEventAPIView(APIView):
 
     def post(self, request, event_id):
+        try:
+            if not Event.objects.filter(id=event_id).exists():
+                return Response(
+                    {"error": "Invalid event_id"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
 
-        # ✅ Validate event
-        if not Event.objects.filter(id=event_id).exists():
-            return Response(
-                {"error": "Invalid event_id"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            send_event_reminder_by_id.delay(event_id)
 
-        # ✅ Trigger celery task
-        send_event_reminder_by_id.delay(event_id)
+            return Response({
+                "message": f"Reminder triggered for event {event_id}"
+            })
 
-        return Response({
-            "message": f"Reminder triggered for event {event_id}"
-        })
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=500)
+        
 from django.db.models.functions import Coalesce, Lower, Trim
 class EventDashboardCountAPIView(APIView):
     permission_classes = [IsAuthenticated]

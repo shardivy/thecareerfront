@@ -28,191 +28,235 @@ from report.serializers import CompletedExamReportSerializer, EngineeringTestAna
 from exam.models import UserExam
 from report.models import Report, Review
 
+
+
 # class CompletedExamReportAPIView(APIView):
 #     """
-#     Fetches completed exam users with their program, report, and payment details.
+#     Fetch reports EXCEPT students whose package has engineering_test_analysis = True
 #     """
+
 #     permission_classes = [IsAuthenticated]
 
 #     def get(self, request):
-#         completed_exams = (
-#             UserExam.objects
-#             .filter(status='completed')
+
+#         reports = (
+#             Report.objects
 #             .select_related('user', 'exam')
+#             .order_by('-uploaded_at')
 #         )
 
 #         response_data = []
 
-#         for user_exam in completed_exams:
-#             user = user_exam.user
+#         for report in reports:
+#             user = report.user
 
-#             # Program
+#             # =============================
+#             # 🔹 Student Profile
+#             # =============================
+#             student_profile = StudentProfile.objects.filter(user=user).first()
+
+#             # =============================
+#             # 🔹 Program + Package
+#             # =============================
 #             user_program = (
 #                 UserProgramPackage.objects
 #                 .filter(user=user)
-#                 .select_related('program')
+#                 .select_related('program', 'package')
 #                 .first()
 #             )
 
-#             # Report
-#             report = (
-#                 Report.objects
-#                 .filter(user=user, exam=user_exam.exam)
-#                 .order_by('-uploaded_at')
+#             # 🚫 Skip Engineering Test Analysis students
+#             if user_program and user_program.package and user_program.package.engineering_test_analysis:
+#                 continue
+
+#             # =============================
+#             # 🔹 Exam status
+#             # =============================
+#             user_exam = (
+#                 UserExam.objects
+#                 .filter(user=user, exam=report.exam)
 #                 .first()
 #             )
 
-#             # Payment
-#             payment = (
-#                 Payment.objects
-#                 .filter(user=user)
-#                 .order_by('-created_at')
-#                 .first()
-#             )
+#             # =============================
+#             # 🔹 ✅ ACTUAL PAYMENT STATUS (CUMULATIVE)
+#             # =============================
+#             payment_status = None
 
+#             if user_program and user_program.package:
+#                 package_price = user_program.package.price
+
+#                 total_paid = (
+#                     Payment.objects
+#                     .filter(user=user, package=user_program.package)
+#                     .aggregate(total=Sum('amount'))["total"] or 0
+#                 )
+
+#                 if total_paid == 0:
+#                     payment_status = "not_paid"
+#                 elif total_paid < package_price:
+#                     payment_status = "partial_paid"
+#                 else:
+#                     payment_status = "fully_paid"
+
+#             # =============================
+#             # 🔹 File URL
+#             # =============================
+#             file_url = None
+#             if report.file_path:
+#                 pdf_url = reverse(
+#                     "report-pdf",
+#                     kwargs={"report_id": report.id}
+#                 )
+#                 file_url = request.build_absolute_uri(pdf_url)
+
+#             # =============================
+#             # 🔹 Response
+#             # =============================
 #             response_data.append({
-#                 "id": report.id if report else None,
+#                 "id": report.id,
 #                 "user_id": user.id,
+#                 "student_id": student_profile.id if student_profile else None,
+
 #                 "first_name": user.first_name,
 #                 "last_name": user.last_name,
 #                 "email": user.email,
 #                 "phone": getattr(user, "phone", None),
+
 #                 "program_id": user_program.program.id if user_program else None,
 #                 "program": user_program.program.name if user_program else None,
-#                 "exam_status": user_exam.status,
 
-#                 "report_status": report.report_status if report else None,
-#                 "uploaded_at": report.uploaded_at if report else None,
+#                 "package_id": user_program.package.id if user_program else None,
+#                 "package": user_program.package.name if user_program else None,
 
-#                 "payment_status": payment.status if payment else None,
+#                 "exam_id": report.exam.id if report.exam else None,
+#                 "exam": report.exam.name if report.exam else None,
+#                 "exam_status": user_exam.status if user_exam else None,
+
+#                 "report_status": report.report_status,
+
+#                 "file_path": file_url,
+#                 "uploaded_at": report.uploaded_at,
+
+#                 # ✅ FINAL FIXED FIELD
+#                 "payment_status": payment_status,
 #             })
 
 #         serializer = CompletedExamReportSerializer(response_data, many=True)
+
 #         return Response({
 #             "count": len(serializer.data),
 #             "data": serializer.data
 #         })
-
-
+ 
 class CompletedExamReportAPIView(APIView):
-    """
-    Fetch reports EXCEPT students whose package has engineering_test_analysis = True
-    """
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-
-        reports = (
-            Report.objects
-            .select_related('user', 'exam')
-            .order_by('-uploaded_at')
-        )
-
-        response_data = []
-
-        for report in reports:
-            user = report.user
-
-            # =============================
-            # 🔹 Student Profile
-            # =============================
-            student_profile = StudentProfile.objects.filter(user=user).first()
-
-            # =============================
-            # 🔹 Program + Package
-            # =============================
-            user_program = (
-                UserProgramPackage.objects
-                .filter(user=user)
-                .select_related('program', 'package')
-                .first()
+        try:
+            reports = (
+                Report.objects
+                .select_related('user', 'exam')
+                .order_by('-uploaded_at')
             )
 
-            # 🚫 Skip Engineering Test Analysis students
-            if user_program and user_program.package and user_program.package.engineering_test_analysis:
-                continue
+            response_data = []
 
-            # =============================
-            # 🔹 Exam status
-            # =============================
-            user_exam = (
-                UserExam.objects
-                .filter(user=user, exam=report.exam)
-                .first()
-            )
+            for report in reports:
+                user = report.user
 
-            # =============================
-            # 🔹 ✅ ACTUAL PAYMENT STATUS (CUMULATIVE)
-            # =============================
-            payment_status = None
+                # Student Profile
+                student_profile = StudentProfile.objects.filter(user=user).first()
 
-            if user_program and user_program.package:
-                package_price = user_program.package.price
-
-                total_paid = (
-                    Payment.objects
-                    .filter(user=user, package=user_program.package)
-                    .aggregate(total=Sum('amount'))["total"] or 0
+                # Program + Package
+                user_program = (
+                    UserProgramPackage.objects
+                    .filter(user=user)
+                    .select_related('program', 'package')
+                    .first()
                 )
 
-                if total_paid == 0:
-                    payment_status = "not_paid"
-                elif total_paid < package_price:
-                    payment_status = "partial_paid"
-                else:
-                    payment_status = "fully_paid"
+                # 🚫 Skip Engineering Test Analysis
+                if user_program and user_program.package and user_program.package.engineering_test_analysis:
+                    continue
 
-            # =============================
-            # 🔹 File URL
-            # =============================
-            file_url = None
-            if report.file_path:
-                pdf_url = reverse(
-                    "report-pdf",
-                    kwargs={"report_id": report.id}
-                )
-                file_url = request.build_absolute_uri(pdf_url)
+                # Exam
+                user_exam = None
+                if report.exam:
+                    user_exam = UserExam.objects.filter(
+                        user=user,
+                        exam=report.exam
+                    ).first()
 
-            # =============================
-            # 🔹 Response
-            # =============================
-            response_data.append({
-                "id": report.id,
-                "user_id": user.id,
-                "student_id": student_profile.id if student_profile else None,
+                # Payment
+                payment_status = None
 
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "email": user.email,
-                "phone": getattr(user, "phone", None),
+                if user_program and user_program.package:
+                    package_price = user_program.package.price or 0
 
-                "program_id": user_program.program.id if user_program else None,
-                "program": user_program.program.name if user_program else None,
+                    total_paid = (
+                        Payment.objects
+                        .filter(user=user, package=user_program.package)
+                        .aggregate(total=Sum('amount'))["total"] or 0
+                    )
 
-                "package_id": user_program.package.id if user_program else None,
-                "package": user_program.package.name if user_program else None,
+                    if total_paid == 0:
+                        payment_status = "not_paid"
+                    elif total_paid < package_price:
+                        payment_status = "partial_paid"
+                    else:
+                        payment_status = "fully_paid"
 
-                "exam_id": report.exam.id if report.exam else None,
-                "exam": report.exam.name if report.exam else None,
-                "exam_status": user_exam.status if user_exam else None,
+                # File URL
+                file_url = None
+                if report.file_path:
+                    try:
+                        pdf_url = reverse("report-pdf", kwargs={"report_id": report.id})
+                        file_url = request.build_absolute_uri(pdf_url)
+                    except Exception:
+                        file_url = None
 
-                "report_status": report.report_status,
+                response_data.append({
+                    "id": report.id,
+                    "user_id": user.id,
+                    "student_id": student_profile.id if student_profile else None,
 
-                "file_path": file_url,
-                "uploaded_at": report.uploaded_at,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "email": user.email,
+                    "phone": getattr(user, "phone", None),
 
-                # ✅ FINAL FIXED FIELD
-                "payment_status": payment_status,
+                    "program_id": user_program.program.id if user_program else None,
+                    "program": user_program.program.name if user_program else None,
+
+                    "package_id": user_program.package.id if user_program else None,
+                    "package": user_program.package.name if user_program else None,
+
+                    "exam_id": report.exam.id if report.exam else None,
+                    "exam": report.exam.name if report.exam else None,
+                    "exam_status": user_exam.status if user_exam else None,
+
+                    "report_status": report.report_status,
+                    "file_path": file_url,
+                    "uploaded_at": report.uploaded_at,
+
+                    "payment_status": payment_status,
+                })
+
+            serializer = CompletedExamReportSerializer(response_data, many=True)
+
+            return Response({
+                "count": len(serializer.data),
+                "data": serializer.data
             })
 
-        serializer = CompletedExamReportSerializer(response_data, many=True)
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())  # 🔥 VERY IMPORTANT
 
-        return Response({
-            "count": len(serializer.data),
-            "data": serializer.data
-        })
-        
+            return Response({
+                "error": str(e)
+            }, status=500)        
         
                
 class CompletedExamReportStudentIDAPIView(APIView):
