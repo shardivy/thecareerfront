@@ -213,6 +213,7 @@ useEffect(() => {
       formData.append("payment_type", values.payment_type || "");
       formData.append("method", values.method || "");
       formData.append("transaction_id", values.transaction_id || "");
+          formData.append("last_name", values.lastName || "");
 
       if (fileList.length > 0 && fileList[0].originFileObj) {
         formData.append("proof_file", fileList[0].originFileObj);

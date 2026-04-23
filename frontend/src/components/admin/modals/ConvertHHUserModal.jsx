@@ -155,6 +155,7 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
             show_profile: values.show_profile ?? false,
             program: values.program_id ?? enquiryData?.programId ?? enquiryData?.program_id ?? "",
             package: values.package_id ?? "",
+            last_name: values.lastName ?? "",
         };
 
         Object.entries(payload).forEach(([key, value]) => {
