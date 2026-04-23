@@ -162,33 +162,65 @@ class CompletedExamReportAPIView(APIView):
 
             response_data = []
 
+            # 🔥 PRELOAD DATA (avoid N+1 queries)
+            user_ids = [r.user_id for r in reports if r.user_id]
+
+            user_programs = {
+                up.user_id: up
+                for up in UserProgramPackage.objects
+                .filter(user_id__in=user_ids)
+                .select_related('program', 'package')
+            }
+
+            user_exams_map = {}
+            user_exams = UserExam.objects.filter(user_id__in=user_ids)
+
+            for ue in user_exams:
+                # store latest exam per (user, exam)
+                key = (ue.user_id, ue.exam_id)
+                if key not in user_exams_map or ue.id > user_exams_map[key].id:
+                    user_exams_map[key] = ue
+
+            fallback_user_exam = {}
+            for ue in user_exams:
+                # latest exam per user (fallback)
+                if ue.user_id not in fallback_user_exam or ue.id > fallback_user_exam[ue.user_id].id:
+                    fallback_user_exam[ue.user_id] = ue
+
             for report in reports:
                 user = report.user
 
-                # Student Profile
-                student_profile = StudentProfile.objects.filter(user=user).first()
-
-                # Program + Package
-                user_program = (
-                    UserProgramPackage.objects
-                    .filter(user=user)
-                    .select_related('program', 'package')
-                    .first()
-                )
-
-                # 🚫 Skip Engineering Test Analysis
-                if user_program and user_program.package and user_program.package.engineering_test_analysis:
+                # ❗ Skip if user missing
+                if not user:
                     continue
 
-                # Exam
-                user_exam = None
-                if report.exam:
-                    user_exam = UserExam.objects.filter(
-                        user=user,
-                        exam=report.exam
-                    ).first()
+                student_profile = StudentProfile.objects.filter(user=user).first()
 
-                # Payment
+                user_program = user_programs.get(user.id)
+
+                # 🚫 Skip Engineering Test Analysis
+                if (
+                    user_program
+                    and user_program.package
+                    and user_program.package.engineering_test_analysis
+                ):
+                    continue
+
+                # =============================
+                # ✅ FIXED EXAM STATUS LOGIC
+                # =============================
+                user_exam = None
+
+                if report.exam:
+                    user_exam = user_exams_map.get((user.id, report.exam.id))
+
+                # fallback if exact match not found
+                if not user_exam:
+                    user_exam = fallback_user_exam.get(user.id)
+
+                # =============================
+                # PAYMENT
+                # =============================
                 payment_status = None
 
                 if user_program and user_program.package:
@@ -207,7 +239,9 @@ class CompletedExamReportAPIView(APIView):
                     else:
                         payment_status = "fully_paid"
 
-                # File URL
+                # =============================
+                # FILE URL
+                # =============================
                 file_url = None
                 if report.file_path:
                     try:
@@ -216,6 +250,9 @@ class CompletedExamReportAPIView(APIView):
                     except Exception:
                         file_url = None
 
+                # =============================
+                # RESPONSE
+                # =============================
                 response_data.append({
                     "id": report.id,
                     "user_id": user.id,
@@ -226,14 +263,16 @@ class CompletedExamReportAPIView(APIView):
                     "email": user.email,
                     "phone": getattr(user, "phone", None),
 
-                    "program_id": user_program.program.id if user_program else None,
-                    "program": user_program.program.name if user_program else None,
+                    "program_id": user_program.program.id if user_program and user_program.program else None,
+                    "program": user_program.program.name if user_program and user_program.program else None,
 
-                    "package_id": user_program.package.id if user_program else None,
-                    "package": user_program.package.name if user_program else None,
+                    "package_id": user_program.package.id if user_program and user_program.package else None,
+                    "package": user_program.package.name if user_program and user_program.package else None,
 
                     "exam_id": report.exam.id if report.exam else None,
                     "exam": report.exam.name if report.exam else None,
+
+                    # ✅ FIXED
                     "exam_status": user_exam.status if user_exam else None,
 
                     "report_status": report.report_status,
@@ -252,11 +291,11 @@ class CompletedExamReportAPIView(APIView):
 
         except Exception as e:
             import traceback
-            print(traceback.format_exc())  # 🔥 VERY IMPORTANT
+            print(traceback.format_exc())
 
             return Response({
                 "error": str(e)
-            }, status=500)        
+            }, status=500)      
         
                
 class CompletedExamReportStudentIDAPIView(APIView):
