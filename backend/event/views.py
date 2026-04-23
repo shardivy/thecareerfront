@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db import models
-from django.db.models import F, Count, Q, OuterRef, Subquery
+from django.db.models import F, Count, Q, Exists, OuterRef, Subquery, Sum, Value
 from datetime import datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
@@ -18,13 +18,15 @@ from django.conf import settings
 
 
 from accounts.models import Role, User
+from counselling_slot.serializers import CounsellorStudentBookingSerializer
+from event.tasks import send_event_reminder_by_id
 from event.utils import get_font_path
-from counselling_slot.models import Booking, Slot
-from event.serializers import AdvertisementSerializer, CertificateTemplateSerializer, HandHoldingParticipantSerializer, HandHoldingParticipantSessionSerializer, HandHoldingSessionSerializer
-from program_package.models import Program
-from event.models import Certificate, CertificateTemplate, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
+from counselling_slot.models import Booking, Counsellor, Slot
+from event.serializers import AdvertisementSerializer, CertificateSerializer, CertificateTemplateSerializer, HandHoldingParticipantSerializer, HandHoldingParticipantSessionSerializer, HandHoldingSessionSerializer
+from program_package.models import Program, UserProgramPackage
+from event.models import Advertisement, Certificate, CertificateTemplate, Event, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 from payment.models import Payment
-from lead_registration.models import Lead
+from lead_registration.models import Lead, StudentProfile
 
 # ===================== HandHolding Registration API =====================
 
@@ -165,6 +167,7 @@ class HandHoldingRegisterAPIView(APIView):
             last_name=data.get("last_name"),
             email=data.get("email"),
             phone=data.get("mobile"),
+            date =timezone.now().date(),
             source="website",
             status="enquiry",
             program=program
@@ -393,7 +396,7 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
         # ============================================
         # 🔹 NORMAL BOOKINGS
         # ============================================
-        bookings = Booking.objects.select_related("slot", "student__user").filter(
+        bookings = Booking.objects.select_related("slot", "student__user", "slot__counsellor").filter(
             slot__date=date,
             status__in=["booked", "rescheduled"],
             slot__is_deleted=False
@@ -412,12 +415,18 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
                 "date": slot.date,
                 "start_time": slot.start_time,
                 "end_time": slot.end_time,
+                "is_handholding_session_available": slot.is_handholding_session_available,
                 "status": booking.status,
                 "student_id": booking.student.id,
                 "student_name": f"{booking.student.user.first_name} {booking.student.user.last_name}",
                 "email": booking.student.user.email,
                 "phone": booking.student.user.phone,
-                "meeting_link": booking.meeting_link
+                "meeting_link": booking.meeting_link,
+                "counsellor_id": slot.counsellor.id if slot.counsellor else None,
+                "counsellor_name": (
+                    f"{slot.counsellor.first_name} {slot.counsellor.last_name}"
+                    if slot.counsellor else None
+                ),
             })
 
         # ============================================
@@ -454,6 +463,7 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
                 "date": session_slot.date,
                 "start_time": session_slot.start_time,
                 "end_time": session_slot.end_time,
+                "is_handholding_session_available": session_slot.is_handholding_session_available,
                 "status": session.status,
                 "participant_id": participant.id if participant else None,
                 "session_no": session.session_no,
@@ -717,17 +727,47 @@ class BookHandHoldingSessionAPIView(APIView):
                 # =========================
                 # 🔹 UPDATE SESSION
                 # =========================
+                # session.slot = slot
+                # session.session_date = session_datetime
+                # session.status = "booked"
+                # session.conducted_by = slot.counsellor
+                # session.save()
+                
+                # =========================
+                # 🔥 CHECK IF PARTICIPANT ALREADY FULLY COMPLETED
+                # =========================
+                total = HandHoldingParticipantSession.objects.filter(
+                    handholding_participant=participant
+                ).exclude(status="cancelled").count()
+
+                completed = HandHoldingParticipantSession.objects.filter(
+                    handholding_participant=participant,
+                    status="completed"
+                ).count()
+
+                # =========================
+                # 🔹 DETERMINE STATUS
+                # =========================
+                if total > 0 and completed >= total:
+                    session_status = "completed"
+                else:
+                    session_status = "booked"
+
+                # =========================
+                # 🔹 UPDATE SESSION
+                # =========================
                 session.slot = slot
                 session.session_date = session_datetime
-                session.status = "booked"
+                session.status = session_status   # ✅ HERE IS THE FIX
                 session.conducted_by = slot.counsellor
                 session.save()
 
                 # =========================
                 # 🔹 BLOCK SLOT
                 # =========================
-                slot.is_available = False
-                slot.save(update_fields=["is_available"])
+                # slot.is_available = False
+                slot.is_handholding_session_available = False
+                slot.save(update_fields=["is_handholding_session_available"])
 
                 # =========================
                 # 🔹 RESPONSE
@@ -819,7 +859,29 @@ class MarkSessionCompletedAPIView(APIView):
                 session.status = "completed"
                 session.completed_at = timezone.now()
                 session.save(update_fields=["status", "completed_at"])
+                
+                # =========================
+                # 🔥 AUTO CHECK ALL COMPLETED  (ADD HERE ✅)
+                # =========================
+                participant = session.handholding_participant
 
+                total_sessions = HandHoldingParticipantSession.objects.filter(
+                    handholding_participant=participant
+                ).exclude(status="cancelled").count()
+
+                completed_sessions = HandHoldingParticipantSession.objects.filter(
+                    handholding_participant=participant,
+                    status="completed"
+                ).count()
+
+                # =========================
+                # 🔥 IF ALL COMPLETED → UPDATE PARTICIPANT
+                # =========================
+                if total_sessions > 0 and total_sessions == completed_sessions:
+                    participant.status = "completed"
+                    participant.certificate_issued = True   # (optional but usually needed)
+                    participant.save(update_fields=["status", "certificate_issued"])
+#  ==============================================================================================
                 # =========================
                 # 🔹 RESPONSE
                 # =========================
@@ -951,8 +1013,9 @@ class RescheduleSessionAPIView(APIView):
                     current_session.notes = "Updated from pending to rescheduled"
                     current_session.save()
 
-                    new_slot.is_available = False
-                    new_slot.save(update_fields=["is_available"])
+                    # new_slot.is_available = False
+                    new_slot.is_handholding_session_available = False
+                    new_slot.save(update_fields=[ "is_handholding_session_available"])
 
                     return Response({
                         "message": "Pending session updated successfully",
@@ -975,8 +1038,9 @@ class RescheduleSessionAPIView(APIView):
 
                     # Free old slot
                     if current_session.slot:
-                        current_session.slot.is_available = True
-                        current_session.slot.save(update_fields=["is_available"])
+                        # current_session.slot.is_available = True
+                        current_session.slot.is_handholding_session_available = True
+                        current_session.slot.save(update_fields=[ "is_handholding_session_available"])
 
                     # Cancel old session
                     current_session.status = "cancelled"
@@ -1075,8 +1139,9 @@ class CancelSessionAPIView(APIView):
                 # 🔹 FREE SLOT (IF EXISTS)
                 # =========================
                 if current_session.slot:
-                    current_session.slot.is_available = True
-                    current_session.slot.save(update_fields=["is_available"])
+                    # current_session.slot.is_available = True
+                    current_session.slot.is_handholding_session_available = True
+                    current_session.slot.save(update_fields=[ "is_handholding_session_available"])
 
                 # =========================
                 # 🔹 CANCEL OLD SESSION
@@ -1199,7 +1264,7 @@ class CancelSessionAPIView(APIView):
 
 from collections import defaultdict
 
-class   ParticipantSessionListAPIView(APIView):
+class ParticipantSessionListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, participant_id):
@@ -1381,87 +1446,398 @@ class ParticipantSessionListAPIView(APIView):
 
     def get(self, request, participant_id):
 
-        status_filter = request.GET.get("status")
-
-        # ✅ Get participant
-        participant = get_object_or_404(
-            HandHoldingParticipant,
-            id=participant_id
-        )
-
-        # =========================
-        # 🔥 AUTO COMPLETE LOGIC
-        # =========================
-        now = timezone.now()
-
-        today_sessions = HandHoldingParticipantSession.objects.select_related("slot").filter(
-            handholding_participant=participant,
-            session_date__date=now.date(),
-            status__in=["booked", "rescheduled", "in_progress"]
-        )
-
-        for session in today_sessions:
-            if session.slot and session.slot.end_time:
-
-                end_time_obj = datetime.strptime(
-                    session.slot.end_time, "%I:%M %p"
-                ).time()
-
-                session_end_datetime = datetime.combine(
-                    session.session_date.date(),
-                    end_time_obj
+        try:
+            participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+            
+            # =========================
+            # 🔥 GET LATEST NON-CANCELLED SESSION PER SESSION_NO
+            # =========================
+            latest_sessions_ids = (
+                HandHoldingParticipantSession.objects.filter(
+                    handholding_participant=participant
                 )
-
-                now_naive = now.replace(tzinfo=None)
-
-                if now_naive >= (session_end_datetime - timedelta(minutes=30)):
-                    session.status = "completed"
-                    session.completed_at = now
-                    session.save(update_fields=["status", "completed_at"])
-
-        # =========================
-        # ✅ FETCH ONLY THIS PARTICIPANT DATA
-        # =========================
-        sessions = HandHoldingParticipantSession.objects.select_related(
-            "handholding_participant__user", "slot"
-        ).filter(handholding_participant=participant)
-
-        # =========================
-        # 🔍 STATUS FILTER (SAME AS YOUR API)
-        # =========================
-        if status_filter == "not_booked":
-            sessions = sessions.filter(status="not_booked")
-
-        elif status_filter == "booked_rescheduled":
-            sessions = sessions.filter(
-                Q(status="booked") | Q(status="rescheduled")
+                .exclude(status="cancelled")
+                .values("session_no")
+                .annotate(latest_id=Max("id"))
+                .values_list("latest_id", flat=True)
             )
 
-        elif status_filter == "pending":
-            sessions = sessions.filter(status="pending")
+            latest_sessions = HandHoldingParticipantSession.objects.select_related(
+                "slot", "conducted_by"
+            ).filter(
+                id__in=latest_sessions_ids
+            ).order_by("session_no")
 
-        elif status_filter == "completed":
-            sessions = sessions.filter(status="completed")
+            # =========================
+            # 🔹 MAIN DATA (LATEST VIEW)
+            # =========================
+            data = []
 
-        elif status_filter == "cancelled":
-            sessions = sessions.filter(status="cancelled")
+            for session in latest_sessions:
 
-        # =========================
-        # ✅ SAME RESPONSE FORMAT
-        # =========================
-        serializer = HandHoldingParticipantSessionSerializer(
-            sessions, many=True
-        )
+                student = None
+                booking = None
 
-        return Response(serializer.data)
-    
+                if session.status in ["booked", "rescheduled", "completed"]:
 
+                    # 🔹 FIXED BOOKING MATCH
+                    if session.slot and session.session_date:
+
+                        booking = Booking.objects.select_related("student__user").filter(
+                            slot__date=session.session_date.date(),
+                            slot__start_time=session.slot.start_time,
+                            slot__end_time=session.slot.end_time,
+                            status__in=["booked", "rescheduled", "completed"]
+                        ).first()
+
+                        if booking:
+                            student = booking.student
+
+                    # 🔹 fallback (only if booking not found)
+                    if not student:
+                        participant_obj = session.handholding_participant
+                        user = participant_obj.user if participant_obj else None
+
+                        if user:
+                            student = StudentProfile.objects.filter(user=user).first()
+
+                # 🔹 counsellor mapping
+                counsellor_obj = None
+                if session.conducted_by:
+                    counsellor_obj = Counsellor.objects.filter(
+                        user=session.conducted_by
+                    ).first()
+
+                data.append({
+                    "session_id": session.id,
+                    "session_no": session.session_no,
+                    "status": session.status,
+                    "completed_at": session.completed_at,
+                    "date": session.session_date,
+
+                    # ✅ FIXED
+                    "booking_id": booking.id if booking else None,
+
+                    "student_id": student.id if student else None,
+                    "student_name": (
+                        f"{student.user.first_name} {student.user.last_name}"
+                        if student else None
+                    ),
+                    "student_email": student.user.email if student else None,
+                    "student_phone": student.user.phone if student else None,
+
+                    "slot_id": session.slot.id if session.slot else None,
+                    "start_time": session.slot.start_time if session.slot else None,
+                    "end_time": session.slot.end_time if session.slot else None,
+
+                    "counsellor_id": counsellor_obj.id if counsellor_obj else None,
+                    "counsellor": (
+                        f"{counsellor_obj.user.first_name} {counsellor_obj.user.last_name}"
+                        if counsellor_obj else None
+                    ),
+
+                    "notes": session.notes
+                })
+
+            # =========================
+            # 🔥 HISTORY (LATEST ONLY) + DETAILS ADDED
+            # =========================
+            history = []
+            for session in latest_sessions:
+                history.append({
+                    "session_id": session.id,
+                    "session_no": session.session_no,
+                    "status": session.status,
+                    "date": session.session_date,
+                    "slot_id": session.slot.id if session.slot else None,
+                    "start_time": session.slot.start_time if session.slot else None,
+                    "end_time": session.slot.end_time if session.slot else None,
+                    "counsellor": (
+                        f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
+                        if session.conducted_by else None
+                    ),
+
+                    # ✅ ONLY ADDITION
+                    "details": (
+                        f"Session {session.session_no} is {session.status}" 
+                        # (f" on {session.session_date}" if session.session_date else "") +
+                        # (f" with slot {session.slot.id}" if session.slot else "")
+                    )
+                })
+
+            # =========================
+            # 🔥 JOURNEY (FULL FLOW)
+            # =========================
+            journey = []
+
+            user = participant.user
+
+            # =========================
+            # 1️⃣ REGISTRATION
+            # =========================
+            journey.append({
+                "step": "Registration",
+                "status": "completed",
+                "date": participant.created_at,
+                "details": f"{user.email} registered successfully"
+            })
+
+            # =========================
+            # 2️⃣ COUNSELLING (PROGRAM + PACKAGE)
+            # =========================
+            upp = UserProgramPackage.objects.filter(
+                user=user,
+                package__isnull=False
+            ).select_related("program", "package").order_by("-id").first()
+
+            if upp and upp.program and upp.package:
+                journey.append({
+                    "step": "Counselling Service",
+                    "status": "completed",
+                    "date": upp.id,  # you can replace with created_at if available
+                    "details": f"{upp.package.name} selected under {upp.program.name}"
+                })
+            else:
+                journey.append({
+                    "step": "Counselling Service",
+                    "status": "pending",
+                    "date": None,
+                    "details": "Program/package not selected"
+                })
+
+            # =========================
+            # 3️⃣ PAYMENT
+            # =========================
+            payments = Payment.objects.filter(user=user).order_by("created_at")
+
+            total_paid = payments.aggregate(total=Sum("amount"))["total"] or 0
+            last_payment = payments.last()
+
+            package_price = (
+                upp.package.price if upp and upp.package else 0
+            )
+
+            if total_paid == 0:
+                payment_status = "not_paid"
+            elif total_paid < package_price:
+                payment_status = "partial_paid"
+            else:
+                payment_status = "fully_paid"
+
+            journey.append({
+                "step": "Payment",
+                "status": payment_status,
+                "date": last_payment.created_at if last_payment else None,
+                "details": f"Paid ₹{total_paid} out of ₹{package_price}"
+            })
+
+            # =========================
+            # 4️⃣ SESSIONS (YOUR EXISTING)
+            # =========================
+            for session in latest_sessions:
+                journey.append({
+                    "step": f"Session {session.session_no}",
+                    "status": session.status,
+                    "date": session.session_date,
+                    "slot_id": session.slot.id if session.slot else None,
+                })
+
+            # =========================
+            # 🔹 FINAL RESPONSE
+            # =========================
+            return Response({
+                "message": "Sessions fetched successfully",
+                "participant_id": participant.id,
+                "name": f"{participant.user.first_name} {participant.user.last_name}",
+                "total_sessions": len(data),
+
+                # ✅ SAME RESPONSE
+                "data": data,
+                "history": history,
+                "journey": journey
+
+            }, status=200)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({
+                "message": "Participant not found"
+            }, status=404)
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+class ParticipantSessionProgressAPIView(APIView):
+
+    def get(self, request, participant_id):
+        try:
+            participant = HandHoldingParticipant.objects.get(id=participant_id)
+
+            # =========================
+            # 🔹 TOTAL SESSIONS (from DB)
+            # =========================
+            total_sessions = HandHoldingParticipantSession.objects.filter(
+                handholding_participant=participant
+            ).exclude(status="cancelled").count()
+
+            # =========================
+            # 🔹 COMPLETED SESSIONS
+            # =========================
+            completed_count = HandHoldingParticipantSession.objects.filter(
+                handholding_participant=participant,
+                status="completed"
+            ).count()
+
+            # =========================
+            # 🔹 PENDING SESSIONS
+            # =========================
+            pending_count = max(total_sessions - completed_count, 0)
+
+            # =========================
+            # 🔹 NEXT SESSION NUMBER
+            # =========================
+            if completed_count < total_sessions:
+                next_session = completed_count + 1
+            else:
+                next_session = None
+
+            # =========================
+            # 🔹 PROGRESS (%)
+            # =========================
+            if total_sessions > 0:
+                progress = round((completed_count / total_sessions) * 100, 2)
+            else:
+                progress = 0
+
+            return Response({
+                "success": True,
+                "data": {
+                    "participant_id": participant.id,
+                    "total_sessions": total_sessions,
+                    "completed_sessions": completed_count,
+                    "pending_sessions": pending_count,
+                    "next_session_no": next_session,
+                    "progress_percentage": progress
+                }
+            }, status=status.HTTP_200_OK)
+
+        except HandHoldingParticipant.DoesNotExist:
+            return Response({
+                "success": False,
+                "message": "Participant not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+class CounsellorStudentBookingByIdAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, counsellor_id):
+        try:
+            bookings = Booking.objects.filter(
+                bookingcounsellor__counsellor_id=counsellor_id,
+                status__in=["booked", "completed", "rescheduled"]
+            ).select_related(
+                "student__user",
+                "slot"
+            ).prefetch_related(
+                "bookingcounsellor_set__counsellor__user"
+            ).distinct().order_by("-date")
+
+            serializer = CounsellorStudentBookingSerializer(
+                bookings,
+                many=True,
+                context={"request": request}
+            )
+
+            return Response({
+                "message": "Counsellor student bookings fetched successfully",
+                "count": len(serializer.data),
+                "data": serializer.data
+            })
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+
+
+            
 # ============================ Advertisement Views ============================
+def get_ad_status(data):
+    today = timezone.now().date()
+    now_time = datetime.now().time()
+
+    start_date = data.get("ad_start_date")
+    end_date = data.get("ad_end_date")
+
+    # ✅ Convert string → date
+    try:
+        if isinstance(start_date, str):
+            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        if isinstance(end_date, str):
+            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+    except:
+        start_date = None
+        end_date = None
+
+    start_time = data.get("ad_start_time")
+    end_time = data.get("ad_end_time")
+
+    # ✅ Convert string → time
+    def parse_time(t):
+        try:
+            return datetime.strptime(t.strip(), "%I:%M %p").time() if t else None
+        except:
+            return None
+
+    start_time = parse_time(start_time)
+    end_time = parse_time(end_time)
+
+    # =========================
+    # 🔥 STATUS LOGIC
+    # =========================
+    if start_date and today < start_date:
+        return "scheduled"
+
+    if end_date and today > end_date:
+        return "completed"
+
+    if start_date and end_date:
+        if start_date <= today <= end_date:
+
+            # Same day → check time
+            if start_date == today:
+                if start_time and now_time < start_time:
+                    return "scheduled"
+
+            if end_date == today:
+                if end_time and now_time > end_time:
+                    return "completed"
+
+            return "live"
+
+    return "scheduled"
 
 class AdvertisementCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
-
+ 
+    # =========================
+    # 🔹 CREATE (POST)
+    # =========================
     def post(self, request):
+        data = request.data.copy()
+        
+        data["ad_status"] = get_ad_status(data)
+        
         serializer = AdvertisementSerializer(data=request.data)
 
         if serializer.is_valid():
@@ -1476,8 +1852,149 @@ class AdvertisementCreateAPIView(APIView):
             )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    
+
+    # =========================
+    # 🔹 UPDATE (PUT)
+    # =========================
+    def put(self, request, ad_id):
+        ad = get_object_or_404(Advertisement, id=ad_id)
+        
+        data = request.data.copy()
+        data["ad_status"] = get_ad_status(data)
+
+        serializer = AdvertisementSerializer(ad, data=request.data)
+
+        if serializer.is_valid():
+            serializer.save()
+
+            return Response(
+                {
+                    "message": "Advertisement updated successfully",
+                    "data": serializer.data
+                },
+                status=status.HTTP_200_OK
+            )
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # =========================
+    # 🔹 GET (LIST + SINGLE)
+    # =========================
+    def get(self, request, ad_id=None):
+        try:
+            # =========================
+            # 🔹 SINGLE
+            # =========================
+            if ad_id:
+                ad = get_object_or_404(Advertisement, id=ad_id)
+
+                # 🔥 Recalculate status
+                data = {
+                    "ad_start_date": ad.ad_start_date,
+                    "ad_end_date": ad.ad_end_date,
+                    "ad_start_time": ad.ad_start_time,
+                    "ad_end_time": ad.ad_end_time,
+                }
+
+                new_status = get_ad_status(data)
+
+                # ✅ Update only if changed
+                if ad.ad_status != new_status:
+                    ad.ad_status = new_status
+                    ad.save(update_fields=["ad_status"])
+
+                serializer = AdvertisementSerializer(ad)
+
+                return Response({
+                    "message": "Advertisement fetched successfully",
+                    "data": serializer.data
+                })
+
+            # =========================
+            # 🔹 LIST ALL
+            # =========================
+            ads = Advertisement.objects.all().order_by("created_at")
+
+            updated_ads = []
+            for ad in ads:
+
+                # 🔥 Recalculate status
+                data = {
+                    "ad_start_date": ad.ad_start_date,
+                    "ad_end_date": ad.ad_end_date,
+                    "ad_start_time": ad.ad_start_time,
+                    "ad_end_time": ad.ad_end_time,
+                }
+
+                new_status = get_ad_status(data)
+
+                # ✅ Update only if changed
+                if ad.ad_status != new_status:
+                    ad.ad_status = new_status
+                    ad.save(update_fields=["ad_status"])
+
+                updated_ads.append(ad)
+
+            serializer = AdvertisementSerializer(updated_ads, many=True)
+
+            return Response({
+                "message": "Advertisements fetched successfully",
+                "count": len(serializer.data),
+                "data": serializer.data
+            })
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+class AdvertisementDashboardCountAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            counts = Advertisement.objects.aggregate(
+
+                # 🔹 Total Ads
+                total_ads=Count("id"),
+
+                # 🔹 Live (Active)
+                live_ads=Count(
+                    "id",
+                    filter=Q(ad_status="live")
+                ),
+
+                # 🔹 Scheduled
+                scheduled_ads=Count(
+                    "id",
+                    filter=Q(ad_status="scheduled")
+                ),
+
+                # 🔹 Completed
+                completed_ads=Count(
+                    "id",
+                    filter=Q(ad_status="completed")
+                ),
+            )
+
+            return Response({
+                "message": "Advertisement counts fetched successfully",
+                "data": {
+                    "total_ads": counts["total_ads"],
+                    "live_ads": counts["live_ads"],
+                    "scheduled_ads": counts["scheduled_ads"],
+                    "completed_ads": counts["completed_ads"],
+                }
+            })
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+              
 # ============================ Certificate Views ============================
 
 
@@ -1656,7 +2173,7 @@ class CertificateTemplateAPIView(APIView):
     
     def get(self, request):
         try:
-            templates = CertificateTemplate.objects.all().order_by("-created_at")
+            templates = CertificateTemplate.objects.all().order_by("created_at")
 
             serializer = CertificateTemplateSerializer(
                 templates,
@@ -1962,9 +2479,12 @@ class DashboardStatsAPIView(APIView):
         total_sessions = HandHoldingSession.objects.count()
 
         # 2️⃣ Active Users (Certificate Pending)
-        active_users_count = Certificate.objects.filter(
-            certificate_status="pending",
-            program_type="handholding"
+        active_users_count = HandHoldingParticipant.objects.filter(
+            total_sessions__isnull=False,
+            completed_sessions__isnull=False,
+            total_sessions=F('completed_sessions'),   # ✅ sessions completed
+            user__certificate__certificate_status="pending",
+            user__certificate__program_type="handholding"
         ).values("user").distinct().count()
 
         # 3️⃣ Completed Users (All Sessions Completed)
@@ -1984,3 +2504,643 @@ class DashboardStatsAPIView(APIView):
             "completed_users_count": completed_users_count,
             "certificate_issued_count": certificate_issued_count
         })
+        
+class PendingCertificateParticipantsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+
+            participants = HandHoldingParticipant.objects.annotate(
+                total_count=Count('sessions'),
+                completed_count=Count(
+                    'sessions',
+                    filter=Q(sessions__status__iexact='completed')
+                )
+            ).filter(
+                total_count__gt=0,                 # must have sessions
+                total_count=F('completed_count'),  # ALL sessions completed
+                certificate_issued=False
+            ).select_related("user")
+
+            data = []
+
+            for p in participants:
+                user = p.user
+
+                data.append({
+                    "participant_id": p.id,
+                    "user_id": user.id if user else None,
+                    "name": f"{user.first_name} {user.last_name}" if user else None,
+                    "email": user.email if user else None,
+                    "mobile": getattr(p, "mobile", None),
+
+                    "total_sessions": p.total_count,
+                    "completed_sessions": p.completed_count,
+
+                    "certificate_issued": p.certificate_issued,
+                    "status": p.status,
+                    "created_at": p.created_at
+                })
+
+            return Response({
+                "success": True,
+                "count": len(data),
+                "data": data
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "Failed to fetch participants",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+
+
+
+
+
+class ParticipantCertificateAPIView(APIView):
+
+    def get(self, request, participant_id):
+
+        try:
+            # 🔹 Get participant
+            participant = get_object_or_404(
+                HandHoldingParticipant.objects.select_related("user"),
+                id=participant_id
+            )
+            user = participant.user
+
+            # 🔹 Get certificates
+            certificates = Certificate.objects.filter(
+                user=user
+            ).order_by("-issued_at")
+
+            serializer = CertificateSerializer(
+                certificates,
+                many=True,
+                context={"request": request}
+            )
+
+            return Response({
+                "message": "Certificates fetched successfully",
+                "participant_id": participant_id,
+                "total_certificates": len(serializer.data),
+                "data": serializer.data
+            })
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)
+            
+class CertificateDashboardCountAPIView(APIView):
+
+    def get(self, request):
+        try:
+
+            # =========================
+            # 1️⃣ Pending Certificate Users
+            # (All sessions completed + certificate not issued)
+            # =========================
+            pending_certificate_qs = Certificate.objects.filter(
+                user=OuterRef('user'),
+                certificate_status="pending",
+                program_type="handholding"
+            )
+
+            pending_count = HandHoldingParticipant.objects.filter(
+                total_sessions=F('completed_sessions')
+            ).annotate(
+                has_pending_cert=Exists(pending_certificate_qs)
+            ).filter(
+                has_pending_cert=True
+            ).count()
+
+            # =========================
+            # 2️⃣ Certificate Template Count
+            # =========================
+            template_count = CertificateTemplate.objects.count()
+
+            # =========================
+            # 3️⃣ Issued Certificate Users
+            # =========================
+            issued_count = Certificate.objects.filter(
+                certificate_status="issued",
+                program_type="handholding"
+            ).values("user").distinct().count()
+
+            return Response({
+                "success": True,
+                "data": {
+                    "pending_certificate_users": pending_count,
+                    "certificate_templates": template_count,
+                    "issued_certificate_users": issued_count
+                }
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                "success": False,
+                "message": "Failed to fetch dashboard counts",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            
+# ============================== Event Models (for reference) ==============================
+
+class EventCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def update_event_status(self, event):
+        try:
+            # ✅ Get today's date (safe)
+            today = timezone.now().date()
+
+            # ✅ Get current time (no timezone issues)
+            now_time = datetime.now().time()
+
+            # ✅ Pick correct date
+            event_date = event.event_end_date if event.event_end_date else event.event_start_date
+
+            # ✅ Pick correct time
+            event_time_str = event.event_end_time if event.event_end_time else event.event_start_time
+
+            # =========================
+            # 🔹 Convert string → time
+            # =========================
+            event_time = None
+            if event_time_str:
+                try:
+                    event_time = datetime.strptime(event_time_str.strip(), "%I:%M %p").time()
+                except Exception:
+                    event_time = None  # fallback safe
+
+            # =========================
+            # 🔥 STATUS LOGIC
+            # =========================
+            if not event_date:
+                return  # no date → skip
+
+            # ✅ Past date → completed
+            if event_date < today:
+                if event.session_status != "completed":
+                    event.session_status = "completed"
+                    event.save(update_fields=["session_status"])
+                return
+
+            # ✅ Same day → check time
+            if event_date == today:
+                if event_time:
+                    if event_time < now_time:
+                        if event.session_status != "completed":
+                            event.session_status = "completed"
+                            event.save(update_fields=["session_status"])
+                else:
+                    # No time → assume completed
+                    if event.session_status != "completed":
+                        event.session_status = "completed"
+                        event.save(update_fields=["session_status"])
+
+        except Exception as e:
+            print("Event status update error:", str(e))
+
+    # =========================
+    # 🔹 COMMON VALIDATION METHOD
+    # =========================
+    def validate_slot_and_booking(self, data, exclude_event_id=None):
+
+        event_start_date = data.get("event_start_date")
+        start_time = data.get("event_start_time")
+        end_time = data.get("event_end_time")
+        name = data.get("concerned_person_name")
+        email = data.get("concerned_person_email")
+
+        event_date = datetime.fromisoformat(event_start_date).date()
+
+        slot = Slot.objects.select_related("counsellor").filter(
+            date=event_date,
+            start_time=start_time,
+            end_time=end_time,
+            is_deleted=False
+        ).first()
+
+        if not slot:
+            return None, None
+
+        # =========================
+        # 🔥 BOOKING CHECK (STRICT)
+        # =========================
+        existing_booking = Booking.objects.select_related("slot__counsellor").filter(
+            slot__date=event_date,
+            slot__start_time=start_time,
+            slot__end_time=end_time,
+            status__in=["booked", "pending", "rescheduled"]
+        ).first()
+
+        if existing_booking:
+            counsellor = existing_booking.slot.counsellor
+
+            if counsellor:
+                full_name = f"{counsellor.first_name} {counsellor.last_name}".strip().lower()
+
+                input_name = (name or "").strip().lower()
+                input_email = (email or "").strip().lower()
+                counsellor_email = (counsellor.email or "").strip().lower()
+
+                is_same_person = (
+                    (input_email and input_email == counsellor_email) or
+                    (input_name and (
+                        input_name == counsellor.first_name.lower() or
+                        input_name == counsellor.last_name.lower() or
+                        input_name == full_name
+                    ))
+                )
+
+                if is_same_person:
+                    return None, Response(
+                        {
+                            "message": "This counsellor already has a booking for the selected date and time.",
+                            "details": {
+                                "counsellor_name": full_name,
+                                "email": counsellor.email,
+                                "date": event_date,
+                                "time": f"{start_time} - {end_time}"
+                            },
+                            "error": "If you want to proceed with this event, please cancel the existing booking for this slot first."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+        # =========================
+        # 🔥 EVENT DUPLICATE CHECK
+        # =========================
+        existing_event = Event.objects.filter(
+            event_start_date=event_date,
+            event_start_time=start_time
+        ).filter(
+            Q(concerned_person_name=name) |
+            Q(concerned_person_email=email)
+        )
+
+        if exclude_event_id:
+            existing_event = existing_event.exclude(id=exclude_event_id)
+
+        if existing_event.first():
+            return None, Response(
+                {
+                    "message": "This person already has an event at the selected time.",
+                    "details": {
+                        "name": name,
+                        "email": email,
+                        "date": event_date,
+                        "time": f"{start_time} - {end_time}"
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return slot, None
+
+
+    # =========================
+    # 🔹 POST (CREATE)
+    # =========================
+    def post(self, request):
+        data = request.data
+
+        if not data.get("event_start_date") or not data.get("event_start_time") or not data.get("event_end_time"):
+            return Response(
+                {"message": "Date, start time and end time are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        slot, error = self.validate_slot_and_booking(data)
+        if error:
+            return error
+
+        with transaction.atomic():
+            event = Event.objects.create(
+                event_type=data.get("event_type"),
+                seminar_webinar_name=data.get("seminar_webinar_name"),
+                concerned_person_name=data.get("concerned_person_name"),
+                concerned_person_mobile=data.get("concerned_person_mobile"),
+                concerned_person_email=data.get("concerned_person_email"),
+                event_start_date=data.get("event_start_date"),
+                event_end_date=data.get("event_end_date"),
+                event_start_time=data.get("event_start_time"),
+                event_end_time=data.get("event_end_time"),
+                venue_type=data.get("venue_type"),
+                event_mode=data.get("event_mode"),
+                address=data.get("address"),
+                is_paid=data.get("is_paid", False),
+                amount=data.get("amount"),
+                payment_type=data.get("payment_type"),
+                payment_method=data.get("payment_method"),
+                transaction_id=data.get("transaction_id"),
+                registration_link=data.get("registration_link"),
+                session_status="upcoming",
+                conducted_by=request.user
+            )
+
+            # slot.is_available = False
+            # slot.save(update_fields=["is_available"])
+
+        return Response(
+            {"message": "Event created successfully", "event_id": event.id},
+            status=status.HTTP_201_CREATED
+        )
+
+
+    # =========================
+    # 🔹 PUT (UPDATE)
+    # =========================
+    def put(self, request, event_id):
+        try:
+            event = get_object_or_404(Event, id=event_id)
+            data = request.data
+
+            if not data.get("event_start_date") or not data.get("event_start_time") or not data.get("event_end_time"):
+                return Response(
+                    {"message": "Date, start time and end time are required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # ✅ VALIDATE (exclude current event)
+            slot, error = self.validate_slot_and_booking(data, exclude_event_id=event.id)
+            if error:
+                return error
+
+            with transaction.atomic():
+
+                # 🔹 UPDATE FIELDS
+                event.event_type = data.get("event_type")
+                event.seminar_webinar_name = data.get("seminar_webinar_name")
+                event.concerned_person_name = data.get("concerned_person_name")
+                event.concerned_person_mobile = data.get("concerned_person_mobile")
+                event.concerned_person_email = data.get("concerned_person_email")
+                event.event_start_date = data.get("event_start_date")
+                event.event_end_date = data.get("event_end_date")
+                event.event_start_time = data.get("event_start_time")
+                event.event_end_time = data.get("event_end_time")
+                event.venue_type = data.get("venue_type")
+                event.event_mode = data.get("event_mode")
+                event.address = data.get("address")
+                event.is_paid = data.get("is_paid", False)
+                event.amount = data.get("amount")
+                event.payment_type = data.get("payment_type")
+                event.payment_method = data.get("payment_method")
+                event.transaction_id = data.get("transaction_id")
+                event.registration_link = data.get("registration_link")
+
+                event.save()
+
+                # 🔹 Update slot availability
+                # slot.is_available = False
+                # slot.save(update_fields=["is_available"])
+
+            return Response(
+                {"message": "Event updated successfully", "event_id": event.id},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "message": "Something went wrong",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            ) 
+            
+    def get(self, request, event_id=None):
+        try:
+
+            # =========================
+            # 🔹 SINGLE EVENT
+            # =========================
+            if event_id:
+                event = get_object_or_404(Event, id=event_id)
+                
+                self.update_event_status(event)
+
+                return Response(
+                    {
+                        "message": "Event fetched successfully",
+                        "data": {
+                            "id": event.id,
+                            "event_type": event.event_type,
+                            "seminar_webinar_name": event.seminar_webinar_name,
+                            "concerned_person_name": event.concerned_person_name,
+                            "concerned_person_mobile": event.concerned_person_mobile,
+                            "concerned_person_email": event.concerned_person_email,
+                            "event_start_date": event.event_start_date,
+                            "event_end_date": event.event_end_date,
+                            "event_start_time": event.event_start_time,
+                            "event_end_time": event.event_end_time,
+                            "venue_type": event.venue_type,
+                            "event_mode": event.event_mode,
+                            "address": event.address,
+                            "is_paid": event.is_paid,
+                            "amount": event.amount,
+                            "payment_type": event.payment_type,
+                            "payment_method": event.payment_method,
+                            "transaction_id": event.transaction_id,
+                            "session_status": event.session_status,
+                            "registration_link": event.registration_link,
+                            "conducted_by": event.conducted_by.id if event.conducted_by else None,
+                            "created_at": event.created_at,
+                        }
+                    },
+                    status=status.HTTP_200_OK
+                )
+
+            # =========================
+            # 🔹 LIST ALL EVENTS
+            # =========================
+            events = Event.objects.all().order_by("created_at")
+
+            data = []
+            for event in events:
+                
+                self.update_event_status(event)
+                
+                data.append({
+                    "id": event.id,
+                    "event_type": event.event_type,
+                    "seminar_webinar_name": event.seminar_webinar_name,
+                    "concerned_person_name": event.concerned_person_name,
+                    "concerned_person_mobile": event.concerned_person_mobile,
+                    "concerned_person_email": event.concerned_person_email,
+                    "event_start_date": event.event_start_date,
+                    "event_end_date": event.event_end_date,
+                    "event_start_time": event.event_start_time,
+                    "event_end_time": event.event_end_time,
+                    "event_mode": event.event_mode,
+                    "venue_type": event.venue_type,
+                    "event_mode": event.event_mode,
+                    "address": event.address,
+                    "is_paid": event.is_paid,
+                    "amount": event.amount,
+                    "payment_type": event.payment_type,
+                    "payment_method": event.payment_method,
+                    "transaction_id": event.transaction_id,
+                    "session_status": event.session_status,
+                    "registration_link": event.registration_link,
+                })
+
+            return Response(
+                {
+                    "message": "Events fetched successfully",
+                    "count": len(data),
+                    "data": data
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "message": "Something went wrong",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )         
+                
+class SendReminderByEventAPIView(APIView):
+
+    def post(self, request, event_id):
+
+        # ✅ Validate event
+        if not Event.objects.filter(id=event_id).exists():
+            return Response(
+                {"error": "Invalid event_id"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ✅ Trigger celery task
+        send_event_reminder_by_id.delay(event_id)
+
+        return Response({
+            "message": f"Reminder triggered for event {event_id}"
+        })
+from django.db.models.functions import Coalesce, Lower, Trim
+class EventDashboardCountAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # =========================
+            # 🔹 MAIN COUNTS
+            # =========================
+            counts = Event.objects.aggregate(
+                total_events=Count("id"),
+                upcoming_events=Count("id", filter=Q(session_status="upcoming")),
+                completed_events=Count("id", filter=Q(session_status="completed")),
+                paid_events=Count("id", filter=Q(is_paid=True)),
+                free_events=Count("id", filter=Q(is_paid=False)),
+            )
+
+            # =========================
+            # 🔹 UPCOMING EVENT TYPE COUNT
+            # =========================
+            upcoming_qs = Event.objects.filter(session_status="upcoming").annotate(
+                clean_type=Lower(Trim("event_type"))
+            )
+
+            grouped = upcoming_qs.values("clean_type").annotate(count=Count("id"))
+
+            # 🔥 DEBUG (keep temporarily)
+            print("DEBUG EVENT TYPES:", list(grouped))
+
+            # Convert to dict
+            type_map = {}
+            for item in grouped:
+                key = item["clean_type"] or "unknown"
+                type_map[key] = item["count"]
+
+            upcoming_event_type = [
+                {
+                    "type": "seminar",
+                    "count": type_map.get("seminar", 0)
+                },
+                {
+                    "type": "webinar",
+                    "count": type_map.get("webinar", 0)
+                }
+            ]
+                        # =========================
+            # 🔹 SESSION TYPE ARRAY
+            # =========================
+            session_type = [
+                {"type": "paid", "count": counts["paid_events"]},
+                {"type": "free", "count": counts["free_events"]},
+            ]
+
+            # =========================
+            # 🔹 FINAL RESPONSE
+            # =========================
+            return Response({
+                "message": "Event counts fetched successfully",
+                "data": {
+                    "total_events": counts["total_events"],
+
+                    "upcoming_events": {
+                        "total": counts["upcoming_events"],
+                        "event_type": upcoming_event_type
+                    },
+
+                    "completed_events": counts["completed_events"],
+
+                    "session_type": session_type,
+                    "total_session_type": (
+                        counts["paid_events"] + counts["free_events"]
+                    )
+                }
+            })
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)                
+                
+class MarkEventCompletedAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, event_id):
+        try:
+            event = get_object_or_404(Event, id=event_id)
+
+            # ✅ Only allow if event is upcoming
+            if event.session_status != "upcoming":
+                return Response(
+                    {"message": "Only upcoming events can be marked as completed"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # ✅ Update status
+            event.session_status = "completed"
+            event.save(update_fields=["session_status"])
+
+            return Response({
+                "message": "Event marked as completed successfully",
+                "event_id": event.id,
+                "status": event.session_status
+            })
+
+        except Exception as e:
+            return Response({
+                "message": "Something went wrong",
+                "error": str(e)
+            }, status=500)               
+                
+                
+                
+                

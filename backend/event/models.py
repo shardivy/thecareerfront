@@ -17,28 +17,51 @@ class Event(models.Model):
     )
 
     STATUS_CHOICES = (
-        ('planned', 'Planned'),
+        ('upcoming', 'Upcoming'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     )
+    
+    VENUE_TYPE_CHOICES = (
+        ('college', 'College'),
+        ('corporate', 'Corporate'),
+        ('firm', 'Firm'),
+    )
+    
+    METHOD_CHOICES = (
+        ('cash', 'Cash'),
+        ('upi', 'UPI'),
+    )
+    
+    PAYMENTTYPE_CHOICE = (
+        ("online", "Online"),
+        ("offline", "Offline")
+    )
+            
 
-    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
-    title = models.CharField(max_length=200)
-
-    institute_name = models.CharField(max_length=200)
-    concerned_person_name = models.CharField(max_length=150)
-    concerned_person_mobile = models.CharField(max_length=15)
-    concerned_person_email = models.EmailField()
-
-    event_date = models.DateTimeField()
-    event_mode = models.CharField(max_length=20, choices=MODE_CHOICES)
-    location = models.CharField(max_length=255, blank=True)
-
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, null=True, blank=True)
+    seminar_webinar_name = models.CharField(max_length=255, null=True, blank=True)
+    # institute_name = models.CharField(max_length=200)
+    concerned_person_name = models.CharField(max_length=150, null=True, blank=True)
+    concerned_person_mobile = models.CharField(max_length=15, null=True, blank=True)
+    concerned_person_email = models.EmailField(null=True, blank=True)
+    event_start_date = models.DateField(null=True, blank=True)
+    event_end_date = models.DateField(null=True, blank=True)
+    event_start_time = models.CharField(max_length=20, null=True, blank=True)
+    event_end_time = models.CharField(max_length=20, null=True, blank=True)
+    venue_type = models.CharField(max_length=20, choices=VENUE_TYPE_CHOICES, null=True, blank=True)
+    event_mode = models.CharField(max_length=20, choices=MODE_CHOICES, null=True, blank=True)
+    address = models.CharField(max_length=255, null=True, blank=True)
     is_paid = models.BooleanField(default=False)
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    payment_type = models.CharField(max_length=50, choices=PAYMENTTYPE_CHOICE, null=True, blank=True)
+    payment_method = models.CharField(max_length=50, choices=METHOD_CHOICES, null=True, blank=True)
+    transaction_id = models.CharField(max_length=100, null=True, blank=True)
+    session_status = models.CharField(max_length=20, choices=STATUS_CHOICES, null=True, blank=True)
+    registration_link = models.URLField(null=True, blank=True)
 
     conducted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    
 
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -195,6 +218,8 @@ class Advertisement(models.Model):
 
     ad_start_date = models.DateField(null=True, blank=True)
     ad_end_date = models.DateField(null=True, blank=True)
+    ad_start_time = models.CharField(max_length=20, null=True, blank=True)
+    ad_end_time = models.CharField(max_length=20, null=True, blank=True)
 
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 

@@ -20,6 +20,7 @@ class HandHoldingParticipantSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField()
     resume_file = serializers.SerializerMethodField()
     proof_file = serializers.SerializerMethodField()
+    show_profile = serializers.BooleanField(read_only=True)
     payment_status = serializers.SerializerMethodField()
     
     program_id = serializers.SerializerMethodField()
@@ -126,8 +127,10 @@ class HandHoldingParticipantSerializer(serializers.ModelSerializer):
     def get_proof_file(self, obj):
         request = self.context.get("request")
 
-        # 🔹 Get latest payment of this user
-        payment = Payment.objects.filter(user=obj.user).order_by("-created_at").first()
+        payment = Payment.objects.filter(
+            user=obj.user,
+            proof_file__isnull=False
+        ).exclude(proof_file="").order_by("-created_at").first()
 
         if payment and payment.proof_file and request:
             return request.build_absolute_uri(payment.proof_file.url)
@@ -268,3 +271,22 @@ class CertificateTemplateSerializer(serializers.ModelSerializer):
             data["template_file"] = request.build_absolute_uri(instance.template_file.url)
 
         return data
+    
+class CertificateSerializer(serializers.ModelSerializer):
+    certificate_file = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Certificate
+        fields = [
+            "id",
+            "program_type",
+            "certificate_status",
+            "certificate_file",
+            "issued_at"
+        ]
+
+    def get_certificate_file(self, obj):
+        request = self.context.get("request")
+        if obj.certificate_file and request:
+            return request.build_absolute_uri(obj.certificate_file.url)
+        return None

@@ -19,6 +19,7 @@ import logging
 from accounts.constants import PROGRAM_PREFIX_MAP
 from django.db.models import Sum
 from django.utils import timezone
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from accounts.models import Role, User
 from accounts.permissions import IsAdmin, IsSuperAdmin
@@ -1544,6 +1545,7 @@ class AdminUserFullUpdateAPIView(APIView):
 #             )
 
 class ConvertLeadAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
     """
     Convert Lead → User → StudentProfile → Program → Package → Payment
     """
@@ -1564,7 +1566,8 @@ class ConvertLeadAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        payload = request.data.dict()
+        payload = request.data.dict()  # Make it mutable
+        # payload._mutable = True
         payload["first_name"] = lead.first_name
         payload["last_name"] = lead.last_name
         payload["email"] = lead.email
@@ -1658,6 +1661,12 @@ class ConvertLeadAPIView(APIView):
                 # 🔹 HAND HOLDING LOGIC
                 # =================================
                 if is_handholding:
+                    resume_file = serializer.validated_data.get("resume_file")
+                    photo = serializer.validated_data.get("photo")
+                    
+                    print(f"Resume file received: {resume_file}")
+                    print(f"Resume file name: {resume_file.name if resume_file else 'None'}")
+                    print(f"Photo received: {photo}")
 
                     participant = HandHoldingParticipant.objects.filter(
                         email=lead.email
@@ -1668,15 +1677,19 @@ class ConvertLeadAPIView(APIView):
                         participant.mobile = user.phone
                         participant.email = user.email
 
-                        if not participant.photo:
-                            participant.photo = serializer.validated_data.get("photo")
-
-                        if not participant.resume_file:
-                            participant.resume_file = serializer.validated_data.get("resume_file")
+                        # ✅ FIX: Assign file fields properly
+                        if resume_file:
+                            participant.resume_file = resume_file  # This should work if field is FileField
+                            
+                        if photo:
+                            participant.photo = photo
+                            
+                        participant.show_profile = serializer.validated_data.get("show_profile", participant.show_profile)
 
                         participant.save()
 
                     else:
+                        # ✅ FIX: Create with file fields
                         participant = HandHoldingParticipant.objects.create(
                             user=user,
                             email=user.email,
@@ -1684,9 +1697,9 @@ class ConvertLeadAPIView(APIView):
                             full_address=serializer.validated_data.get("full_address", ""),
                             city=serializer.validated_data.get("city"),
                             preferred_counselling_mode=serializer.validated_data.get("preferred_counselling_mode"),
-                    
-                            photo=serializer.validated_data.get("photo"),
-                            resume_file=serializer.validated_data.get("resume_file"),
+                            resume_file=resume_file,  # This should work
+                            photo=photo,  # This should work
+                            show_profile=serializer.validated_data.get("show_profile")
                         )
 
                     # =================================
@@ -2306,131 +2319,263 @@ class StudentHobbyDetailAPIView(APIView):
 #         )     
 
 
+# class StudentRegistrationAPIView(APIView):
+#     permission_classes = []
+
+#     @transaction.atomic
+#     def post(self, request):
+#         serializer = StudentRegistrationSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         data = serializer.validated_data
+
+#         # ===============================
+#         # Split student name
+#         # ===============================
+#         first_name, *last = data["student_name"].split(" ", 1)
+#         last_name = last[0] if last else ""
+
+#         # ===============================
+#         # Create Lead
+#         # ===============================
+#         # basic_user_role, _ = Role.objects.get_or_create(name="basic_user") 
+               
+#         lead = Lead.objects.create(
+#             # role=basic_user_role,
+#             first_name=first_name,
+#             last_name=last_name,
+#             phone=data.get("student_mobile") or None,
+#             email=data["student_email"],
+#             program=data["program"],
+#             study_class=data["study_class"],
+#             specialization=data.get("specialization"),
+#             source="website",
+#             status="enquiry",
+#             date=timezone.now().date()
+#         )
+
+#         # ===============================
+#         # Create Student User
+#         # ===============================
+#         student_role = Role.objects.get(name="basic_user")
+
+#         student_user, created = User.objects.get_or_create(
+#             email=data["student_email"],
+#             defaults={
+#                 "first_name": first_name,
+#                 "last_name": last_name,
+#                 "phone": data.get("student_mobile") or None,
+#                 "role": student_role,
+#                 "is_active": True
+#             }
+#         )
+
+#         if created:
+#             student_password = data.get("password")
+
+#             if not student_password:
+#                 student_password = generate_password()
+
+#             student_user.set_password(student_password)
+#             student_user.save()
+
+#         else:
+#             student_user.phone = data.get("student_mobile") or None
+#             student_user.first_name = first_name
+#             student_user.last_name = last_name
+#             student_user.save()
+
+#         # ===============================
+#         # Create Parent User
+#         # ===============================
+#         parent_role = Role.objects.get(name="parent")
+
+#         parent_first, *parent_last = data.get("parent_name", "").split(" ", 1)
+#         parent_last_name = parent_last[0] if parent_last else ""
+
+#         parent_user, parent_created = User.objects.get_or_create(
+#             email=data["parent_email"],
+#             defaults={
+#                 "phone": data.get("parent_mobile") or None,
+#                 "role": parent_role,
+#                 "first_name": parent_first,
+#                 "last_name": parent_last_name,
+#                 "is_active": True
+#             }
+#         )
+
+#         if parent_created:
+#             parent_password = generate_password()
+#             parent_user.set_password(parent_password)
+#             parent_user.save()
+
+#         else:
+#             parent_user.phone = data.get("parent_mobile") or None
+#             parent_user.first_name = parent_first
+#             parent_user.last_name = parent_last_name
+#             parent_user.save()
+
+#         # ===============================
+#         # Create Parent Profile
+#         # ===============================
+#         parent, parent_profile_created = ParentProfile.objects.get_or_create(
+#             user=parent_user
+#         )
+
+#         # ===============================
+#         # Assign Program to Student
+#         # ===============================
+#         UserProgramPackage.objects.get_or_create(
+#             user=student_user,
+#             program=data["program"],
+#             defaults={
+#                 "assigned_by": "system"
+#             }
+#         )
+
+#         # ===============================
+#         # Response
+#         # ===============================
+#         return Response(
+#             {
+#                 "message": "Registration successful",
+#                 "lead_id": lead.id,
+#                 "student_user_id": student_user.id,
+#                 "parent_id": parent.id
+#             },
+#             status=status.HTTP_201_CREATED
+#         )
+
 class StudentRegistrationAPIView(APIView):
     permission_classes = []
 
     @transaction.atomic
     def post(self, request):
-        serializer = StudentRegistrationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
+        try:
+            serializer = StudentRegistrationSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
 
-        # ===============================
-        # Split student name
-        # ===============================
-        first_name, *last = data["student_name"].split(" ", 1)
-        last_name = last[0] if last else ""
+            # ===============================
+            # Split student name safely
+            # ===============================
+            full_name = data.get("student_name", "").strip()
+            first_name, *last = full_name.split(" ", 1)
+            last_name = last[0] if last else ""
 
-        # ===============================
-        # Create Lead
-        # ===============================
-        # basic_user_role, _ = Role.objects.get_or_create(name="basic_user") 
-               
-        lead = Lead.objects.create(
-            # role=basic_user_role,
-            first_name=first_name,
-            last_name=last_name,
-            phone=data.get("student_mobile") or None,
-            email=data["student_email"],
-            program=data["program"],
-            study_class=data["study_class"],
-            specialization=data.get("specialization"),
-            source="website",
-            status="enquiry",
-            date=timezone.now().date()
-        )
+            # ===============================
+            # Check Roles safely
+            # ===============================
+            student_role = Role.objects.filter(name="basic_user").first()
+            parent_role = Role.objects.filter(name="parent").first()
 
-        # ===============================
-        # Create Student User
-        # ===============================
-        student_role = Role.objects.get(name="basic_user")
+            if not student_role or not parent_role:
+                return Response({
+                    "message": "Required roles (basic_user / parent) not found"
+                }, status=500)
 
-        student_user, created = User.objects.get_or_create(
-            email=data["student_email"],
-            defaults={
-                "first_name": first_name,
-                "last_name": last_name,
-                "phone": data.get("student_mobile") or None,
-                "role": student_role,
-                "is_active": True
-            }
-        )
+            # ===============================
+            # Create Lead
+            # ===============================
+            lead = Lead.objects.create(
+                first_name=first_name,
+                last_name=last_name,
+                phone=data.get("student_mobile") or None,
+                email=data["student_email"],
+                program=data["program"],
+                study_class=data["study_class"],
+                specialization=data.get("specialization"),
+                source="website",
+                status="enquiry",
+                date=timezone.now().date()
+            )
 
-        if created:
-            student_password = data.get("password")
+            # ===============================
+            # Student User
+            # ===============================
+            student_user, created = User.objects.get_or_create(
+                email=data["student_email"],
+                defaults={
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "phone": data.get("student_mobile") or None,
+                    "role": student_role,
+                    "is_active": True
+                }
+            )
 
-            if not student_password:
-                student_password = generate_password()
+            if created:
+                password = data.get("password") or generate_password()
+                student_user.set_password(password)
+                student_user.save()
+            else:
+                student_user.first_name = first_name
+                student_user.last_name = last_name
+                student_user.phone = data.get("student_mobile") or None
+                student_user.save()
 
-            student_user.set_password(student_password)
-            student_user.save()
+            # ===============================
+            # Parent User
+            # ===============================
+            parent_name = data.get("parent_name", "").strip()
+            parent_first, *parent_last = parent_name.split(" ", 1)
+            parent_last_name = parent_last[0] if parent_last else ""
 
-        else:
-            student_user.phone = data.get("student_mobile") or None
-            student_user.first_name = first_name
-            student_user.last_name = last_name
-            student_user.save()
+            parent_user, parent_created = User.objects.get_or_create(
+                email=data["parent_email"],
+                defaults={
+                    "phone": data.get("parent_mobile") or None,
+                    "role": parent_role,
+                    "first_name": parent_first,
+                    "last_name": parent_last_name,
+                    "is_active": True
+                }
+            )
 
-        # ===============================
-        # Create Parent User
-        # ===============================
-        parent_role = Role.objects.get(name="parent")
+            if parent_created:
+                parent_password = generate_password()
+                parent_user.set_password(parent_password)
+                parent_user.save()
+            else:
+                parent_user.first_name = parent_first
+                parent_user.last_name = parent_last_name
+                parent_user.phone = data.get("parent_mobile") or None
+                parent_user.save()
 
-        parent_first, *parent_last = data.get("parent_name", "").split(" ", 1)
-        parent_last_name = parent_last[0] if parent_last else ""
+            # ===============================
+            # Parent Profile (SAFE)
+            # ===============================
+            parent_profile, _ = ParentProfile.objects.get_or_create(
+                user=parent_user
+            )
 
-        parent_user, parent_created = User.objects.get_or_create(
-            email=data["parent_email"],
-            defaults={
-                "phone": data.get("parent_mobile") or None,
-                "role": parent_role,
-                "first_name": parent_first,
-                "last_name": parent_last_name,
-                "is_active": True
-            }
-        )
+            # ===============================
+            # Assign Program
+            # ===============================
+            if data.get("program"):
+                UserProgramPackage.objects.get_or_create(
+                    user=student_user,
+                    program=data["program"],
+                    defaults={"assigned_by": "system"}
+                )
 
-        if parent_created:
-            parent_password = generate_password()
-            parent_user.set_password(parent_password)
-            parent_user.save()
-
-        else:
-            parent_user.phone = data.get("parent_mobile") or None
-            parent_user.first_name = parent_first
-            parent_user.last_name = parent_last_name
-            parent_user.save()
-
-        # ===============================
-        # Create Parent Profile
-        # ===============================
-        parent, parent_profile_created = ParentProfile.objects.get_or_create(
-            user=parent_user
-        )
-
-        # ===============================
-        # Assign Program to Student
-        # ===============================
-        UserProgramPackage.objects.get_or_create(
-            user=student_user,
-            program=data["program"],
-            defaults={
-                "assigned_by": "system"
-            }
-        )
-
-        # ===============================
-        # Response
-        # ===============================
-        return Response(
-            {
+            # ===============================
+            # SUCCESS RESPONSE
+            # ===============================
+            return Response({
                 "message": "Registration successful",
                 "lead_id": lead.id,
                 "student_user_id": student_user.id,
-                "parent_id": parent.id
-            },
-            status=status.HTTP_201_CREATED
-        )
+                "parent_id": parent_profile.id
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())  # 🔥 show real error in terminal
+
+            return Response({
+                "message": "Registration failed",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class SendParentOTPAPIView(APIView):

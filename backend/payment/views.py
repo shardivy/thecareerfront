@@ -733,7 +733,7 @@ class VerifyPaymentAPIView(APIView):
 
             # ✅ Assign program/package if fully paid
             if payment.status == 'fully_paid':
-                UserProgramPackage.objects.get_or_create(
+                UserProgramPackage.objects.update_or_create(
                     user=payment.user,
                     program=payment.package.program,
                     package=payment.package,
@@ -838,14 +838,14 @@ class VerifyPaymentAPIView(APIView):
                             prev.status = "partial_paid"
                             prev.save(update_fields=["status"])
 
-                    # ======================================
-                    # ✅ REMOVE PACKAGE ASSIGNMENT
-                    # ======================================
-                    UserProgramPackage.objects.filter(
-                        user=payment.user,
-                        program=payment.package.program,
-                        package=payment.package
-                    ).delete()
+                    # # ======================================
+                    # # ✅ REMOVE PACKAGE ASSIGNMENT
+                    # # ======================================
+                    # UserProgramPackage.objects.filter(
+                    #     user=payment.user
+                    #     # program=payment.package.program,
+                    #     # package=payment.package
+                    # ).delete()
 
                     # ======================================
                     # ✅ LOG
@@ -1564,11 +1564,17 @@ class StudentPaymentListAPIView(APIView):
             # 🔹 GET USER
             # =========================
             if student_id:
-                student = StudentProfile.objects.select_related("user").get(id=student_id)
+                student = get_object_or_404(
+                    StudentProfile.objects.select_related("user"),
+                    id=student_id
+                )
                 user = student.user
 
             elif participant_id:
-                participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+                participant = get_object_or_404(
+                    HandHoldingParticipant.objects.select_related("user"),
+                    id=participant_id
+                )
                 user = participant.user
 
             else:
@@ -1577,42 +1583,94 @@ class StudentPaymentListAPIView(APIView):
                 }, status=400)
 
             # =========================
-            # 🔹 SAME LOGIC (NO CHANGE BELOW)
+            # 🔹 GET PAYMENTS
             # =========================
-            payments = Payment.objects.filter(user=user, amount__gt=0 ).order_by("-created_at")
-
-            upp = UserProgramPackage.objects.filter(
+            payments = Payment.objects.filter(
                 user=user
-            ).select_related("program", "package").first()
+            ).exclude(amount=0).order_by("-created_at")
 
+            # =========================
+            # 🔹 GET PACKAGE
+            # =========================
+            upp = UserProgramPackage.objects.filter(
+                user=user,
+                package__isnull=False
+            ).select_related("program", "package").order_by("-id").first()
+            print("UPP:", upp)
+            print("Package:", upp.package if upp else "No UPP")
+
+            # =========================
+            # 🔹 TOTAL PAID (VALID ONLY)
+            # =========================
             total_paid = payments.filter(
-                status__in=["partial_paid", "fully_paid"]
+                status__in=["partial_paid", "fully_paid"],
+                amount__gt=0
             ).aggregate(total=Sum("amount"))["total"] or 0
 
-            package_price = upp.package.price if upp and upp.package else 0
+            
+            # =========================
+            # 🔹 PACKAGE + PROGRAM (FIXED)
+            # =========================
+            if upp and upp.package:
+                package_price = upp.package.price
+                program = upp.program
+                package = upp.package
+            else:
+                package_price = 0
+                program = None
+                package = None
+                                
+                print("program:", program)
+                print("package:", package)
+
+            # ✅ Now calculate remaining
             remaining_amount = max(package_price - total_paid, 0)
 
-            payment_progress = round((total_paid / package_price) * 100, 2) if package_price > 0 else 0
+            # ✅ Progress
+            payment_progress = (
+                round(min((total_paid / package_price) * 100, 100), 2)
+                if package_price > 0 else 0
+            )
 
+            # =========================
+            # 🔹 SERIALIZE PAYMENTS
+            # =========================
             serializer = PaymentDetailSerializer(
                 payments,
                 many=True,
-                context={"request": request, "payments": payments, "upp": upp}
+                context={
+                    "request": request,
+                    "payments": payments,
+                    "upp": upp
+                }
             )
 
             payment_data = list(serializer.data)
 
-            if remaining_amount > 0:
+            # =========================
+            # 🔹 ADD REMAINING ROW (BACKEND CONTROLLED)
+            # =========================
+            if package_price > 0 and remaining_amount > 0:
                 payment_data.insert(0, {
-                    "payment_id": None,
-                    "amount": remaining_amount,
-                    "status": "not_paid",
-                    "payment_type": None,
+                    "id": None,
+                    "amount": str(remaining_amount),
+                    "payment_type": "pending",
                     "method": None,
                     "transaction_id": None,
-                    "date": None
+                    "status": "not_paid",
+                    "payment_date": None,
+                    "program_id": program.id if program else None,
+                    "program": program.name if program else None,
+                    "package_id": package.id if package else None,
+                    "package": package.name if package else None,
+                    "package_price": package_price,
+                    "proof_file": None,
+                    "created_at": None
                 })
 
+            # =========================
+            # 🔹 RESPONSE
+            # =========================
             return Response({
                 "message": "Payment list fetched successfully",
                 "user_id": user.id,
@@ -1650,9 +1708,10 @@ class StudentPaymentProgressAPIView(APIView):
 
         # 🔹 Get program-package
         upp = UserProgramPackage.objects.filter(
-            user=user
-        ).select_related("package").first()
-
+                user=user,
+                package__isnull=False
+        ).select_related("program", "package").order_by("-id").first()
+        
         # 🔹 Get payments (exclude not_paid)
         payments = Payment.objects.filter(
             user=user,
@@ -1668,11 +1727,12 @@ class StudentPaymentProgressAPIView(APIView):
         package_price = upp.package.price if upp and upp.package else 0
 
         # 🔹 Remaining
-        remaining_amount = package_price - total_paid
-
+        # remaining_amount = package_price - total_paid
+        remaining_amount = max(package_price - total_paid, 0)
         # 🔹 Progress %
         if package_price > 0:
-            payment_progress = round((total_paid / package_price) * 100, 2)
+            # payment_progress = round((total_paid / package_price) * 100, 2)
+            payment_progress = round(min((total_paid / package_price) * 100, 100), 2)
         else:
             payment_progress = 0
 
@@ -1697,9 +1757,10 @@ class HandholdingPaymentProgressAPIView(APIView):
 
         # 🔹 Get program-package
         upp = UserProgramPackage.objects.filter(
-            user=user
-        ).select_related("package").first()
-
+                user=user,
+                package__isnull=False
+        ).select_related("program", "package").order_by("-id").first()
+        
         # 🔹 Get payments (exclude not_paid)
         payments = Payment.objects.filter(
             user=user,
@@ -1715,11 +1776,12 @@ class HandholdingPaymentProgressAPIView(APIView):
         package_price = upp.package.price if upp and upp.package else 0
 
         # 🔹 Remaining
-        remaining_amount = package_price - total_paid
-
+        # remaining_amount = package_price - total_paid
+        remaining_amount = max(package_price - total_paid, 0)
         # 🔹 Progress %
         if package_price > 0:
-            payment_progress = round((total_paid / package_price) * 100, 2)
+            # payment_progress = round((total_paid / package_price) * 100, 2)
+            payment_progress = round(min((total_paid / package_price) * 100, 100), 2)
         else:
             payment_progress = 0
 

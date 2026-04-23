@@ -420,11 +420,18 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
             ).aggregate(total=Sum("amount"))["total"] or 0
         )
 
-        if total_paid_after >= package.price:
-            Payment.objects.filter(
-                user=user,
-                package=package
-            ).update(status="fully_paid")
+        # if total_paid_after >= package.price:
+        #     Payment.objects.filter(
+        #         user=user,
+        #         package=package
+        #     ).update(status="fully_paid")
+        package_amount = package.price
+        if total_paid_after >= package_amount:
+            payment.status = "fully_paid"
+        else:
+            payment.status = "partial_paid"
+
+        payment.save(update_fields=["status"])
 
         return payment
         
@@ -452,18 +459,24 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
 
         package_amount = instance.package.price
 
-        if total_paid_after >= package_amount:
-            Payment.objects.filter(
-                user=instance.user,
-                package=instance.package
-            ).update(status="fully_paid")
-        else:
-            Payment.objects.filter(
-                user=instance.user,
-                package=instance.package
-            ).update(status="partial_paid")
+        # if total_paid_after >= package_amount:
+        #     Payment.objects.filter(
+        #         user=instance.user,
+        #         package=instance.package
+        #     ).update(status="fully_paid")
+        # else:
+        #     Payment.objects.filter(
+        #         user=instance.user,
+        #         package=instance.package
+        #     ).update(status="partial_paid")
 
-        return instance
+        # return instance
+        if total_paid_after >= package_amount:
+            instance.status = "fully_paid"
+        else:
+            instance.status = "partial_paid"
+
+        instance.save(update_fields=["status"])
 
     def to_internal_value(self, data):
         data = data.copy()   # ✅ MAKE IT MUTABLE
