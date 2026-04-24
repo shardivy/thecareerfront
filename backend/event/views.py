@@ -385,6 +385,120 @@ class HandHoldingParticipantListAPIView(APIView):
         }, status=200)
         
     
+# class BookedRescheduledSlotsByDateAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, date):
+
+#         response_data = []
+#         used_slot_ids = set()  # ✅ prevent duplicates
+
+#         # ============================================
+#         # 🔹 NORMAL BOOKINGS
+#         # ============================================
+#         bookings = Booking.objects.select_related("slot", "student__user", "slot__counsellor").filter(
+#             slot__date=date,
+#             status__in=["booked", "rescheduled"],
+#             slot__is_deleted=False
+#         )
+
+#         for booking in bookings:
+#             slot = booking.slot
+#             if not slot:
+#                 continue
+
+#             used_slot_ids.add(slot.id)  # ✅ mark used
+
+#             response_data.append({
+#                 "type": "normal",
+#                 "slot_id": slot.id,
+#                 "date": slot.date,
+#                 "start_time": slot.start_time,
+#                 "end_time": slot.end_time,
+#                 "is_handholding_session_available": slot.is_handholding_session_available,
+#                 "status": booking.status,
+#                 "student_id": booking.student.id,
+#                 "student_name": f"{booking.student.user.first_name} {booking.student.user.last_name}",
+#                 "email": booking.student.user.email,
+#                 "phone": booking.student.user.phone,
+#                 "meeting_link": booking.meeting_link,
+#                 "counsellor_id": slot.counsellor.id if slot.counsellor else None,
+#                 "counsellor_name": (
+#                     f"{slot.counsellor.first_name} {slot.counsellor.last_name}"
+#                     if slot.counsellor else None
+#                 ),
+#             })
+
+#         # ============================================
+#         # 🔹 HANDHOLDING BOOKINGS
+#         # ============================================
+#         hh_sessions = HandHoldingParticipantSession.objects.select_related(
+#             "handholding_participant__user",
+#             "conducted_by",
+#             "slot"
+#         ).filter(
+#             session_date__date=date,
+#             status__in=["booked", "rescheduled"]
+#         )
+
+#         for session in hh_sessions:
+
+#             session_slot = session.slot
+
+#             if not session_slot:
+#                 continue
+
+#             # ❌ Skip duplicate slot
+#             if session_slot.id in used_slot_ids:
+#                 continue
+
+#             used_slot_ids.add(session_slot.id)
+
+#             participant = session.handholding_participant
+#             user = participant.user if participant else None
+
+#             response_data.append({
+#                 "type": "handholding",
+#                 "slot_id": session_slot.id,
+#                 "date": session_slot.date,
+#                 "start_time": session_slot.start_time,
+#                 "end_time": session_slot.end_time,
+#                 "is_handholding_session_available": session_slot.is_handholding_session_available,
+#                 "status": session.status,
+#                 "participant_id": participant.id if participant else None,
+#                 "session_no": session.session_no,
+#                 "student_id": user.id if user else None,
+#                 "student_name": f"{user.first_name} {user.last_name}" if user else None,
+#                 "email": user.email if user else None,
+#                 "phone": user.phone if user else None,
+#                 "counsellor_id": session.conducted_by.id if session.conducted_by else None,
+#                 "counsellor_name": (
+#                     f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
+#                     if session.conducted_by else None
+#                 ),
+#             })
+
+#         # ============================================
+#         # 🔹 SORT
+#         # ============================================
+#         def parse_time(t):
+#             try:
+#                 return datetime.strptime(str(t), "%I:%M %p")
+#             except:
+#                 return datetime.strptime(str(t), "%H:%M:%S")
+
+#         response_data = sorted(
+#             response_data,
+#             key=lambda x: parse_time(x["start_time"])
+#         )
+
+#         return Response({
+#             "success": True,
+#             "date": date,
+#             "count": len(response_data),
+#             "data": response_data
+#         }, status=status.HTTP_200_OK) 
+
 class BookedRescheduledSlotsByDateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -396,7 +510,9 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
         # ============================================
         # 🔹 NORMAL BOOKINGS
         # ============================================
-        bookings = Booking.objects.select_related("slot", "student__user", "slot__counsellor").filter(
+        bookings = Booking.objects.select_related(
+            "slot", "student__user", "slot__counsellor"
+        ).filter(
             slot__date=date,
             status__in=["booked", "rescheduled"],
             slot__is_deleted=False
@@ -407,7 +523,7 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
             if not slot:
                 continue
 
-            used_slot_ids.add(slot.id)  # ✅ mark used
+            used_slot_ids.add(slot.id)
 
             response_data.append({
                 "type": "normal",
@@ -415,6 +531,7 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
                 "date": slot.date,
                 "start_time": slot.start_time,
                 "end_time": slot.end_time,
+                "mode": slot.mode,  # ✅ added for clarity
                 "is_handholding_session_available": slot.is_handholding_session_available,
                 "status": booking.status,
                 "student_id": booking.student.id,
@@ -457,12 +574,27 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
             participant = session.handholding_participant
             user = participant.user if participant else None
 
+            # ============================================
+            # 🔒 MODE FILTER (MAIN LOGIC)
+            # ============================================
+            preferred_mode = (
+                participant.preferred_counselling_mode
+                if participant else None
+            )
+            slot_mode = session_slot.mode
+
+            # 👉 If user is ONLINE → allow only online slots
+            if preferred_mode == "online" and slot_mode != "online":
+                continue
+            # 👉 If OFFLINE → allow both (no restriction)
+
             response_data.append({
                 "type": "handholding",
                 "slot_id": session_slot.id,
                 "date": session_slot.date,
                 "start_time": session_slot.start_time,
                 "end_time": session_slot.end_time,
+                "mode": session_slot.mode,  # ✅ added
                 "is_handholding_session_available": session_slot.is_handholding_session_available,
                 "status": session.status,
                 "participant_id": participant.id if participant else None,
@@ -497,8 +629,8 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
             "date": date,
             "count": len(response_data),
             "data": response_data
-        }, status=status.HTTP_200_OK) 
-        
+        }, status=200)
+       
               
 # class BookHandHoldingSessionAPIView(APIView):
 #     permission_classes = [IsAuthenticated]
@@ -2285,6 +2417,21 @@ class GenerateCertificateAPIView(APIView):
                 continue
 
             user = participant.user
+            
+            # =========================
+            # 💰 CHECK PAYMENT STATUS
+            # =========================
+            is_fully_paid = Payment.objects.filter(
+                user=user,
+                status="fully_paid"
+            ).exists()
+
+            if not is_fully_paid:
+                certificates.append({
+                    "participant_id": pid,
+                    "error": "Payment not completed (must be fully paid)"
+                })
+                continue
 
             # =========================
             # 🖼 LOAD TEMPLATE
@@ -2388,11 +2535,35 @@ class GenerateCertificateAPIView(APIView):
                 )
             })
 
-        return Response({
-            "success": True,
-            "message": "Certificates generated successfully",
-            "data": certificates
-        }, status=201)
+        # return Response({
+        #     "success": True,
+        #     "message": "Certificates generated successfully",
+        #     "data": certificates
+        # }, status=201)
+        success_count = len([c for c in certificates if "certificate_file" in c])
+        error_count = len([c for c in certificates if "error" in c])
+
+        # 🎯 Decide message + status
+        if success_count == 0 and error_count > 0:
+            return Response({
+                "success": False,
+                "message": "Payment not completed for selected participants",
+                "data": certificates
+            }, status=400)
+
+        elif success_count > 0 and error_count > 0:
+            return Response({
+                "success": True,
+                "message": "Some certificates generated, some failed due to payment issues",
+                "data": certificates
+            }, status=201)
+
+        else:
+            return Response({
+                "success": True,
+                "message": "Certificates generated successfully",
+                "data": certificates
+            }, status=201)
         
 class IssuedCertificateAPIView(APIView):
     permission_classes = [IsAuthenticated]
