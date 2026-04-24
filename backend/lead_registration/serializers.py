@@ -132,20 +132,46 @@ class LeadSerializer(serializers.ModelSerializer):
         except Exception:
             return None
         
+    # def get_package_detail(self, obj):
+    #     try:
+    #         user = User.objects.filter(email=obj.email).first()
+    #         if not user:
+    #             return None
+
+    #         upp = UserProgramPackage.objects.filter(user=user).select_related('package').first()
+    #         if not upp:
+    #             return None
+
+    #         return LeadPackageSerializer(upp.package).data
+
+
+    #     except Exception:
+    #         return None
+    
     def get_package_detail(self, obj):
         try:
-            user = User.objects.filter(email=obj.email).first()
+            if not obj.email:
+                return None
+
+            user = User.objects.filter(email__iexact=obj.email.strip()).first()
             if not user:
                 return None
 
-            upp = UserProgramPackage.objects.filter(user=user).select_related('package').first()
-            if not upp:
+            upp = (
+                UserProgramPackage.objects
+                .filter(user=user)
+                .select_related('package')
+                .order_by('-id')
+                .first()
+            )
+
+            if not upp or not upp.package:
                 return None
 
             return LeadPackageSerializer(upp.package).data
 
-
-        except Exception:
+        except Exception as e:
+            print("PACKAGE ERROR:", e)
             return None
     
     def get_handholding_details(self, obj):
