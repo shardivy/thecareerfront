@@ -1136,7 +1136,9 @@ class ProfileUpdateAPIView(APIView):
             .filter(user=user)\
             .order_by("-id")\
             .first()
+
         print("DEBUG UPP:", upp) 
+
         if upp:
             response_data.update({
                 "program_id": upp.program.id if upp.program else None,
@@ -1157,21 +1159,23 @@ class ProfileUpdateAPIView(APIView):
                 "engineering_test_analysis": False
             })
 
-            payments = Payment.objects.filter(user=user)
-            response_data["payments"] = [
-                {
-                    "payment_id": payment.id,
-                    "amount": payment.amount,
-                    "payment_type": payment.payment_type,
-                    "method": payment.method,
-                    "transaction_id": payment.transaction_id,
-                    "proof_file": request.build_absolute_uri(payment.proof_file.url)
-                    if payment.proof_file else None,
-                    "status": payment.status,
-                    "created_at": payment.created_at
-                }
-                for payment in payments
-            ]
+        # ✅ MOVE THIS OUTSIDE
+        payments = Payment.objects.filter(user=user).order_by("-created_at")
+
+        response_data["payments"] = [
+            {
+                "payment_id": payment.id,
+                "amount": payment.amount,
+                "payment_type": payment.payment_type,
+                "method": payment.method,
+                "transaction_id": payment.transaction_id,
+                "proof_file": request.build_absolute_uri(payment.proof_file.url)
+                if payment.proof_file else None,
+                "status": payment.status,
+                "created_at": payment.created_at
+            }
+            for payment in payments
+        ]
 
         return Response(response_data)
     
