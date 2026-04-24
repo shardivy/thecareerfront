@@ -1131,8 +1131,12 @@ class ProfileUpdateAPIView(APIView):
         #         })
         #     else:
         #         response_data["aptitude_test"] = False
-        upp = UserProgramPackage.objects.select_related("package", "program").filter(user=user).first()
-
+        # upp = UserProgramPackage.objects.select_related("package", "program").filter(user=user).first()
+        upp = UserProgramPackage.objects.select_related("package", "program")\
+            .filter(user=user)\
+            .order_by("-id")\
+            .first()
+        print("DEBUG UPP:", upp) 
         if upp:
             response_data.update({
                 "program_id": upp.program.id if upp.program else None,
@@ -1143,6 +1147,7 @@ class ProfileUpdateAPIView(APIView):
                 "engineering_test_analysis": upp.package.engineering_test_analysis if upp.package else False
             })
         else:
+            print("❌ No valid package found for user:", user.id)
             response_data.update({
                 "program_id": None,
                 "program": None,
