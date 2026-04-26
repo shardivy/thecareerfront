@@ -351,11 +351,11 @@ class CompletedExamReportStudentIDAPIView(APIView):
             # File URL
             file_url = None
             if report.file_path:
-                pdf_url = reverse(
-                    "report-pdf",
-                    kwargs={"report_id": report.id}
-                )
-                file_url = request.build_absolute_uri(pdf_url)
+                try:
+                    pdf_url = reverse("report-pdf", kwargs={"report_id": report.id})
+                    file_url = request.build_absolute_uri(pdf_url)
+                except Exception:
+                    file_url = None
 
             response_data.append({
                 "id": report.id,
@@ -367,11 +367,15 @@ class CompletedExamReportStudentIDAPIView(APIView):
                 "email": user.email,
                 "phone": getattr(user, "phone", None),
 
-                "program_id": user_program.program.id if user_program else None,
-                "program": user_program.program.name if user_program else None,
+                # "program_id": user_program.program.id if user_program else None,
+                # "program": user_program.program.name if user_program else None,
+                "program_id": user_program.program.id if user_program and user_program.program else None,
+                "program": user_program.program.name if user_program and user_program.program else None,
                 
-                "package_id": user_program.package.id if user_program else None,
-                "package": user_program.package.name if user_program else None,
+                # "package_id": user_program.package.id if user_program else None,
+                # "package": user_program.package.name if user_program else None,
+                "package_id": user_program.package.id if user_program and user_program.package else None,
+                "package": user_program.package.name if user_program and user_program.package else None,
 
                 "exam_id": report.exam.id if report.exam else None,
                 "exam": report.exam.name if report.exam else None,

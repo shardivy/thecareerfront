@@ -298,6 +298,31 @@ INSTALLED_APPS = [
 ]
 
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+
+    'handlers': {
+        'file': {
+            'level': 'ERROR',
+            'class': 'logging.FileHandler',
+            'filename': 'debug.log',
+        },
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+
+    'loggers': {
+        'lead_registration': {
+            'handlers': ['file', 'console'],
+            'level': 'ERROR',
+            'propagate': True,
+        },
+    },
+}
+
+
 # =========================
 # MIDDLEWARE
 # =========================
