@@ -18,6 +18,8 @@ const AptitudeDetails = () => {
 
   const isAptitude = location.state?.isAptitude;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const fromProgramPage = location.state?.fromProgramPage;
+  const fromWelcomePage = location.state?.fromWelcomePage;
 const videoRef = useRef(null);
 
   const toArray = (obj, key) => {
@@ -58,6 +60,7 @@ const videoRef = useRef(null);
   }, [packageId, dispatch]);
 
   return (
+    
     <div
       style={{
         minHeight: "100vh",
@@ -68,6 +71,54 @@ const videoRef = useRef(null);
         gap: isMobile ? "0px" : "20px",
       }}
     >
+
+{fromProgramPage && (
+  <div
+    style={{
+      position: "absolute",
+      top: isMobile ? "12px" : "20px",
+      left: isMobile ? "16px" : "15px",
+      zIndex: 20,
+    }}
+  >
+    <Button
+      type="link"
+      onClick={() => navigate("/student/program")}
+      style={{
+        padding: 0,
+        fontWeight: 600,
+        fontSize: isMobile ? 14 : 16,
+        height: "auto",
+      }}
+    >
+      ← Back
+    </Button>
+  </div>
+)}
+
+{fromWelcomePage && (
+  <div
+    style={{
+      position: "absolute",
+      top: isMobile ? "12px" : "20px",
+      left: isMobile ? "16px" : "15px",
+      zIndex: 20,
+    }}
+  >
+    <Button
+      type="link"
+      onClick={() => navigate("/welcome-enquiry")}
+      style={{
+        padding: 0,
+        fontWeight: 600,
+        fontSize: isMobile ? 14 : 16,
+        height: "auto",
+      }}
+    >
+      ← Back
+    </Button>
+  </div>
+)}
       <div
         style={{
           width: isMobile ? "100%" : "45%",   // ✅ reduced width

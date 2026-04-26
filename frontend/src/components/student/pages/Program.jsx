@@ -411,18 +411,23 @@ const Program = () => {
                               flexDirection: screens.xs ? "column" : "row",
                             }}
                           >
-                            <Button
-                              block
-                              onClick={() => {
-                                if (pkg.link_url) {
-                                  window.open(pkg.link_url, "_blank", "noopener,noreferrer");
-                                } else {
-                                  window.location.href = "#";
-                                }
-                              }}
-                            >
-                              Learn More
-                            </Button>
+                           <Button
+  block
+  onClick={() => {
+    navigate("/aptitude-details", {
+      state: {
+          fromProgramPage: true,
+        programId: pkg.program?.id,
+        programName: selectedProgram,
+        packageId: pkg.id,
+        packageName: pkg.name,
+        isAptitude: pkg.aptitude_test,
+      },
+    });
+  }}
+>
+  Learn More
+</Button>
 
                             <Button
                               type="primary"
@@ -440,7 +445,8 @@ const Program = () => {
                                 });
                               }}
                             >
-                              Select Service
+                              {/* Select Service */}
+                              Register Now
                             </Button>
                           </div>
                         </Card>
@@ -670,16 +676,23 @@ const Program = () => {
     Learn More
   </Button> */}
 
-                            <Button
-                              block
-                              onClick={() => {
-                                const url = pkg?.link_url || "https://abhinavcareerscope.com/";
-
-                                window.open(url, "_blank", "noopener,noreferrer");
-                              }}
-                            >
-                              Learn More
-                            </Button>
+                                                 <Button
+  block
+  onClick={() => {
+    navigate("/aptitude-details", {
+      state: {
+          fromProgramPage: true,
+        programId: pkg.program?.id,
+        programName: selectedProgram,
+        packageId: pkg.id,
+        packageName: pkg.name,
+        isAptitude: pkg.aptitude_test,
+      },
+    });
+  }}
+>
+  Learn More
+</Button>
 
                             {/* Select / Selected Button */}
                             {profile?.package_id === pkg.id ? (

@@ -191,6 +191,7 @@ const WelcomeEnquiry = () => {
 onClick={() => {
   navigate("/aptitude-details", {
     state: {
+      fromWelcomePage: true,
       programId: activeProgramId,
       programName: activeProgramName,
       packageId: pkg.id,
