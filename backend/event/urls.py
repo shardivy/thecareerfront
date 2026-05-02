@@ -1,6 +1,6 @@
 from django.urls import path
 
-from event.views import AdvertisementCreateAPIView, AdvertisementDashboardCountAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateDashboardCountAPIView, CertificateTemplateAPIView, CounsellorStudentBookingByIdAPIView, CreateHandHoldingSessionAPIView, DashboardStatsAPIView, EventCreateAPIView, EventDashboardCountAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkEventCompletedAPIView, MarkSessionCompletedAPIView, ParticipantCertificateAPIView, ParticipantSessionListAPIView, ParticipantSessionProgressAPIView, PendingCertificateParticipantsAPIView, RescheduleSessionAPIView, SendReminderByEventAPIView
+from event.views import AdvertisementCreateAPIView, AdvertisementDashboardCountAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateDashboardCountAPIView, CertificateTemplateAPIView, CounsellorStudentBookingByIdAPIView, CreateHandHoldingSessionAPIView, DashboardStatsAPIView, EventCreateAPIView, EventDashboardCountAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkEventCompletedAPIView, MarkSessionCompletedAPIView, ParticipantCertificateAPIView, ParticipantSessionListAPIView, ParticipantSessionProgressAPIView, PendingCertificateParticipantsAPIView, RescheduleSessionAPIView, SendHandHoldingReminderAPIView, SendReminderByEventAPIView
 
 urlpatterns = [
     path('handholding/register/', HandHoldingRegisterAPIView.as_view(), name='handholding-register'),
@@ -21,6 +21,11 @@ urlpatterns = [
     path('participant-session-progress/<int:participant_id>/',ParticipantSessionProgressAPIView.as_view(),name='participant-session-progress'),
     
     path("handholding/counsellor-bookings/<int:counsellor_id>/", CounsellorStudentBookingByIdAPIView.as_view()),
+    path(
+        "send-handholding-reminder/<int:participant_id>/<int:session_no>/",
+        SendHandHoldingReminderAPIView.as_view(),
+        name="send-handholding-reminder"
+    ),
     
     # ================ Advertisement URLs ====================
     

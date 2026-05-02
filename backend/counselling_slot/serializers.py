@@ -314,6 +314,24 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             "engineering_test_analysis",
         ]
         
+    # def get_report_file(self, obj):
+    #     request = self.context.get("request")
+
+    #     report = (
+    #         Report.objects
+    #         .filter(user=obj.student.user)
+    #         .order_by("-uploaded_at")
+    #         .first()
+    #     )
+
+    #     if report and report.file_path:
+    #         pdf_url = reverse(
+    #             "report-pdf",
+    #             kwargs={"report_id": report.id}
+    #         )
+    #         return request.build_absolute_uri(pdf_url)
+
+    #     return None
     def get_report_file(self, obj):
         request = self.context.get("request")
 
@@ -324,14 +342,40 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             .first()
         )
 
-        if report and report.file_path:
-            pdf_url = reverse(
-                "report-pdf",
-                kwargs={"report_id": report.id}
-            )
-            return request.build_absolute_uri(pdf_url)
+        if not report or not report.file_path:
+            return None
 
-        return None
+        try:
+            # Actual uploaded filename
+            file_name = os.path.basename(
+                report.file_path.name
+            )
+
+            # File extension
+            file_extension = os.path.splitext(
+                file_name
+            )[1].lower()
+
+            # ==========================================
+            # PDF → Preview Route
+            # ==========================================
+            if file_extension == ".pdf":
+                return request.build_absolute_uri(
+                    f"/api/report/report/pdf/{report.id}/"
+                )
+
+            # ==========================================
+            # Other Files → Direct Media URL
+            # Excel / Word / ZIP / DOC / XLSX etc.
+            # ==========================================
+            return request.build_absolute_uri(
+                report.file_path.url
+            )
+
+        except Exception:
+            return None
+     
+     
         
     def get_student_id(self, obj):
         return obj.student.id

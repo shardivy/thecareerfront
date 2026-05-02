@@ -1,5 +1,10 @@
 from django.core.mail import send_mail
 from django.conf import settings
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from io import BytesIO
+from datetime import datetime
+from textwrap import wrap
 
 def send_payment_reject_email(email):
     send_mail(
@@ -183,3 +188,88 @@ Thank you.
         [user.email],
         fail_silently=False
     )
+    
+
+def generate_receipt_pdf(name, service_name, amount, date=None):
+    buffer = BytesIO()
+
+    if not date:
+        date = datetime.now().strftime("%d/%m/%Y")
+
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # =========================
+    # FINAL BORDER (DRAW LAST)
+    # =========================
+    margin = 30
+    pdf.setLineWidth(1)
+    pdf.rect(margin, margin, width - 2 * margin, height - 2 * margin)
+
+    # =========================
+    # HEADER
+    # =========================
+    pdf.setFont("Helvetica-Bold", 18)
+    pdf.drawCentredString(width / 2, height - 60, "ABHINAV CAREER SCOPE")
+
+    pdf.setFont("Helvetica", 10)
+
+    address_line1 = "Bhagwati Maestros, Miller 403, LMD Chowk, Bavdhan, Pune, Maharashtra 411021, India"
+    address_line2 = "Mobile: 9922695424 | Email: abhinavcareerscope@gmail.com | Website: abhinavcareerscope.com"
+
+    pdf.drawCentredString(width / 2, height - 80, address_line1)
+    pdf.drawCentredString(width / 2, height - 95, address_line2)
+
+    pdf.line(50, height - 110, width - 50, height - 110)
+
+    # =========================
+    # TITLE
+    # =========================
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawCentredString(width / 2, height - 140, "RECEIPT")
+
+    # =========================
+    # BODY
+    # =========================
+    amount_text = f"₹{amount}"
+
+    text = (
+        f"Received with thanks from {name}, the sum of Rupees {amount_text} only, "
+        f"on {date}, towards counseling services provided for {service_name}, "
+        f"including guidance, consultation, and support as required."
+    )
+
+    pdf.setFont("Helvetica", 11)
+
+    lines = wrap(text, 95)
+
+    y = height - 180
+    for line in lines:
+        pdf.drawString(60, y, line)
+        y -= 18
+
+    # =========================
+    # MOVE DOWN AFTER TEXT FINISH
+    # =========================
+    y -= 20  # space after paragraph
+
+    # =========================
+    # TOTAL (after text)
+    # =========================
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawString(60, y, f"Total: ₹{amount}/-")
+
+    # =========================
+    # SIGNATURE (same level right side)
+    # =========================
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawRightString(width - 60, y, "Reena Bhutada")
+
+    pdf.setFont("Helvetica", 10)
+    pdf.drawRightString(width - 60, y - 20, "Career Counsellor")
+
+    pdf.showPage()
+    pdf.save()
+
+    buffer.seek(0)
+    return buffer

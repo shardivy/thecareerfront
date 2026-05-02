@@ -7,7 +7,7 @@ from accounts.models import User
 from event.models import HandHoldingParticipant
 from counselling_slot.models import Booking
 from counselling_slot.tasks import create_system_notification
-from report.models import Report
+from report.models import Report, Review
 from lead_registration.models import StudentProfile
 from lead_registration.serializers import PaymentDetailSerializer
 from rest_framework.views import APIView
@@ -32,7 +32,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from payment.models import Payment, PaymentLog
 from payment.serializers import PaymentCreateSerializer, PaymentListSerializer, PaymentLogSerializer, PaymentResponseSerializer, StudentPaymentDetailSerializer
-from payment.utils import send_payment_approved_email, send_payment_created_email, send_payment_reject_email, send_payment_reject_whatsapp, send_payment_rejected_email, send_payment_reminder_email, send_payment_updated_email
+from payment.utils import generate_receipt_pdf, send_payment_approved_email, send_payment_created_email, send_payment_reject_email, send_payment_reject_whatsapp, send_payment_rejected_email, send_payment_reminder_email, send_payment_updated_email
 from program_package.models import Package, UserProgramPackage
 
 User = get_user_model()
@@ -56,28 +56,86 @@ class PaymentCreateAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
     
+    # def unlock_report_if_paid(self, payment):
+    #     """
+    #     Unlock report if total payment reaches package price
+    #     """
+
+    #     from django.db.models import Sum
+
+    #     total_paid = (
+    #         Payment.objects.filter(
+    #             user=payment.user,
+    #             package=payment.package
+    #         ).aggregate(total=Sum("amount"))["total"] or 0
+    #     )
+
+    #     package_price = payment.package.price
+
+    #     # ✅ Fully paid condition
+    #     if total_paid >= package_price:
+
+    #         Report.objects.filter(
+    #             user=payment.user
+    #         ).update(report_status="received_unlocked")
+    
     def unlock_report_if_paid(self, payment):
         """
-        Unlock report if total payment reaches package price
+        Unlock report ONLY if:
+        ✅ Total payment >= package price
+        ✅ Review exists for user
+        ✅ Review status = submitted
+
+        ❌ Else keep locked
         """
 
         from django.db.models import Sum
 
+        # =========================
+        # 💳 Total Paid
+        # =========================
         total_paid = (
             Payment.objects.filter(
                 user=payment.user,
                 package=payment.package
-            ).aggregate(total=Sum("amount"))["total"] or 0
+            ).aggregate(
+                total=Sum("amount")
+            )["total"] or 0
         )
 
-        package_price = payment.package.price
+        package_price = payment.package.price or 0
 
-        # ✅ Fully paid condition
-        if total_paid >= package_price:
+        # =========================
+        # 📝 Submitted Review Check
+        # =========================
+        submitted_review = (
+            Review.objects.filter(
+                user=payment.user,
+                review_status="submitted"
+            ).exists()
+        )
+
+        # =========================
+        # 🔓 Unlock Condition
+        # =========================
+        if (
+            total_paid >= package_price
+            and submitted_review
+        ):
 
             Report.objects.filter(
                 user=payment.user
-            ).update(report_status="received_unlocked")
+            ).update(
+                report_status="received_unlocked"
+            )
+
+        else:
+            # 🔒 Keep locked
+            Report.objects.filter(
+                user=payment.user
+            ).update(
+                report_status="received_locked"
+            )
 
     # def post(self, request):
     #     serializer = PaymentCreateSerializer(
@@ -821,6 +879,16 @@ class VerifyPaymentAPIView(APIView):
                     payment.amount = Decimal("0")
                     payment.verified_by = request.user
                     payment.save(update_fields=["status", "amount", "verified_by"])
+                    
+                    # ======================================
+                    # 🔒 LOCK USER REPORT IF PREVIOUSLY UNLOCKED
+                    # ======================================
+                    Report.objects.filter(
+                        user=payment.user,
+                        report_status="received_unlocked"
+                    ).update(
+                        report_status="received_locked"
+                    )
 
                     # ======================================
                     # ✅ UPDATE PREVIOUS PAYMENTS
@@ -2243,3 +2311,72 @@ class PendingHandHoldingParticipantsAPIView(APIView):
             "count": len(result),
             "data": result
         })
+        
+class GenerateReceiptByStudentAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+
+        # =========================
+        # GET STUDENT
+        # =========================
+        student = StudentProfile.objects.filter(
+            id=student_id
+        ).select_related("user").first()
+
+        if not student:
+            return Response({"message": "Student not found"}, status=404)
+
+        user = student.user
+
+        # =========================
+        # GET LATEST BOOKING
+        # =========================
+        booking = (
+            Booking.objects
+            .filter(student=student)
+            .select_related("slot")
+            .order_by("-id")
+            .first()
+        )
+
+        if not booking:
+            return Response({"message": "No booking found"}, status=404)
+
+        # =========================
+        # PACKAGE PRICE (FINAL FIX)
+        # =========================
+        user_package = UserProgramPackage.objects.filter(user=user).select_related("package").first()
+
+        if not user_package or not user_package.package:
+            return Response({"message": "Package not assigned"}, status=404)
+
+        package_price = user_package.package.price
+
+        # =========================
+        # SERVICE NAME
+        # =========================
+        service_name = (
+            booking.slot.mode
+            if booking.slot
+            else "Counselling Services"
+        )
+
+        # =========================
+        # GENERATE PDF
+        # =========================
+        pdf_buffer = generate_receipt_pdf(
+            name=f"{user.first_name} {user.last_name}",
+            service_name=service_name,
+            amount=package_price,
+            date=booking.date.strftime("%d/%m/%Y") if booking.date else None
+        )
+
+        # =========================
+        # DOWNLOAD
+        # =========================
+        return FileResponse(
+            pdf_buffer,
+            as_attachment=True,
+            filename=f"receipt_student_{student_id}.pdf"
+        )

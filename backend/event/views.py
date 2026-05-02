@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.db import models
 from django.db.models import F, Count, Q, Exists, OuterRef, Subquery, Sum, Value
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from django.db import transaction
 from django.utils import timezone
 from django.db.models import Max
@@ -15,13 +15,16 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 import io
 import os
 from django.conf import settings
+from django.core.mail import EmailMessage
 
 
 from accounts.models import Role, User
+from accounts.utils import generate_password
+from report.models import Report
 from counselling_slot.serializers import CounsellorStudentBookingSerializer
 from event.tasks import send_event_reminder_by_id
-from event.utils import get_font_path
-from counselling_slot.models import Booking, Counsellor, Slot
+from event.utils import generate_handholding_reminder, get_font_path
+from counselling_slot.models import Booking, BookingCounsellor, Counsellor, Slot
 from event.serializers import AdvertisementSerializer, CertificateSerializer, CertificateTemplateSerializer, HandHoldingParticipantSerializer, HandHoldingParticipantSessionSerializer, HandHoldingSessionSerializer
 from program_package.models import Program, UserProgramPackage
 from event.models import Advertisement, Certificate, CertificateTemplate, Event, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
@@ -30,12 +33,15 @@ from lead_registration.models import Lead, StudentProfile
 
 # ===================== HandHolding Registration API =====================
 
+
 # class HandHoldingRegisterAPIView(APIView):
 
 #     def post(self, request):
 #         data = request.data
 
+#         # =========================
 #         # ✅ Get Hand Holding Program
+#         # =========================
 #         try:
 #             program = Program.objects.get(name__iexact="Hand Holding Program")
 #         except Program.DoesNotExist:
@@ -44,27 +50,62 @@ from lead_registration.models import Lead, StudentProfile
 #                 status=status.HTTP_400_BAD_REQUEST
 #             )
 
+#         # =========================
+#         # ✅ Get Role (HANDHOLDING)
+#         # =========================
+#         try:
+#             role = Role.objects.get(name__iexact="handholding")
+#         except Role.DoesNotExist:
+#             return Response(
+#                 {"error": "Handholding role not found"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # =========================
+#         # ✅ CREATE USER
+#         # =========================
+#         user = User.objects.create(
+#             first_name=data.get("first_name"),
+#             last_name=data.get("last_name"),
+#             email=data.get("email"),
+#             phone=data.get("mobile"),
+#             role=role
+#         )
+
+#         # Optional: set password
+#         if data.get("password"):
+#             user.set_password(data.get("password"))
+#             user.save()
+
+#         # =========================
 #         # ✅ Create Lead
+#         # =========================
 #         lead = Lead.objects.create(
 #             first_name=data.get("first_name"),
 #             last_name=data.get("last_name"),
 #             email=data.get("email"),
 #             phone=data.get("mobile"),
+#             date =timezone.now().date(),
 #             source="website",
 #             status="enquiry",
-#             program=program   # 👈 AUTO SET HERE
+#             program=program
 #         )
 
+#         # =========================
 #         # ✅ Create Payment
+#         # =========================
 #         payment = None
 #         if request.FILES.get("payment"):
 #             payment = Payment.objects.create(
-#                 proof_file=request.FILES.get("payment")
+#                 proof_file=request.FILES.get("payment"),
+#                 user=user   # ✅ IMPORTANT (link user)
 #             )
 
+#         # =========================
 #         # ✅ Create Participant
+#         # =========================
 #         participant = HandHoldingParticipant.objects.create(
-#             user=None,
+#             user=user,  # ✅ LINK USER HERE
 #             payment=payment,
 #             email=data.get("email"),
 #             mobile=data.get("mobile"),
@@ -78,133 +119,184 @@ from lead_registration.models import Lead, StudentProfile
 #         return Response({
 #             "message": "Registration successful",
 #             "lead_id": lead.id,
+#             "user_id": user.id,
 #             "participant_id": participant.id
 #         }, status=status.HTTP_201_CREATED)
-        
-#     # ✅ GET API (NEW)
-#     def get(self, request):
 
-#         participants = HandHoldingParticipant.objects.all().order_by("-created_at")
 
-#         data = []
-
-#         for p in participants:
-#             data.append({
-#                 "participant_id": p.id,
-#                 "email": p.email,
-#                 "mobile": p.mobile,
-#                 "full_address": p.full_address,
-#                 "city": p.city,
-#                 "preferred_counselling_mode": p.preferred_counselling_mode,
-#                 "status": p.status,
-#                 "total_sessions": p.total_sessions,
-#                 "completed_sessions": p.completed_sessions,
-
-#                 # ✅ File URLs
-#                 "photo": p.photo.url if p.photo else None,
-#                 "resume": p.resume_file.url if p.resume_file else None,
-
-#                 # ✅ Payment file
-#                 "payment": p.payment.payment_file.url if p.payment else None,
-
-#                 # ✅ Created date
-#                 "created_at": p.created_at
-#             })
-
-#         return Response({
-#             "count": len(data),
-#             "data": data
-#         }, status=status.HTTP_200_OK)
- 
 class HandHoldingRegisterAPIView(APIView):
 
+    @transaction.atomic
     def post(self, request):
-        data = request.data
-
-        # =========================
-        # ✅ Get Hand Holding Program
-        # =========================
         try:
-            program = Program.objects.get(name__iexact="Hand Holding Program")
-        except Program.DoesNotExist:
-            return Response(
-                {"error": "Hand Holding program not found"},
-                status=status.HTTP_400_BAD_REQUEST
+            data = request.data
+
+            # =========================
+            # ✅ Get Hand Holding Program
+            # =========================
+            try:
+                program = Program.objects.get(
+                    name__icontains="hand holding"
+                )
+            except Program.DoesNotExist:
+                return Response(
+                    {"error": "Hand Holding program not found"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # =========================
+            # ✅ Get Role
+            # =========================
+            try:
+                role = Role.objects.get(
+                    name__iexact="handholding"
+                )
+            except Role.DoesNotExist:
+                return Response(
+                    {"error": "Handholding role not found"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # =========================
+            # ✅ VALIDATE REQUIRED FIELDS
+            # =========================
+            required_fields = [
+                "first_name",
+                "email",
+                "mobile"
+            ]
+
+            for field in required_fields:
+                if not data.get(field):
+                    return Response(
+                        {"error": f"{field} is required"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # =========================
+            # ✅ PASSWORD VALIDATION
+            # =========================
+            password = data.get("password")
+            confirm_password = data.get("confirm_password")
+
+            if password or confirm_password:
+                if password != confirm_password:
+                    return Response(
+                        {"error": "Passwords do not match"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # =========================
+            # ✅ CHECK EXISTING USER
+            # =========================
+            user, created = User.objects.get_or_create(
+                email=data.get("email"),
+                defaults={
+                    "first_name": data.get("first_name"),
+                    "last_name": data.get("last_name", ""),
+                    "phone": data.get("mobile"),
+                    "role": role,
+                    "is_active": True
+                }
             )
 
-        # =========================
-        # ✅ Get Role (HANDHOLDING)
-        # =========================
-        try:
-            role = Role.objects.get(name__iexact="handholding")
-        except Role.DoesNotExist:
-            return Response(
-                {"error": "Handholding role not found"},
-                status=status.HTTP_400_BAD_REQUEST
+            if created:
+                user_password = password or generate_password()
+                user.set_password(user_password)
+                user.save()
+            else:
+                user.first_name = data.get("first_name")
+                user.last_name = data.get("last_name", "")
+                user.phone = data.get("mobile")
+                user.role = role
+                user.save()
+
+            # =========================
+            # ✅ CREATE LEAD
+            # =========================
+            lead = Lead.objects.create(
+                first_name=data.get("first_name"),
+                last_name=data.get("last_name", ""),
+                email=data.get("email"),
+                phone=data.get("mobile"),
+                date=timezone.now().date(),
+                source="website",
+                status="enquiry",
+                program=program,
+
+                # OPTIONAL FIELDS FOR HAND HOLDING
+                study_class=None,
+                specialization=None
             )
 
-        # =========================
-        # ✅ CREATE USER
-        # =========================
-        user = User.objects.create(
-            first_name=data.get("first_name"),
-            last_name=data.get("last_name"),
-            email=data.get("email"),
-            phone=data.get("mobile"),
-            role=role
-        )
-
-        # Optional: set password
-        if data.get("password"):
-            user.set_password(data.get("password"))
-            user.save()
-
-        # =========================
-        # ✅ Create Lead
-        # =========================
-        lead = Lead.objects.create(
-            first_name=data.get("first_name"),
-            last_name=data.get("last_name"),
-            email=data.get("email"),
-            phone=data.get("mobile"),
-            date =timezone.now().date(),
-            source="website",
-            status="enquiry",
-            program=program
-        )
-
-        # =========================
-        # ✅ Create Payment
-        # =========================
-        payment = None
-        if request.FILES.get("payment"):
-            payment = Payment.objects.create(
-                proof_file=request.FILES.get("payment"),
-                user=user   # ✅ IMPORTANT (link user)
+            # =========================
+            # ✅ ASSIGN PROGRAM
+            # =========================
+            UserProgramPackage.objects.get_or_create(
+                user=user,
+                program=program,
+                defaults={
+                    "assigned_by": "system"
+                }
             )
 
-        # =========================
-        # ✅ Create Participant
-        # =========================
-        participant = HandHoldingParticipant.objects.create(
-            user=user,  # ✅ LINK USER HERE
-            payment=payment,
-            email=data.get("email"),
-            mobile=data.get("mobile"),
-            full_address=data.get("full_address"),
-            city=data.get("city"),
-            preferred_counselling_mode=data.get("preferred_counselling_mode"),
-            photo=request.FILES.get("photo"),
-            resume_file=request.FILES.get("resume"),
-        )
+            # =========================
+            # ✅ CREATE PAYMENT
+            # =========================
+            # payment = None
 
-        return Response({
-            "message": "Registration successful",
-            "lead_id": lead.id,
-            "user_id": user.id,
-            "participant_id": participant.id
-        }, status=status.HTTP_201_CREATED)
- 
+            # if request.FILES.get("payment"):
+            #     payment = Payment.objects.create(
+            #         user=user,
+            #         proof_file=request.FILES.get("payment"),
+            #         payment_type=data.get("payment_type"),
+            #         method=data.get("payment_method"),
+            #         transaction_id=data.get("transaction_id"),
+            #         amount=data.get("amount") or 0,
+            #         status="verification_pending",
+            #         payment_date=timezone.now().date()
+            #     )
+
+            # # =========================
+            # # ✅ CREATE / UPDATE PARTICIPANT
+            # # =========================
+            # participant, _ = HandHoldingParticipant.objects.update_or_create(
+            #     user=user,
+            #     defaults={
+            #         "payment": payment,
+            #         "email": data.get("email"),
+            #         "mobile": data.get("mobile"),
+            #         "full_address": data.get("full_address"),
+            #         "city": data.get("city"),
+            #         "preferred_counselling_mode": data.get(
+            #             "preferred_counselling_mode"
+            #         ),
+            #         "photo": request.FILES.get("photo"),
+            #         "resume_file": request.FILES.get("resume"),
+            #     }
+            # )
+
+            # =========================
+            # ✅ SUCCESS RESPONSE
+            # =========================
+            return Response({
+                "message": "Hand Holding registration successful",
+                "lead_id": lead.id,
+                "user_id": user.id,
+                # "participant_id": participant.id,
+                "program_id": program.id,
+                "program_name": program.name,
+                # "payment_id": payment.id if payment else None
+            }, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            import traceback
+            print(traceback.format_exc())
+
+            return Response({
+                "message": "Registration failed",
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
  
         
 class CreateHandHoldingSessionAPIView(APIView):
@@ -539,11 +631,23 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
                 "email": booking.student.user.email,
                 "phone": booking.student.user.phone,
                 "meeting_link": booking.meeting_link,
-                "counsellor_id": slot.counsellor.id if slot.counsellor else None,
-                "counsellor_name": (
-                    f"{slot.counsellor.first_name} {slot.counsellor.last_name}"
-                    if slot.counsellor else None
-                ),
+                # "counsellor_id": slot.counsellor.id if slot.counsellor else None,
+                # "counsellor_name": (
+                #     f"{slot.counsellor.first_name} {slot.counsellor.last_name}"
+                #     if slot.counsellor else None
+                # ),
+                "counsellors": [
+                    {
+                        "counsellor_id": bc.counsellor.id,
+                        "counsellor_name": f"{bc.counsellor.user.first_name} {bc.counsellor.user.last_name}",
+                        "role": bc.role
+                    }
+                    for bc in BookingCounsellor.objects.select_related(
+                        "counsellor__user"
+                    ).filter(
+                        booking=booking
+                    )
+                ],
             })
 
         # ============================================
@@ -603,11 +707,18 @@ class BookedRescheduledSlotsByDateAPIView(APIView):
                 "student_name": f"{user.first_name} {user.last_name}" if user else None,
                 "email": user.email if user else None,
                 "phone": user.phone if user else None,
-                "counsellor_id": session.conducted_by.id if session.conducted_by else None,
-                "counsellor_name": (
-                    f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
-                    if session.conducted_by else None
-                ),
+                # "counsellor_id": session.conducted_by.id if session.conducted_by else None,
+                # "counsellor_name": (
+                #     f"{session.conducted_by.first_name} {session.conducted_by.last_name}"
+                #     if session.conducted_by else None
+                # ),
+                "counsellors": [
+                    {
+                        "counsellor_id": session.conducted_by.id,
+                        "counsellor_name": f"{session.conducted_by.first_name} {session.conducted_by.last_name}",
+                        "role": "lead"
+                    }
+                ] if session.conducted_by else [],
             })
 
         # ============================================
@@ -1606,6 +1717,9 @@ class ParticipantSessionListAPIView(APIView):
             data = []
 
             for session in latest_sessions:
+                
+                report_file = None
+                report_file_name = None
 
                 student = None
                 booking = None
@@ -1619,6 +1733,7 @@ class ParticipantSessionListAPIView(APIView):
                             slot__date=session.session_date.date(),
                             slot__start_time=session.slot.start_time,
                             slot__end_time=session.slot.end_time,
+                            slot__mode=session.slot.mode,
                             status__in=["booked", "rescheduled", "completed"]
                         ).first()
 
@@ -1632,6 +1747,40 @@ class ParticipantSessionListAPIView(APIView):
 
                         if user:
                             student = StudentProfile.objects.filter(user=user).first()
+                            
+                # ==========================================
+                # 🔹 REPORT FILE LOGIC (ADD HERE)
+                # ==========================================
+                if student and student.user:
+
+                    report = (
+                        Report.objects
+                        .filter(user=student.user)
+                        .order_by("-uploaded_at")
+                        .first()
+                    )
+
+                    if report and report.file_path:
+                        try:
+                            report_file_name = os.path.basename(report.file_path.name)
+
+                            file_extension = os.path.splitext(report_file_name)[1].lower()
+
+                            # PDF → preview API
+                            if file_extension == ".pdf":
+                                report_file = request.build_absolute_uri(
+                                    f"/api/report/report/pdf/{report.id}/"
+                                )
+
+                            # Other files → direct media URL
+                            else:
+                                report_file = request.build_absolute_uri(
+                                    report.file_path.url
+                                )
+
+                        except Exception:
+                            report_file = None
+                            report_file_name = None
 
                 # 🔹 counsellor mapping
                 counsellor_obj = None
@@ -1661,12 +1810,27 @@ class ParticipantSessionListAPIView(APIView):
                     "slot_id": session.slot.id if session.slot else None,
                     "start_time": session.slot.start_time if session.slot else None,
                     "end_time": session.slot.end_time if session.slot else None,
+                    "mode": session.slot.mode if session.slot else None,
+                    "report_file": report_file,
+                    "report_file_name": report_file_name,
 
-                    "counsellor_id": counsellor_obj.id if counsellor_obj else None,
-                    "counsellor": (
-                        f"{counsellor_obj.user.first_name} {counsellor_obj.user.last_name}"
-                        if counsellor_obj else None
-                    ),
+                    # "counsellor_id": counsellor_obj.id if counsellor_obj else None,
+                    # "counsellor": (
+                    #     f"{counsellor_obj.user.first_name} {counsellor_obj.user.last_name}"
+                    #     if counsellor_obj else None
+                    # ),
+                    "counsellors": [
+                        {
+                            "counsellor_id": bc.counsellor.id,
+                            "counsellor_name": f"{bc.counsellor.user.first_name} {bc.counsellor.user.last_name}",
+                            "role": bc.role
+                        }
+                        for bc in BookingCounsellor.objects.select_related(
+                            "counsellor__user"
+                        ).filter(
+                            booking=booking
+                        )
+                    ] if booking else [],
 
                     "notes": session.notes
                 })
@@ -1900,63 +2064,241 @@ class CounsellorStudentBookingByIdAPIView(APIView):
                 "message": "Something went wrong",
                 "error": str(e)
             }, status=500)
+            
+            
+class SendHandHoldingReminderAPIView(APIView):
+    """
+    Send reminder email using:
+    - participant_id
+    - session_no
+
+    Only sends for:
+    - booked
+    - rescheduled
+    - not_booked
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, participant_id, session_no):
+
+        # ==========================================
+        # 🔹 GET PARTICIPANT
+        # ==========================================
+        participant = get_object_or_404(
+            HandHoldingParticipant,
+            id=participant_id
+        )
+
+        # ==========================================
+        # 🔹 EMAIL CHECK
+        # ==========================================
+        if not participant.email:
+            return Response(
+                {
+                    "message": "Participant email not found"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ==========================================
+        # 🔹 GET SPECIFIC SESSION BY SESSION NO
+        # ==========================================
+        participant_session = (
+            HandHoldingParticipantSession.objects
+            .filter(
+                handholding_participant=participant,
+                session_no=session_no
+            )
+            .select_related("handholding_session")
+            .first()
+        )
+
+        if not participant_session:
+            return Response(
+                {
+                    "message": f"Session no {session_no} not found for this participant"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ==========================================
+        # 🔹 STATUS VALIDATION
+        # ==========================================
+        allowed_statuses = [
+            "booked",
+            "rescheduled",
+            "not_booked"
+        ]
+
+        if participant_session.status not in allowed_statuses:
+            return Response(
+                {
+                    "message": f"Reminder not allowed for session status '{participant_session.status}'"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ==========================================
+        # 🔹 SESSION DATE CHECK
+        # ==========================================
+        if (
+            participant_session.status in ["booked", "rescheduled"]
+            and not participant_session.session_date
+        ):
+            return Response(
+                {
+                    "message": "Session date not scheduled yet"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # ==========================================
+        # 🔹 GENERATE REMINDER
+        # ==========================================
+        reminder_data = generate_handholding_reminder(
+            participant_session,
+            participant
+        )
+
+        # ==========================================
+        # 🔹 SEND EMAIL
+        # ==========================================
+        try:
+            email = EmailMessage(
+                subject=reminder_data["subject"],
+                body=reminder_data["message"],
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[participant.email],
+            )
+
+            email.send(fail_silently=False)
+
+            print("========== HANDHOLDING REMINDER SENT ==========")
+            print("Participant ID:", participant.id)
+            print("Session ID:", participant_session.id)
+            print("Session No:", participant_session.session_no)
+            print("Session Status:", participant_session.status)
+            print("Recipient:", participant.email)
+            print("===============================================")
+
+        except Exception as e:
+            print("EMAIL ERROR:", str(e))
+
+            return Response(
+                {
+                    "message": "Failed to send reminder email",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        # ==========================================
+        # 🔹 RESPONSE
+        # ==========================================
+        return Response(
+            {
+                "message": "Handholding reminder sent successfully",
+                "participant_id": participant.id,
+                "participant_name": (
+                    f"{participant.user.first_name} {participant.user.last_name}"
+                    if participant.user else None
+                ),
+                "email": participant.email,
+                "mobile": participant.mobile,
+                "preferred_counselling_mode": (
+                    participant.preferred_counselling_mode
+                ),
+                "session_id": participant_session.id,
+                "session_no": participant_session.session_no,
+                "session_date": participant_session.session_date,
+                "session_status": participant_session.status,
+                "subject": reminder_data["subject"],
+                "reminder_text": reminder_data["message"]
+            },
+            status=status.HTTP_200_OK
+        )
 
 
             
 # ============================ Advertisement Views ============================
+# def get_ad_status(data):
+#     today = timezone.now().date()
+#     now_time = datetime.now().time()
+
+#     start_date = data.get("ad_start_date")
+#     end_date = data.get("ad_end_date")
+
+#     # ✅ Convert string → date
+#     try:
+#         if isinstance(start_date, str):
+#             start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+#         if isinstance(end_date, str):
+#             end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+#     except:
+#         start_date = None
+#         end_date = None
+
+#     start_time = data.get("ad_start_time")
+#     end_time = data.get("ad_end_time")
+
+#     # ✅ Convert string → time
+#     def parse_time(t):
+#         try:
+#             return datetime.strptime(t.strip(), "%I:%M %p").time() if t else None
+#         except:
+#             return None
+
+#     start_time = parse_time(start_time)
+#     end_time = parse_time(end_time)
+
+#     # =========================
+#     # 🔥 STATUS LOGIC
+#     # =========================
+#     if start_date and today < start_date:
+#         return "scheduled"
+
+#     if end_date and today > end_date:
+#         return "completed"
+
+#     if start_date and end_date:
+#         if start_date <= today <= end_date:
+
+#             # Same day → check time
+#             if start_date == today:
+#                 if start_time and now_time < start_time:
+#                     return "scheduled"
+
+#             if end_date == today:
+#                 if end_time and now_time > end_time:
+#                     return "completed"
+
+#             return "live"
+
+#     return "scheduled"
 def get_ad_status(data):
-    today = timezone.now().date()
-    now_time = datetime.now().time()
+    """
+    Rules:
+    ✅ Today OR future date → live
+    ✅ Previous date → scheduled
+    """
 
-    start_date = data.get("ad_start_date")
-    end_date = data.get("ad_end_date")
+    ad_date = data.get("ad_date")
 
-    # ✅ Convert string → date
-    try:
-        if isinstance(start_date, str):
-            start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
-        if isinstance(end_date, str):
-            end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
-    except:
-        start_date = None
-        end_date = None
-
-    start_time = data.get("ad_start_time")
-    end_time = data.get("ad_end_time")
-
-    # ✅ Convert string → time
-    def parse_time(t):
-        try:
-            return datetime.strptime(t.strip(), "%I:%M %p").time() if t else None
-        except:
-            return None
-
-    start_time = parse_time(start_time)
-    end_time = parse_time(end_time)
-
-    # =========================
-    # 🔥 STATUS LOGIC
-    # =========================
-    if start_date and today < start_date:
+    if not ad_date:
         return "scheduled"
 
-    if end_date and today > end_date:
-        return "completed"
+    # Convert string date if needed
+    if isinstance(ad_date, str):
+        ad_date = date.fromisoformat(ad_date)
 
-    if start_date and end_date:
-        if start_date <= today <= end_date:
+    today = date.today()
 
-            # Same day → check time
-            if start_date == today:
-                if start_time and now_time < start_time:
-                    return "scheduled"
+    # ✅ Today or future
+    if ad_date >= today:
+        return "live"
 
-            if end_date == today:
-                if end_time and now_time > end_time:
-                    return "completed"
-
-            return "live"
-
+    # ✅ Past date
     return "scheduled"
 
 class AdvertisementCreateAPIView(APIView):
@@ -1967,10 +2309,11 @@ class AdvertisementCreateAPIView(APIView):
     # =========================
     def post(self, request):
         data = request.data.copy()
-        
+
+        # 🔥 Auto set status
         data["ad_status"] = get_ad_status(data)
-        
-        serializer = AdvertisementSerializer(data=request.data)
+
+        serializer = AdvertisementSerializer(data=data)
 
         if serializer.is_valid():
             serializer.save(created_by=request.user)
@@ -1983,18 +2326,27 @@ class AdvertisementCreateAPIView(APIView):
                 status=status.HTTP_201_CREATED
             )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     # =========================
     # 🔹 UPDATE (PUT)
     # =========================
     def put(self, request, ad_id):
         ad = get_object_or_404(Advertisement, id=ad_id)
-        
+
         data = request.data.copy()
+
+        # 🔥 Recalculate status on update
         data["ad_status"] = get_ad_status(data)
 
-        serializer = AdvertisementSerializer(ad, data=request.data)
+        serializer = AdvertisementSerializer(
+            ad,
+            data=data,
+            partial=True
+        )
 
         if serializer.is_valid():
             serializer.save()
@@ -2007,7 +2359,10 @@ class AdvertisementCreateAPIView(APIView):
                 status=status.HTTP_200_OK
             )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     # =========================
     # 🔹 GET (LIST + SINGLE)
@@ -2022,10 +2377,10 @@ class AdvertisementCreateAPIView(APIView):
 
                 # 🔥 Recalculate status
                 data = {
-                    "ad_start_date": ad.ad_start_date,
-                    "ad_end_date": ad.ad_end_date,
-                    "ad_start_time": ad.ad_start_time,
-                    "ad_end_time": ad.ad_end_time,
+                    "ad_date": ad.ad_date,
+                    # "ad_end_date": ad.ad_end_date,
+                    # "ad_start_time": ad.ad_start_time,
+                    # "ad_end_time": ad.ad_end_time,
                 }
 
                 new_status = get_ad_status(data)
@@ -2052,10 +2407,10 @@ class AdvertisementCreateAPIView(APIView):
 
                 # 🔥 Recalculate status
                 data = {
-                    "ad_start_date": ad.ad_start_date,
-                    "ad_end_date": ad.ad_end_date,
-                    "ad_start_time": ad.ad_start_time,
-                    "ad_end_time": ad.ad_end_time,
+                    "ad_date": ad.ad_date,
+                    # "ad_end_date": ad.ad_end_date,
+                    # "ad_start_time": ad.ad_start_time,
+                    # "ad_end_time": ad.ad_end_time,
                 }
 
                 new_status = get_ad_status(data)
