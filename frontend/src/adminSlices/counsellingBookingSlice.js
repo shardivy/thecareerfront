@@ -1,5 +1,13 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { bookCounsellingSlotApi, getCounsellingBookingsApi,updateCounsellingBookingApi, getCounsellingSessionCountApi, deleteCounsellingBookingApi,markCounsellingBookingCompletedApi , getStudentCounsellingBookingsApi, cancelCounsellingBookingApi  } from "../adminApi/counsellingBookingApi";
+import { bookCounsellingSlotApi,
+   getCounsellingBookingsApi,
+   updateCounsellingBookingApi, 
+   getCounsellingSessionCountApi, 
+   deleteCounsellingBookingApi,
+   markCounsellingBookingCompletedApi , 
+   getStudentCounsellingBookingsApi, 
+   cancelCounsellingBookingApi ,
+  sendCounsellingReminderApi  } from "../adminApi/counsellingBookingApi";
 
 /* ================= THUNK ================= */
 export const bookCounsellingSlot = createAsyncThunk(
@@ -112,6 +120,19 @@ export const cancelCounsellingBooking = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error?.response?.data?.message || "Cancel failed"
+      );
+    }
+  }
+);
+
+export const sendCounsellingReminder = createAsyncThunk(
+  "counsellingBooking/sendReminder",
+  async (id, { rejectWithValue }) => {
+    try {
+      return await sendCounsellingReminderApi(id);
+    } catch (error) {
+      return rejectWithValue(
+        error?.response?.data?.message || "Failed to send reminder"
       );
     }
   }
@@ -266,6 +287,20 @@ const counsellingBookingSlice = createSlice({
   );
 })
 .addCase(cancelCounsellingBooking.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
+
+/* ================= SEND REMINDER ================= */
+.addCase(sendCounsellingReminder.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+.addCase(sendCounsellingReminder.fulfilled, (state) => {
+  state.loading = false;
+  state.success = true;
+})
+.addCase(sendCounsellingReminder.rejected, (state, action) => {
   state.loading = false;
   state.error = action.payload;
 })

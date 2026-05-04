@@ -55,3 +55,12 @@ export const getParticipantSessionsApi = async (participantId) => {
   );
   return response.data;
 };
+
+
+// send reminder API
+export const sendHandholdingReminderApi = async (participantId, sessionNo) => {
+  const response = await axiosInstance.post(
+    `/event/send-handholding-reminder/${participantId}/${sessionNo}/`
+  );
+  return response.data;
+};

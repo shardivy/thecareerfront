@@ -2,6 +2,8 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { getHandholdingPaymentDetailsApi,
    getHandholdingSummaryApi ,
   getPaymentProgressApi ,
+  sendHandholdingPaymentReminderApi ,
+    getHandholdingReceiptApi
  } from "../hhApi/handholdingPaymentsApi";
 
 // 🔥 THUNK
@@ -48,6 +50,32 @@ export const fetchPaymentProgress = createAsyncThunk(
   }
 );
 
+export const sendHandholdingPaymentReminder = createAsyncThunk(
+  "handholdingPayment/sendReminder",
+  async (participantId, { rejectWithValue }) => {
+    try {
+      const res = await sendHandholdingPaymentReminderApi(participantId);
+      return res;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data || "Failed to send reminder"
+      );
+    }
+  }
+);
+
+export const fetchHandholdingReceipt = createAsyncThunk(
+  "handholdingPayment/fetchReceipt",
+  async (participantId, { rejectWithValue }) => {
+    try {
+      const res = await getHandholdingReceiptApi(participantId);
+      return res; // blob
+    } catch (err) {
+      return rejectWithValue("Failed to fetch receipt");
+    }
+  }
+);
+
 // 🔥 SLICE
 const handholdingPaymentSlice = createSlice({
   name: "handholdingPayment",
@@ -55,6 +83,8 @@ const handholdingPaymentSlice = createSlice({
     details: null,
       data: null,
        progress: null, 
+       receiptLoading: false,
+receiptError: null,
     loading: false,
     error: null,
   },
@@ -101,6 +131,28 @@ const handholdingPaymentSlice = createSlice({
 .addCase(fetchPaymentProgress.rejected, (state, action) => {
   state.loading = false;
   state.error = action.payload;
+})
+
+.addCase(sendHandholdingPaymentReminder.pending, (state) => {
+  state.loading = true;
+})
+.addCase(sendHandholdingPaymentReminder.fulfilled, (state) => {
+  state.loading = false;
+})
+.addCase(sendHandholdingPaymentReminder.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
+
+.addCase(fetchHandholdingReceipt.pending, (state) => {
+  state.receiptLoading = true;
+})
+.addCase(fetchHandholdingReceipt.fulfilled, (state) => {
+  state.receiptLoading = false;
+})
+.addCase(fetchHandholdingReceipt.rejected, (state, action) => {
+  state.receiptLoading = false;
+  state.receiptError = action.payload;
 })
   },
 });

@@ -414,7 +414,7 @@ const Program = () => {
                            <Button
   block
   onClick={() => {
-    navigate("/aptitude-details", {
+    navigate("/counselling-service", {
       state: {
           fromProgramPage: true,
         programId: pkg.program?.id,
@@ -679,7 +679,7 @@ const Program = () => {
                                                  <Button
   block
   onClick={() => {
-    navigate("/aptitude-details", {
+    navigate("/counselling-service", {
       state: {
           fromProgramPage: true,
         programId: pkg.program?.id,

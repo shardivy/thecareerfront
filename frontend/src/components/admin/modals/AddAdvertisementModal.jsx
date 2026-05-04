@@ -5,7 +5,6 @@ import {
   Form,
   Input,
   DatePicker,
-  TimePicker,
   InputNumber,
   Row,
   Col,
@@ -48,19 +47,13 @@ const AddAdvertisementModal = ({
           mobile: initialValues.contact_mobile,
           amount: initialValues.amount,
 
-          startDate: initialValues.ad_start_date
-            ? dayjs(initialValues.ad_start_date)
+          ad_date: (initialValues.ad_date || initialValues.ad_start_date)
+            ? dayjs(initialValues.ad_date || initialValues.ad_start_date)
             : null,
 
           endDate: initialValues.ad_end_date
             ? dayjs(initialValues.ad_end_date)
             : null,
-
-          startTime:
-            initialValues?.ad_start_time &&
-              initialValues.ad_start_time !== "null"
-              ? dayjs(initialValues.ad_start_time, "hh:mm A")
-              : null,
 
           endTime:
             initialValues?.ad_end_time &&
@@ -88,10 +81,8 @@ const AddAdvertisementModal = ({
         contact_mobile: values.mobile,
         contact_email: values.advertiserEmail,
 
-        ad_start_date: values.startDate?.format("YYYY-MM-DD"),
+        ad_date: values.ad_date?.format("YYYY-MM-DD"),
         ad_end_date: values.endDate?.format("YYYY-MM-DD"),
-
-        ad_start_time: values.startTime?.format("hh:mm A"),
         ad_end_time: values.endTime?.format("hh:mm A"),
 
         amount: values.amount,
@@ -220,8 +211,8 @@ const AddAdvertisementModal = ({
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
-              name="startDate"
-              label="Start Date"
+              name="ad_date"
+              label="Date"
             >
               <DatePicker
                 style={{ width: "100%" }}
@@ -230,7 +221,20 @@ const AddAdvertisementModal = ({
             </Form.Item>
           </Col>
 
-          <Col span={12}>
+ <Col span={12}>
+           <Form.Item
+          name="amount"
+          label="Amount"
+        >
+          <InputNumber
+            style={{ width: "100%" }}
+            disabled={isView}
+          />
+        </Form.Item>
+        </Col>
+
+
+          {/* <Col span={12}>
             <Form.Item
               name="endDate"
               label="End Date"
@@ -240,12 +244,12 @@ const AddAdvertisementModal = ({
                 disabled={isView}
               />
             </Form.Item>
-          </Col>
+          </Col> */}
         </Row>
 
 
         <Row gutter={16}>
-          <Col span={12}>
+          {/* <Col span={12}>
             <Form.Item
               name="startTime"
               label="Start Time"
@@ -257,9 +261,9 @@ const AddAdvertisementModal = ({
                 disabled={isView}
               />
             </Form.Item>
-          </Col>
+          </Col> */}
 
-          <Col span={12}>
+          {/* <Col span={12}>
             <Form.Item
               name="endTime"
               label="End Time"
@@ -271,20 +275,11 @@ const AddAdvertisementModal = ({
                 disabled={isView}
               />
             </Form.Item>
-          </Col>
+          </Col> */}
         </Row>
 
 
-        <Form.Item
-          name="amount"
-          label="Amount"
-        >
-          <InputNumber
-            style={{ width: "100%" }}
-            disabled={isView}
-          />
-        </Form.Item>
-
+       
       </Form>
 
     </Modal>

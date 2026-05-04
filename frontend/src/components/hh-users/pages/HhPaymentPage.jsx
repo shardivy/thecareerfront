@@ -94,6 +94,7 @@ const HhPaymentPage = () => {
           <Row gutter={[isMobile ? 0 : 60, isMobile ? 32 : 0]} align="top">
             {/* LEFT */}
             <Col xs={24} md={12}>
+            
               {/* AMOUNT */}
               <div style={{ marginBottom: 28 }}>
                 <Text type="colorTextSecondary">Total Amount</Text>
@@ -109,6 +110,8 @@ const HhPaymentPage = () => {
                   )}
                 </Title>
               </div>
+
+            
 
               {/* MODE */}
               <Segmented

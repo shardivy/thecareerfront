@@ -20,6 +20,7 @@ import {
   InfoCircleOutlined,
   StarOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import { fetchCompletedExamReportsByStudent } from "../../../adminSlices/reportSlice";
 
 const { Title, Text } = Typography;
@@ -27,6 +28,7 @@ const { Title, Text } = Typography;
 const AptitudeAnalysisReports = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const dispatch = useDispatch();
+    const navigate = useNavigate();
 
   const { reports, loading, error } = useSelector((state) => state.reports);
 
@@ -39,18 +41,19 @@ const AptitudeAnalysisReports = () => {
   }, [dispatch]);
 
   /* ---------------- HANDLERS ---------------- */
-
 const handleDownload = async (url) => {
   try {
     const response = await fetch(url);
-
     const blob = await response.blob();
 
     const downloadUrl = window.URL.createObjectURL(blob);
 
+    // ✅ extract real filename from URL
+    const fileName = url.split("/").pop().split("?")[0];
+
     const a = document.createElement("a");
     a.href = downloadUrl;
-    a.download = "Aptitude_Test_Report.pdf"; // dynamic later if needed
+    a.download = fileName; // ✅ real file name
 
     document.body.appendChild(a);
     a.click();
@@ -62,17 +65,37 @@ const handleDownload = async (url) => {
   }
 };
 
+const getFileType = (url = "") => {
+  try {
+    const cleanUrl = url.split("?")[0].toLowerCase();
+
+    // ✅ CASE 1: API endpoint contains pdf
+    if (cleanUrl.includes("/pdf/") || cleanUrl.endsWith("/pdf")) {
+      return "pdf";
+    }
+
+    // ✅ CASE 2: normal file extensions
+    const ext = cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1);
+
+    if (ext === "pdf") return "pdf";
+    if (["xls", "xlsx"].includes(ext)) return "excel";
+    if (["doc", "docx"].includes(ext)) return "word";
+
+    return "other";
+  } catch {
+    return "other";
+  }
+};
+
+
  const handleView = (url) => {
   if (!url) return;
   window.open(url, "_blank");
 };
 
-  const handleReviewRedirect = () => {
-    window.open(
-      "https://g.page/Abhinav-career-scope-pune/review?np",
-      "_blank"
-    );
-  };
+const handleReviewRedirect = (reportId) => {
+  navigate(`/student/write-review`);
+};
 
 
   const formatDate = (date) => {
@@ -93,7 +116,11 @@ const handleDownload = async (url) => {
 }, [reports]);
   /* ---------------- REPORT CARD ---------------- */
 
-  const ReportCard = ({ title, locked, reason, report }) => (
+ const ReportCard = ({ title, locked, reason, report }) => {
+  const type = getFileType(report?.file_path);
+  const isPdf = type === "pdf";
+
+  return (
     <Card
       style={{
         borderRadius: 16,
@@ -137,9 +164,6 @@ const handleDownload = async (url) => {
         <Col>
           <CalendarOutlined /> <Text>{formatDate(report.uploaded_at)}</Text>
         </Col>
-        {/* <Col>
-          <InfoCircleOutlined /> <Text>2.4 MB</Text>
-        </Col> */}
       </Row>
 
       <Divider />
@@ -147,30 +171,24 @@ const handleDownload = async (url) => {
       {/* Actions */}
       {!locked ? (
         <>
-          <Button
-            block
-            icon={<EyeOutlined />}
-            style={{ marginBottom: 10 }}
-            onClick={() => handleView(report.file_path)}
-          >
-            View Report
-          </Button>
+          {isPdf && (
+            <Button
+              block
+              icon={<EyeOutlined />}
+              style={{ marginBottom: 10 }}
+              onClick={() => handleView(report.file_path)}
+            >
+              View Report
+            </Button>
+          )}
+
           <Button
             block
             icon={<DownloadOutlined />}
             onClick={() => handleDownload(report.file_path)}
           >
-            Download PDF
+            Download {type.toUpperCase()}
           </Button>
-{/* 
-                   <Button
-            block
-            icon={<StarOutlined />}
-            type="primary"
-            onClick={handleReviewRedirect}
-          >
-            Submit Review
-          </Button> */}
         </>
       ) : reason === "payment" ? (
         <Alert
@@ -180,37 +198,16 @@ const handleDownload = async (url) => {
           description="Complete payment to unlock this report"
         />
       ) : (
-        <>
-          {!reviewSubmitted ? (
-            <>
-              <Alert
-                type="info"
-                showIcon
-                message="Review Required"
-                description="Submit your review to unlock the report"
-                style={{ marginBottom: 12 }}
-              />
-              <Button
-                block
-                icon={<StarOutlined />}
-                type="primary"
-                onClick={handleReviewRedirect}
-              >
-                Submit Review
-              </Button>
-            </>
-          ) : (
-            <Alert
-              type="info"
-              showIcon
-              message="Review Submitted"
-              description="Waiting for admin verification"
-            />
-          )}
-        </>
+        <Alert
+          type="info"
+          showIcon
+          message="Review Required"
+          description="Submit review to unlock report"
+        />
       )}
     </Card>
   );
+};
 
 
 
@@ -225,7 +222,7 @@ const handleDownload = async (url) => {
       }}
     >
       <Row justify="space-between">
-        <Title level={5}>Career Assessment Report</Title>
+        <Title level={5}>College preference excel sheet</Title>
         <Tag color="orange">Pending Upload</Tag>
       </Row>
 
@@ -310,7 +307,7 @@ const handleDownload = async (url) => {
         <Col xs={24} md={10} key={report.id}>
           <ReportCard
             report={report}
-            title="Aptitude Test Report"
+            title="College Preference Excel Sheet"
            locked={report.report_status !== "received_unlocked"}
             reason={
               report.payment_status !== "fully_paid"

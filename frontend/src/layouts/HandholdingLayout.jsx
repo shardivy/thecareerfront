@@ -10,7 +10,8 @@ import {
   Space,
   ConfigProvider,
   Breadcrumb,
-  Dropdown
+  Dropdown,
+  Modal
 } from "antd";
 import {
   UserOutlined,
@@ -21,6 +22,7 @@ import {
   LogoutOutlined,
   CloseOutlined,
   CreditCardOutlined,
+  ExclamationCircleFilled,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import adminTheme from "../theme/adminTheme";
@@ -42,6 +44,7 @@ export default function HandholdingLayout() {
 const { profile } = useSelector((state) => state.profile);
 
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
 const username =
   `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||profile?.email ||"Handholding User";
@@ -69,7 +72,18 @@ useEffect(() => {
       JSON.stringify(profile.show_profile)
     );
   }
-}, [profile]);;
+}, [profile]);
+
+useEffect(() => {
+  if (profile?.is_converted_lead === false) {
+    const alreadyShown = localStorage.getItem("conversionMsgShown");
+
+    if (!alreadyShown) {
+      setShowModal(true);
+      localStorage.setItem("conversionMsgShown", "true");
+    }
+  }
+}, [profile]);
 
   /* ================= MENU ================= */
   const menuItems = [
@@ -113,8 +127,9 @@ useEffect(() => {
   ];
 
   const handleLogout = () => {
+    //      localStorage.removeItem("conversionMsgShown");
     localStorage.clear();
-    navigate("/hhlogin");
+    navigate("/");
   };
 
   /* ================= BREADCRUMB ================= */
@@ -373,6 +388,57 @@ useEffect(() => {
               </Space>
             </Header>
           )}
+
+          <Modal
+  open={showModal}
+  centered
+  closable={false}
+  maskClosable={false}
+  footer={null}
+>
+  <div style={{ textAlign: "center", padding: "10px 5px" }}>
+    
+    <ExclamationCircleFilled
+      style={{
+        fontSize: 48,
+        color: "#faad14",
+        marginBottom: 12,
+      }}
+    />
+
+    <h2 style={{ marginBottom: 8, fontWeight: 600 }}>
+      Profile Updated
+    </h2>
+
+    <p
+      style={{
+        color: "#555",
+        fontSize: 14,
+        lineHeight: "22px",
+        marginBottom: 24,
+      }}
+    >
+      Your profile has been updated by admin. <br />
+      Please logout and login again to access your dashboard.
+    </p>
+
+    <Button
+      type="primary"
+      danger
+      size="large"
+      icon={<LogoutOutlined />}
+      onClick={handleLogout}
+      style={{
+        borderRadius: 6,
+        padding: "0 30px",
+        height: 42,
+        fontWeight: 500,
+      }}
+    >
+      Logout Now
+    </Button>
+  </div>
+</Modal>
 
           {/* CONTENT */}
           <Content

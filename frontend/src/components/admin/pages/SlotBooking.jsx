@@ -14,6 +14,7 @@ import {
   DatePicker,
   Modal,
   Tabs,
+  message,
 } from "antd";
 import {
   PlusOutlined,
@@ -24,6 +25,7 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
+  BellOutlined,
 
 } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -32,6 +34,7 @@ import {
   fetchCounsellingBookings,
   fetchCounsellingSessionCount,
   cancelCounsellingBooking,
+  sendCounsellingReminder
   // deleteCounsellingBooking,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchLeadCounsellors, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
@@ -61,14 +64,13 @@ const SlotBooking = () => {
   const [pageSize, setPageSize] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [statsPeriod, setStatsPeriod] = useState("today"); // default period
+  const [statsPeriod, setStatsPeriod] = useState("today"); 
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [rescheduleData, setRescheduleData] = useState(null);
   const [counsellorFilter, setCounsellorFilter] = useState(null);
-  const [activeTab, setActiveTab] = useState("booked"); // default tab
-
+  const [activeTab, setActiveTab] = useState("booked"); 
 
   /* ================= FETCH BOOKINGS ================= */
   useEffect(() => {
@@ -176,202 +178,237 @@ const SlotBooking = () => {
     });
 
   /* ================= DELETE HANDLER ================= */
-const handleCancel = (record) => {
-  Modal.confirm({
-    title: "Cancel Booking?",
-    content: `Are you sure you want to cancel session for ${record.studentName}?`,
-    okText: "Yes, Cancel",
-    okType: "danger",
-    cancelText: "No",
-    centered: true,
+  const handleCancel = (record) => {
+    Modal.confirm({
+      title: "Cancel Booking?",
+      content: `Are you sure you want to cancel session for ${record.studentName}?`,
+      okText: "Yes, Cancel",
+      okType: "danger",
+      cancelText: "No",
+      centered: true,
 
-    onOk: () => {
-      return dispatch(cancelCounsellingBooking(record.id))
-        .unwrap()
-        .then(() => {
-          dispatch(fetchCounsellingBookings()); // optional refresh
-        });
-    },
-  });
-};
+      onOk: () => {
+        return dispatch(cancelCounsellingBooking(record.id))
+          .unwrap()
+          .then(() => {
+            dispatch(fetchCounsellingBookings()); // optional refresh
+          });
+      },
+    });
+  };
 
+  const handleSendReminder = (record) => {
+    Modal.confirm({
+      title: "Send Reminder?",
+      content: `Send reminder to ${record.studentName}?`,
+      okText: "Yes",
+      cancelText: "No",
+      centered: true,
+      maskClosable: true, // ✅ allow outside click
 
+      onOk: () => {
+        return dispatch(sendCounsellingReminder(record.id))
+          .unwrap()
+          .then((res) => {
+            message.success(res.message || "Reminder sent successfully");
+            // Modal closes automatically after .then()
+          })
+          .catch((err) => {
+            message.error(err || "Failed to send reminder");
+          });
+      },
+    });
+  };
 
   /* ================= TABLE COLUMNS ================= */
- const columns = useMemo(() => {
-  const baseColumns = [
-    {
-      title: "Sr.",
-      width: 60,
-      render: (_, __, index) =>
-        (currentPage - 1) * pageSize + index + 1,
-    },
-    {
-      title: "User Name",
-      width: 200,
-      render: (_, r) => (
-        <>
-          <Text strong>{r.studentName}</Text>
-          <br />
-          <Text type="colorTextSecondary">{r.email}</Text>
-        </>
-      ),
-    },
-    {
-      title: "Counsellors",
-      width:200,
-      render: (_, r) =>
-        r.counsellorDisplay.length ? (
-          r.counsellorDisplay.map((c, i) => (
-            <div key={i}>
-              <Text strong>{c.name}</Text>
-              <br />
-              <Tag color={c.type === "lead" ? "blue" : "green"}>
-                {c.type}
-              </Tag>
-            </div>
-          ))
-        ) : (
-          <Text type="colorTextSecondary">—</Text>
+  const columns = useMemo(() => {
+    const baseColumns = [
+      {
+        title: "Sr.",
+        width: 60,
+        render: (_, __, index) =>
+          (currentPage - 1) * pageSize + index + 1,
+      },
+      {
+        title: "User Name",
+        width: 200,
+        render: (_, r) => (
+          <>
+            <Text strong>{r.studentName}</Text>
+            <br />
+            <Text type="colorTextSecondary">{r.email}</Text>
+          </>
         ),
-    },
-    {
-      title: "Date & Time",
-      width: 170,
-      render: (_, r) => (
-        <>
-          <Text>{r.date}</Text>
-          <br />
-          <Text type="colorTextSecondary">{r.time}</Text>
-        </>
-      ),
-    },
-    {
-      title: "Preferred Counselling Mode",
-      dataIndex: "modeLabel",
-      width: 100,
-      render: (m) => <Tag>{m}</Tag>,
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      width: 110,
-      render: (status) => {
-        const formatted =
-          status?.charAt(0).toUpperCase() + status?.slice(1);
-
-        const color =
-          status === "booked"
-            ? "blue"
-            : status === "rescheduled"
-            ? "orange"
-            : status === "completed"
-            ? "green"
-            : status === "pending"
-            ? "gold"
-            : status === "cancelled"
-            ? "red"
-            : "default";
-
-        return <Tag color={color}>{formatted}</Tag>;
       },
-    },
-  ];
+      {
+        title: "Counsellors",
+        width: 200,
+        render: (_, r) =>
+          r.counsellorDisplay.length ? (
+            r.counsellorDisplay.map((c, i) => (
+              <div key={i}>
+                <Text strong>{c.name}</Text>
+                <br />
+                <Tag color={c.type === "lead" ? "blue" : "green"}>
+                  {c.type}
+                </Tag>
+              </div>
+            ))
+          ) : (
+            <Text type="colorTextSecondary">—</Text>
+          ),
+      },
+      {
+        title: "Date & Time",
+        width: 170,
+        render: (_, r) => (
+          <>
+            <Text>{r.date}</Text>
+            <br />
+            <Text type="colorTextSecondary">{r.time}</Text>
+          </>
+        ),
+      },
+      {
+        title: "Preferred Counselling Mode",
+        dataIndex: "modeLabel",
+        width: 100,
+        render: (m) => <Tag>{m}</Tag>,
+      },
+      {
+        title: "Status",
+        dataIndex: "status",
+        width: 110,
+        render: (status) => {
+          const formatted =
+            status?.charAt(0).toUpperCase() + status?.slice(1);
 
-  // ❌ DO NOT ADD ACTION COLUMN IF CANCELLED TAB
-  if (activeTab === "cancelled") {
-    return baseColumns;
-  }
+          const color =
+            status === "booked"
+              ? "blue"
+              : status === "rescheduled"
+                ? "orange"
+                : status === "completed"
+                  ? "green"
+                  : status === "pending"
+                    ? "gold"
+                    : status === "cancelled"
+                      ? "red"
+                      : "default";
 
-  // ✅ Add Actions column only for other tabs
-  return [
-    ...baseColumns,
-    {
-      title: "Actions",
-      width: 160,
-      render: (_, record) => {
-        if (record.status === "not_booked") {
+          return <Tag color={color}>{formatted}</Tag>;
+        },
+      },
+    ];
+
+    // ❌ DO NOT ADD ACTION COLUMN IF CANCELLED TAB
+    if (activeTab === "cancelled") {
+      return baseColumns;
+    }
+
+    // ✅ Add Actions column only for other tabs
+    return [
+      ...baseColumns,
+      {
+        title: "Actions",
+        width: 160,
+        render: (_, record) => {
+          if (record.status === "not_booked") {
+            return (
+              <Space>
+
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    setModalMode("edit");
+                    setRescheduleData(record);
+                    setIsModalOpen(true);
+                  }}
+                >
+                  Book Session
+                </Button>
+
+                <Button icon={<BellOutlined />} onClick={() => handleSendReminder(record)}>
+                  Send Reminder
+                </Button>
+              </Space>
+
+            );
+          }
+
+          if (record.status === "completed") {
+            return (
+              <Space>
+                <Button
+                  onClick={() => {
+                    dispatch(fetchCounsellingNote(record.id)).then(() => {
+                      setSelectedSession(record);
+                      setNotesModalOpen(true);
+                    });
+                  }}
+                >
+                  View / Add Notes
+                </Button>
+
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  onClick={() => {
+                    setRescheduleData(record);
+                    setModalMode("edit");
+                    setIsModalOpen(true);
+                  }}
+                >
+                  Reschedule
+                </Button>
+
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleCancel(record)}
+                >
+                  Cancel
+                </Button>
+              </Space>
+            );
+          }
+
           return (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setModalMode("edit");
-                setRescheduleData(record);
-                setIsModalOpen(true);
-              }}
-            >
-              Book Session
-            </Button>
+            <Space>
+              <Button
+                type="primary"
+                icon={<EditOutlined />}
+                onClick={() => {
+                  setRescheduleData(record);
+                  setModalMode("edit");
+                  setIsModalOpen(true);
+                }}
+              >
+                Reschedule
+              </Button>
+
+              <Button icon={<BellOutlined />}
+                onClick={() => handleSendReminder(record)}
+              >
+                Send Reminder
+              </Button>
+
+              {record.status !== "pending" && (
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleCancel(record)}
+                >
+                  Cancel
+                </Button>
+              )}
+            </Space>
           );
-        }
-
-      if (record.status === "completed") {
-  return (
-    <Space>
-      <Button
-        onClick={() => {
-          dispatch(fetchCounsellingNote(record.id)).then(() => {
-            setSelectedSession(record);
-            setNotesModalOpen(true);
-          });
-        }}
-      >
-        View / Add Notes
-      </Button>
-
-      <Button
-        type="primary"
-        icon={<EditOutlined />}
-        onClick={() => {
-          setRescheduleData(record);
-          setModalMode("edit");
-          setIsModalOpen(true);
-        }}
-      >
-        Reschedule
-      </Button>
-
-      <Button
-        danger
-        icon={<DeleteOutlined />}
-        onClick={() => handleCancel(record)}
-      >
-        Cancel
-      </Button>
-    </Space>
-  );
-}
-
-        return (
-          <Space>
-            <Button
-              type="primary"
-              icon={<EditOutlined />}
-              onClick={() => {
-                setRescheduleData(record);
-                setModalMode("edit");
-                setIsModalOpen(true);
-              }}
-            >
-              Reschedule
-            </Button>
-
-            {record.status !== "pending" && (
-      <Button
-        danger
-        icon={<DeleteOutlined />}
-        onClick={() => handleCancel(record)}
-      >
-        Cancel
-      </Button>
-    )}
-          </Space>
-        );
+        },
       },
-    },
-  ];
-}, [activeTab, currentPage, pageSize, dispatch]);
+    ];
+  }, [activeTab, currentPage, pageSize, dispatch]);
 
   return (
     <div style={{ padding: "12px" }}>

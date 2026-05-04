@@ -61,8 +61,10 @@ useEffect(() => {
 
 useEffect(() => {
   if (storedProfile) {
+    const fullName = `${storedProfile.first_name || ""} ${storedProfile.last_name || ""}`.trim();
+
     setProfile({
-      name: `${storedProfile.first_name || ""} ${storedProfile.last_name || ""}`,
+      name: fullName,
       email: storedProfile.email || "",
       phone: storedProfile.phone || "",
       preferred_counselling_mode:
@@ -76,7 +78,7 @@ useEffect(() => {
       receipt: storedProfile.proof_file || null,
     });
 
-    // preview image
+    localStorage.setItem("userName", fullName);
     if (storedProfile.photo) {
       setPreview((prev) => ({
         ...prev,
@@ -165,6 +167,11 @@ const handleSubmit = async () => {
     await dispatch(updateProfile(formData)).unwrap();
 
     message.success("Profile updated successfully");
+
+    const savedName = profile.name.trim();
+    if (savedName) {
+      localStorage.setItem("userName", savedName);
+    }
 
     dispatch(getProfile()); // refresh
   } catch (err) {

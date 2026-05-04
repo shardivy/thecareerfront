@@ -38,10 +38,13 @@ import { getStudentProfile } from "../../../adminSlices/profileSlice";
 import { fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
 import { getParticipantSessions } from "../../../hhSlices/sessionBookingSlice";
 import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
 import HhSessionNotesModal from "../modals/HhSessionNotesModal";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
+
+dayjs.extend(customParseFormat);
 
 
 // 🔹 Config
@@ -113,10 +116,33 @@ const getButton = (session, navigate, isMobile, openModal) => {
   }
 };
 
+const getSessionStartDateTime = (session) => {
+  if (!session?.rawDate || !session?.startTime) return null;
+
+  const sessionDate = dayjs(session.rawDate);
+  if (!sessionDate.isValid()) return null;
+
+  const startDateTime = dayjs(
+    `${sessionDate.format("YYYY-MM-DD")} ${session.startTime}`,
+    "YYYY-MM-DD hh:mm A"
+  );
+
+  return startDateTime.isValid() ? startDateTime : null;
+};
+
+const canJoinSessionNow = (session, now) => {
+  const startDateTime = getSessionStartDateTime(session);
+  if (!startDateTime) return false;
+
+  const joinWindowStart = startDateTime.subtract(15, "minute");
+  return now.isAfter(joinWindowStart) || now.isSame(joinWindowStart);
+};
+
 const HhSession = () => {
   const navigate = useNavigate();
   const screens = useBreakpoint();
   const dispatch = useDispatch();
+  const [currentTime, setCurrentTime] = useState(dayjs());
 
   const isMobile = screens.xs;
 
@@ -140,53 +166,70 @@ const HhSession = () => {
     }
   }, [dispatch, participantId]);
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCurrentTime(dayjs());
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
   // 🔹 Generate sessions
   const sessions = participantSessions || [];
   const showProfile = JSON.parse(localStorage.getItem("show_profile")) || false;
 
 
-  const formattedSessions = sessions.map((item, index) => ({
-    id: item.id,
-    session_no: item.session_no,
-    participant_id: item.participant_id,
-    booking_id: item.booking_id,
+  const formattedSessions = sessions.map((item, index) => {
+    const counsellorsArray = item.counsellors || [];
 
-    studentName: item.student_name,
-    studentEmail: item.student_email || "N/A",
-    studentPhone: item.student_phone || "N/A",
+    const leadCounsellor = counsellorsArray.find(c => c.role === "lead");
+    const assistantCounsellor = counsellorsArray.find(c => c.role === "assistant");
 
-    counsellorList: item.counsellor
-      ? [{ counsellor_name: item.counsellor }]
-      : [],
+    return {
+      id: item.session_id ?? item.id,
+      session_no: item.session_no,
+      participant_id: item.participant_id,
+      booking_id: item.booking_id,
 
-    startTime: item.start_time || null,
-    endTime: item.end_time || null,
+      studentName: item.student_name,
+      studentEmail: item.student_email || "N/A",
+      studentPhone: item.student_phone || "N/A",
 
-    time:
-      item.start_time && item.end_time
-        ? `${item.start_time} - ${item.end_time}`
-        : "N/A",
+      startTime: item.start_time || null,
+      endTime: item.end_time || null,
 
+      time:
+        item.start_time && item.end_time
+          ? `${item.start_time} - ${item.end_time}`
+          : "N/A",
 
-    title: `Session ${index + 1}`,
-    counsellors: {
-      lead: item?.lead_counsellor_name || "Not Assigned",
-      assistant: item?.assistant_counsellor_name || null,
-    },
-    date: item?.date && dayjs(item.date).isValid()
-      ? dayjs(item.date).format("DD-MM-YYYY")
-      : "Not Scheduled",
+      title: `Session ${index + 1}`,
 
+      counsellors: {
+        lead: leadCounsellor?.counsellor_name || null,
+        assistant: assistantCounsellor?.counsellor_name || null,
+      },
 
-    mode: item?.mode || "online",
-    status: item?.status || "locked",
-    student_id: item?.student_id || item?.id,
-    report_file: item?.report_file || null,
-    show_profile:
-      item?.show_profile === true ||
-      item?.show_profile === "true"
+      counsellor: item.counsellors || [],
 
-  }));
+      date:
+        item?.date && dayjs(item.date).isValid()
+          ? dayjs(item.date).format("DD-MM-YYYY")
+          : "Not Scheduled",
+
+      rawDate: item?.date || null,
+
+      mode: item?.mode || null,
+      status: item?.status || "locked",
+      student_id: item?.student_id || item?.id,
+      report_file: item?.report_file || null,
+      report_file_name: item?.report_file_name || null,
+
+      show_profile:
+        item?.show_profile === true ||
+        item?.show_profile === "true",
+    };
+  });
 
   // 🔹 Modal States
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -256,16 +299,22 @@ const HhSession = () => {
 
     try {
       const response = await fetch(selectedReport.report_file);
+
       const blob = await response.blob();
 
-      const fileName = selectedReport.title
-        ? `${selectedReport.title.replace(/\s+/g, "_")}_Report.pdf`
-        : "Report.pdf";
+      const fileName =
+        selectedReport?.report_file_name ||
+        selectedReport?.report_file?.split("/").pop() ||
+        "Report";
 
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(
+        new Blob([blob])
+      );
+
       const link = document.createElement("a");
       link.href = url;
       link.download = fileName;
+
       document.body.appendChild(link);
       link.click();
 
@@ -273,17 +322,42 @@ const HhSession = () => {
       window.URL.revokeObjectURL(url);
 
       message.success("Report downloaded successfully");
+
       setReportModal(false);
       setSelectedReport(null);
-      setReportLoading(true);
     } catch (error) {
-      console.error("Download failed:", error);
+      console.error(error);
       message.error("Failed to download report");
     } finally {
       setDownloading(false);
     }
   };
 
+
+  const getFileType = (url = "") => {
+    try {
+      const cleanUrl = url.split("?")[0].toLowerCase();
+
+      // ✅ CASE 1: API endpoint contains pdf
+      if (cleanUrl.includes("/pdf/") || cleanUrl.endsWith("/pdf")) {
+        return "pdf";
+      }
+
+      // ✅ CASE 2: normal file extensions
+      const ext = cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1);
+
+      if (ext === "pdf") return "pdf";
+      if (["xls", "xlsx"].includes(ext)) return "excel";
+      if (["doc", "docx"].includes(ext)) return "word";
+
+      return "other";
+    } catch {
+      return "other";
+    }
+  };
+
+
+  const fileType = getFileType(selectedReport?.report_file);
 
   const formattedSessionsWithLock = formattedSessions.map((session, index, arr) => {
     const previousSession = arr[index - 1];
@@ -330,203 +404,214 @@ const HhSession = () => {
           gap: 16,
         }}
       >
-        {formattedSessionsWithLock.map((session) => (
-          <Card
-            key={session.id}
-            style={{
-              borderRadius: 16,
-              border: "1px solid #e5e7eb",
-              opacity: session.status === "locked" ? 0.6 : 1,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-            }}
-          >
-            <Row justify="space-between" align="middle">
-              <Space>
-                <Avatar
-                  size={48}
-                  icon={<VideoCameraOutlined />}
-                  style={{
-                    backgroundColor:
-                      session.status === "completed" ? "#52c41a" :
-                        session.status === "booked" ? "#1E40AF" :
-                          session.status === "not_booked" ? "#d9d9d9" :
-                            session.status === "rescheduled" ? "#fa8c16" :
-                              session.status === "in_progress" ? "#722ed1" :
-                                "#d9d9d9"
-                  }}
-                />
-                <div>
-                  <Text strong style={{ fontSize: 16 }}>{session.title}</Text>
-                  <br />
-                  {session.counsellors?.lead ? (
-                    <div>
-                      <Text type="colorTextSecondary" style={{ fontSize: 14 }}>{session.counsellors.lead}</Text>
-                      <Tag color="gold" size="small" style={{ marginLeft: 8 }}>Lead</Tag>
-                    </div>
-                  ) : (
-                    <div>
-                      <Text type="colorTextSecondary" style={{ fontSize: 14 }}>Not Assigned</Text>
-                      <Tag size="small" style={{ marginLeft: 8 }}>Lead</Tag>
-                    </div>
-                  )}
-                  {session.counsellors?.assistant && (
-                    <div style={{ marginTop: 4 }}>
-                      <Text type="colorTextSecondary" style={{ fontSize: 14 }}>{session.counsellors.assistant}</Text>
-                      <Tag color="blue" size="small" style={{ marginLeft: 8 }}>Assistant</Tag>
-                    </div>
-                  )}
-                </div>
-              </Space>
-              {getStatusTag(session.status)}
-            </Row>
+        {formattedSessionsWithLock.map((session) => {
+          const isJoinSession = ["booked", "rescheduled", "in_progress"].includes(session.status);
+          const isJoinEnabled = isJoinSession ? canJoinSessionNow(session, currentTime) : true;
 
-            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-              <Col xs={24} sm={12} md={6}>
-                <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
-                  <Text style={{ fontSize: 12, color: "#6b7280" }}>Date</Text>
-                  <br />
-                  <Text strong style={{ fontSize: 14 }}>
-                    <CalendarOutlined style={{ marginRight: 4 }} />
-                    {session.date || "Not Scheduled"}
-                  </Text>
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} md={6}>
-                <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
-                  <Text style={{ fontSize: 12, color: "#6b7280" }}>Time</Text>
-                  <br />
-                  <Text strong style={{ fontSize: 14 }}>
-                    <ClockCircleOutlined style={{ marginRight: 4 }} />
-                    {session.time || "N/A"}
-                  </Text>
-                </Card>
-              </Col>
-
-              <Col xs={24} sm={12} md={6}>
-                <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
-                  <Text style={{ fontSize: 12, color: "#6b7280" }}>Mode</Text>
-                  <br />
-                  <Text strong style={{ fontSize: 14 }}>
-                    {session.mode === "online" ? (
-                      <>
-                        <VideoCameraOutlined style={{ marginRight: 4 }} />
-                        Online
-                      </>
-                    ) : (
-                      <>
-                        <EnvironmentOutlined style={{ marginRight: 4 }} />
-                        Offline
-                      </>
-                    )}
-                  </Text>
-                </Card>
-              </Col>
-
-              <Col xs={24} sm={12} md={6}>
-                <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
-                  <Text style={{ fontSize: 12, color: "#6b7280" }}>Progress</Text>
-                  <br />
-                  <Text strong style={{ fontSize: 14 }}>
-                    <TrophyOutlined style={{ marginRight: 4 }} />
-                    {session.session_no} of {totalSessions}
-                  </Text>
-                </Card>
-              </Col>
-            </Row>
-
-            <Divider style={{ margin: "24px 0" }} />
-
-
-            {/* Action Buttons */}
-            <Row
-              gutter={[8, 8]}
-              wrap={true}
+          return (
+            <Card
+              key={session.id}
               style={{
-                marginBottom: 12,
-                flexWrap: isMobile ? "wrap" : "nowrap",
-                overflowX: isMobile ? "visible" : "auto"
+                borderRadius: 16,
+                border: "1px solid #e5e7eb",
+                opacity: session.status === "locked" ? 0.6 : 1,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               }}
             >
-              {!isMobile && <Col flex="auto" />}
-
-              {showProfile === true && (
-                <>
-                  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-                    <Button
-                      icon={<UserOutlined />}
-                      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                      onClick={() => handleViewProfile(session)}
-                      disabled={!session.isUnlocked || session.status == "not_booked"}
-                    >
-                      View Profile
-                    </Button>
-                  </Col>
-
-                  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-                    <Button
-                      icon={<EyeOutlined />}
-                      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                      onClick={() => handleViewReport(session)}
-                      disabled={!session.isUnlocked || session.status == "not_booked"}
-                    >
-                      View Report
-                    </Button>
-                  </Col>
-
-                  <Col xs={24} sm={24} md="0 1 180px" style={isMobile ? {} : { minWidth: 180, maxWidth: 200 }}>
-                    <Button
-                      icon={<FileTextOutlined />}
-                      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                      onClick={() => handleViewNotes(session)}
-                      disabled={!session.isUnlocked || session.status == "not_booked"}
-                    >
-                      View/Add Notes
-                    </Button>
-                  </Col>
-
-                </>
-              )}
-              {["booked", "rescheduled"].includes(session.status) &&
-                session.mode === "offline" && (
-                  <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-                    <Button
-                      icon={<EnvironmentOutlined />}
-                      style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                      onClick={() => setIsLocationModalOpen(true)}
-                    >
-                      View Location
-                    </Button>
-                  </Col>
-                )}
-
-              {getButton(session, navigate, false, openBookingModal) && (
-                <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
-                  <Button
-                    icon={session.status === "booked" ? <VideoCameraOutlined /> : <PlusOutlined />}
-                    style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
-                    type={
-                      ["not_booked", "booked", "in_progress", "rescheduled"].includes(session.status)
-                        ? "primary"
-                        : undefined
-                    }
-                    onClick={() => {
-                      if (session.status === "not_booked") {
-                        openBookingModal(session);
-                      } else if (session.status === "booked" || session.status === "rescheduled") {
-                        window.open("https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09", "_blank");
-                      }
+              <Row justify="space-between" align="middle">
+                <Space>
+                  <Avatar
+                    size={48}
+                    icon={<VideoCameraOutlined />}
+                    style={{
+                      backgroundColor:
+                        session.status === "completed" ? "#52c41a" :
+                          session.status === "booked" ? "#1E40AF" :
+                            session.status === "not_booked" ? "#d9d9d9" :
+                              session.status === "rescheduled" ? "#fa8c16" :
+                                session.status === "in_progress" ? "#722ed1" :
+                                  "#d9d9d9"
                     }}
-                    disabled={!session.isUnlocked}
-                  >
-                    {session.status === "booked" || session.status === "rescheduled" ? "Join Session" : session.status === "not_booked" ? "Book Now" : ""}
-                  </Button>
+                  />
+                  <div>
+                    <Text strong style={{ fontSize: 16 }}>{session.title}</Text>
+                    <br />
+                    {session.counsellors?.lead ? (
+                      <div>
+                        <Text type="colorTextSecondary" style={{ fontSize: 14 }}>{session.counsellors.lead}</Text>
+                        <Tag color="gold" size="small" style={{ marginLeft: 8 }}>Lead</Tag>
+                      </div>
+                    ) : (
+                      <div>
+                        <Text type="colorTextSecondary" style={{ fontSize: 14 }}>Not Assigned</Text>
+                        <Tag size="small" style={{ marginLeft: 8 }}>Lead</Tag>
+                      </div>
+                    )}
+                    {session.counsellors?.assistant && (
+                      <div style={{ marginTop: 4 }}>
+                        <Text type="colorTextSecondary" style={{ fontSize: 14 }}>{session.counsellors.assistant}</Text>
+                        <Tag color="blue" size="small" style={{ marginLeft: 8 }}>Assistant</Tag>
+                      </div>
+                    )}
+                  </div>
+                </Space>
+                {getStatusTag(session.status)}
+              </Row>
+
+              <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+                <Col xs={24} sm={12} md={6}>
+                  <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
+                    <Text style={{ fontSize: 12, color: "#6b7280" }}>Date</Text>
+                    <br />
+                    <Text strong style={{ fontSize: 14 }}>
+                      <CalendarOutlined style={{ marginRight: 4 }} />
+                      {session.date || "Not Scheduled"}
+                    </Text>
+                  </Card>
                 </Col>
-              )}
-            </Row>
+                <Col xs={24} sm={12} md={6}>
+                  <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
+                    <Text style={{ fontSize: 12, color: "#6b7280" }}>Time</Text>
+                    <br />
+                    <Text strong style={{ fontSize: 14 }}>
+                      <ClockCircleOutlined style={{ marginRight: 4 }} />
+                      {session.time || "N/A"}
+                    </Text>
+                  </Card>
+                </Col>
+
+                <Col xs={24} sm={12} md={6}>
+                  <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
+                    <Text style={{ fontSize: 12, color: "#6b7280" }}>Mode</Text>
+                    <br />
+                    <Text strong style={{ fontSize: 14 }}>
+                      {session.mode && session.mode !== "N/A" ? (
+                        session.mode.toLowerCase() === "online" ? (
+                          <>
+                            <VideoCameraOutlined style={{ marginRight: 4 }} />
+                            Online
+                          </>
+                        ) : (
+                          <>
+                            <EnvironmentOutlined style={{ marginRight: 4 }} />
+                            Offline
+                          </>
+                        )
+                      ) : (
+                        <Text type="colorTextSecondary">Not Available</Text>
+                      )}
+                    </Text>
+                  </Card>
+                </Col>
+
+                <Col xs={24} sm={12} md={6}>
+                  <Card bordered={false} style={{ backgroundColor: "#f9fafb" }}>
+                    <Text style={{ fontSize: 12, color: "#6b7280" }}>Progress</Text>
+                    <br />
+                    <Text strong style={{ fontSize: 14 }}>
+                      <TrophyOutlined style={{ marginRight: 4 }} />
+                      {session.session_no} of {totalSessions}
+                    </Text>
+                  </Card>
+                </Col>
+              </Row>
+
+              <Divider style={{ margin: "24px 0" }} />
 
 
-          </Card>
-        ))}
+              {/* Action Buttons */}
+              <Row
+                gutter={[8, 8]}
+                wrap={true}
+                style={{
+                  marginBottom: 12,
+                  flexWrap: isMobile ? "wrap" : "nowrap",
+                  overflowX: isMobile ? "visible" : "auto"
+                }}
+              >
+                {!isMobile && <Col flex="auto" />}
+
+                {showProfile === true && (
+                  <>
+                    <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                      <Button
+                        icon={<UserOutlined />}
+                        style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                        onClick={() => handleViewProfile(session)}
+                        disabled={!session.isUnlocked || session.status == "not_booked"}
+                      >
+                        View Profile
+                      </Button>
+                    </Col>
+
+                    <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                      <Button
+                        icon={<EyeOutlined />}
+                        style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                        onClick={() => handleViewReport(session)}
+                        disabled={!session.isUnlocked || session.status == "not_booked"}
+                      >
+                        View Report
+                      </Button>
+                    </Col>
+
+                    <Col xs={24} sm={24} md="0 1 180px" style={isMobile ? {} : { minWidth: 180, maxWidth: 200 }}>
+                      <Button
+                        icon={<FileTextOutlined />}
+                        style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                        onClick={() => handleViewNotes(session)}
+                        disabled={!session.isUnlocked || session.status == "not_booked"}
+                      >
+                        View/Add Notes
+                      </Button>
+                    </Col>
+
+                  </>
+                )}
+                {["booked", "rescheduled"].includes(session.status) &&
+                  session.mode === "offline" && (
+                    <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                      <Button
+                        icon={<EnvironmentOutlined />}
+                        style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                        onClick={() => setIsLocationModalOpen(true)}
+                      >
+                        View Location
+                      </Button>
+                    </Col>
+                  )}
+
+                {/* SHOW JOIN BUTTON ONLY FOR ONLINE */}
+                {session.mode !== "offline" &&
+                  getButton(session, navigate, false, openBookingModal) && (
+                    <Col xs={24} sm={24} md="0 1 140px" style={isMobile ? {} : { minWidth: 140, maxWidth: 140 }}>
+                      <Button
+                        icon={isJoinSession ? <VideoCameraOutlined /> : <PlusOutlined />}
+                        style={{ width: "100%", whiteSpace: "nowrap", padding: "0 12px" }}
+                        type={
+                          ["not_booked", "booked", "in_progress", "rescheduled"].includes(session.status)
+                            ? "primary"
+                            : undefined
+                        }
+                        onClick={() => {
+                          if (session.status === "not_booked") {
+                            openBookingModal(session);
+                          } else if (["booked", "rescheduled", "in_progress"].includes(session.status)) {
+                            window.open("https://us06web.zoom.us/j/78343615915?pwd=...", "_blank");
+                          }
+                        }}
+                        disabled={!session.isUnlocked || (isJoinSession && !isJoinEnabled)}
+                      >
+                        {isJoinSession ? "Join Session" : session.status === "not_booked" ? "Book Now" : ""}
+                      </Button>
+                    </Col>
+                  )}
+              </Row>
+
+
+            </Card>
+          )
+        })}
       </div>
 
       <HhBookSessionModal
@@ -561,7 +646,8 @@ const HhSession = () => {
         <HhSessionNotesModal
           session={{
             ...selectedSession,
-            id: selectedSession?.booking_id, // normalize HERE
+            id: selectedSession?.booking_id,
+            counsellorList: selectedSession?.counsellor || [],
           }}
           onClose={() => setNotesModal(false)}
           isViewMode={!!notes?.[selectedSession?.booking_id]}
@@ -604,28 +690,14 @@ const HhSession = () => {
         style={{ top: 20 }}
       >
         {selectedReport?.report_file ? (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              minHeight: "500px",
-              width: "100%",
-              position: "relative",
-              backgroundColor: "#f5f5f5",
-              borderRadius: "4px",
-              overflow: "hidden",
-              padding: "10px",
-            }}
-          >
+          fileType === "pdf" ? (
             <div
               style={{
                 width: "100%",
                 height: "500px",
                 border: "1px solid #e8e8e8",
-                borderRadius: "4px",
+                borderRadius: 4,
                 overflow: "hidden",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
               }}
             >
               <iframe
@@ -633,38 +705,38 @@ const HhSession = () => {
                 title="Report Preview"
                 width="100%"
                 height="100%"
-                style={{
-                  border: "none",
-                  backgroundColor: "#fff",
-                }}
+                style={{ border: "none" }}
                 onLoad={() => setReportLoading(false)}
-                onError={() => {
-                  setReportLoading(false);
-                  message.error("Failed to load report. You can download it instead.");
-                }}
+                onError={() => setReportLoading(false)}
               />
             </div>
-            {reportLoading && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  textAlign: "center",
-                  backgroundColor: "rgba(255, 255, 255, 0.9)",
-                  padding: "20px",
-                  borderRadius: "8px",
-                  zIndex: 1,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                }}
-              >
-                <Spin size="large" />
-                <p style={{ marginTop: 16, marginBottom: 0 }}>Loading report...</p>
-              </div>
-            )}
-          </div>
+          ) : (
+            <div
+              style={{
+                minHeight: 300,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "column",
+                gap: 12,
+                background: "#fafafa",
+                borderRadius: 8,
+                border: "1px dashed #d9d9d9",
+              }}
+            >
+              <FileTextOutlined style={{ fontSize: 32, color: "#999" }} />
+
+              <Text strong>
+                Preview not available for {fileType === "excel" ? "Excel" : "Word"} file
+              </Text>
+
+              <Text type="colorTextSecondary">
+                Please download the file to view it
+              </Text>
+            </div>
+          )
         ) : (
+
           <div
             style={{
               minHeight: "300px",
@@ -690,7 +762,7 @@ const HhSession = () => {
               📍 Counselling Office
             </Title>
 
-            <Text type="secondary">
+            <Text type="colorTextSecondary">
               Please arrive on time for your offline counselling session
             </Text>
           </div>

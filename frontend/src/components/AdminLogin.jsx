@@ -58,9 +58,9 @@ const AdminLogin = () => {
         //   navigate("/student/student-profile");
         //   break;
 
-          case "basic_user":
-    navigate("/student/dashboard");
-    break;
+        case "basic_user":
+          navigate("/student/dashboard");
+          break;
 
         case "student":
           if (complete_profile) {
@@ -70,9 +70,13 @@ const AdminLogin = () => {
           }
           break;
 
+        case "handholding":
+          navigate("/handholding/dashboard");
+          break;
 
-       default:
-  message.warning("No dashboard assigned for this role");
+
+        default:
+          message.warning("No dashboard assigned for this role");
       }
     }
   }, [success, successMessage, complete_profile, user, navigate]);
@@ -85,14 +89,14 @@ const AdminLogin = () => {
   }, [error]);
 
   /* ========= SUBMIT ========= */
-const onFinish = (values, event) => {
-  if (event?.preventDefault) {
-    event.preventDefault(); // 🔥 STOP PAGE RELOAD
-  }
+  const onFinish = (values, event) => {
+    if (event?.preventDefault) {
+      event.preventDefault(); // 🔥 STOP PAGE RELOAD
+    }
 
-  console.log("Login Payload:", values);
-  dispatch(loginUser(values));
-};
+    console.log("Login Payload:", values);
+    dispatch(loginUser(values));
+  };
 
   const validatePassword = (_, value) => {
     if (!value) return Promise.reject("Password is required");
@@ -255,8 +259,8 @@ const onFinish = (values, event) => {
                   name="password"
                   hasFeedback
                   rules={[
-  { required: true, message: "Password is required" }
-]}
+                    { required: true, message: "Password is required" }
+                  ]}
                 >
                   <Input.Password
                     prefix={<LockOutlined />}
@@ -304,20 +308,20 @@ const onFinish = (values, event) => {
                 <Divider style={{ margin: "28px 0" }} />
 
                 <Text style={{ textAlign: "center", display: "block" }}>
-  Want to watch video?{" "}
-  <Text
-    type="primary"
-    style={{
-      cursor: "pointer",
-      textDecoration: "underline",
-      color: "#1677ff",
-      fontWeight: "500",
-    }}
-    onClick={() => navigate("/welcome")}
-  >
-    Click here
-  </Text>
-</Text>
+                  Want to watch video?{" "}
+                  <Text
+                    type="primary"
+                    style={{
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      color: "#1677ff",
+                      fontWeight: "500",
+                    }}
+                    onClick={() => navigate("/welcome")}
+                  >
+                    Click here
+                  </Text>
+                </Text>
 
                 <Text style={{ textAlign: "center", display: "block" }}>
                   Don’t have an student account?{" "}

@@ -68,3 +68,12 @@ export const cancelCounsellingBookingApi = async (id) => {
   );
   return response.data;
 };
+
+
+// Send reminder for counselling booking
+export const sendCounsellingReminderApi = async (id) => {
+  const response = await axiosInstance.post(
+    `/counselling_slot/send-reminder/${id}/`
+  );
+  return response.data;
+};

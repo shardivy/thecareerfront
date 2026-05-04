@@ -189,7 +189,7 @@ const WelcomeEnquiry = () => {
           <Card
             hoverable
 onClick={() => {
-  navigate("/aptitude-details", {
+  navigate("/counselling-service", {
     state: {
       fromWelcomePage: true,
       programId: activeProgramId,

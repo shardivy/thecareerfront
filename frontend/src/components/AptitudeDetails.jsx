@@ -136,7 +136,7 @@ const videoRef = useRef(null);
           }}
         >
           <img
-            src={landing?.flyer_image || "/apti-flayer.jpeg"}
+            src={landing?.flyer_image}
             alt="Aptitude Test"
             style={{
               width: "100%",

@@ -89,7 +89,7 @@ const App = () => {
 
         <Route path="/welcome" element={<Welcome />} />
         <Route path="/welcome-enquiry" element={<WelcomeEnquiry />} />
-        <Route path="/aptitude-details" element={<AptitudeDetails />} />
+        <Route path="/counselling-service" element={<AptitudeDetails />} />
         <Route path="/register-details" element={<RegisterDetails />} />
 
         {/* ===================== Handholding ROUTES ===================== */}

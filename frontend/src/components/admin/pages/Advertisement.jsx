@@ -137,14 +137,8 @@ const filteredData = data.filter((item) => {
     },
 
     {
-      title: "Start Date",
-      dataIndex: "ad_start_date",
-      render: (date) => date || "-"
-    },
-
-    {
-      title: "End Date",
-      dataIndex: "ad_end_date",
+      title: "Date",
+      dataIndex: "ad_date",
       render: (date) => date || "-"
     },
 
@@ -180,11 +174,8 @@ const filteredData = data.filter((item) => {
             onClick={() => {
               setSelectedAd({
                 ...record,
-                startDate: record.ad_start_date
-                  ? dayjs(record.ad_start_date)
-                  : null,
-                endDate: record.ad_end_date
-                  ? dayjs(record.ad_end_date)
+                ad_date: record.ad_date
+                  ? dayjs(record.ad_date)
                   : null,
               });
               setModalMode("view");
@@ -200,11 +191,8 @@ const filteredData = data.filter((item) => {
             onClick={() => {
               setSelectedAd({
                 ...record,
-                startDate: record.ad_start_date
-                  ? dayjs(record.ad_start_date)
-                  : null,
-                endDate: record.ad_end_date
-                  ? dayjs(record.ad_end_date)
+                ad_date: record.ad_date
+                  ? dayjs(record.ad_date)
                   : null,
               });
               setModalMode("edit");
@@ -377,8 +365,7 @@ const filteredData = data.filter((item) => {
         onSubmit={(values) => {
           const payload = {
             ...values,
-            startDate: values.startDate?.format("YYYY-MM-DD"),
-            endDate: values.endDate?.format("YYYY-MM-DD"),
+            ad_date: values.ad_date?.format("YYYY-MM-DD"),
           };
 
           console.log("FINAL PAYLOAD:", payload);

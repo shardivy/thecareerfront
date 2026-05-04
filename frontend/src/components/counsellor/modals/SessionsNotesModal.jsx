@@ -75,7 +75,16 @@ const SessionsNotesModal = ({
         filesArray.map((file, index) => ({
           name: file.url.split("/").pop() || `File-${index + 1}`,
           url: file.url,
-          type: file.url.endsWith(".pdf") ? "application/pdf" : "image/*",
+type:
+  file.url.endsWith(".pdf")
+    ? "application/pdf"
+    : file.url.match(/\.(jpg|jpeg|png|gif)$/i)
+    ? "image/*"
+    : file.url.match(/\.(doc|docx)$/i)
+    ? "word"
+    : file.url.match(/\.(xls|xlsx)$/i)
+    ? "excel"
+    : "other",
           key: file.key,
         }))
       );
@@ -168,12 +177,20 @@ const SessionsNotesModal = ({
     multiple: true,
 
     beforeUpload: (file) => {
-      const isAllowed =
-        file.type === "application/pdf" ||
-        file.type.startsWith("image/");
+    const isAllowed =
+  file.type === "application/pdf" ||
+  file.type.startsWith("image/") ||
+
+  // Word
+  file.type === "application/msword" ||
+  file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+
+  // Excel
+  file.type === "application/vnd.ms-excel" ||
+  file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
       if (!isAllowed) {
-        message.error("Only PDF or image files allowed!");
+        message.error("Only PDF, Image, Word, and Excel files allowed!");
         return Upload.LIST_IGNORE;
       }
 
@@ -193,7 +210,7 @@ const SessionsNotesModal = ({
     },
 
     showUploadList: false,
-    accept: "application/pdf,image/*",
+    accept: "application/pdf,image/*,.doc,.docx,.xls,.xlsx",
   };
 
   /* SAVE NOTES */

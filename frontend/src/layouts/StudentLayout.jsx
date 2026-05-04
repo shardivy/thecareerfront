@@ -12,6 +12,8 @@ import {
   Space,
   Badge,
   theme,
+  Alert,
+  Modal
 } from "antd";
 import {
   UserOutlined,
@@ -26,6 +28,7 @@ import {
   BellOutlined,
   CreditCardFilled,
   FormOutlined,
+  ExclamationCircleFilled,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import NotificationDropdown from "../components/student/pages/Notification";
@@ -54,6 +57,7 @@ export default function StudentLayout() {
   const getDashboardPath = () => "/student/dashboard";
   const adminRole = localStorage.getItem("adminRole");
   const isBasicUser = adminRole === "basic_user";
+  const [showModal, setShowModal] = useState(false);
 
   // Check if package exists in profile or localStorage
   const hasPackage = !!(profile?.package_id || selectedPackage);
@@ -63,6 +67,8 @@ export default function StudentLayout() {
 
   const username = localStorage.getItem("username") || "Student";
   const userRole = profile?.role;
+
+const showConversionMsg = profile?.is_converted_lead === false;
 
   // Function to truncate name for smaller screens
   const truncatedUsername = screens.xs
@@ -84,6 +90,7 @@ export default function StudentLayout() {
       localStorage.setItem("engineering_test_analysis", profile.engineering_test_analysis);
     }
   }, [profile]);
+  
 
   const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
 
@@ -92,6 +99,18 @@ export default function StudentLayout() {
   const showEngineering =
     localStorage.getItem("engineering_test_analysis") === "true" &&
     adminRole !== "basic_user";
+
+//   useEffect(() => {
+//   if (profile?.is_converted_lead === true) {
+//     const alreadyShown = localStorage.getItem("conversionMsgShown");
+
+//     if (!alreadyShown) {
+//       setShowModal(true);
+//       localStorage.setItem("conversionMsgShown", "true");
+//     }
+//   }
+// }, [profile]);
+
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -344,7 +363,7 @@ export default function StudentLayout() {
     // localStorage.removeItem("selectedProgram");
     // localStorage.removeItem("selectedPackage");
     // localStorage.removeItem("studentId");
-
+  localStorage.removeItem("conversionMsgShown");
     localStorage.clear();
     // 2. Optional: reset Redux state
     dispatch(clearProfile());
@@ -662,6 +681,63 @@ export default function StudentLayout() {
               </div>
             </Header>
           )}
+
+
+
+{/* <Modal
+  open={showModal}
+  centered
+  closable={false}
+  maskClosable={false}
+  footer={null}
+>
+  <div style={{ textAlign: "center", padding: "10px 5px" }}>
+    
+
+    <ExclamationCircleFilled
+      style={{
+        fontSize: 48,
+        color: "#faad14",
+        marginBottom: 12,
+      }}
+    />
+
+
+    <h2 style={{ marginBottom: 8, fontWeight: 600 }}>
+      Profile Updated
+    </h2>
+
+
+    <p
+      style={{
+        color: "#555",
+        fontSize: 14,
+        lineHeight: "22px",
+        marginBottom: 24,
+      }}
+    >
+      Your profile has been updated by admin. <br />
+      Please logout and login again to access your dashboard.
+    </p>
+
+
+    <Button
+      type="primary"
+      danger
+      size="large"
+        icon={<LogoutOutlined />}
+      onClick={handleLogout}
+      style={{
+        borderRadius: 6,
+        padding: "0 30px",
+        height: 42,
+        fontWeight: 500,
+      }}
+    >
+      Logout Now
+    </Button>
+  </div>
+</Modal> */}
 
           <Content
             style={{

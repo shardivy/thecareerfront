@@ -91,7 +91,16 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
                 filesArray.map((file, index) => ({
                     name: cleanFileName(file.url) || `File-${index + 1}`,
                     url: file.url,
-                    type: file.url.endsWith(".pdf") ? "application/pdf" : "image/*",
+                    type:
+                        file.url.endsWith(".pdf")
+                            ? "application/pdf"
+                            : file.url.match(/\.(jpg|jpeg|png|gif)$/i)
+                                ? "image/*"
+                                : file.url.match(/\.(doc|docx)$/i)
+                                    ? "word"
+                                    : file.url.match(/\.(xls|xlsx)$/i)
+                                        ? "excel"
+                                        : "other",
                     key: file.key, // store backend key
                 }))
             );
@@ -114,6 +123,7 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
         return d.isValid() ? d.format("DD-MM-YYYY") : "N/A";
     };
 
+    const counsellorList = session.counsellorList || session.counsellors || [];
 
     /* SESSION DATA */
     const sessionData = session
@@ -122,9 +132,9 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
             email: session.studentEmail || "N/A",
             phone: session.studentPhone || "N/A",
 
-            counsellorList: Array.isArray(session.counsellorList)
-                ? session.counsellorList.map((c) => capitalizeName(c.counsellor_name))
-                : [],
+            // counsellorList: Array.isArray(session.counsellorList)
+            //     ? session.counsellorList.map((c) => capitalizeName(c.counsellor_name))
+            //     : [],
             date: session?.date && dayjs(session.date).isValid()
                 ? dayjs(session.date).format("DD-MM-YYYY")
                 : session?.date || "N/A",
@@ -185,11 +195,19 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
 
             const isAllowed =
                 file.type === "application/pdf" ||
-                file.type.startsWith("image/");
+                file.type.startsWith("image/") ||
+
+                // Word
+                file.type === "application/msword" ||
+                file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+
+                // Excel
+                file.type === "application/vnd.ms-excel" ||
+                file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
             if (!isAllowed) {
 
-                message.error("Only PDF or image files allowed!");
+                message.error("Only PDF, Image, Word, and Excel files allowed!");
                 return Upload.LIST_IGNORE;
 
             }
@@ -211,7 +229,7 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
         },
 
         showUploadList: false,
-        accept: "application/pdf,image/*",
+        accept: "application/pdf,image/*,.doc,.docx,.xls,.xlsx",
 
     };
 
@@ -342,15 +360,20 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
                                     <div>
                                         <Text strong>Counsellor:</Text>
                                         <br />
-                                        {sessionData.counsellorList.length > 0 ? (
-                                            sessionData.counsellorList.map((name, index) => (
-                                                <div key={index}>{name}</div>
+
+                                        {counsellorList.length > 0 ? (
+                                            counsellorList.map((c, index) => (
+                                                <div key={index}>
+                                                    {capitalizeName(c.counsellor_name)}{" "}
+                                                    <Tag color={c.role === "lead" ? "gold" : "blue"}>
+                                                        {c.role}
+                                                    </Tag>
+                                                </div>
                                             ))
                                         ) : (
                                             <span>N/A</span>
                                         )}
                                     </div>
-
                                     <div>
                                         <CalendarOutlined /> {session.date}
                                     </div>

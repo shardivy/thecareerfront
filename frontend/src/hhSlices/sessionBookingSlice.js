@@ -6,6 +6,7 @@ import { getSessionBookingsApi,
 cancelSessionApi ,
 markSessionCompletedApi,
 getParticipantSessionsApi,
+  sendHandholdingReminderApi
 } from "../hhApi/sessionBookingApi";
 
 /* ================= THUNK ================= */
@@ -106,6 +107,23 @@ export const getParticipantSessions = createAsyncThunk(
   }
 );
 
+export const sendHandholdingReminder = createAsyncThunk(
+  "handholdingSession/sendReminder",
+  async ({ participantId, sessionNo }, { rejectWithValue }) => {
+    try {
+      const data = await sendHandholdingReminderApi(
+        participantId,
+        sessionNo
+      );
+      return data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data || "Failed to send reminder"
+      );
+    }
+  }
+);
+
 /* ================= SLICE ================= */
 const sessionBookingSlice = createSlice({
   name: "sessionBookings",
@@ -201,6 +219,17 @@ const sessionBookingSlice = createSlice({
     state.totalSessions = action.payload.total_sessions;
 })
 .addCase(getParticipantSessions.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
+
+.addCase(sendHandholdingReminder.pending, (state) => {
+  state.loading = true;
+})
+.addCase(sendHandholdingReminder.fulfilled, (state) => {
+  state.loading = false;
+})
+.addCase(sendHandholdingReminder.rejected, (state, action) => {
   state.loading = false;
   state.error = action.payload;
 })

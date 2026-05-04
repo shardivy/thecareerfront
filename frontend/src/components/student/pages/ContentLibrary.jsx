@@ -25,6 +25,19 @@ import { fetchProgramContent , fetchContentList ,incrementDownloadCount } from "
 const { Title, Text } = Typography;
 const { Option } = Select;
 
+const getFileNameFromUrl = (url = "") => {
+  try {
+    return decodeURIComponent(url.split("/").pop()?.split("?")[0] || "");
+  } catch {
+    return url.split("/").pop()?.split("?")[0] || "";
+  }
+};
+
+const getFileExtension = (source = "", fallback = "pdf") => {
+  const match = source.match(/\.([a-z0-9]+)($|\?)/i);
+  return match?.[1]?.toLowerCase() || fallback;
+};
+
 const ContentLibrary = () => {
   const dispatch = useDispatch();
   const { contentList, loading } = useSelector((state) => state.content);
@@ -120,6 +133,7 @@ const transformedData =
         programs: item.program_details?.map((p) => p.name) || [],
         viewUrl: item.video_link || item.file_url,
         image: item.image,
+        fileName: getFileNameFromUrl(item.file_url || ""),
       };
     }) || [];
     
@@ -184,9 +198,12 @@ const transformedData =
     dispatch(incrementDownloadCount(item.id));
 
     // 2️⃣ Trigger actual file download
+    const extension = getFileExtension(item.fileName || item.viewUrl, "pdf");
+    const safeTitle = item.title?.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_");
+
     handleDownload(
       item.viewUrl,
-      `${item.title?.replace(/\s+/g, "_")}.pdf`
+      item.fileName || `${safeTitle}.${extension}`
     );
   };
 

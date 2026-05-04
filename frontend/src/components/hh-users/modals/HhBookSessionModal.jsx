@@ -45,6 +45,8 @@ const HhBookSessionModal = ({ open, onClose, session, onConfirm, rescheduleData,
   const [slotFilter, setSlotFilter] = useState("all");
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
 
+  const getSlotKey = (slot) => slot?.slot_id ?? slot?.id ?? null;
+
   // ================= REDUX STATE =================
   const students = useSelector((state) => state.users.list ?? []);
   const studentsLoading = useSelector((state) => state.users.loading);
@@ -112,6 +114,19 @@ const bookingLoading = useSelector((state) => state.sessionBooking.loading);
       );
     }
   }, [selectedDate, dispatch]);
+
+  useEffect(() => {
+    if (!selectedSlot) return;
+
+    const selectedSlotKey = getSlotKey(selectedSlot);
+    const slotStillExists = slotsByDate.some(
+      (slot) => getSlotKey(slot) === selectedSlotKey
+    );
+
+    if (!slotStillExists) {
+      setSelectedSlot(null);
+    }
+  }, [slotsByDate, selectedSlot]);
 
   // ================= SLOT FILTER =================
   // const filteredSlots = slotsByDate.filter((slot) => {
@@ -283,22 +298,17 @@ const filteredSlots = slotsByDate.filter((slot) => {
                     <Spin />
                   ) : filteredSlots.length ? (
                   filteredSlots.map((slot) => {
+  const isSelected = getSlotKey(selectedSlot) === getSlotKey(slot);
   const isDisabled =
     isSlotExpired(slot) ||
     !slot.is_handholding_session_available;
 
   return (
-    <Col xs={24} sm={12} md={8} key={slot.id}>
+    <Col xs={24} sm={12} md={8} key={getSlotKey(slot) ?? `${slot.start_time}-${slot.end_time}`}>
       <Button
         block
         size="large"
-        type={
-          selectedSlot &&
-          (selectedSlot.id === slot.id ||
-            selectedSlot.start_time === slot.start_time)
-            ? "primary"
-            : "default"
-        }
+        type={isSelected ? "primary" : "default"}
         disabled={isDisabled}
         onClick={() => {
           if (!isDisabled) {
@@ -323,8 +333,6 @@ const filteredSlots = slotsByDate.filter((slot) => {
                     <Text type="colorTextSecondary">No slots found</Text>
                   )}
                 </Row>
-
-
 
                 <Divider />
                 <Space size="large" wrap>
@@ -357,9 +365,28 @@ const filteredSlots = slotsByDate.filter((slot) => {
                       Session Details
                     </Text>
 
-                    <p>
-                      <b>Counsellor Name:</b> {selectedSlot.counsellor_name}
-                    </p>
+  {/* Counsellors */}
+    {selectedSlot?.counsellors?.length ? (
+      <div style={{ marginBottom: 8 }}>
+        <Text strong>Counsellors:</Text>
+
+        <div style={{ marginTop: 6 }}>
+          {selectedSlot.counsellors.map((c, index) => (
+            <div key={index} style={{ marginBottom: 4 }}>
+              <Space>
+                <Avatar size="small" icon={<UserOutlined />} />
+                <Text>{c.counsellor_name}</Text>
+                <Tag color={c.role === "lead" ? "gold" : "blue"}>
+                  {c.role === "lead" ? "Lead" : "Assistant"}
+                </Tag>
+              </Space>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <Text type="secondary">Counsellors: Not Assigned</Text>
+    )}
 
                     {selectedSlot.student_name && (
                       <p><b>Student Name:</b> {selectedSlot.student_name}</p>

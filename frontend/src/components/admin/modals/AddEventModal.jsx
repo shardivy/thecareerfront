@@ -432,7 +432,7 @@ const AddEventModal = ({ open, onCancel, mode = "add", data }) => {
                         <Form.Item
                             label="End Time"
                             name="endTime"
-                        //   rules={[{ required: true, message: "Select end time" }]}
+                          rules={[{ required: true, message: "Select end time" }]}
                         >
                             <TimePicker
                                 style={{ width: "100%" }}

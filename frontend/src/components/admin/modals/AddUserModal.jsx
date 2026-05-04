@@ -375,287 +375,288 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
       open={open}
       onCancel={onClose}
       footer={null}
-      destroyOnClose
+      // destroyOnClose
       title={isEdit ? "Edit User" : isView ? "View User" : "Add User"}
       width="100%"
       style={{ maxWidth: 1100 }}
-      
+
     >
-      
+
       <Row gutter={[24, 24]}>
         {/* LEFT SIDE FORM */}
-       <Col xs={24} lg={14}>
-  <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
-    <Form form={form} layout="vertical" onFinish={handleSubmit}>
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item name="first_name" label="First Name" rules={isView ? [] : nameRules}>
-                  <Input disabled={isView} placeholder="Enter first name" />
-                </Form.Item>
-              </Col>
+        <Col xs={24} lg={14}>
+          <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
 
-              <Col xs={24} md={12}>
-                <Form.Item name="last_name" label="Last Name" rules={isView ? [] : nameRules}>
-                  <Input disabled={isView} placeholder="Enter last name" />
-                </Form.Item>
-              </Col>
+            <Form form={form} layout="vertical" onFinish={handleSubmit} >
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item name="first_name" label="First Name" rules={isView ? [] : nameRules}>
+                    <Input disabled={isView} placeholder="Enter first name" />
+                  </Form.Item>
+                </Col>
 
-              <Col xs={24} md={12}>
-                <Form.Item name="email" label="Email" rules={isView ? [] : emailRules}>
-                  <Input disabled={isView} placeholder="Enter email address" />
-                </Form.Item>
-              </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="last_name" label="Last Name" rules={isView ? [] : nameRules}>
+                    <Input disabled={isView} placeholder="Enter last name" />
+                  </Form.Item>
+                </Col>
 
-              <Col xs={24} md={12}>
-                <Form.Item name="phone" label="Mobile Number(Whatsapp)" rules={isView ? [] : phoneRules}>
-                  <Input disabled={isView} placeholder="Enter 10-digit mobile number" maxLength={10} />
-                </Form.Item>
-              </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="email" label="Email" rules={isView ? [] : emailRules}>
+                    <Input disabled={isView} placeholder="Enter email address" />
+                  </Form.Item>
+                </Col>
 
-              {/* CLASS DROPDOWN */}
-              <Col xs={24} md={12}>
-                <Form.Item name="study_class" label="Class / STD" rules={isView ? [] : classRules}>
-                  <Select disabled={isView} placeholder="Select class / standard">
-                    {classOptions.map((cls) => (
-                      <Option key={cls} value={cls}>
-                        {cls}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item name="phone" label="Mobile Number(Whatsapp)" rules={isView ? [] : phoneRules}>
+                    <Input disabled={isView} placeholder="Enter 10-digit mobile number" maxLength={10} />
+                  </Form.Item>
+                </Col>
+
+                {/* CLASS DROPDOWN */}
+                <Col xs={24} md={12}>
+                  <Form.Item name="study_class" label="Class / STD" rules={isView ? [] : classRules}>
+                    <Select disabled={isView} placeholder="Select class / standard">
+                      {classOptions.map((cls) => (
+                        <Option key={cls} value={cls}>
+                          {cls}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
 
 
-              <Col span={12}>
-                <Form.Item
-                  label="Program"
-                  name="program"
-                  rules={isView ? [] : [{ required: true, message: "Please select program" }]}
-                >
-                  <Select
-                    placeholder={programsLoading ? "Loading..." : "Select program"}
-                    loading={programsLoading}
-                    onChange={handleProgramChange}
-                    allowClear
-                    disabled={isView}
+                <Col span={12}>
+                  <Form.Item
+                    label="Program"
+                    name="program"
+                    rules={isView ? [] : [{ required: true, message: "Please select program" }]}
                   >
-                    {programs.map((p) => (
-                      <Option key={p.id} value={p.id}>
-                        {p.name}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
+                    <Select
+                      placeholder={programsLoading ? "Loading..." : "Select program"}
+                      loading={programsLoading}
+                      onChange={handleProgramChange}
+                      allowClear
+                      disabled={isView}
+                    >
+                      {programs.map((p) => (
+                        <Option key={p.id} value={p.id}>
+                          {p.name}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
 
-              <Col span={12}>
-                <Form.Item
-                  label="Counselling Services"
-                  name="package"
-                  rules={isView ? [] : [{ required: true, message: "Please select counselling service" }]}
-                >
-                  <Select
-                    placeholder={packagesLoading ? "Loading..." : "Select counselling service"}
-                    loading={packagesLoading}
-                    allowClear
-                    disabled={isView}
+                <Col span={12}>
+                  <Form.Item
+                    label="Counselling Services"
+                    name="package"
+                    rules={isView ? [] : [{ required: true, message: "Please select counselling service" }]}
                   >
-                    {packages.map((p) => (
-                      <Option key={p.id} value={p.id}>
-                        {p.name}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
+                    <Select
+                      placeholder={packagesLoading ? "Loading..." : "Select counselling service"}
+                      loading={packagesLoading}
+                      allowClear
+                      disabled={isView}
+                    >
+                      {packages.map((p) => (
+                        <Option key={p.id} value={p.id}>
+                          {p.name}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
 
-              <Col xs={24} md={12}>
-                <Form.Item
-                  name="preferred_counselling_mode"
-                  label="Preferred Counselling Mode"
-                    initialValue="online" 
-                  required
-                >
-                  <Select disabled={isView} placeholder="Select counselling mode">
-                    <Option value="online">Online</Option>
-                    <Option value="offline">Offline</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col xs={24} sm={12}>
-                <Form.Item
-                  name="amount"
-                  label="Fees Paid"
-                  dependencies={["package"]}
-                  rules={[
-                    { required: true, message: "Please enter the amount paid" },
-                    {
-                      validator: (_, value) => {
-                        const numericValue = Number(value);
+                <Col xs={24} md={12}>
+                  <Form.Item
+                    name="preferred_counselling_mode"
+                    label="Preferred Counselling Mode"
+                    initialValue="online"
+                    required
+                  >
+                    <Select disabled={isView} placeholder="Select counselling mode">
+                      <Option value="online">Online</Option>
+                      <Option value="offline">Offline</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="amount"
+                    label="Fees Paid"
+                    dependencies={["package"]}
+                    rules={[
+                      { required: true, message: "Please enter the amount paid" },
+                      {
+                        validator: (_, value) => {
+                          const numericValue = Number(value);
 
-                        if (value === undefined || value === null || value === "") {
+                          if (!value && value !== 0) return Promise.resolve();
+
+                          if (isNaN(numericValue)) {
+                            return Promise.reject("Amount must be a valid number");
+                          }
+
+                          if (numericValue < 0) {
+                            return Promise.reject("Amount cannot be negative");
+                          }
+
+                          if (numericValue !== 0 && numericValue % 100 !== 0) {
+                            return Promise.reject(
+                              "Amount must be ₹0 or in multiples of ₹100"
+                            );
+                          }
+
+                          if (numericValue > totalPackageAmount) {
+                            return Promise.reject(
+                              `Amount cannot exceed ₹${totalPackageAmount}`
+                            );
+                          }
+
                           return Promise.resolve();
-                        }
-
-                        if (isNaN(numericValue)) {
-                          return Promise.reject("Amount must be a valid number");
-                        }
-
-                        if (numericValue < 0) {
-                          return Promise.reject("Amount cannot be negative");
-                        }
-
-                        // Allow only 0 OR multiples of 100
-                        if (numericValue !== 0 && numericValue % 100 !== 0) {
-                          return Promise.reject(
-                            "Amount must be ₹0 or in multiples of ₹100 (e.g., 100, 200, 300)"
-                          );
-                        }
-
-                        if (numericValue > totalPackageAmount) {
-                          return Promise.reject(
-                            `Amount cannot exceed ₹${totalPackageAmount}`
-                          );
-                        }
-
-                        return Promise.resolve();
+                        },
                       },
-                    },
-                  ]}
-                >
-                  <Input type="number" min={0} step={100} />
-                </Form.Item>
-              </Col>
+                    ]}
+                  >
+                    <Input
+                      type="number"
+                      min={0}
+                    />
+                  </Form.Item>
+                </Col>
 
-            </Row>
+              </Row>
 
 
-            {amount > 0 && (
-              <>
-                <Row gutter={16}>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="payment_type" label="Payment Type" rules={isView ? [] : [{ required: true }]}>
-                      <Select disabled={isView} placeholder="Select payment type">
-                        <Option value="online">Online</Option>
-                        <Option value="offline">Offline</Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={12}>
-                    <Form.Item name="method" label="Payment Method" rules={isView ? [] : [{ required: true }]}>
-                      <Select disabled={isView} placeholder="Select payment method">
-                        <Option value="upi">UPI</Option>
-                        <Option value="cash">Cash</Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-
-                  {selectedPaymentType === "online" && (
-                    <Col xs={24}>
-                      <Form.Item
-                        name="transaction_id"
-                        label="Transaction ID"
-                      >
-                        <Input disabled={isView} placeholder="Enter transaction ID" />
+              {amount > 0 && (
+                <>
+                  <Row gutter={16}>
+                    <Col xs={24} md={12}>
+                      <Form.Item name="payment_type" label="Payment Type" rules={isView ? [] : [{ required: true }]}>
+                        <Select disabled={isView} placeholder="Select payment type">
+                          <Option value="online">Online</Option>
+                          <Option value="offline">Offline</Option>
+                        </Select>
                       </Form.Item>
                     </Col>
-                  )}
 
-                </Row>
+                    <Col xs={24} md={12}>
+                      <Form.Item name="method" label="Payment Method" rules={isView ? [] : [{ required: true }]}>
+                        <Select disabled={isView} placeholder="Select payment method">
+                          <Option value="upi">UPI</Option>
+                          <Option value="cash">Cash</Option>
+                        </Select>
+                      </Form.Item>
+                    </Col>
 
-                <Form.Item label="Upload Receipt" name="receipt">
-                  <Upload
-                    beforeUpload={handleBeforeUpload}
-                    maxCount={1}
-                    fileList={fileList}
-                    onChange={handleFileChange}
-                    onRemove={() => {
-                      setFileList([]);
-                      setPreviewUrl(null);
-                      setUploadedFile(null);
-                      console.log("🗑️ File removed from upload");
-                    }}
-                    disabled={isView}
-                  >
-                    <Button icon={<UploadOutlined />} disabled={isView}>
-                      {fileList.length ? 'Change Receipt' : 'Upload Receipt'}
-                    </Button>
-                  </Upload>
-                  {/* {uploadedFile && (
+                    {selectedPaymentType === "online" && (
+                      <Col xs={24}>
+                        <Form.Item
+                          name="transaction_id"
+                          label="Transaction ID"
+                        >
+                          <Input disabled={isView} placeholder="Enter transaction ID" />
+                        </Form.Item>
+                      </Col>
+                    )}
+
+                  </Row>
+
+                  <Form.Item label="Upload Receipt" name="receipt">
+                    <Upload
+                      beforeUpload={handleBeforeUpload}
+                      maxCount={1}
+                      fileList={fileList}
+                      onChange={handleFileChange}
+                      onRemove={() => {
+                        setFileList([]);
+                        setPreviewUrl(null);
+                        setUploadedFile(null);
+                        console.log("🗑️ File removed from upload");
+                      }}
+                      disabled={isView}
+                    >
+                      <Button icon={<UploadOutlined />} disabled={isView}>
+                        {fileList.length ? 'Change Receipt' : 'Upload Receipt'}
+                      </Button>
+                    </Upload>
+                    {/* {uploadedFile && (
                 <div style={{ marginTop: 8, color: '#1890ff' }}>
                   File selected: {uploadedFile.name}
                 </div>
               )} */}
-                </Form.Item>
-              </>
-            )}
+                  </Form.Item>
+                </>
+              )}
 
-            {!isView && (
-              <div style={{ textAlign: "right" }}>
-                <Button type="primary" htmlType="submit" loading={loading}>
-                  {isEdit ? "Update User" : "Add User"}
-                </Button>
-              </div>
-            )}
-          </Form>
-            </div>
+              {!isView && (
+                <div style={{ textAlign: "right" }}>
+                  <Button type="primary" htmlType="submit" loading={loading}>
+                    {isEdit ? "Update User" : "Add User"}
+                  </Button>
+                </div>
+              )}
+            </Form>
+          </div>
         </Col>
 
         {/* RIGHT SIDE LIVE PREVIEW */}
-       <Col xs={24} lg={10}>
-  <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
-    <Card title="Preview">
-            {(!form.getFieldValue('first_name') && !previewUrl) ? (
-              <Empty description="Fill the form to see preview" />
-            ) : (
-              <>
-                <p><b>Name:</b> {form.getFieldValue('first_name')} {form.getFieldValue('last_name')}</p>
-                <p><b>Email:</b> {form.getFieldValue('email')}</p>
-                <p><b>Mobile:</b> {form.getFieldValue('phone')}</p>
-                <p><b>Class:</b> {form.getFieldValue('study_class') || 'Not selected'}</p>
+        <Col xs={24} lg={10}>
+          <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
+            <Card title="Preview">
+              {(!form.getFieldValue('first_name') && !previewUrl) ? (
+                <Empty description="Fill the form to see preview" />
+              ) : (
+                <>
+                  <p><b>Name:</b> {form.getFieldValue('first_name')} {form.getFieldValue('last_name')}</p>
+                  <p><b>Email:</b> {form.getFieldValue('email')}</p>
+                  <p><b>Mobile:</b> {form.getFieldValue('phone')}</p>
+                  <p><b>Class:</b> {form.getFieldValue('study_class') || 'Not selected'}</p>
 
-                <p><b>Program:</b> {
-                  programs.find(p => p.id === form.getFieldValue('program'))?.name || 'Not selected'
-                }</p>
-                <p><b>Counselling Services:</b> {
-                  packages.find(p => p.id === form.getFieldValue('package'))?.name || 'Not selected'
-                }</p>
+                  <p><b>Program:</b> {
+                    programs.find(p => p.id === form.getFieldValue('program'))?.name || 'Not selected'
+                  }</p>
+                  <p><b>Counselling Services:</b> {
+                    packages.find(p => p.id === form.getFieldValue('package'))?.name || 'Not selected'
+                  }</p>
 
-                <p><b>Amount:</b> ₹{form.getFieldValue('amount') || '0'} / ₹{totalPackageAmount}</p>
+                  <p><b>Amount:</b> ₹{form.getFieldValue('amount') || '0'} / ₹{totalPackageAmount}</p>
 
-                <Divider />
+                  <Divider />
 
-                <p><b>Payment Type:</b> {form.getFieldValue('payment_type') || 'Not selected'}</p>
-                <p><b>Method:</b> {form.getFieldValue('method') || 'Not selected'}</p>
-                <p><b>Transaction ID:</b> {form.getFieldValue('transaction_id') || 'Not provided'}</p>
+                  <p><b>Payment Type:</b> {form.getFieldValue('payment_type') || 'Not selected'}</p>
+                  <p><b>Method:</b> {form.getFieldValue('method') || 'Not selected'}</p>
+                  <p><b>Transaction ID:</b> {form.getFieldValue('transaction_id') || 'Not provided'}</p>
 
-                <Divider />
+                  <Divider />
 
-                {previewUrl ? (
-                  <div>
-                    <p><b>Receipt:</b></p>
-                    <Image
-                      src={previewUrl}
-                      alt="Receipt"
-                      style={{
-                        width: "100%",
-                        maxHeight: 300,
-                        objectFit: 'contain',
-                        border: '1px solid #d9d9d9',
-                        borderRadius: 8
-                      }}
-                      preview={{
-                        mask: <><EyeOutlined /> View</>
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <Empty description="No receipt uploaded" />
-                )}
-              </>
-            )}
-          </Card>
+                  {previewUrl ? (
+                    <div>
+                      <p><b>Receipt:</b></p>
+                      <Image
+                        src={previewUrl}
+                        alt="Receipt"
+                        style={{
+                          width: "100%",
+                          maxHeight: 300,
+                          objectFit: 'contain',
+                          border: '1px solid #d9d9d9',
+                          borderRadius: 8
+                        }}
+                        preview={{
+                          mask: <><EyeOutlined /> View</>
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <Empty description="No receipt uploaded" />
+                  )}
+                </>
+              )}
+            </Card>
           </div>
         </Col>
       </Row>

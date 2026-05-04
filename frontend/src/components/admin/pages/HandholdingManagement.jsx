@@ -29,6 +29,7 @@ import {
   DeleteOutlined,
   SearchOutlined,
   DownOutlined,
+  BellOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import HHSessionModal from "../modals/HHSessionModal";
@@ -39,7 +40,7 @@ import CertificateTemplateModal from "../modals/CertificateTemplateModal";
 import HHSessionBookingModal from "../modals/HHSessionBookingModal";
 import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
-import { getSessionBookings, cancelSession } from "../../../hhSlices/sessionBookingSlice";
+import { getSessionBookings, cancelSession, sendHandholdingReminder  } from "../../../hhSlices/sessionBookingSlice";
 import { getHandholdingParticipants, getCardStats, updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
 import { getCertificateTemplates, getIssuedCertificates, getCertificateStats } from "../../../hhSlices/certificateSlice";
 import UploadCertificateTemplateModal from "../modals/UploadCertificateTemplateModal.jsx";
@@ -80,6 +81,8 @@ const HandholdingManagement = () => {
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [reminderModalOpen, setReminderModalOpen] = useState(false);
+const [selectedReminder, setSelectedReminder] = useState(null);
 
 
   /* ================= PAGINATION STATE ================= */
@@ -226,18 +229,50 @@ const HandholdingManagement = () => {
   };
 
   const canBookSession = (record) => {
-  // Session 1 always enabled
-  if (record.session_no === 1) return true;
+    // Session 1 always enabled
+    if (record.session_no === 1) return true;
 
-  // Find previous session for same participant
-  const previousSession = formattedBookings.find(
-    (item) =>
-      item.participant_id === record.participant_id &&
-      item.session_no === record.session_no - 1
-  );
+    // Find previous session for same participant
+    const previousSession = formattedBookings.find(
+      (item) =>
+        item.participant_id === record.participant_id &&
+        item.session_no === record.session_no - 1
+    );
 
-  // Enable only if previous session completed
-  return previousSession?.status === "completed";
+    // Enable only if previous session completed
+    return previousSession?.status === "completed";
+  };
+
+
+//   const handleSendReminder = (record) => {
+//   setSelectedReminder(record);
+//   setReminderModalOpen(true);
+// };
+
+const handleSendReminder = (record) => {
+  Modal.confirm({
+    title: "Send Reminder?",
+    content: `Send reminder to ${record.name}?`,
+    okText: "Yes",
+    cancelText: "No",
+    centered: true,
+
+    async onOk() {
+      try {
+        const res = await dispatch(
+          sendHandholdingReminder({
+            participantId: record.participant_id,
+            sessionNo: record.session_no,
+          })
+        ).unwrap();
+
+        message.success(res?.message || "Reminder sent successfully");
+      } catch (err) {
+        message.error(err?.message || "Failed to send reminder");
+        throw err; // important so modal knows it failed
+      }
+    },
+  });
 };
 
   /* ================= STATS ================= */
@@ -764,20 +799,26 @@ const HandholdingManagement = () => {
 
           if (record.status === "not_booked") {
             return (
-             <Button
-  type="primary"
-  icon={<PlusOutlined />}
-  disabled={!canBookSession(record)}
-  onClick={() => {
-    if (!canBookSession(record)) return;
+              <Space>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  disabled={!canBookSession(record)}
+                  onClick={() => {
+                    if (!canBookSession(record)) return;
 
-    setSelectedBooking(record);
-    setBookingMode("create");
-    setBookingModalOpen(true);
-  }}
->
-  Book Session
-</Button>
+                    setSelectedBooking(record);
+                    setBookingMode("create");
+                    setBookingModalOpen(true);
+                  }}
+                >
+                  Book Session
+                </Button>
+
+                <Button icon={<BellOutlined />} onClick={() => handleSendReminder(record)} disabled={!canBookSession(record)}>
+                  Send Reminder
+                </Button>
+              </Space>
             );
           }
 
@@ -790,6 +831,10 @@ const HandholdingManagement = () => {
                   onClick={() => handleEditBooking(record)}
                 >
                   Reschedule
+                </Button>
+
+                <Button icon={<BellOutlined />} onClick={() => handleSendReminder(record)} disabled={!canBookSession(record)}>
+                  Send Reminder
                 </Button>
 
                 <Button
@@ -936,39 +981,39 @@ const HandholdingManagement = () => {
     },
   ];
 
-const filteredBookings = formattedBookings
-  .filter((item) => {
-    const matchesSearch =
-      item.name?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
-      item.email?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
-      item.session?.toLowerCase().includes(bookingSearch.toLowerCase());
+  const filteredBookings = formattedBookings
+    .filter((item) => {
+      const matchesSearch =
+        item.name?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+        item.email?.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+        item.session?.toLowerCase().includes(bookingSearch.toLowerCase());
 
-    let matchesStatus = true;
+      let matchesStatus = true;
 
-    if (bookingStatusFilter === "booked_group") {
-      matchesStatus = ["booked", "rescheduled"].includes(item.status);
-    } else if (bookingStatusFilter) {
-      matchesStatus = item.status === bookingStatusFilter;
-    }
+      if (bookingStatusFilter === "booked_group") {
+        matchesStatus = ["booked", "rescheduled"].includes(item.status);
+      } else if (bookingStatusFilter) {
+        matchesStatus = item.status === bookingStatusFilter;
+      }
 
-    return matchesSearch && matchesStatus;
-  })
-  .sort((a, b) => {
-    // Only apply sorting in Not Booked tab
-    if (bookingStatusFilter === "not_booked") {
-      const aCanBook = canBookSession(a);
-      const bCanBook = canBookSession(b);
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      // Only apply sorting in Not Booked tab
+      if (bookingStatusFilter === "not_booked") {
+        const aCanBook = canBookSession(a);
+        const bCanBook = canBookSession(b);
 
-      // Enabled Book Session first
-      if (aCanBook && !bCanBook) return -1;
-      if (!aCanBook && bCanBook) return 1;
+        // Enabled Book Session first
+        if (aCanBook && !bCanBook) return -1;
+        if (!aCanBook && bCanBook) return 1;
 
-      // optional: keep session order ascending
-      return a.session_no - b.session_no;
-    }
+        // optional: keep session order ascending
+        return a.session_no - b.session_no;
+      }
 
-    return 0;
-  });
+      return 0;
+    });
 
   return (
     <div>
@@ -1584,6 +1629,7 @@ const filteredBookings = formattedBookings
           <strong>{selectedSession?.title}</strong>?
         </p>
       </Modal>
+
 
 
     </div>

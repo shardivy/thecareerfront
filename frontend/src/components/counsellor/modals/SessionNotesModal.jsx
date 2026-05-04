@@ -91,7 +91,16 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
         filesArray.map((file, index) => ({
          name: cleanFileName(file.url) || `File-${index + 1}`,
           url: file.url,
-          type: file.url.endsWith(".pdf") ? "application/pdf" : "image/*",
+type:
+  file.url.endsWith(".pdf")
+    ? "application/pdf"
+    : file.url.match(/\.(jpg|jpeg|png|gif)$/i)
+    ? "image/*"
+    : file.url.match(/\.(doc|docx)$/i)
+    ? "word"
+    : file.url.match(/\.(xls|xlsx)$/i)
+    ? "excel"
+    : "other",
           key: file.key, // store backend key
         }))
       );
@@ -164,37 +173,38 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
 
     multiple: true,
 
-    beforeUpload: (file) => {
+   beforeUpload: (file) => {
+  const isAllowed =
+    file.type === "application/pdf" ||
+    file.type.startsWith("image/") ||
 
-      const isAllowed =
-        file.type === "application/pdf" ||
-        file.type.startsWith("image/");
+    // ✅ ADD THESE
+    file.type === "application/msword" || // .doc
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || // .docx
+    file.type === "application/vnd.ms-excel" || // .xls
+    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // .xlsx
 
-      if (!isAllowed) {
+  if (!isAllowed) {
+    message.error("Only PDF, Image, Word, and Excel files allowed!");
+    return Upload.LIST_IGNORE;
+  }
 
-        message.error("Only PDF or image files allowed!");
-        return Upload.LIST_IGNORE;
+  const fileUrl = URL.createObjectURL(file);
 
-      }
-
-      const fileUrl = URL.createObjectURL(file);
-
-      setUploadedFiles((prev) => [
-        ...prev,
-        {
-          name: file.name,
-          url: fileUrl,
-          type: file.type,
-          originFileObj: file,
-        },
-      ]);
-
-      return false;
-
+  setUploadedFiles((prev) => [
+    ...prev,
+    {
+      name: file.name,
+      url: fileUrl,
+      type: file.type,
+      originFileObj: file,
     },
+  ]);
 
+  return false;
+},
     showUploadList: false,
-    accept: "application/pdf,image/*",
+accept: "application/pdf,image/*,.doc,.docx,.xls,.xlsx",
 
   };
 
@@ -379,7 +389,7 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
 
                   <Upload {...uploadProps}>
                     <Button icon={<UploadOutlined />}>
-                      Upload PDF / Images
+                    Upload Files
                     </Button>
                   </Upload>
                 </>

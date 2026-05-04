@@ -45,7 +45,7 @@ const isLocked =
   };
 
   const certificate = {
-    name: localStorage.getItem("student_name") || "Participant",
+    name: localStorage.getItem("userName") || "Participant",
     course: certificateData?.program_type || "Handholding Program Completion",
     issuedBy: "Abhinav Career Scope",
     date: certificateData?.issued_at
@@ -66,15 +66,41 @@ const isLocked =
     backdropFilter: "blur(8px)",
   };
 
-  const handleDownload = () => {
-    if (certificate.file) {
-      const link = document.createElement("a");
-      link.href = certificate.file;
-      link.target = "_blank";
-      link.download = "certificate.jpg";
-      link.click();
-    } else {
+  const handleDownload = async () => {
+    if (!certificate.file) {
       window.print();
+      return;
+    }
+
+    try {
+      const response = await fetch(certificate.file);
+      if (!response.ok) {
+        throw new Error("Unable to download certificate");
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      let extension = "jpg";
+      try {
+        const parsed = new URL(certificate.file, window.location.origin);
+        const path = parsed.pathname;
+        const ext = path.substring(path.lastIndexOf(".") + 1);
+        if (ext) extension = ext;
+      } catch {
+        // fallback if URL parsing fails
+      }
+
+      link.href = blobUrl;
+      link.download = `certificate-${certificate.id || "download"}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error(error);
+      window.open(certificate.file, "_blank");
     }
   };
 
@@ -325,7 +351,7 @@ const isLocked =
                     textTransform: "capitalize",
                   }}
                 >
-                  {certificate.course}
+                Hand Holding Program 
                 </div>
               </div>
 

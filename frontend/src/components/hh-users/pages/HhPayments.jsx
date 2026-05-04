@@ -18,13 +18,15 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   UploadOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 
 import UploadPaymentModal from "../modals/HhBookSessionModal";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchHandholdingPaymentDetails,
-  fetchPaymentProgress ,
+  fetchPaymentProgress,
+  fetchHandholdingReceipt
 } from "../../../hhSlices/handholdingPaymentSlice";
 
 
@@ -41,12 +43,12 @@ const HhPayments = () => {
   const dispatch = useDispatch();
 
 
-const { details, data, loading } = useSelector((state) => state.handholdingPayment);
-const { progress } = useSelector((state) => state.handholdingPayment);
+  const { details, data, loading, receiptLoading } = useSelector((state) => state.handholdingPayment);
+  const { progress } = useSelector((state) => state.handholdingPayment);
 
-const totalFee = Number(progress?.package_price) || 0;
-const paidAmount = Number(progress?.total_paid) || 0;
-const dueAmount = Number(progress?.remaining_amount) || 0;
+  const totalFee = Number(progress?.package_price) || 0;
+  const paidAmount = Number(progress?.total_paid) || 0;
+  const dueAmount = Number(progress?.remaining_amount) || 0;
 
   const summaryData = {
     totalFee,
@@ -54,17 +56,17 @@ const dueAmount = Number(progress?.remaining_amount) || 0;
     dueAmount,
   };
 
-const paymentProgress =
-  Number(progress?.payment_progress_percentage) || 0;
+  const paymentProgress =
+    Number(progress?.payment_progress_percentage) || 0;
 
- useEffect(() => {
-  const participantId = localStorage.getItem("participant_id");
+  useEffect(() => {
+    const participantId = localStorage.getItem("participant_id");
 
-  if (participantId) {
-    dispatch(fetchHandholdingPaymentDetails(participantId));
-    dispatch(fetchPaymentProgress(participantId)); 
-  }
-}, [dispatch]);
+    if (participantId) {
+      dispatch(fetchHandholdingPaymentDetails(participantId));
+      dispatch(fetchPaymentProgress(participantId));
+    }
+  }, [dispatch]);
 
 
 
@@ -90,34 +92,34 @@ const paymentProgress =
 
   const formattedHistory = historyList.map((item, index) => {
     const rawDate = item.payment_date || item.created_at;
-const savedProgram = localStorage.getItem("selectedProgram");
-const savedPackage = localStorage.getItem("selectedPackageName");
+    const savedProgram = localStorage.getItem("selectedProgram");
+    const savedPackage = localStorage.getItem("selectedPackageName");
     return {
       key: item.id || index,
       srNo: index + 1,
       // program: item.program_name || item.program || "N/A",
       // package: item.package_name || item.package || "-",
       program:
-  item.program_name ||
-  item.program ||
-  savedProgram ||
-  "N/A",
+        item.program_name ||
+        item.program ||
+        savedProgram ||
+        "N/A",
 
-package:
-  item.package_name ||
-  item.package ||
-  savedPackage ||
-  "-",
+      package:
+        item.package_name ||
+        item.package ||
+        savedPackage ||
+        "-",
       paidAmount: item.amount || 0,
       packagePrice: item.package_price || 0,
       status:
-      item.status === "fully_paid" ||
-      item.status === "paid" ||
-      item.status === "verified"
-        ? "fully_paid"
-        : item.status === "partial_paid"
-        ? "partial_paid"
-        : "not_paid",
+        item.status === "fully_paid" ||
+          item.status === "paid" ||
+          item.status === "verified"
+          ? "fully_paid"
+          : item.status === "partial_paid"
+            ? "partial_paid"
+            : "not_paid",
       paymentMethod: item.method || "-",
       date: rawDate
         ? new Date(rawDate).toLocaleDateString("en-IN")
@@ -132,7 +134,7 @@ package:
       title: "Sr. No",
       dataIndex: "srNo",
       key: "srNo",
-      width: 80,
+      width: 70,
     },
     {
       title: "Program / Counselling Service",
@@ -219,18 +221,85 @@ package:
     {
       title: "Action",
       key: "action",
-      render: (_, record) =>
-        record.status === "not_paid" ? (
-          <Button
-            type="primary"
-            size={isMobile ? "small" : "middle"}
-            icon={<CreditCardOutlined />}
-            onClick={() => navigate("/handholding/payment-page")}
-          >
-            {isMobile ? "Pay Now" : "Pay Now"}
-          </Button>
+      render: (_, record) => {
 
-        ) : (
+        // 🔴 NOT PAID → Pay Now
+        if (record.status === "not_paid") {
+          return (
+            <Button
+              type="primary"
+              size={isMobile ? "small" : "middle"}
+              icon={<CreditCardOutlined />}
+              onClick={() => navigate("/handholding/payment-page")}
+            >
+              Pay Now
+            </Button>
+          );
+        }
+
+        // 🟢 FULLY PAID → View + Download ✅
+        if (record.status === "fully_paid") {
+          return (
+            <div style={{ display: "flex", gap: 8 }}>
+
+              {/* VIEW */}
+              <Button
+                size={isMobile ? "small" : "middle"}
+                icon={<FileTextOutlined />}
+                onClick={async () => {
+                  try {
+                    const participantId = localStorage.getItem("participant_id");
+
+                    const blob = await dispatch(
+                      fetchHandholdingReceipt(participantId)
+                    ).unwrap();
+
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, "_blank");
+
+                  } catch (error) {
+                    console.error("View failed", error);
+                  }
+                }}
+              >
+                {isMobile ? "View Receipt" : "View Receipt"}
+              </Button>
+
+              {/* DOWNLOAD */}
+              <Button
+                size={isMobile ? "small" : "middle"}
+                icon={<DownloadOutlined />}
+                onClick={async () => {
+                  try {
+                    const participantId = localStorage.getItem("participant_id");
+
+                    const blob = await dispatch(
+                      fetchHandholdingReceipt(participantId)
+                    ).unwrap();
+
+                    const url = window.URL.createObjectURL(blob);
+
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = `Invoice.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+
+                  } catch (error) {
+                    console.error("Download failed", error);
+                  }
+                }}
+              >
+                {isMobile ? "Download" : "Download"}
+              </Button>
+
+            </div>
+          );
+        }
+
+        // 🟡 PARTIAL PAID → Disabled
+        return (
           <Button
             size={isMobile ? "small" : "middle"}
             icon={<FileTextOutlined />}
@@ -238,8 +307,9 @@ package:
           >
             {isMobile ? "Invoice" : "View Invoice"}
           </Button>
-        ),
-    },
+        );
+      },
+    }
   ];
 
 

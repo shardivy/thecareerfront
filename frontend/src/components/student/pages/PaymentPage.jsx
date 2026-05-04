@@ -44,6 +44,7 @@ const PaymentPage = () => {
   );
 
   const studentId = localStorage.getItem("studentId");
+  const package_price = Number(localStorage.getItem("packagePrice")) || 0;
 
   const [mode, setMode] = useState("UPI");
 
@@ -54,6 +55,12 @@ const PaymentPage = () => {
       historyList[0]?.amount ||
       0
       : 0;
+
+
+  const offlineAdvance = 500;
+  const offlineRemaining = isFreeUser 
+    ? amount - offlineAdvance 
+    : package_price - offlineAdvance;
 
   const isMobile = !screens.md;
   const isTablet = screens.md && !screens.lg;
@@ -233,6 +240,36 @@ const PaymentPage = () => {
                     </>
                   )}
                 </Space>
+
+                <Divider />
+
+  <Alert
+  type="warning"
+  showIcon
+  style={{ marginBottom: 20, borderRadius: 10 }}
+  message="Important Payment Instruction"
+  description={
+    <Text>
+      If you opt for <b>online counselling session</b>, please pay the complete{" "}
+      <b>
+        {isFreeUser ? (
+          historyLoading ? (
+            <Spin size="small" />
+          ) : (
+            `₹ ${amount}`
+          )
+        ) : (
+          `₹ ${package_price}`
+        )}
+        /-
+      </b>.{" "}
+      
+      If you wish to take <b>offline counselling at Bavdhan, Pune</b>, just pay{" "}
+      <b>₹{offlineAdvance}/-</b> now and the remaining{" "}
+      <b>₹{offlineRemaining}/-</b> can be paid in cash during the offline session.
+    </Text>
+  }
+/>
 
                 <Divider />
 
