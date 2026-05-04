@@ -244,14 +244,14 @@ class AdvertisementSerializer(serializers.ModelSerializer):
         fields = "__all__"
         read_only_fields = ["created_by", "created_at", "updated_at"]
 
-    def validate(self, data):
-        start = data.get("ad_start_date")
-        end = data.get("ad_end_date")
+    # def validate(self, data):
+    #     start = data.get("ad_start_date")
+    #     end = data.get("ad_end_date")
 
-        if start and end and end < start:
-            raise serializers.ValidationError("End date cannot be before start date")
+    #     if start and end and end < start:
+    #         raise serializers.ValidationError("End date cannot be before start date")
 
-        return data
+    #     return data
     
     
 # ============================ Certificate Template Serializer ============================

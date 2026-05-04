@@ -216,10 +216,10 @@ class Advertisement(models.Model):
 
     ad_platform = models.CharField(max_length=100, null=True, blank=True)
 
-    ad_start_date = models.DateField(null=True, blank=True)
-    ad_end_date = models.DateField(null=True, blank=True)
-    ad_start_time = models.CharField(max_length=20, null=True, blank=True)
-    ad_end_time = models.CharField(max_length=20, null=True, blank=True)
+    ad_date = models.DateField(null=True, blank=True)
+    # ad_end_date = models.DateField(null=True, blank=True)
+    # ad_start_time = models.CharField(max_length=20, null=True, blank=True)
+    # ad_end_time = models.CharField(max_length=20, null=True, blank=True)
 
     amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 

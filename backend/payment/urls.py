@@ -1,6 +1,6 @@
 from django.urls import path
 
-from payment.views import HandholdingPaymentProgressAPIView, PaymentCreateAPIView, PaymentListAPIView, PaymentLogListAPIView, PaymentProofFileView, PaymentReminderAPI, PaymentStatsAPIView, PendingHandHoldingParticipantsAPIView, PendingPaymentUsersAPIView, StudentPackagePaymentSummaryAPIView, StudentPaymentDetailAPIView, StudentPaymentListAPIView, StudentPaymentProgressAPIView, UpdatePaymentStatusAPIView, VerifyPaymentAPIView
+from payment.views import GenerateReceiptByHandHoldingParticipantAPIView, GenerateReceiptByStudentAPIView, HandHoldingPaymentReminderAPI, HandholdingPaymentProgressAPIView, PaymentCreateAPIView, PaymentListAPIView, PaymentLogListAPIView, PaymentProofFileView, PaymentReminderAPI, PaymentStatsAPIView, PendingHandHoldingParticipantsAPIView, PendingPaymentUsersAPIView, StudentPackagePaymentSummaryAPIView, StudentPaymentDetailAPIView, StudentPaymentListAPIView, StudentPaymentProgressAPIView, UpdatePaymentStatusAPIView, VerifyPaymentAPIView
 
 
 urlpatterns = [
@@ -64,10 +64,17 @@ urlpatterns = [
     name="payment-reminder",
 ),   
     path(
+        "handholding/<int:participant_id>/payment-reminder/",
+        HandHoldingPaymentReminderAPI.as_view(),
+        name="handholding-payment-reminder"
+    ),
+    path(
         "handholding/pending-participants/",
         PendingHandHoldingParticipantsAPIView.as_view(),
         name="pending-handholding-participants"
-    ), 
+    ),
+    path("receipt/<int:student_id>/", GenerateReceiptByStudentAPIView.as_view()), 
+    path("handholding/receipt/<int:participant_id>/", GenerateReceiptByHandHoldingParticipantAPIView.as_view()),
 # ========================= Student Payment Summary API =========================
 
     path(

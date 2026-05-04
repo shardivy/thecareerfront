@@ -1,5 +1,7 @@
 # serializers.py
 
+import os
+
 from django.urls import reverse
 from rest_framework import serializers
 
@@ -62,12 +64,17 @@ class ContentUploadSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
 
         if instance.file_url and request:
+            # ✅ Public file preview/download route
             representation["file_url"] = request.build_absolute_uri(
-                reverse("content-file-view", args=[instance.id])
+                f"/api/content/content-file/{instance.id}/"
             )
+            
+            # ✅ Show proper uploaded file name
+            representation["file_name"] = os.path.basename(instance.file_url.name)
+
 
         return representation
-    
+        
     def create(self, validated_data):
         programs = validated_data.pop("program", [])
         packages = validated_data.pop("package", [])
@@ -145,35 +152,58 @@ class ContentUploadSerializer(serializers.ModelSerializer):
         video_link = data.get("video_link")
         description = data.get("description")
 
+        # Allowed types
+        allowed_types = [
+            "pdf",
+            "excel",
+            "xlsx",
+            "csv",
+            "txt",
+            "xls",
+            "doc",
+            "ppt",
+            "zip",
+            "image",
+            "video",
+            "article"
+        ]
+
+        # Validate content type
+        if content_type not in allowed_types:
+            raise serializers.ValidationError({
+                "type": f"Invalid type. Allowed types are: {', '.join(allowed_types)}"
+            })
+
+        # Prevent both free and paid
         if data.get("free_content") and data.get("payment_required"):
             raise serializers.ValidationError(
                 "Content cannot be both free and payment required."
             )
 
-        if content_type == "pdf":
-            if not file:
-                raise serializers.ValidationError(
-                    {"file_url": "PDF file is required when type is pdf."}
-                )
-            if video_link:
-                raise serializers.ValidationError(
-                    {"video_link": "Video link not allowed for PDF type."}
-                )
-
+        # VIDEO TYPE
         if content_type == "video":
             if not video_link:
-                raise serializers.ValidationError(
-                    {"video_link": "Video link is required when type is video."}
-                )
-            if file:
-                raise serializers.ValidationError(
-                    {"file_url": "File upload not allowed for Video type."}
-                )
+                raise serializers.ValidationError({
+                    "video_link": "Video link is required when type is video."
+                })
 
-        if content_type == "article":
+            if file:
+                raise serializers.ValidationError({
+                    "file_url": "File upload not allowed for Video type."
+                })
+
+        # ARTICLE TYPE
+        elif content_type == "article":
             if not description:
-                raise serializers.ValidationError(
-                    {"description": "Description required for article type."}
-                )
+                raise serializers.ValidationError({
+                    "description": "Description required for article type."
+                })
+
+        # ALL OTHER FILE TYPES
+        else:
+            if not file:
+                raise serializers.ValidationError({
+                    "file_url": "File upload is required."
+                })
 
         return data

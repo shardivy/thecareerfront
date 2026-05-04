@@ -84,7 +84,7 @@ class HandHoldingSessionInline(admin.TabularInline):
 @admin.register(HandHoldingParticipantSession)
 class HandHoldingSessionAdmin(admin.ModelAdmin):
     list_display = (
-        "id", "handholding_participant", "session_no", "handholding_session",
+        "id", "slot", "handholding_participant", "session_no", "handholding_session",
         "session_date", "status", "conducted_by"
     )
     list_filter = ("status", "session_date")
@@ -168,9 +168,9 @@ class CertificateAdmin(admin.ModelAdmin):
 class AdvertisementAdmin(admin.ModelAdmin):
     list_display = (
         "id", "advertisement_name", "advertiser_name", "ad_platform",
-        "ad_start_date", "ad_end_date",
+        "ad_date",
         "amount", "ad_status"
     )
     list_filter = ("ad_status", "ad_platform")
     search_fields = ("advertiser_name", "contact_email")
-    # ordering = ("-ad_start_date",)
+    # ordering = ("-ad_date",)

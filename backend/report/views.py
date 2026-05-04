@@ -29,126 +29,171 @@ from exam.models import UserExam
 from report.models import Report, Review
 
 
-
+ 
 # class CompletedExamReportAPIView(APIView):
-#     """
-#     Fetch reports EXCEPT students whose package has engineering_test_analysis = True
-#     """
-
 #     permission_classes = [IsAuthenticated]
 
 #     def get(self, request):
+#         try:
+#             reports = (
+#                 Report.objects
+#                 .select_related('user', 'exam')
+#                 .order_by('-uploaded_at')
+#             )
 
-#         reports = (
-#             Report.objects
-#             .select_related('user', 'exam')
-#             .order_by('-uploaded_at')
-#         )
+#             response_data = []
 
-#         response_data = []
+#             # 🔥 PRELOAD DATA (avoid N+1 queries)
+#             user_ids = [r.user_id for r in reports if r.user_id]
 
-#         for report in reports:
-#             user = report.user
-
-#             # =============================
-#             # 🔹 Student Profile
-#             # =============================
-#             student_profile = StudentProfile.objects.filter(user=user).first()
-
-#             # =============================
-#             # 🔹 Program + Package
-#             # =============================
-#             user_program = (
-#                 UserProgramPackage.objects
-#                 .filter(user=user)
+#             user_programs = {
+#                 up.user_id: up
+#                 for up in UserProgramPackage.objects
+#                 .filter(user_id__in=user_ids)
 #                 .select_related('program', 'package')
-#                 .first()
-#             )
+#             }
 
-#             # 🚫 Skip Engineering Test Analysis students
-#             if user_program and user_program.package and user_program.package.engineering_test_analysis:
-#                 continue
+#             user_exams_map = {}
+#             user_exams = UserExam.objects.filter(user_id__in=user_ids)
 
-#             # =============================
-#             # 🔹 Exam status
-#             # =============================
-#             user_exam = (
-#                 UserExam.objects
-#                 .filter(user=user, exam=report.exam)
-#                 .first()
-#             )
+#             for ue in user_exams:
+#                 # store latest exam per (user, exam)
+#                 key = (ue.user_id, ue.exam_id)
+#                 if key not in user_exams_map or ue.id > user_exams_map[key].id:
+#                     user_exams_map[key] = ue
 
-#             # =============================
-#             # 🔹 ✅ ACTUAL PAYMENT STATUS (CUMULATIVE)
-#             # =============================
-#             payment_status = None
+#             fallback_user_exam = {}
+#             for ue in user_exams:
+#                 # latest exam per user (fallback)
+#                 if ue.user_id not in fallback_user_exam or ue.id > fallback_user_exam[ue.user_id].id:
+#                     fallback_user_exam[ue.user_id] = ue
 
-#             if user_program and user_program.package:
-#                 package_price = user_program.package.price
+#             for report in reports:
+#                 user = report.user
 
-#                 total_paid = (
-#                     Payment.objects
-#                     .filter(user=user, package=user_program.package)
-#                     .aggregate(total=Sum('amount'))["total"] or 0
-#                 )
+#                 # ❗ Skip if user missing
+#                 if not user:
+#                     continue
 
-#                 if total_paid == 0:
-#                     payment_status = "not_paid"
-#                 elif total_paid < package_price:
-#                     payment_status = "partial_paid"
-#                 else:
-#                     payment_status = "fully_paid"
+#                 student_profile = StudentProfile.objects.filter(user=user).first()
 
-#             # =============================
-#             # 🔹 File URL
-#             # =============================
-#             file_url = None
-#             if report.file_path:
-#                 pdf_url = reverse(
-#                     "report-pdf",
-#                     kwargs={"report_id": report.id}
-#                 )
-#                 file_url = request.build_absolute_uri(pdf_url)
+#                 user_program = user_programs.get(user.id)
 
-#             # =============================
-#             # 🔹 Response
-#             # =============================
-#             response_data.append({
-#                 "id": report.id,
-#                 "user_id": user.id,
-#                 "student_id": student_profile.id if student_profile else None,
+#                 # 🚫 Skip Engineering Test Analysis
+#                 if (
+#                     user_program
+#                     and user_program.package
+#                     and user_program.package.engineering_test_analysis
+#                 ):
+#                     continue
 
-#                 "first_name": user.first_name,
-#                 "last_name": user.last_name,
-#                 "email": user.email,
-#                 "phone": getattr(user, "phone", None),
+#                 # =============================
+#                 # ✅ FIXED EXAM STATUS LOGIC
+#                 # =============================
+#                 user_exam = None
 
-#                 "program_id": user_program.program.id if user_program else None,
-#                 "program": user_program.program.name if user_program else None,
+#                 if report.exam:
+#                     user_exam = user_exams_map.get((user.id, report.exam.id))
 
-#                 "package_id": user_program.package.id if user_program else None,
-#                 "package": user_program.package.name if user_program else None,
+#                 # fallback if exact match not found
+#                 if not user_exam:
+#                     user_exam = fallback_user_exam.get(user.id)
 
-#                 "exam_id": report.exam.id if report.exam else None,
-#                 "exam": report.exam.name if report.exam else None,
-#                 "exam_status": user_exam.status if user_exam else None,
+#                 # =============================
+#                 # PAYMENT
+#                 # =============================
+#                 payment_status = None
 
-#                 "report_status": report.report_status,
+#                 if user_program and user_program.package:
+#                     package_price = user_program.package.price or 0
 
-#                 "file_path": file_url,
-#                 "uploaded_at": report.uploaded_at,
+#                     total_paid = (
+#                         Payment.objects
+#                         .filter(user=user, package=user_program.package)
+#                         .aggregate(total=Sum('amount'))["total"] or 0
+#                     )
 
-#                 # ✅ FINAL FIXED FIELD
-#                 "payment_status": payment_status,
+#                     if total_paid == 0:
+#                         payment_status = "not_paid"
+#                     elif total_paid < package_price:
+#                         payment_status = "partial_paid"
+#                     else:
+#                         payment_status = "fully_paid"
+
+#                 # =============================
+#                 # FILE URL
+#                 # =============================
+#                 # file_url = None
+#                 # if report.file_path:
+#                 #     try:
+#                 #         pdf_url = reverse("report-pdf", kwargs={"report_id": report.id})
+#                 #         file_url = request.build_absolute_uri(pdf_url)
+#                 #     except Exception:
+#                 #         file_url = None
+#                 file_url = None
+#                 file_name = None
+
+#                 if report.file_path:
+#                     try:
+#                         # ✅ Preview/download route using report ID
+#                         file_url = request.build_absolute_uri(
+#                             f"/api/report/report/pdf/{report.id}/"
+#                         )
+
+#                         # ✅ Actual uploaded file name with extension
+#                         file_name = os.path.basename(report.file_path.name)
+
+#                     except Exception:
+#                         file_url = None
+#                         file_name = None
+
+#                 # =============================
+#                 # RESPONSE
+#                 # =============================
+#                 response_data.append({
+#                     "id": report.id,
+#                     "user_id": user.id,
+#                     "student_id": student_profile.id if student_profile else None,
+
+#                     "first_name": user.first_name,
+#                     "last_name": user.last_name,
+#                     "email": user.email,
+#                     "phone": getattr(user, "phone", None),
+
+#                     "program_id": user_program.program.id if user_program and user_program.program else None,
+#                     "program": user_program.program.name if user_program and user_program.program else None,
+
+#                     "package_id": user_program.package.id if user_program and user_program.package else None,
+#                     "package": user_program.package.name if user_program and user_program.package else None,
+
+#                     "exam_id": report.exam.id if report.exam else None,
+#                     "exam": report.exam.name if report.exam else None,
+
+#                     # ✅ FIXED
+#                     "exam_status": user_exam.status if user_exam else None,
+
+#                     "report_status": report.report_status,
+#                     "file_path": file_url,
+#                     "uploaded_at": report.uploaded_at,
+
+#                     "payment_status": payment_status,
+#                 })
+
+#             serializer = CompletedExamReportSerializer(response_data, many=True)
+
+#             return Response({
+#                 "count": len(serializer.data),
+#                 "data": serializer.data
 #             })
 
-#         serializer = CompletedExamReportSerializer(response_data, many=True)
+#         except Exception as e:
+#             import traceback
+#             print(traceback.format_exc())
 
-#         return Response({
-#             "count": len(serializer.data),
-#             "data": serializer.data
-#         })
- 
+#             return Response({
+#                 "error": str(e)
+#             }, status=500)      
+
 class CompletedExamReportAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -162,7 +207,7 @@ class CompletedExamReportAPIView(APIView):
 
             response_data = []
 
-            # 🔥 PRELOAD DATA (avoid N+1 queries)
+            # 🔥 PRELOAD DATA
             user_ids = [r.user_id for r in reports if r.user_id]
 
             user_programs = {
@@ -176,21 +221,18 @@ class CompletedExamReportAPIView(APIView):
             user_exams = UserExam.objects.filter(user_id__in=user_ids)
 
             for ue in user_exams:
-                # store latest exam per (user, exam)
                 key = (ue.user_id, ue.exam_id)
                 if key not in user_exams_map or ue.id > user_exams_map[key].id:
                     user_exams_map[key] = ue
 
             fallback_user_exam = {}
             for ue in user_exams:
-                # latest exam per user (fallback)
                 if ue.user_id not in fallback_user_exam or ue.id > fallback_user_exam[ue.user_id].id:
                     fallback_user_exam[ue.user_id] = ue
 
             for report in reports:
                 user = report.user
 
-                # ❗ Skip if user missing
                 if not user:
                     continue
 
@@ -207,19 +249,18 @@ class CompletedExamReportAPIView(APIView):
                     continue
 
                 # =============================
-                # ✅ FIXED EXAM STATUS LOGIC
+                # ✅ EXAM STATUS
                 # =============================
                 user_exam = None
 
                 if report.exam:
                     user_exam = user_exams_map.get((user.id, report.exam.id))
 
-                # fallback if exact match not found
                 if not user_exam:
                     user_exam = fallback_user_exam.get(user.id)
 
                 # =============================
-                # PAYMENT
+                # PAYMENT STATUS
                 # =============================
                 payment_status = None
 
@@ -240,15 +281,41 @@ class CompletedExamReportAPIView(APIView):
                         payment_status = "fully_paid"
 
                 # =============================
-                # FILE URL
+                # FILE DETAILS
                 # =============================
                 file_url = None
+                file_name = None
+
                 if report.file_path:
                     try:
-                        pdf_url = reverse("report-pdf", kwargs={"report_id": report.id})
-                        file_url = request.build_absolute_uri(pdf_url)
+                        # ✅ Actual uploaded file name
+                        file_name = os.path.basename(report.file_path.name)
+
+                        # ✅ Get extension
+                        file_extension = os.path.splitext(file_name)[1].lower()
+
+                        # ==========================================
+                        # 🔹 PDF FILE
+                        # ==========================================
+                        if file_extension == ".pdf":
+                            # Use preview endpoint
+                            file_url = request.build_absolute_uri(
+                                f"/api/report/report/pdf/{report.id}/"
+                            )
+
+                        # ==========================================
+                        # 🔹 OTHER FILES (Excel, Doc, Zip, etc.)
+                        # ==========================================
+                        else:
+                            # Direct media file URL
+                            file_url = request.build_absolute_uri(
+                                report.file_path.url
+                            )
+
                     except Exception:
                         file_url = None
+                        file_name = None
+
 
                 # =============================
                 # RESPONSE
@@ -272,17 +339,27 @@ class CompletedExamReportAPIView(APIView):
                     "exam_id": report.exam.id if report.exam else None,
                     "exam": report.exam.name if report.exam else None,
 
-                    # ✅ FIXED
                     "exam_status": user_exam.status if user_exam else None,
 
                     "report_status": report.report_status,
+
+                    # ✅ Smart file URL
+                    # PDF → preview
+                    # Excel/Doc/Zip → direct file
                     "file_path": file_url,
+
+                    # ✅ Actual uploaded filename
+                    "file_name": file_name,
+
                     "uploaded_at": report.uploaded_at,
 
                     "payment_status": payment_status,
                 })
 
-            serializer = CompletedExamReportSerializer(response_data, many=True)
+            serializer = CompletedExamReportSerializer(
+                response_data,
+                many=True
+            )
 
             return Response({
                 "count": len(serializer.data),
@@ -295,17 +372,118 @@ class CompletedExamReportAPIView(APIView):
 
             return Response({
                 "error": str(e)
-            }, status=500)      
-        
+            }, status=500)        
                
+# class CompletedExamReportStudentIDAPIView(APIView):
+#     """
+#     Fetch ALL reports OR reports for a specific student.
+#     """
+        
+#     def get(self, request, student_id):
+
+#         # 1️⃣ Get student profile
+#         student_profile = get_object_or_404(
+#             StudentProfile,
+#             id=student_id
+#         )
+
+#         user = student_profile.user
+
+#         # 2️⃣ Get reports only for this user
+#         reports = (
+#             Report.objects
+#             .filter(user=user)
+#             .select_related('user', 'exam')
+#             .order_by('-uploaded_at')
+#         )
+
+#         response_data = []
+
+#         for report in reports:
+
+#             # Program
+#             user_program = (
+#                 UserProgramPackage.objects
+#                 .filter(user=user)
+#                 .select_related('program')
+#                 .first()
+#             )
+
+#             # Exam status
+#             user_exam = (
+#                 UserExam.objects
+#                 .filter(user=user, exam=report.exam)
+#                 .first()
+#             )
+
+#             # Latest Payment
+#             payment = (
+#                 Payment.objects
+#                 .filter(user=user)
+#                 .order_by('-created_at')
+#                 .first()
+#             )
+
+#             # File URL
+#             file_url = None
+#             if report.file_path:
+#                 try:
+#                     pdf_url = reverse("report-pdf", kwargs={"report_id": report.id})
+#                     file_url = request.build_absolute_uri(pdf_url)
+#                 except Exception:
+#                     file_url = None
+
+#             response_data.append({
+#                 "id": report.id,
+#                 "user_id": user.id,
+#                 "student_id": student_profile.id,  # ✅ From URL
+
+#                 "first_name": user.first_name,
+#                 "last_name": user.last_name,
+#                 "email": user.email,
+#                 "phone": getattr(user, "phone", None),
+
+#                 # "program_id": user_program.program.id if user_program else None,
+#                 # "program": user_program.program.name if user_program else None,
+#                 "program_id": user_program.program.id if user_program and user_program.program else None,
+#                 "program": user_program.program.name if user_program and user_program.program else None,
+                
+#                 # "package_id": user_program.package.id if user_program else None,
+#                 # "package": user_program.package.name if user_program else None,
+#                 "package_id": user_program.package.id if user_program and user_program.package else None,
+#                 "package": user_program.package.name if user_program and user_program.package else None,
+
+#                 "exam_id": report.exam.id if report.exam else None,
+#                 "exam": report.exam.name if report.exam else None,
+#                 "exam_status": user_exam.status if user_exam else None,
+
+#                 "report_status": report.report_status,
+#                 "file_path": file_url,
+#                 "uploaded_at": report.uploaded_at,
+
+#                 "payment_status": payment.status if payment else None,
+#             })
+
+#         serializer = CompletedExamReportSerializer(response_data, many=True)
+
+#         return Response({
+#             "count": len(serializer.data),
+#             "data": serializer.data
+#         })
+
 class CompletedExamReportStudentIDAPIView(APIView):
     """
-    Fetch ALL reports OR reports for a specific student.
+    Fetch reports for a specific student
+    with smart file preview/download logic
     """
-        
+
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, student_id):
 
-        # 1️⃣ Get student profile
+        # ==========================================
+        # 🔹 GET STUDENT PROFILE
+        # ==========================================
         student_profile = get_object_or_404(
             StudentProfile,
             id=student_id
@@ -313,87 +491,148 @@ class CompletedExamReportStudentIDAPIView(APIView):
 
         user = student_profile.user
 
-        # 2️⃣ Get reports only for this user
+        # ==========================================
+        # 🔹 GET REPORTS
+        # ==========================================
         reports = (
             Report.objects
             .filter(user=user)
-            .select_related('user', 'exam')
-            .order_by('-uploaded_at')
+            .select_related("user", "exam")
+            .order_by("-uploaded_at")
         )
 
         response_data = []
 
         for report in reports:
 
-            # Program
+            # ==========================================
+            # 🔹 PROGRAM
+            # ==========================================
             user_program = (
                 UserProgramPackage.objects
                 .filter(user=user)
-                .select_related('program')
+                .select_related("program", "package")
                 .first()
             )
 
-            # Exam status
+            # ==========================================
+            # 🔹 EXAM STATUS
+            # ==========================================
             user_exam = (
                 UserExam.objects
                 .filter(user=user, exam=report.exam)
                 .first()
             )
 
-            # Latest Payment
+            # ==========================================
+            # 🔹 PAYMENT
+            # ==========================================
             payment = (
                 Payment.objects
                 .filter(user=user)
-                .order_by('-created_at')
+                .order_by("-created_at")
                 .first()
             )
 
-            # File URL
+            # ==========================================
+            # 🔹 FILE DETAILS
+            # ==========================================
             file_url = None
+            file_name = None
+
             if report.file_path:
                 try:
-                    pdf_url = reverse("report-pdf", kwargs={"report_id": report.id})
-                    file_url = request.build_absolute_uri(pdf_url)
+                    # Actual uploaded file name
+                    file_name = os.path.basename(
+                        report.file_path.name
+                    )
+
+                    # File extension
+                    file_extension = os.path.splitext(
+                        file_name
+                    )[1].lower()
+
+                    # PDF → preview
+                    if file_extension == ".pdf":
+                        file_url = request.build_absolute_uri(
+                            f"/api/report/report/pdf/{report.id}/"
+                        )
+
+                    # Other files → direct open/download
+                    else:
+                        file_url = request.build_absolute_uri(
+                            report.file_path.url
+                        )
+
                 except Exception:
                     file_url = None
+                    file_name = None
 
+            # ==========================================
+            # 🔹 RESPONSE DATA
+            # ==========================================
             response_data.append({
                 "id": report.id,
                 "user_id": user.id,
-                "student_id": student_profile.id,  # ✅ From URL
+                "student_id": student_profile.id,
 
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "email": user.email,
                 "phone": getattr(user, "phone", None),
 
-                # "program_id": user_program.program.id if user_program else None,
-                # "program": user_program.program.name if user_program else None,
-                "program_id": user_program.program.id if user_program and user_program.program else None,
-                "program": user_program.program.name if user_program and user_program.program else None,
-                
-                # "package_id": user_program.package.id if user_program else None,
-                # "package": user_program.package.name if user_program else None,
-                "package_id": user_program.package.id if user_program and user_program.package else None,
-                "package": user_program.package.name if user_program and user_program.package else None,
+                "program_id": (
+                    user_program.program.id
+                    if user_program and user_program.program
+                    else None
+                ),
+                "program": (
+                    user_program.program.name
+                    if user_program and user_program.program
+                    else None
+                ),
+
+                "package_id": (
+                    user_program.package.id
+                    if user_program and user_program.package
+                    else None
+                ),
+                "package": (
+                    user_program.package.name
+                    if user_program and user_program.package
+                    else None
+                ),
 
                 "exam_id": report.exam.id if report.exam else None,
                 "exam": report.exam.name if report.exam else None,
                 "exam_status": user_exam.status if user_exam else None,
 
                 "report_status": report.report_status,
+
+                # ✅ Smart file path
                 "file_path": file_url,
+
+                # ✅ Actual file name
+                "file_name": file_name,
+
                 "uploaded_at": report.uploaded_at,
 
                 "payment_status": payment.status if payment else None,
             })
 
-        serializer = CompletedExamReportSerializer(response_data, many=True)
+        serializer = CompletedExamReportSerializer(
+            response_data,
+            many=True
+        )
 
         return Response({
             "count": len(serializer.data),
             "data": serializer.data
         })
+
+
+
+
 
 # =====================================================
 
@@ -459,18 +698,18 @@ class ReportPDFView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )  
-    
 
-        
+
 # class UploadReportAPIView(APIView):
 #     """
 #     Upload or replace a report file.
-#     If latest payment is fully_paid → report unlocked
-#     If partial_paid or no payment → report locked
+#     If latest payment is fully_paid → report received_unlocked
+#     If partial_paid or no payment → report received_locked
 #     """
 #     permission_classes = [IsAuthenticated]
 
 #     def handle_upload(self, request, report_id):
+
 #         report = get_object_or_404(Report, id=report_id)
 #         user = report.user
 
@@ -491,18 +730,40 @@ class ReportPDFView(APIView):
 #         )
 
 #         # ✅ Default locked
-#         report_status = "locked"
+#         report_status = "received_locked"
 
 #         # ✅ Unlock only if fully paid
 #         if latest_payment and latest_payment.status == "fully_paid":
-#             report_status = "unlocked"
+#             report_status = "received_unlocked"
 
-#         # Save file
+#         # -------------------------
+#         # Save Report
+#         # -------------------------
 #         report.file_path = file_path
 #         report.uploaded_by = request.user
 #         report.uploaded_at = timezone.now()
 #         report.report_status = report_status
 #         report.save()
+        
+#         # Send email
+#         send_report_uploaded_email(user, report)
+
+#         # -------------------------
+#         # CREATE BOOKING IF NOT EXISTS
+#         # -------------------------
+#         student_profile = StudentProfile.objects.filter(
+#             user=user
+#         ).first()
+
+#         booking = None
+
+#         if student_profile:
+#             booking, created = Booking.objects.get_or_create(
+#                 student=student_profile,
+#                 defaults={
+#                     "status": "not_booked"
+#                 }
+#             )
 
 #         return Response(
 #             {
@@ -510,41 +771,68 @@ class ReportPDFView(APIView):
 #                 "report_id": report.id,
 #                 "uploaded_at": report.uploaded_at,
 #                 "report_status": report.report_status,
-#                 "payment_status": latest_payment.status if latest_payment else None
+#                 "payment_status": latest_payment.status if latest_payment else None,
+#                 "booking_created": created if student_profile else False
 #             },
 #             status=status.HTTP_200_OK
 #         )
 
-#     # POST → Upload
 #     def post(self, request, report_id):
 #         return self.handle_upload(request, report_id)
 
-#     # PUT → Replace
 #     def put(self, request, report_id):
 #         return self.handle_upload(request, report_id)
+
 
 class UploadReportAPIView(APIView):
     """
     Upload or replace a report file.
-    If latest payment is fully_paid → report received_unlocked
-    If partial_paid or no payment → report received_locked
+
+    ✅ Unlock ONLY if:
+       - Payment is fully_paid
+       - Review entry exists for user
+       - Review status = submitted
+
+    ❌ Else:
+       - received_locked
     """
+
     permission_classes = [IsAuthenticated]
 
     def handle_upload(self, request, report_id):
 
-        report = get_object_or_404(Report, id=report_id)
+        # =========================
+        # 🔎 Get Report
+        # =========================
+        report = get_object_or_404(
+            Report,
+            id=report_id
+        )
+
         user = report.user
 
+        # =========================
+        # 📂 Validate File
+        # =========================
         file_path = request.FILES.get("file_path")
 
         if not file_path:
             return Response(
-                {"message": "Report file is required"},
+                {
+                    "message": "Report file is required"
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 🔎 Get latest payment
+        # ✅ Terminal log for uploaded file
+        print("📤 Report Upload Started:")
+        print(f"   File Name: {file_path.name}")
+        print(f"   File Size: {file_path.size} bytes")
+        print(f"   File Type: {file_path.content_type}")
+
+        # =========================
+        # 💳 Latest Payment
+        # =========================
         latest_payment = (
             Payment.objects
             .filter(user=user)
@@ -552,60 +840,152 @@ class UploadReportAPIView(APIView):
             .first()
         )
 
-        # ✅ Default locked
+        # =========================
+        # 📝 Review Check
+        # Must exist + submitted
+        # =========================
+        submitted_review = (
+            Review.objects
+            .filter(
+                user=user,
+                review_status="submitted"
+            )
+            .order_by('-created_at')
+            .first()
+        )
+
+        # =========================
+        # 🔒 Default Locked
+        # =========================
         report_status = "received_locked"
 
-        # ✅ Unlock only if fully paid
-        if latest_payment and latest_payment.status == "fully_paid":
+        # =========================
+        # 🔓 Unlock Rule
+        # =========================
+        if (
+            latest_payment
+            and latest_payment.status == "fully_paid"
+            and submitted_review
+        ):
             report_status = "received_unlocked"
 
-        # -------------------------
-        # Save Report
-        # -------------------------
+        # =========================
+        # 💾 Save Report
+        # =========================
         report.file_path = file_path
         report.uploaded_by = request.user
         report.uploaded_at = timezone.now()
         report.report_status = report_status
         report.save()
+
+        # =========================
+        # 📧 Send Email
+        # =========================
+        send_report_uploaded_email(
+            user,
+            report
+        )
+
+        # =========================
+        # 🎓 Student Profile
+        # =========================
+        student_profile = (
+            StudentProfile.objects
+            .filter(user=user)
+            .first()
+        )
+
+        # # =========================
+        # # 📅 Booking
+        # # =========================
+        # booking = None
+        # created = False
+
+        # if student_profile:
+        #     booking, created = Booking.objects.get_or_create(
+        #         student=student_profile,
+        #         defaults={
+        #             "status": "not_booked"
+        #         }
+        #     )
         
-        # Send email
-        send_report_uploaded_email(user, report)
-
-        # -------------------------
-        # CREATE BOOKING IF NOT EXISTS
-        # -------------------------
-        student_profile = StudentProfile.objects.filter(
-            user=user
-        ).first()
-
+        # =========================
+        # 📅 Booking
+        # =========================
         booking = None
+        created = False
 
         if student_profile:
-            booking, created = Booking.objects.get_or_create(
-                student=student_profile,
-                defaults={
-                    "status": "not_booked"
-                }
+
+            # ✅ Get latest booking if multiple exist
+            booking = (
+                Booking.objects
+                .filter(student=student_profile)
+                .order_by("-id")
+                .first()
             )
 
+            # ✅ Create only if no booking exists
+            if not booking:
+                booking = Booking.objects.create(
+                    student=student_profile,
+                    status="not_booked"
+                )
+                created = True
+
+        # =========================
+        # 📤 Response
+        # =========================
         return Response(
             {
                 "message": "Report uploaded successfully",
+
                 "report_id": report.id,
+
                 "uploaded_at": report.uploaded_at,
+
                 "report_status": report.report_status,
-                "payment_status": latest_payment.status if latest_payment else None,
-                "booking_created": created if student_profile else False
+
+                "payment_status": (
+                    latest_payment.status
+                    if latest_payment
+                    else None
+                ),
+
+                "review_exists": bool(submitted_review),
+
+                "review_status": (
+                    submitted_review.review_status
+                    if submitted_review
+                    else None
+                ),
+
+                "booking_created": (
+                    created
+                    if student_profile
+                    else False
+                )
             },
             status=status.HTTP_200_OK
         )
 
+    # =========================
+    # 🔹 POST
+    # =========================
     def post(self, request, report_id):
-        return self.handle_upload(request, report_id)
+        return self.handle_upload(
+            request,
+            report_id
+        )
 
+    # =========================
+    # 🔹 PUT
+    # =========================
     def put(self, request, report_id):
-        return self.handle_upload(request, report_id)
-    
+        return self.handle_upload(
+            request,
+            report_id
+        )    
     
         
 class CompletedExamReportExportExcelAPIView(APIView):
@@ -716,10 +1096,148 @@ class ReportStatusCountAPIView(APIView):
         
 # ================= Engineering report views =================
 
-class EngineeringTestAnalysisReportAPIView(APIView):
+import os
+
+# class EngineeringTestAnalysisReportAPIView(APIView):
     
-    """ 
-    Fetch reports only for students whose package has engineering_test_analysis = True 
+#     """
+#     Fetch reports only for students whose package has engineering_test_analysis = True
+#     """
+
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+
+#         reports = (
+#             Report.objects
+#             .select_related("user", "exam")
+#             .order_by("-uploaded_at")
+#         )
+
+#         response_data = []
+
+#         for report in reports:
+#             user = report.user
+
+#             if not user:
+#                 continue
+
+#             student_profile = StudentProfile.objects.filter(
+#                 user=user
+#             ).first()
+
+#             user_program = (
+#                 UserProgramPackage.objects
+#                 .filter(
+#                     user=user,
+#                     package__engineering_test_analysis=True
+#                 )
+#                 .select_related("program", "package")
+#                 .first()
+#             )
+
+#             # Skip non-engineering students
+#             if not user_program:
+#                 continue
+
+#             # =========================
+#             # ANALYSIS STATUS
+#             # =========================
+#             analysis = CollegeListAnalysis.objects.filter(
+#                 user=user
+#             ).first()
+
+#             # =========================
+#             # PAYMENT STATUS
+#             # =========================
+#             payment = (
+#                 Payment.objects
+#                 .filter(user=user)
+#                 .order_by("-created_at")
+#                 .first()
+#             )
+
+#             # =========================
+#             # FILE DETAILS
+#             # =========================
+#             file_url = None
+#             preview_url = None
+#             file_name = None
+
+#             if report.file_path:
+#                 try:
+#                     # ✅ Actual uploaded file URL
+#                     file_url = request.build_absolute_uri(
+#                         report.file_path.url
+#                     )
+
+#                     # ✅ Use existing PDF preview route
+#                     # Browser preview works better than direct media path
+#                     preview_url = request.build_absolute_uri(
+#                         f"/api/report/report/pdf/{report.id}/"
+#                     )
+
+#                     # ✅ Exact uploaded file name with extension
+#                     file_name = os.path.basename(
+#                         report.file_path.name
+#                     )
+
+#                 except Exception:
+#                     file_url = None
+#                     preview_url = None
+#                     file_name = None
+
+#             # =========================
+#             # RESPONSE DATA
+#             # =========================
+#             response_data.append({
+#                 "id": report.id,
+#                 "user_id": user.id,
+#                 "student_id": student_profile.id if student_profile else None,
+
+#                 "first_name": user.first_name,
+#                 "last_name": user.last_name,
+#                 "email": user.email,
+#                 "phone": getattr(user, "phone", None),
+
+#                 "program_id": user_program.program.id if user_program.program else None,
+#                 "program": user_program.program.name if user_program.program else None,
+
+#                 "package_id": user_program.package.id if user_program.package else None,
+#                 "package": user_program.package.name if user_program.package else None,
+
+#                 "analysis_status": analysis.status if analysis else None,
+
+#                 "report_status": report.report_status,
+
+#                 # ✅ Main file path
+#                 "file_path": file_url,
+
+#                 # ✅ Preview link
+#                 "preview_url": preview_url,
+
+#                 # ✅ Uploaded file name
+#                 "file_name": file_name,
+
+#                 "uploaded_at": report.uploaded_at,
+
+#                 "payment_status": payment.status if payment else None,
+#             })
+
+#         serializer = EngineeringTestAnalysisReportSerializer(
+#             response_data,
+#             many=True
+#         )
+
+#         return Response({
+#             "count": len(serializer.data),
+#             "data": serializer.data
+#         })
+
+class EngineeringTestAnalysisReportAPIView(APIView):
+    """
+    Fetch reports only for students whose package has
+    engineering_test_analysis = True
     """
 
     permission_classes = [IsAuthenticated]
@@ -728,8 +1246,8 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 
         reports = (
             Report.objects
-            .select_related('user', 'exam')
-            .order_by('-uploaded_at')
+            .select_related("user", "exam")
+            .order_by("-uploaded_at")
         )
 
         response_data = []
@@ -737,70 +1255,156 @@ class EngineeringTestAnalysisReportAPIView(APIView):
         for report in reports:
             user = report.user
 
-            student_profile = StudentProfile.objects.filter(user=user).first()
+            if not user:
+                continue
 
+            # ==========================================
+            # 🔹 STUDENT PROFILE
+            # ==========================================
+            student_profile = StudentProfile.objects.filter(
+                user=user
+            ).first()
+
+            # ==========================================
+            # 🔹 USER PROGRAM
+            # ==========================================
             user_program = (
                 UserProgramPackage.objects
                 .filter(
                     user=user,
                     package__engineering_test_analysis=True
                 )
-                .select_related('program', 'package')
+                .select_related("program", "package")
                 .first()
             )
 
+            # Skip non-engineering students
             if not user_program:
                 continue
 
-            # 🔹 Fetch analysis status
-            analysis = CollegeListAnalysis.objects.filter(user=user).first()
-
-            payment = (
-                Payment.objects
+            # ==========================================
+            # 🔹 ANALYSIS STATUS
+            # ==========================================
+            analysis = (
+                CollegeListAnalysis.objects
                 .filter(user=user)
-                .order_by('-created_at')
                 .first()
             )
 
-            file_url = None
-            if report.file_path:
-                pdf_url = reverse(
-                    "report-pdf",
-                    kwargs={"report_id": report.id}
-                )
-                file_url = request.build_absolute_uri(pdf_url)
+            # ==========================================
+            # 🔹 PAYMENT
+            # ==========================================
+            payment = (
+                Payment.objects
+                .filter(user=user)
+                .order_by("-created_at")
+                .first()
+            )
 
+            # ==========================================
+            # 🔹 FILE DETAILS
+            # ==========================================
+            file_url = None
+            file_name = None
+
+            if report.file_path:
+                try:
+                    # Actual uploaded filename
+                    file_name = os.path.basename(
+                        report.file_path.name
+                    )
+
+                    # File extension
+                    file_extension = os.path.splitext(
+                        file_name
+                    )[1].lower()
+
+                    # ==========================================
+                    # PDF → Preview route
+                    # ==========================================
+                    if file_extension == ".pdf":
+                        file_url = request.build_absolute_uri(
+                            f"/api/report/report/pdf/{report.id}/"
+                        )
+
+                    # ==========================================
+                    # Excel / Doc / Zip / Other → Direct media
+                    # ==========================================
+                    else:
+                        file_url = request.build_absolute_uri(
+                            report.file_path.url
+                        )
+
+                except Exception:
+                    file_url = None
+                    file_name = None
+
+            # ==========================================
+            # 🔹 RESPONSE DATA
+            # ==========================================
             response_data.append({
                 "id": report.id,
                 "user_id": user.id,
-                "student_id": student_profile.id if student_profile else None,
+                "student_id": (
+                    student_profile.id
+                    if student_profile else None
+                ),
 
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "email": user.email,
                 "phone": getattr(user, "phone", None),
 
-                "program_id": user_program.program.id,
-                "program": user_program.program.name,
+                "program_id": (
+                    user_program.program.id
+                    if user_program.program else None
+                ),
+                "program": (
+                    user_program.program.name
+                    if user_program.program else None
+                ),
 
-                "package_id": user_program.package.id,
-                "package": user_program.package.name,
+                "package_id": (
+                    user_program.package.id
+                    if user_program.package else None
+                ),
+                "package": (
+                    user_program.package.name
+                    if user_program.package else None
+                ),
 
-                "analysis_status": analysis.status if analysis else None,
+                "analysis_status": (
+                    analysis.status
+                    if analysis else None
+                ),
 
                 "report_status": report.report_status,
+
+                # ✅ Smart file path
                 "file_path": file_url,
+
+                # ✅ Actual uploaded file name
+                "file_name": file_name,
+
                 "uploaded_at": report.uploaded_at,
 
-                "payment_status": payment.status if payment else None,
+                "payment_status": (
+                    payment.status
+                    if payment else None
+                ),
             })
 
-        serializer = EngineeringTestAnalysisReportSerializer(response_data, many=True)
+        serializer = EngineeringTestAnalysisReportSerializer(
+            response_data,
+            many=True
+        )
 
         return Response({
             "count": len(serializer.data),
             "data": serializer.data
         })
+
+
 
 class EngineeringReportUploadAPIView(APIView):
     """
@@ -839,7 +1443,7 @@ class EngineeringReportUploadAPIView(APIView):
 
         if not college_analysis or college_analysis.status != "completed":
             return Response(
-                {
+                {   
                     "message": "College list analysis is not completed. Report upload not allowed."
                 },
                 status=status.HTTP_400_BAD_REQUEST
@@ -897,11 +1501,22 @@ class EngineeringReportUploadAPIView(APIView):
 
         created = False
 
+        # if student_profile:
+        #     booking, created = Booking.objects.get_or_create(
+        #         student=student_profile,
+        #         defaults={"status": "not_booked"}
+        #     )
         if student_profile:
-            booking, created = Booking.objects.get_or_create(
-                student=student_profile,
-                defaults={"status": "not_booked"}
-            )
+            booking = Booking.objects.filter(
+                student=student_profile
+            ).first()
+
+            if not booking:
+                booking = Booking.objects.create(
+                    student=student_profile,
+                    status="not_booked"
+                )
+                created = True
 
         return Response(
             {
@@ -958,38 +1573,196 @@ class ReviewStartByStudentAPIView(APIView):
             "review_status": review.review_status
         }, status=status.HTTP_201_CREATED)
         
+# class SubmitReviewAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def put(self, request, review_id):
+#         try:
+#             review = Review.objects.get(id=review_id)
+#         except Review.DoesNotExist:
+#             return Response(
+#                 {"message": "Review not found"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         # ✅ Only allow transition from in_process → submitted
+#         if review.review_status != 'in_process':
+#             return Response({
+#                 "message": f"Cannot submit review in '{review.review_status}' state"
+#             }, status=status.HTTP_400_BAD_REQUEST)
+
+#         # ✅ Update fields (optional)
+#         review.review_text = request.data.get("review_text", review.review_text)
+#         review.rating = request.data.get("rating", review.rating)
+
+#         # ✅ Change status
+#         review.review_status = 'submitted'
+#         review.save()
+
+#         return Response({
+#             "message": "Review submitted successfully",
+#             "review_id": review.id,
+#             "review_status": review.review_status
+#         }, status=status.HTTP_200_OK)
+
+# class SubmitReviewAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def put(self, request, review_id=None):
+#         user = request.user
+
+       
+#         related_id = request.data.get("related_id")
+
+        
+#         # =========================
+#         # 🔍 FIND EXISTING REVIEW
+#         # =========================
+#         review = Review.objects.filter(
+#             user=user,
+#             related_id=related_id
+#         ).first()
+
+#         # =========================
+#         # 🆕 CREATE IF NOT EXISTS
+#         # =========================
+#         if not review:
+#             review = Review.objects.create(
+#                 user=user,
+#                 related_id=related_id,
+#                 review_status='submitted',
+#                 review_text=request.data.get("review_text"),
+#                 rating=request.data.get("rating")
+#             )
+
+#             return Response({
+#                 "message": "Review created and submitted successfully",
+#                 "review_id": review.id,
+#                 "review_status": review.review_status
+#             }, status=status.HTTP_201_CREATED)
+
+#         # =========================
+#         # 🔄 UPDATE EXISTING REVIEW
+#         # =========================
+#         review.review_text = request.data.get(
+#             "review_text",
+#             review.review_text
+#         )
+
+#         review.rating = request.data.get(
+#             "rating",
+#             review.rating
+#         )
+
+#         # Optional status logic
+#         if review.review_status in ['not_submitted', 'in_process', 'pending_approval']:
+#             review.review_status = 'submitted'
+
+#         review.save()
+
+#         return Response({
+#             "message": "Review updated and submitted successfully",
+#             "review_id": review.id,
+#             "review_status": review.review_status
+#         }, status=status.HTTP_200_OK)
+ 
 class SubmitReviewAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def put(self, request, review_id):
-        try:
-            review = Review.objects.get(id=review_id)
-        except Review.DoesNotExist:
-            return Response(
-                {"message": "Review not found"},
-                status=status.HTTP_404_NOT_FOUND
+    def put(self, request, review_id=None):
+        user = request.user
+        related_id = request.data.get("related_id")
+
+        # =========================
+        # 🔍 FIND EXISTING REVIEW
+        # =========================
+        review = Review.objects.filter(
+            user=user,
+            related_id=related_id
+        ).first()
+
+        # =========================
+        # 🆕 CREATE IF NOT EXISTS
+        # =========================
+        if not review:
+            review = Review.objects.create(
+                user=user,
+                related_id=related_id,
+                review_status='submitted',
+                review_text=request.data.get("review_text"),
+                rating=request.data.get("rating")
             )
 
-        # ✅ Only allow transition from in_process → submitted
-        if review.review_status != 'in_process':
-            return Response({
-                "message": f"Cannot submit review in '{review.review_status}' state"
-            }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # =========================
+            # 🔄 UPDATE EXISTING REVIEW
+            # =========================
+            review.review_text = request.data.get(
+                "review_text",
+                review.review_text
+            )
 
-        # ✅ Update fields (optional)
-        review.review_text = request.data.get("review_text", review.review_text)
-        review.rating = request.data.get("rating", review.rating)
+            review.rating = request.data.get(
+                "rating",
+                review.rating
+            )
 
-        # ✅ Change status
-        review.review_status = 'submitted'
-        review.save()
+            if review.review_status in [
+                'not_submitted',
+                'in_process',
+                'pending_approval'
+            ]:
+                review.review_status = 'submitted'
 
+            review.save()
+
+        # =========================
+        # 💳 CHECK PAYMENT STATUS
+        # =========================
+        latest_payment = (
+            Payment.objects
+            .filter(user=user)
+            .order_by('-created_at')
+            .first()
+        )
+
+        # =========================
+        # 🔓 UNLOCK REPORT IF:
+        # Payment fully paid
+        # Review submitted
+        # =========================
+        if (
+            latest_payment
+            and latest_payment.status == "fully_paid"
+            and review.review_status == "submitted"
+        ):
+            Report.objects.filter(
+                user=user
+            ).update(
+                report_status="received_unlocked"
+            )
+
+        # =========================
+        # 📤 RESPONSE
+        # =========================
         return Response({
             "message": "Review submitted successfully",
             "review_id": review.id,
-            "review_status": review.review_status
+            "review_status": review.review_status,
+            "payment_status": (
+                latest_payment.status
+                if latest_payment else None
+            ),
+            "report_status": (
+                "received_unlocked"
+                if latest_payment
+                and latest_payment.status == "fully_paid"
+                and review.review_status == "submitted"
+                else "received_locked"
+            )
         }, status=status.HTTP_200_OK)
-        
+ 
+      
 class GetReviewStatusAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
