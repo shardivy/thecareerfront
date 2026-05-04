@@ -2245,6 +2245,46 @@ class PaymentReminderAPI(APIView):
             status=status.HTTP_200_OK
         )
         
+class HandHoldingPaymentReminderAPI(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, participant_id):
+
+        try:
+            participant = HandHoldingParticipant.objects.select_related("user").get(id=participant_id)
+        except HandHoldingParticipant.DoesNotExist:
+            return Response(
+                {"error": "Participant not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        payments = Payment.objects.filter(
+            user=participant.user,
+            status__in=["not_paid", "partial_paid"]
+        ).select_related("package")
+
+        if not payments.exists():
+            return Response(
+                {"message": "No pending payments found"},
+                status=status.HTTP_200_OK
+            )
+
+        count = 0
+
+        for payment in payments:
+            send_payment_reminder_email(payment.user, payment)
+            count += 1
+
+        return Response(
+            {
+                "message": "Payment reminder sent successfully",
+                "total_reminders_sent": count
+            },
+            status=status.HTTP_200_OK
+        )        
+        
+        
+        
 class PendingHandHoldingParticipantsAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2346,13 +2386,36 @@ class GenerateReceiptByStudentAPIView(APIView):
         # =========================
         # PACKAGE PRICE (FINAL FIX)
         # =========================
-        user_package = UserProgramPackage.objects.filter(user=user).select_related("package").first()
+        user_package = (
+            UserProgramPackage.objects
+            .filter(user=user)
+            .select_related("package")
+            .order_by("-id")   # ✅ latest assigned package
+            .first()
+        )
 
+        # ❌ If no package found
         if not user_package or not user_package.package:
-            return Response({"message": "Package not assigned"}, status=404)
+            
+            # fallback: use payment package
+            latest_payment = (
+                Payment.objects
+                .filter(user=user)
+                .select_related("package")
+                .order_by("-id")
+                .first()
+            )
 
-        package_price = user_package.package.price
+            if latest_payment and latest_payment.package:
+                package_price = latest_payment.package.price
+            else:
+                return Response(
+                    {"message": "Package not assigned or payment not found"},
+                    status=404
+                )
 
+        else:
+            package_price = user_package.package.price
         # =========================
         # SERVICE NAME
         # =========================
@@ -2379,4 +2442,82 @@ class GenerateReceiptByStudentAPIView(APIView):
             pdf_buffer,
             as_attachment=True,
             filename=f"receipt_student_{student_id}.pdf"
+        )
+        
+class GenerateReceiptByHandHoldingParticipantAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, participant_id):
+
+        # =========================
+        # GET PARTICIPANT
+        # =========================
+        participant = HandHoldingParticipant.objects.filter(
+            id=participant_id
+        ).select_related("user").first()
+
+        if not participant:
+            return Response(
+                {"message": "HandHolding participant not found"},
+                status=404
+            )
+
+        user = participant.user
+
+        # =========================
+        # GET FULLY PAID PAYMENT
+        # =========================
+        payment = (
+            Payment.objects
+            .filter(
+                user=user,
+                status="fully_paid"
+            )
+            .select_related("package")
+            .order_by("-created_at")
+            .first()
+        )
+
+        if not payment:
+            return Response(
+                {"message": "No fully paid payment found"},
+                status=404
+            )
+
+        # =========================
+        # PACKAGE PRICE
+        # =========================
+        package_price = (
+            payment.package.price
+            if payment.package
+            else payment.amount
+        )
+
+        # =========================
+        # SERVICE NAME
+        # =========================
+        service_name = (
+            payment.package.name
+            if payment.package
+            else "HandHolding Services"
+        )
+
+        # =========================
+        # GENERATE PDF
+        # =========================
+        pdf_buffer = generate_receipt_pdf(
+            name=f"{user.first_name} {user.last_name}",
+            service_name=service_name,
+            amount=package_price,
+            date=payment.payment_date.strftime("%d/%m/%Y")
+            if payment.payment_date else None
+        )
+
+        # =========================
+        # DOWNLOAD RECEIPT
+        # =========================
+        return FileResponse(
+            pdf_buffer,
+            as_attachment=True,
+            filename=f"handholding_receipt_{participant_id}.pdf"
         )

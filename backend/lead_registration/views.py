@@ -1004,10 +1004,14 @@ class AddUserAPIView(APIView):
                 # ✅ Send email (non-blocking safe)
                 try:
                     send_credentials_email(
-                        user.email,
-                        password,
-                        program.name,
-                        package.name
+                        email=user.email,
+                        password=password,
+                        program_name=program.name,
+                        package_name=package.name if package else "Hand Holding",
+                        preferred_counselling_mode=serializer.validated_data.get(
+                            "preferred_counselling_mode",
+                            "online"
+                        )
                     )
                 except Exception as e:
                     print("Email failed:", e)
@@ -1959,6 +1963,7 @@ class ConvertLeadAPIView(APIView):
                         preferred_counselling_mode=serializer.validated_data.get(
                             "preferred_counselling_mode"
                         ),
+                        dob=lead.dob if lead.dob else None,
                     )
                 else:
                     student_profile = None  # ✅ explicitly ensure
@@ -2072,6 +2077,10 @@ class ConvertLeadAPIView(APIView):
                 # =================================
                 lead.status = "converted"
                 lead.save(update_fields=["status"])
+                
+                # ✅ Mark user as converted lead
+                user.is_converted_lead = True
+                user.save(update_fields=["is_converted_lead"])
 
                 # =================================
                 # 🔹 SEND EMAIL (HANDLE EXISTING USER PASSWORD)
@@ -2114,19 +2123,32 @@ class ConvertLeadAPIView(APIView):
                     # ==========================================
                     # SEND EMAIL
                     # ==========================================
+                    print("BEFORE EMAIL FUNCTION CALL")
                     send_credentials_email(
-                        user.email,
-                        password_to_send,
-                        program.name,
-                        package.name if package else "Hand Holding"
+                        email=user.email,
+                        password=password_to_send,
+                        program_name=program.name,
+                        package_name=package.name if package else "Hand Holding",
+                        preferred_counselling_mode=serializer.validated_data.get(
+                            "preferred_counselling_mode",
+                            "online"
+                        )
                     )
+                    print("AFTER EMAIL FUNCTION CALL")
 
                     logger.info(
                         f"Credentials email sent successfully to {user.email}"
                     )
 
                 except Exception as e:
-                    print("EMAIL ERROR:", str(e))
+                    import traceback
+
+                    print("========== EMAIL ERROR ==========")
+                    print("User Email:", user.email)
+                    print("Error:", str(e))
+                    traceback.print_exc()
+                    print("=================================")
+
                     logger.error(
                         f"Email sending failed for {user.email}: {str(e)}"
                     )
@@ -2505,6 +2527,7 @@ class StudentRegistrationAPIView(APIView):
                 last_name=last_name,
                 phone=data.get("student_mobile") or None,
                 email=data["student_email"],
+                dob=data.get("dob"),
                 program=data["program"],
                 study_class=data["study_class"],
                 specialization=data.get("specialization"),

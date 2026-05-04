@@ -169,13 +169,14 @@ Career Counselling Team
 # CareerFutura
 # """
 
-#     send_mail(
+#     email_status = send_mail(
 #         subject,
 #         message,
 #         settings.DEFAULT_FROM_EMAIL,
 #         [email],
 #         fail_silently=False
 #     )
+#     print("EMAIL STATUS:", email_status)
 
 def send_credentials_email(
     email,
@@ -186,6 +187,7 @@ def send_credentials_email(
 ):
     """
     Send login credentials email
+    
     Show:
     - Online → Zoom link + online instructions
     - Offline → office address + offline instructions
@@ -323,13 +325,14 @@ CareerFutura
     # ==========================================
     # 🔹 SEND EMAIL
     # ==========================================
-    send_mail(
+    email_status = send_mail(
         subject,
         message,
         settings.DEFAULT_FROM_EMAIL,
         [email],
         fail_silently=False
     )
+    print("EMAIL STATUS:", email_status)
 
 
 

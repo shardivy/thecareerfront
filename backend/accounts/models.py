@@ -79,6 +79,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     # password = models.CharField(max_length=128, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_converted_lead = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)

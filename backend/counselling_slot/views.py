@@ -1724,7 +1724,11 @@ class CounsellorSlotByDateAPIView(APIView):
                     )
                     for start_time, end_time in FIXED_SLOTS
                 ]
-                Slot.objects.bulk_create(fixed_slot_objects)
+                # Slot.objects.bulk_create(fixed_slot_objects)
+                Slot.objects.bulk_create(
+                    fixed_slot_objects,
+                    ignore_conflicts=True
+                )
 
                 slots = Slot.objects.filter(
                     counsellor_id=counsellor_user_id,

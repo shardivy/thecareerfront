@@ -30,7 +30,7 @@ from django.db.models.functions import ExtractYear
 
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from accounts.serializers import HandholdingUsersListSerializer, PermissionSerializer, RolePermissionSerializer, RoleSerializer, StudentListSerializer, UserSerializer
-from lead_registration.models import Hobby, Lead, ParentProfile, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference
+from lead_registration.models import Hobby, Lead, ParentProfile, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from program_package.models import Package, UserProgramPackage
 from counselling_slot.models import Booking, Counsellor
 
@@ -1066,6 +1066,7 @@ class ProfileUpdateAPIView(APIView):
             "phone": user.phone,
             "role": user.role.name if user.role else None,
             "is_active": user.is_active,
+            "is_converted_lead": user.is_converted_lead,
             "created_at": user.created_at
         }
         # ==========================
@@ -2081,11 +2082,11 @@ class ProfileUpdateAPIView(APIView):
         # ==========================
         # 🔹 Subject Preferences
         # ==========================
-        liked_subjects = data.get("liked_subjects")
-        disliked_subjects = data.get("disliked_subjects")
-        moderate_subjects = data.get("moderate_subjects")
+        liked_subject_ids = data.get("liked_subject_ids")
+        disliked_subject_ids = data.get("disliked_subject_ids")
+        moderate_subject_ids = data.get("moderate_subject_ids")
 
-        if liked_subjects is not None or disliked_subjects is not None or moderate_subjects is not None:
+        if liked_subject_ids is not None or disliked_subject_ids is not None or moderate_subject_ids is not None:
 
             StudentSubjectPreference.objects.filter(
                 student_profile=student_profile
@@ -2111,21 +2112,21 @@ class ProfileUpdateAPIView(APIView):
                             preference_type=pref_type
                         )
 
-            handle_subjects(liked_subjects, "like")
-            handle_subjects(disliked_subjects, "dislike")
-            handle_subjects(moderate_subjects, "moderate")
+            handle_subjects(liked_subject_ids, "like")
+            handle_subjects(disliked_subject_ids, "dislike")
+            handle_subjects(moderate_subject_ids, "moderate")
 
         # ==========================
         # 🔹 Hobbies
         # ==========================
-        hobbies = data.get("hobbies")  # 👈 change from hobby_ids
+        hobby_ids = data.get("hobby_ids")  # 👈 change from hobby_ids
 
-        if hobbies is not None:
+        if hobby_ids is not None:
             StudentHobby.objects.filter(
                 student_profile=student_profile
             ).delete()
 
-            for item in hobbies:
+            for item in hobby_ids:
                 if isinstance(item, int):
                     # existing hobby ID
                     StudentHobby.objects.create(

@@ -82,6 +82,7 @@ class LeadSerializer(serializers.ModelSerializer):
             'last_name',
             'phone',
             'email',
+            'dob',
             'preferred_counselling_mode',
             'program',
             'program_detail',

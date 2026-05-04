@@ -23,6 +23,7 @@ class Lead(models.Model):
     last_name = models.CharField(max_length=200)
     phone = models.CharField(max_length=15, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
+    dob = models.DateField(blank=True, null=True)
     study_class = models.CharField(max_length=200, null=True, blank=True)
     specialization = models.CharField(max_length=100, blank=True, null=True)
     program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
