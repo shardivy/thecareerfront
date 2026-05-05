@@ -1767,16 +1767,28 @@ class ParticipantSessionListAPIView(APIView):
                             file_extension = os.path.splitext(report_file_name)[1].lower()
 
                             # PDF → preview API
-                            if file_extension == ".pdf":
-                                report_file = request.build_absolute_uri(
-                                    f"/api/report/report/pdf/{report.id}/"
-                                )
+                            # if file_extension == ".pdf":
+                            #     report_file = request.build_absolute_uri(
+                            #         f"/api/report/report/pdf/{report.id}/"
+                            #     )
 
-                            # Other files → direct media URL
-                            else:
-                                report_file = request.build_absolute_uri(
-                                    report.file_path.url
-                                )
+                            # # Other files → direct media URL
+                            # else:
+                            #     report_file = request.build_absolute_uri(
+                            #         report.file_path.url
+                            #     )
+                            if report and report.file_path:
+                                try:
+                                    report_file_name = os.path.basename(report.file_path.name)
+
+                                    # ✅ ALL files use same API
+                                    report_file = request.build_absolute_uri(
+                                        f"/api/report/report/pdf/{report.id}/"
+                                    )
+
+                                except Exception:
+                                    report_file = None
+                                    report_file_name = None
 
                         except Exception:
                             report_file = None
