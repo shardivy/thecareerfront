@@ -567,17 +567,25 @@ class StudentRegistrationSerializer(serializers.Serializer):
     def validate(self, attrs):
 
         # 🔐 Password match check
-        if attrs["password"] != attrs["confirm_password"]:
+        # if attrs["password"] != attrs["confirm_password"]:
+        #     raise serializers.ValidationError({
+        #         "password": "Passwords do not match"
+        #     })
+        if attrs.get("password") != attrs.get("confirm_password"):
             raise serializers.ValidationError({
-                "password": "Passwords do not match"
+                "message": "Passwords do not match"
             })
 
         # =========================
         # 👨‍🎓 Student must be unique
         # =========================
-        if User.objects.filter(email=attrs["student_email"]).exists():
+        # if User.objects.filter(email=attrs["student_email"]).exists():
+        #     raise serializers.ValidationError({
+        #         "student_email": "Student email already exists"
+        #     })
+        if User.objects.filter(email=attrs.get("student_email")).exists():
             raise serializers.ValidationError({
-                "student_email": "Student email already exists"
+                "message": "Student email already exists"
             })
 
         # if User.objects.filter(phone=attrs["student_mobile"]).exists():
@@ -591,10 +599,15 @@ class StudentRegistrationSerializer(serializers.Serializer):
         # =========================
 
         # 🎓 Stream validation
+        # stream_id = attrs.get("stream_id")
+        # if stream_id and not Stream.objects.filter(id=stream_id).exists():
+        #     raise serializers.ValidationError({
+        #         "stream_id": "Invalid stream selected"
+        #     })
         stream_id = attrs.get("stream_id")
         if stream_id and not Stream.objects.filter(id=stream_id).exists():
             raise serializers.ValidationError({
-                "stream_id": "Invalid stream selected"
+                "message": "Invalid stream selected"
             })
 
         return attrs

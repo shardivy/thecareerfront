@@ -555,32 +555,49 @@ class CompletedExamReportStudentIDAPIView(APIView):
             # ==========================================
             # 🔹 FILE DETAILS
             # ==========================================
+            # file_url = None
+            # file_name = None
+
+            # if report.file_path:
+            #     try:
+            #         # Actual uploaded file name
+            #         file_name = os.path.basename(
+            #             report.file_path.name
+            #         )
+
+            #         # File extension
+            #         file_extension = os.path.splitext(
+            #             file_name
+            #         )[1].lower()
+
+            #         # PDF → preview
+            #         if file_extension == ".pdf":
+            #             file_url = request.build_absolute_uri(
+            #                 f"/api/report/report/pdf/{report.id}/"
+            #             )
+
+            #         # Other files → direct open/download
+            #         else:
+            #             file_url = request.build_absolute_uri(
+            #                 report.file_path.url
+            #             )
+
+            #     except Exception:
+            #         file_url = None
+            #         file_name = None
+            
             file_url = None
             file_name = None
 
             if report.file_path:
                 try:
-                    # Actual uploaded file name
-                    file_name = os.path.basename(
-                        report.file_path.name
+                    # ✅ Actual uploaded file name
+                    file_name = os.path.basename(report.file_path.name)
+
+                    # ✅ ALL FILE TYPES use same API
+                    file_url = request.build_absolute_uri(
+                        f"/api/report/report/pdf/{report.id}/"
                     )
-
-                    # File extension
-                    file_extension = os.path.splitext(
-                        file_name
-                    )[1].lower()
-
-                    # PDF → preview
-                    if file_extension == ".pdf":
-                        file_url = request.build_absolute_uri(
-                            f"/api/report/report/pdf/{report.id}/"
-                        )
-
-                    # Other files → direct open/download
-                    else:
-                        file_url = request.build_absolute_uri(
-                            report.file_path.url
-                        )
 
                 except Exception:
                     file_url = None
@@ -1386,36 +1403,55 @@ class EngineeringTestAnalysisReportAPIView(APIView):
             # ==========================================
             # 🔹 FILE DETAILS
             # ==========================================
+            # file_url = None
+            # file_name = None
+
+            # if report.file_path:
+            #     try:
+            #         # Actual uploaded filename
+            #         file_name = os.path.basename(
+            #             report.file_path.name
+            #         )
+
+            #         # File extension
+            #         file_extension = os.path.splitext(
+            #             file_name
+            #         )[1].lower()
+
+            #         # ==========================================
+            #         # PDF → Preview route
+            #         # ==========================================
+            #         if file_extension == ".pdf":
+            #             file_url = request.build_absolute_uri(
+            #                 f"/api/report/report/pdf/{report.id}/"
+            #             )
+
+            #         # ==========================================
+            #         # Excel / Doc / Zip / Other → Direct media
+            #         # ==========================================
+            #         else:
+            #             file_url = request.build_absolute_uri(
+            #                 report.file_path.url
+            #             )
+
+            #     except Exception:
+            #         file_url = None
+            #         file_name = None
+            
             file_url = None
             file_name = None
 
             if report.file_path:
                 try:
-                    # Actual uploaded filename
+                    # ✅ Actual uploaded filename
                     file_name = os.path.basename(
                         report.file_path.name
                     )
 
-                    # File extension
-                    file_extension = os.path.splitext(
-                        file_name
-                    )[1].lower()
-
-                    # ==========================================
-                    # PDF → Preview route
-                    # ==========================================
-                    if file_extension == ".pdf":
-                        file_url = request.build_absolute_uri(
-                            f"/api/report/report/pdf/{report.id}/"
-                        )
-
-                    # ==========================================
-                    # Excel / Doc / Zip / Other → Direct media
-                    # ==========================================
-                    else:
-                        file_url = request.build_absolute_uri(
-                            report.file_path.url
-                        )
+                    # ✅ ALL file types use same secure API
+                    file_url = request.build_absolute_uri(
+                        f"/api/report/report/pdf/{report.id}/"
+                    )
 
                 except Exception:
                     file_url = None
