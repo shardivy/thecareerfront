@@ -13,8 +13,9 @@ import {
   Card,
   Divider,
   Image,
+  Tooltip
 } from "antd";
-import { UploadOutlined, EyeOutlined } from "@ant-design/icons";
+import { UploadOutlined, EyeOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
 import {
   addUser,
@@ -483,10 +484,20 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                     </Select>
                   </Form.Item>
                 </Col>
+
                 <Col xs={24} sm={12}>
                   <Form.Item
                     name="amount"
-                    label="Fees Paid"
+                    label={
+                      <span>
+                        Fees Paid{" "}
+                        {isEdit && (
+                          <Tooltip title="If you want to update paid amount, you need to update in Payments module">
+                            <InfoCircleOutlined style={{ color: "#1890ff", cursor: "pointer" }} />
+                          </Tooltip>
+                        )}
+                      </span>
+                    }
                     dependencies={["package"]}
                     rules={[
                       { required: true, message: "Please enter the amount paid" },
@@ -524,6 +535,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                     <Input
                       type="number"
                       min={0}
+                      disabled={isEdit}
                     />
                   </Form.Item>
                 </Col>

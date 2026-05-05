@@ -53,7 +53,7 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
         });
 
        if (data.file_path) {
-    const fileName = data.file_path.split("/").pop() || "Report.pdf";
+    const fileName = getDisplayFileName(data);
     const isPdf = fileName.toLowerCase().endsWith(".pdf");
 
     setIsPdfFile(isPdf);
@@ -75,6 +75,21 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
 
         setUploadedFile(null);
     }, [data, form]);
+
+    const getDisplayFileName = (reportData = {}) => {
+        if (reportData?.file_name) return reportData.file_name;
+
+        const fallbackName = reportData?.file_path
+            ?.split("/")
+            .filter(Boolean)
+            .pop()
+            ?.split("?")[0]
+            ?.split("#")[0];
+
+        return fallbackName || "Report.pdf";
+    };
+
+    const displayFileName = uploadedFile?.name || getDisplayFileName(data);
 
     /* ================= FILE SELECT ================= */
 const handleFileSelect = (file) => {
@@ -129,8 +144,7 @@ setIsPdfFile(isPdf);
             const link = document.createElement("a");
             link.href = url;
 
-            // Use the actual filename from the file_path
-            const fileName = data.file_path.split("/").pop() || "Report.pdf";
+            const fileName = displayFileName || "Report.pdf";
             link.download = fileName;
 
             link.click();
@@ -261,36 +275,46 @@ setIsPdfFile(isPdf);
                         <Col xs={24} md={16}>
                             {previewUrl ? (
                                 isPdfFile && !previewLoadError ? (
-                                    <iframe
-                                        key={previewUrl}
-                                        src={previewUrl}
-                                        title="PDF Preview"
-                                        style={{
-                                            width: "100%",
-                                            height: 220,
-                                            border: "none",
-                                        }}
-                                        onLoad={() => setPreviewLoadError(false)}
-                                        onError={() => setPreviewLoadError(true)}
-                                    />
+                                    <>
+                                        <iframe
+                                            key={previewUrl}
+                                            src={previewUrl}
+                                            title="PDF Preview"
+                                            style={{
+                                                width: "100%",
+                                                height: 220,
+                                                border: "none",
+                                            }}
+                                            onLoad={() => setPreviewLoadError(false)}
+                                            onError={() => setPreviewLoadError(true)}
+                                        />
+                                        {/* <div style={{ marginTop: 12, color: "#333", fontWeight: 500 }}>
+                                            File name: {displayFileName}
+                                        </div> */}
+                                    </>
                                 ) : (
-                                    <div style={{ textAlign: "center", padding: 20 }}>
-                                        <FilePdfOutlined style={{ fontSize: 40, color: "#999" }} />
-                                        <p style={{ marginTop: 10, color: "#666" }}>
-                                            {isPdfFile
-                                                ? "Inline preview is not available for this file."
-                                                : "Preview not available for this file type"}
-                                        </p>
-                                        {isEditMode && (
-                                            <Button
-                                                icon={<DownloadOutlined />}
-                                                style={{ marginTop: 10 }}
-                                                onClick={handleDownload}
-                                            >
-                                                Download File
-                                            </Button>
-                                        )}
-                                    </div>
+                                    <>
+                                        <div style={{ textAlign: "center", padding: 20 }}>
+                                            <FilePdfOutlined style={{ fontSize: 40, color: "#999" }} />
+                                            <p style={{ marginTop: 10, color: "#666" }}>
+                                                {isPdfFile
+                                                    ? "Inline preview is not available for this file."
+                                                    : "Preview not available for this file type"}
+                                            </p>
+                                            {isEditMode && (
+                                                <Button
+                                                    icon={<DownloadOutlined />}
+                                                    style={{ marginTop: 10 }}
+                                                    onClick={handleDownload}
+                                                >
+                                                    Download File
+                                                </Button>
+                                            )}
+                                        </div>
+                                        {/* <div style={{ marginTop: 12, color: "#333", fontWeight: 500 }}>
+                                            File name: {displayFileName}
+                                        </div> */}
+                                    </>
                                 )
                             ) : (
                                 <Empty description="No file uploaded" />

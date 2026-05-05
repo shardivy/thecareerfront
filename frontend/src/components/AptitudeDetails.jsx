@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Card, Typography, Button, Divider, Row, Col, Grid , Modal} from "antd";
+import { Card, Typography, Button, Divider, Row, Col, Grid, Modal } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchLandingPageByPackage } from "../adminSlices/landingPageSlice";
@@ -20,7 +20,7 @@ const AptitudeDetails = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const fromProgramPage = location.state?.fromProgramPage;
   const fromWelcomePage = location.state?.fromWelcomePage;
-const videoRef = useRef(null);
+  const videoRef = useRef(null);
 
   const toArray = (obj, key) => {
     const arr = [];
@@ -36,13 +36,13 @@ const videoRef = useRef(null);
   );
 
   const handleClose = () => {
-  setIsModalOpen(false);
+    setIsModalOpen(false);
 
-  if (videoRef.current) {
-    videoRef.current.pause();
-    videoRef.current.currentTime = 0;
-  }
-};
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
 
   const normalizedLanding = landing
     ? {
@@ -60,7 +60,7 @@ const videoRef = useRef(null);
   }, [packageId, dispatch]);
 
   return (
-    
+
     <div
       style={{
         minHeight: "100vh",
@@ -72,40 +72,40 @@ const videoRef = useRef(null);
       }}
     >
 
-{fromProgramPage && (
-  <div
-    style={{
-      position: "absolute",
-      top: isMobile ? "12px" : "20px",
-      left: isMobile ? "16px" : "15px",
-      zIndex: 20,
-    }}
-  >
-    <Button
-      type="link"
-      onClick={() => navigate("/student/program")}
-      style={{
-        padding: 0,
-        fontWeight: 600,
-        fontSize: isMobile ? 14 : 16,
-        height: "auto",
-      }}
-    >
-      ← Back
-    </Button>
-  </div>
-)}
+      {fromProgramPage && (
+        <div
+          style={{
+            position: "absolute",
+            top: isMobile ? "12px" : "20px",
+            left: isMobile ? "16px" : "15px",
+            zIndex: 20,
+          }}
+        >
+          <Button
+            type="link"
+            onClick={() => navigate("/student/program")}
+            style={{
+              padding: 0,
+              fontWeight: 600,
+              fontSize: isMobile ? 14 : 16,
+              height: "auto",
+            }}
+          >
+            ← Back
+          </Button>
+        </div>
+      )}
 
-{fromWelcomePage && (
-  <div
-    style={{
-      position: "absolute",
-      top: isMobile ? "12px" : "20px",
-      left: isMobile ? "16px" : "15px",
-      zIndex: 20,
-    }}
-  >
-    <Button
+      {fromWelcomePage && (
+        <div
+          style={{
+            position: "absolute",
+            top: isMobile ? "12px" : "20px",
+            left: isMobile ? "16px" : "15px",
+            zIndex: 20,
+          }}
+        >
+          {/* <Button
       type="link"
       onClick={() => navigate("/welcome-enquiry")}
       style={{
@@ -116,9 +116,10 @@ const videoRef = useRef(null);
       }}
     >
       ← Back
-    </Button>
-  </div>
-)}
+    </Button> */}
+        </div>
+      )}
+      <br></br>
       <div
         style={{
           width: isMobile ? "100%" : "45%",   // ✅ reduced width
@@ -127,12 +128,17 @@ const videoRef = useRef(null);
       >
         <div
           style={{
-            height: isMobile ? "240px" : "calc(100vh - 60px)",
-            minHeight: isMobile ? "240px" : "auto",
+            width: "100%",
+
+            // ✅ MOBILE vs DESKTOP
+            height: isMobile ? "380px" : "90vh",
+
+            // ✅ Keep ratio only on desktop
+            aspectRatio: isMobile ? "auto" : "4 / 5",
+
             borderRadius: "16px",
             overflow: "hidden",
             boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
-            background: "#000",
           }}
         >
           <img
@@ -353,36 +359,36 @@ const videoRef = useRef(null);
                 </div>
               </Paragraph>
 
-  {isAptitude && (
-  <div
-    style={{
-      marginTop: "12px",
-      display: "flex",              // ✅ ADD THIS
-      justifyContent: "center",
-      alignItems: "center",
-      gap: "6px",                  // ✅ controls spacing
-      fontSize: isMobile ? "12px" : "13px",
-      fontWeight: 500,
-      flexWrap: "wrap",            // ✅ mobile safe
-    }}
-  >
-    <PlayCircleOutlined style={{ color: "#000000" }} />
+              {isAptitude && (
+                <div
+                  style={{
+                    marginTop: "12px",
+                    display: "flex",              // ✅ ADD THIS
+                    justifyContent: "center",
+                    alignItems: "center",
+                    gap: "6px",                  // ✅ controls spacing
+                    fontSize: isMobile ? "12px" : "13px",
+                    fontWeight: 500,
+                    flexWrap: "wrap",            // ✅ mobile safe
+                  }}
+                >
+                  <PlayCircleOutlined style={{ color: "#000000" }} />
 
-    <span>Want to know more?</span>
+                  <span>Want to know more?</span>
 
-    <span
-      style={{
-        color: "#1677ff",
-        cursor: "pointer",
-        textDecoration: "underline",
-        fontWeight: 600,
-      }}
-      onClick={() => setIsModalOpen(true)}
-    >
-      Watch Now
-    </span>
-  </div>
-)}       </div>
+                  <span
+                    style={{
+                      color: "#1677ff",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      fontWeight: 600,
+                    }}
+                    onClick={() => setIsModalOpen(true)}
+                  >
+                    Watch Now
+                  </span>
+                </div>
+              )}       </div>
           </div>
         </Card>
 
@@ -396,7 +402,7 @@ const videoRef = useRef(null);
               type="primary"
               size="large"
               icon={<UserAddOutlined />}   // ✅ ICON ADDED
-              style={{ padding: "20px", width: "90%" }}
+              style={{ padding: "20px", width: "100%" }}
               onClick={() => navigate("/register")}
             >
               Create Student Account
@@ -411,7 +417,7 @@ const videoRef = useRef(null);
                 background: "#25D366",
                 color: "#fff",
                 padding: "20px",
-                width: "90%",
+                width: "100%",
               }}
               onClick={() =>
                 window.open("https://wa.me/919922695424", "_blank")
@@ -423,7 +429,7 @@ const videoRef = useRef(null);
         </Row>
       </div>
 
-       <Modal
+      <Modal
         open={isModalOpen}
         onCancel={handleClose}
         footer={null}

@@ -59,6 +59,15 @@ export default function StudentLayout() {
   const isBasicUser = adminRole === "basic_user";
   const [showModal, setShowModal] = useState(false);
 
+  // Check if modal should be shown on component mount
+  useEffect(() => {
+    const modalTriggered = localStorage.getItem("showConversionModal");
+    const handled = localStorage.getItem("conversionHandled");
+    if (modalTriggered === "true" && !handled) {
+      setShowModal(true);
+    }
+  }, []);
+
   // Check if package exists in profile or localStorage
   const hasPackage = !!(profile?.package_id || selectedPackage);
 
@@ -68,7 +77,7 @@ export default function StudentLayout() {
   const username = localStorage.getItem("username") || "Student";
   const userRole = profile?.role;
 
-const showConversionMsg = profile?.is_converted_lead === false;
+  const showConversionMsg = profile?.is_converted_lead === false;
 
   // Function to truncate name for smaller screens
   const truncatedUsername = screens.xs
@@ -82,6 +91,35 @@ const showConversionMsg = profile?.is_converted_lead === false;
   }, [dispatch]);
 
   useEffect(() => {
+  if (profile?.role) {
+    const oldRole = localStorage.getItem("adminRole");
+
+    // First time login → just store role
+    if (!oldRole) {
+      localStorage.setItem("adminRole", profile.role);
+      return;
+    }
+
+    // 🔥 Detect role change
+    if (oldRole !== profile.role) {
+      console.log("Role changed detected");
+
+      // Clear old cached UI data
+      localStorage.removeItem("dashboardConfig");
+      localStorage.removeItem("selectedPackage");
+      localStorage.removeItem("aptitude_test");
+      localStorage.removeItem("engineering_test_analysis");
+
+      // Update new role
+      localStorage.setItem("adminRole", profile.role);
+
+      // 🔥 Reload UI
+      window.location.reload();
+    }
+  }
+}, [profile]);
+
+  useEffect(() => {
     if (profile?.aptitude_test !== undefined) {
       localStorage.setItem("aptitude_test", profile.aptitude_test);
     }
@@ -90,7 +128,7 @@ const showConversionMsg = profile?.is_converted_lead === false;
       localStorage.setItem("engineering_test_analysis", profile.engineering_test_analysis);
     }
   }, [profile]);
-  
+
 
   const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
 
@@ -100,17 +138,26 @@ const showConversionMsg = profile?.is_converted_lead === false;
     localStorage.getItem("engineering_test_analysis") === "true" &&
     adminRole !== "basic_user";
 
-//   useEffect(() => {
-//   if (profile?.is_converted_lead === true) {
-//     const alreadyShown = localStorage.getItem("conversionMsgShown");
+  // const prevConverted = localStorage.getItem("prev_converted_lead");
 
-//     if (!alreadyShown) {
+// useEffect(() => {
+//   if (profile?.is_converted_lead !== undefined) {
+//     const prev = localStorage.getItem("prev_converted_lead");
+//     const handled = localStorage.getItem("conversionHandled");
+
+//     // Show modal only if just converted (false → true) and not already handled
+//     if (prev === "false" && profile.is_converted_lead === true && !handled) {
 //       setShowModal(true);
-//       localStorage.setItem("conversionMsgShown", "true");
+//       localStorage.setItem("showConversionModal", "true");
 //     }
+
+//     // update previous state
+//     localStorage.setItem(
+//       "prev_converted_lead",
+//       profile.is_converted_lead
+//     );
 //   }
 // }, [profile]);
-
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -355,17 +402,13 @@ const showConversionMsg = profile?.is_converted_lead === false;
 
 
   const handleLogout = () => {
-    // Remove authentication & user info
-    // localStorage.removeItem("studentToken");
-    // localStorage.removeItem("username");
+    // Mark as handled and clear modal flag
+    localStorage.setItem("conversionHandled", "true");
+    localStorage.removeItem("showConversionModal");
 
-    // // Remove program/package stored from profile
-    // localStorage.removeItem("selectedProgram");
-    // localStorage.removeItem("selectedPackage");
-    // localStorage.removeItem("studentId");
-  localStorage.removeItem("conversionMsgShown");
     localStorage.clear();
-    // 2. Optional: reset Redux state
+
+    // Optional: reset Redux state
     dispatch(clearProfile());
 
     navigate("/", { replace: true });
@@ -487,7 +530,7 @@ const showConversionMsg = profile?.is_converted_lead === false;
                   flex: 1,
                   padding: "8px 12px",
                   overflowY: "auto",
-                  maxHeight: "calc(100vh - 200px)", 
+                  maxHeight: "calc(100vh - 200px)",
                 }}
               >
                 {MenuContent}
@@ -684,60 +727,60 @@ const showConversionMsg = profile?.is_converted_lead === false;
 
 
 
-{/* <Modal
-  open={showModal}
-  centered
-  closable={false}
-  maskClosable={false}
-  footer={null}
->
-  <div style={{ textAlign: "center", padding: "10px 5px" }}>
-    
-
-    <ExclamationCircleFilled
-      style={{
-        fontSize: 48,
-        color: "#faad14",
-        marginBottom: 12,
-      }}
-    />
+          {/* <Modal
+            open={showModal}
+            centered
+            closable={false}
+            maskClosable={false}
+            footer={null}
+          >
+            <div style={{ textAlign: "center", padding: "10px 5px" }}>
 
 
-    <h2 style={{ marginBottom: 8, fontWeight: 600 }}>
-      Profile Updated
-    </h2>
+              <ExclamationCircleFilled
+                style={{
+                  fontSize: 48,
+                  color: "#faad14",
+                  marginBottom: 12,
+                }}
+              />
 
 
-    <p
-      style={{
-        color: "#555",
-        fontSize: 14,
-        lineHeight: "22px",
-        marginBottom: 24,
-      }}
-    >
-      Your profile has been updated by admin. <br />
-      Please logout and login again to access your dashboard.
-    </p>
+              <h2 style={{ marginBottom: 8, fontWeight: 600 }}>
+                Profile Updated
+              </h2>
 
 
-    <Button
-      type="primary"
-      danger
-      size="large"
-        icon={<LogoutOutlined />}
-      onClick={handleLogout}
-      style={{
-        borderRadius: 6,
-        padding: "0 30px",
-        height: 42,
-        fontWeight: 500,
-      }}
-    >
-      Logout Now
-    </Button>
-  </div>
-</Modal> */}
+              <p
+                style={{
+                  color: "#555",
+                  fontSize: 14,
+                  lineHeight: "22px",
+                  marginBottom: 24,
+                }}
+              >
+                Your profile has been updated by admin. <br />
+                Please logout and login again to access your dashboard.
+              </p>
+
+
+              <Button
+                type="primary"
+                danger
+                size="large"
+                icon={<LogoutOutlined />}
+                onClick={handleLogout}
+                style={{
+                  borderRadius: 6,
+                  padding: "0 30px",
+                  height: 42,
+                  fontWeight: 500,
+                }}
+              >
+                Logout Now
+              </Button>
+            </div>
+          </Modal> */}
 
           <Content
             style={{

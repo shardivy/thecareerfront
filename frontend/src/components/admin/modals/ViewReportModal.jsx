@@ -69,7 +69,7 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
     });
 
     if (data.file_path) {
-      const fileName = data.file_path.split("/").pop() || "Report.pdf";
+const fileName = getDisplayFileName(data);
       const isPdf = fileName.toLowerCase().endsWith(".pdf");
       setIsPdfFile(isPdf);
       setPreviewUrl(data.file_path);
@@ -140,6 +140,19 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
     window.open(viewerUrl, "_blank");
   };
 
+  const getDisplayFileName = (data = {}) => {
+    if (data?.file_name) return data.file_name;
+
+    const filePathName = data?.file_path
+      ?.split("/")
+      .filter(Boolean)
+      .pop()
+      ?.split("?")[0]
+      ?.split("#")[0];
+
+    return filePathName;
+  };
+
   /* ---------------- DOWNLOAD ---------------- */
   const handleDownload = async () => {
     console.log("⬇️ Download initiated");
@@ -160,7 +173,7 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
       link.href = url;
 
       // Use the actual filename from the file_path
-      const fileName = data.file_path.split("/").pop() || "Report.pdf";
+const fileName = getDisplayFileName(data);
       link.download = fileName;
 
       document.body.appendChild(link);
@@ -176,7 +189,7 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
     }
   };
 
-  /* ---------------- UPLOAD / UPDATE ---------------- */
+
   /* ---------------- UPLOAD / UPDATE ---------------- */
   const handleSubmit = async () => {
     console.log("🚀 Submit button clicked");
@@ -213,7 +226,7 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
           const blob = await response.blob();
 
           // Create a File object from the blob
-          const fileName = data.file_path.split('/').pop() || "Report.pdf";
+const fileName = getDisplayFileName(data);
           const existingFile = new File([blob], fileName, { type: "application/pdf" });
 
           // Append to formData

@@ -44,7 +44,7 @@ export default function HandholdingLayout() {
 const { profile } = useSelector((state) => state.profile);
 
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  // const [showModal, setShowModal] = useState(false);
 
 const username =
   `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||profile?.email ||"Handholding User";
@@ -74,16 +74,16 @@ useEffect(() => {
   }
 }, [profile]);
 
-useEffect(() => {
-  if (profile?.is_converted_lead === false) {
-    const alreadyShown = localStorage.getItem("conversionMsgShown");
+// useEffect(() => {
+//   if (profile?.is_converted_lead === false) {
+//     const alreadyShown = localStorage.getItem("conversionMsgShown");
 
-    if (!alreadyShown) {
-      setShowModal(true);
-      localStorage.setItem("conversionMsgShown", "true");
-    }
-  }
-}, [profile]);
+//     if (!alreadyShown) {
+//       setShowModal(true);
+//       localStorage.setItem("conversionMsgShown", "true");
+//     }
+//   }
+// }, [profile]);
 
   /* ================= MENU ================= */
   const menuItems = [
@@ -389,7 +389,7 @@ useEffect(() => {
             </Header>
           )}
 
-          <Modal
+          {/* <Modal
   open={showModal}
   centered
   closable={false}
@@ -438,7 +438,7 @@ useEffect(() => {
       Logout Now
     </Button>
   </div>
-</Modal>
+</Modal> */}
 
           {/* CONTENT */}
           <Content

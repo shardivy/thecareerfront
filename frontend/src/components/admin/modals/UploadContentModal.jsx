@@ -169,7 +169,7 @@ const UploadContentModal = ({
 
       if (documentUrl) {
         const url = documentUrl;
-        const fileName = getFileNameFromUrl(url) || initialValues.title || "File";
+        const fileName = getDisplayFileName(initialValues, url);
         const isPdf =
           isPdfSource(url) ||
           isPdfSource(fileName) ||
@@ -194,22 +194,22 @@ const UploadContentModal = ({
         setFileList([]);
       }
       // ✅ Thumbnail handling (ALWAYS reset first)
-setThumbnailFile(null);
-setThumbnailPreview(null);
-setThumbnailFileList([]);
+      setThumbnailFile(null);
+      setThumbnailPreview(null);
+      setThumbnailFileList([]);
 
       // ✅ Thumbnail preview for edit mode
-if (initialValues.image) {
-  setThumbnailPreview(initialValues.image);
-  setThumbnailFileList([
-    {
-      uid: "-1",
-      name: "Thumbnail",
-      status: "done",
-      url: initialValues.image,
-    },
-  ]);
-}
+      if (initialValues.image) {
+        setThumbnailPreview(initialValues.image);
+        setThumbnailFileList([
+          {
+            uid: "-1",
+            name: "Thumbnail",
+            status: "done",
+            url: initialValues.image,
+          },
+        ]);
+      }
       // Only fetch packages if a single program is selected
       if (programValues.length === 1) {
         dispatch(fetchPackagesByProgram(programValues[0]));
@@ -230,10 +230,10 @@ if (initialValues.image) {
       setSelectedPrograms([]);
       dispatch(clearPackages());
 
-       // ✅ ADD THIS
-  setThumbnailFile(null);
-  setThumbnailPreview(null);
-  setThumbnailFileList([]);
+      // ✅ ADD THIS
+      setThumbnailFile(null);
+      setThumbnailPreview(null);
+      setThumbnailFileList([]);
     }
   }, [open, initialValues, dispatch, form]);
 
@@ -280,22 +280,27 @@ if (initialValues.image) {
     };
   }, [open, previewUrl, isPdfFile]);
 
+  const getDisplayFileName = (content = {}, url = "") => {
+    if (content?.file_name) return content.file_name;
+    return getFileNameFromUrl(url) || content?.title || "File";
+  };
+
   /* ---------------- FILE HANDLING ---------------- */
-const handleFileSelect = (file) => {
-  console.log("📁 File selected:", file.name);
+  const handleFileSelect = (file) => {
+    console.log("📁 File selected:", file.name);
 
- const isPdf =
-  file.type === "application/pdf" ||
-  /\.pdf$/i.test(file.name);
+    const isPdf =
+      file.type === "application/pdf" ||
+      /\.pdf$/i.test(file.name);
 
-  setIsPdfFile(isPdf);
-  setUploadedFile(file);
-  setPreviewUrl(URL.createObjectURL(file));
-  setPreviewLoadError(false);
-  setFileList([file]);
+    setIsPdfFile(isPdf);
+    setUploadedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewLoadError(false);
+    setFileList([file]);
 
-  return false;
-};
+    return false;
+  };
 
   const handleRemove = () => {
     console.log("🗑️ File removed");
@@ -315,7 +320,7 @@ const handleFileSelect = (file) => {
       setFileList([
         {
           uid: "-1",
-          name: getFileNameFromUrl(existingDocumentUrl) || `${initialValues.title || "Content"}.pdf`,
+          name: getDisplayFileName(initialValues, existingDocumentUrl),
           status: "done",
           url: existingDocumentUrl,
         },
@@ -328,24 +333,24 @@ const handleFileSelect = (file) => {
     }
   };
 
-// const handleOpenPreview = () => {
-//   if (!previewUrl) return;
-//   window.open(previewUrl, "_blank", "noopener,noreferrer");
-// };
+  // const handleOpenPreview = () => {
+  //   if (!previewUrl) return;
+  //   window.open(previewUrl, "_blank", "noopener,noreferrer");
+  // };
 
-/* ---------------- PREVIEW ---------------- */
-const handleOpenPreview = () => {
-  if (!previewUrl) return;
+  /* ---------------- PREVIEW ---------------- */
+  const handleOpenPreview = () => {
+    if (!previewUrl) return;
 
-  // If it's blob → open directly
-  if (previewUrl.startsWith("blob:")) {
-    window.open(previewUrl, "_blank");
-    return;
-  }
+    // If it's blob → open directly
+    if (previewUrl.startsWith("blob:")) {
+      window.open(previewUrl, "_blank");
+      return;
+    }
 
-  // If it's backend file → open normally
-  window.open(previewUrl, "_blank", "noopener,noreferrer");
-};
+    // If it's backend file → open normally
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
+  };
 
   /* ---------------- DOWNLOAD ---------------- */
   const handleDownload = async () => {
@@ -362,7 +367,7 @@ const handleOpenPreview = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      const existingName = fileList?.[0]?.name || getFileNameFromUrl(previewUrl);
+      const existingName = initialValues?.file_name || fileList?.[0]?.name || getFileNameFromUrl(previewUrl);
       const extension = getFileExtension(existingName || previewUrl, isPdfFile ? "pdf" : "file");
       const baseName =
         existingName?.replace(/\.[^.]+$/, "") ||
@@ -381,215 +386,215 @@ const handleOpenPreview = () => {
     }
   };
 
-const beforeUpload = (file) => {
-  const allowedTypes = [
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.ms-excel",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ];
+  const beforeUpload = (file) => {
+    const allowedTypes = [
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
 
-  if (!allowedTypes.includes(file.type)) {
-    message.error("Only PDF, Word, and Excel files are allowed");
-    return Upload.LIST_IGNORE;
-  }
+    if (!allowedTypes.includes(file.type)) {
+      message.error("Only PDF, Word, and Excel files are allowed");
+      return Upload.LIST_IGNORE;
+    }
 
-  if (file.size / 1024 / 1024 > 500) {
-    message.error("File must be smaller than 500MB!");
-    return Upload.LIST_IGNORE;
-  }
+    if (file.size / 1024 / 1024 > 500) {
+      message.error("File must be smaller than 500MB!");
+      return Upload.LIST_IGNORE;
+    }
 
-  return handleFileSelect(file);
-};
+    return handleFileSelect(file);
+  };
 
   const handleThumbnailSelect = (file) => {
-  if (!file.type.startsWith("image/")) {
-    message.error("Only image files (JPG/PNG) allowed");
-    return Upload.LIST_IGNORE;
-  }
-
-  if (file.size / 1024 / 1024 > 5) {
-    message.error("Thumbnail must be smaller than 5MB");
-    return Upload.LIST_IGNORE;
-  }
-
-  setThumbnailFile(file);
-  setThumbnailPreview(URL.createObjectURL(file));
-  setThumbnailFileList([file]);
-
-  return false; // prevent auto upload
-};
-
-const handleThumbnailRemove = () => {
-  setThumbnailFile(null);
-if (isEditMode && initialValues?.image) {
-    setThumbnailPreview(initialValues.image);
-    setThumbnailFileList([
-      {
-        uid: "-1",
-        name: "Thumbnail",
-        status: "done",
-        url: initialValues.image,
-      },
-    ]);
-  } else {
-    setThumbnailPreview(null);
-    setThumbnailFileList([]);
-  }
-};
-
-const handleFinish = async (values, isDraft = false) => {
-  try {
-    const formData = new FormData();
-
-    // ✅ Always required in normal upload
-    if (values.title) formData.append("title", values.title);
-    if (values.type) formData.append("type", values.type);
-    if (values.category) formData.append("category", values.category);
-    if (values.description) formData.append("description", values.description);
-
-    // ---------------- PROGRAM ----------------
-    if (values.program && values.program.length > 0) {
-      // Check if "All Programs" is selected (by checking if the array contains ALL_PROGRAM_VALUE)
-      if (values.program.includes(ALL_PROGRAM_VALUE)) {
-        // Send all program IDs
-        const allProgramIds = programs.map((program) => program.id);
-        allProgramIds.forEach((id) => {
-          formData.append("program", id);
-        });
-      } else {
-        // Send selected program IDs
-        values.program.forEach((id) => {
-          formData.append("program", id);
-        });
-      }
-    }
-    // Note: If no program is selected, we don't append anything
-
-    // ---------------- PACKAGE ----------------
-    if (values.package) {
-      formData.append("package", values.package);
+    if (!file.type.startsWith("image/")) {
+      message.error("Only image files (JPG/PNG) allowed");
+      return Upload.LIST_IGNORE;
     }
 
-    // ---------------- PAYMENT FLAGS ----------------
-    if (values.full_payment !== undefined) {
-      formData.append("payment_required", values.full_payment ? "true" : "false");
+    if (file.size / 1024 / 1024 > 5) {
+      message.error("Thumbnail must be smaller than 5MB");
+      return Upload.LIST_IGNORE;
     }
 
-    if (values.is_free !== undefined) {
-      formData.append("free_content", values.is_free ? "true" : "false");
-    }
+    setThumbnailFile(file);
+    setThumbnailPreview(URL.createObjectURL(file));
+    setThumbnailFileList([file]);
 
-    // ---------------- DRAFT ----------------
-   formData.append("is_draft", isDraft ? "true" : "false");
+    return false; // prevent auto upload
+  };
 
-    // ---------------- VIDEO ----------------
-    if (values.type === "video" && values.video_link) {
-      formData.append("video_link", values.video_link);
-    }
-
-    // ---------------- PDF ----------------
-      if (values.type === "pdf") {
-      if (uploadedFile) {
-        formData.append("file_url", uploadedFile);
-      }
-    }
-
-    // ---------------- THUMBNAIL ----------------
-if (thumbnailFile) {
-  formData.append("image", thumbnailFile);
-}
-
-    // 🔍 Debug
-    console.log("📤 Clean FormData:");
-    for (let pair of formData.entries()) {
-      console.log(pair[0], pair[1]);
-    }
-
-    if (isEditMode && initialValues?.id) {
-      await dispatch(updateContent({ id: initialValues.id, formData })).unwrap();
-      message.success("Content updated successfully!");
+  const handleThumbnailRemove = () => {
+    setThumbnailFile(null);
+    if (isEditMode && initialValues?.image) {
+      setThumbnailPreview(initialValues.image);
+      setThumbnailFileList([
+        {
+          uid: "-1",
+          name: "Thumbnail",
+          status: "done",
+          url: initialValues.image,
+        },
+      ]);
     } else {
-      await dispatch(uploadContent(formData)).unwrap();
-      message.success(isDraft ? "Draft saved successfully!" : "Content uploaded successfully!");
+      setThumbnailPreview(null);
+      setThumbnailFileList([]);
     }
+  };
 
-    dispatch(resetContentState());
-    dispatch(fetchContentList());
+  const handleFinish = async (values, isDraft = false) => {
+    try {
+      const formData = new FormData();
 
-    form.resetFields();
+      // ✅ Always required in normal upload
+      if (values.title) formData.append("title", values.title);
+      if (values.type) formData.append("type", values.type);
+      if (values.category) formData.append("category", values.category);
+      if (values.description) formData.append("description", values.description);
+
+      // ---------------- PROGRAM ----------------
+      if (values.program && values.program.length > 0) {
+        // Check if "All Programs" is selected (by checking if the array contains ALL_PROGRAM_VALUE)
+        if (values.program.includes(ALL_PROGRAM_VALUE)) {
+          // Send all program IDs
+          const allProgramIds = programs.map((program) => program.id);
+          allProgramIds.forEach((id) => {
+            formData.append("program", id);
+          });
+        } else {
+          // Send selected program IDs
+          values.program.forEach((id) => {
+            formData.append("program", id);
+          });
+        }
+      }
+      // Note: If no program is selected, we don't append anything
+
+      // ---------------- PACKAGE ----------------
+      if (values.package) {
+        formData.append("package", values.package);
+      }
+
+      // ---------------- PAYMENT FLAGS ----------------
+      if (values.full_payment !== undefined) {
+        formData.append("payment_required", values.full_payment ? "true" : "false");
+      }
+
+      if (values.is_free !== undefined) {
+        formData.append("free_content", values.is_free ? "true" : "false");
+      }
+
+      // ---------------- DRAFT ----------------
+      formData.append("is_draft", isDraft ? "true" : "false");
+
+      // ---------------- VIDEO ----------------
+      if (values.type === "video" && values.video_link) {
+        formData.append("video_link", values.video_link);
+      }
+
+      // ---------------- PDF ----------------
+      if (values.type === "pdf") {
+        if (uploadedFile) {
+          formData.append("file_url", uploadedFile);
+        }
+      }
+
+      // ---------------- THUMBNAIL ----------------
+      if (thumbnailFile) {
+        formData.append("image", thumbnailFile);
+      }
+
+      // 🔍 Debug
+      console.log("📤 Clean FormData:");
+      for (let pair of formData.entries()) {
+        console.log(pair[0], pair[1]);
+      }
+
+      if (isEditMode && initialValues?.id) {
+        await dispatch(updateContent({ id: initialValues.id, formData })).unwrap();
+        message.success("Content updated successfully!");
+      } else {
+        await dispatch(uploadContent(formData)).unwrap();
+        message.success(isDraft ? "Draft saved successfully!" : "Content uploaded successfully!");
+      }
+
+      dispatch(resetContentState());
+      dispatch(fetchContentList());
+
+      form.resetFields();
       setPreviewUrl(null);
       setPreviewLoadError(false);
       setUploadedFile(null);
-    setFileList([]);
-    setFileType(null);
-    setSelectedPrograms([]);
-    onCancel();
+      setFileList([]);
+      setFileType(null);
+      setSelectedPrograms([]);
+      onCancel();
 
-  } catch (error) {
-    console.log("Backend Error:", error);
+    } catch (error) {
+      console.log("Backend Error:", error);
 
-    if (error?.errors) {
-      Object.entries(error.errors).forEach(([field, msgs]) => {
-        message.error(`${field}: ${msgs[0]}`);
-      });
-    } else {
-      message.error("Something went wrong");
+      if (error?.errors) {
+        Object.entries(error.errors).forEach(([field, msgs]) => {
+          message.error(`${field}: ${msgs[0]}`);
+        });
+      } else {
+        message.error("Something went wrong");
+      }
     }
-  }
-};
+  };
 
-const handleClose = async () => {
-  if (viewMode) {
-    onCancel();
-    return;
-  }
-
-  try {
-    const values = form.getFieldsValue();
-
-    const hasData =
-      values.title ||
-      values.description ||
-      values.type ||
-      uploadedFile ||
-      values.video_link;
-
-    // Only auto-save draft in CREATE mode (not edit)
-    if (hasData && !isEditMode) {
-      await submitAsDraft();
-    }
-
-    onCancel();
-  } catch (error) {
-    console.log("Close Error:", error);
-    onCancel();
-  }
-};
-
-const submitAsDraft = async () => {
-  try {
-    const values = form.getFieldsValue();
-
-    // Check if at least one important field is filled
-    const hasImportantData =
-      values.title ||
-      values.description ||
-      values.type ||
-      uploadedFile ||
-      values.video_link;
-
-    if (!hasImportantData) {
+  const handleClose = async () => {
+    if (viewMode) {
+      onCancel();
       return;
     }
 
-    await handleFinish(values, true); // pass draft = true
-    // message.success("Draft saved successfully");
-  } catch (error) {
-    console.log("Draft Save Error:", error);
-  }
-};
+    try {
+      const values = form.getFieldsValue();
+
+      const hasData =
+        values.title ||
+        values.description ||
+        values.type ||
+        uploadedFile ||
+        values.video_link;
+
+      // Only auto-save draft in CREATE mode (not edit)
+      if (hasData && !isEditMode) {
+        await submitAsDraft();
+      }
+
+      onCancel();
+    } catch (error) {
+      console.log("Close Error:", error);
+      onCancel();
+    }
+  };
+
+  const submitAsDraft = async () => {
+    try {
+      const values = form.getFieldsValue();
+
+      // Check if at least one important field is filled
+      const hasImportantData =
+        values.title ||
+        values.description ||
+        values.type ||
+        uploadedFile ||
+        values.video_link;
+
+      if (!hasImportantData) {
+        return;
+      }
+
+      await handleFinish(values, true); // pass draft = true
+      // message.success("Draft saved successfully");
+    } catch (error) {
+      console.log("Draft Save Error:", error);
+    }
+  };
 
   return (
     <Modal
@@ -611,404 +616,404 @@ const submitAsDraft = async () => {
       destroyOnClose
       width={800}
     >
-         <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
-      <Form form={form} layout="vertical" onFinish={handleFinish}>
-        {/* Title */}
-        <Form.Item
-          label="Content Title"
-          name="title"
-          rules={[{ required: true, message: "Please enter content title" }]}
-        >
-          <Input
-            placeholder="e.g., Engineering Entrance Exam Guide 2026"
-            readOnly={viewMode}
-          />
-        </Form.Item>
-
-        {/* Type & Category */}
-        <div style={{ display: "flex", gap: 16 }}>
+      <div style={{ maxHeight: "75vh", overflowY: "auto", paddingRight: 8 }}>
+        <Form form={form} layout="vertical" onFinish={handleFinish}>
+          {/* Title */}
           <Form.Item
-            label="Content Type"
-            name="type"
-            rules={[{ required: true }]}
-            style={{ flex: 1 }}
-          >
-            <Select
-              placeholder="Select type"
-              disabled={viewMode}
-              onChange={(value) => {
-                setFileType(value);
-                if (value === "video") {
-                  setPreviewUrl(null);
-                  setIsPdfFile(false);
-                  setPreviewLoadError(false);
-                  setUploadedFile(null);
-                  setFileList([]);
-                } else {
-                  form.setFieldsValue({ video_link: null });
-                }
-              }}
-            >
-              <Option value="pdf">Document</Option>
-              <Option value="video">Video</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="Category"
-            name="category"
-            rules={[{ required: true }]}
-            style={{ flex: 1 }}
-          >
-            <Select placeholder="Select category" disabled={viewMode}>
-              <Option value="study_material">Study Material</Option>
-              <Option value="tutorial">Tutorial</Option>
-              <Option value="guide">Guide</Option>
-            </Select>
-          </Form.Item>
-        </div>
-
-        {/* Description */}
-        <Form.Item
-          label="Description"
-          name="description"
-          rules={[{ required: true }]}
-        >
-          <TextArea
-            placeholder="Brief description of the content"
-            rows={3}
-            readOnly={viewMode}
-          />
-        </Form.Item>
-
-        {/* Video Link */}
-        {fileType === "video" && (
-          <Form.Item
-            label="Video Link"
-            name="video_link"
-            rules={[
-              { required: true, message: "Please enter video link" },
-              { type: "url", message: "Enter valid URL" },
-            ]}
+            label="Content Title"
+            name="title"
+            rules={[{ required: true, message: "Please enter content title" }]}
           >
             <Input
-              placeholder="Enter video URL (YouTube, Vimeo, etc.)"
+              placeholder="e.g., Engineering Entrance Exam Guide 2026"
               readOnly={viewMode}
             />
           </Form.Item>
-        )}
 
-        {/* PDF Section with Preview */}
-        {fileType === "pdf" && (
-          <>
-            <Title level={5} style={{ marginBottom: 8 }}>
-              <FilePdfOutlined /> Document Preview / Upload
-            </Title>
-
-            <div
-              style={{
-                border: `1px solid ${token.colorBorder}`,
-                borderRadius: token.borderRadius,
-                padding: 16,
-                marginBottom: 16,
-              }}
+          {/* Type & Category */}
+          <div style={{ display: "flex", gap: 16 }}>
+            <Form.Item
+              label="Content Type"
+              name="type"
+              rules={[{ required: true }]}
+              style={{ flex: 1 }}
             >
-              <Row gutter={16}>
-                <Col xs={24} md={16}>
-                  {previewUrl ? (
-                    isPdfFile && iframePreviewUrl && !previewLoadError ? (
-                      <iframe
-                        key={iframePreviewUrl}
-                        src={iframePreviewUrl}
-                        title="PDF Preview"
-                        style={{ width: "100%", height: 250, border: "none" }}
-                        onLoad={() => setPreviewLoadError(false)}
-                        onError={() => setPreviewLoadError(true)}
-                      />
+              <Select
+                placeholder="Select type"
+                disabled={viewMode}
+                onChange={(value) => {
+                  setFileType(value);
+                  if (value === "video") {
+                    setPreviewUrl(null);
+                    setIsPdfFile(false);
+                    setPreviewLoadError(false);
+                    setUploadedFile(null);
+                    setFileList([]);
+                  } else {
+                    form.setFieldsValue({ video_link: null });
+                  }
+                }}
+              >
+                <Option value="pdf">Document</Option>
+                <Option value="video">Video</Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              label="Category"
+              name="category"
+              rules={[{ required: true }]}
+              style={{ flex: 1 }}
+            >
+              <Select placeholder="Select category" disabled={viewMode}>
+                <Option value="study_material">Study Material</Option>
+                <Option value="tutorial">Tutorial</Option>
+                <Option value="guide">Guide</Option>
+              </Select>
+            </Form.Item>
+          </div>
+
+          {/* Description */}
+          <Form.Item
+            label="Description"
+            name="description"
+            rules={[{ required: true }]}
+          >
+            <TextArea
+              placeholder="Brief description of the content"
+              rows={3}
+              readOnly={viewMode}
+            />
+          </Form.Item>
+
+          {/* Video Link */}
+          {fileType === "video" && (
+            <Form.Item
+              label="Video Link"
+              name="video_link"
+              rules={[
+                { required: true, message: "Please enter video link" },
+                { type: "url", message: "Enter valid URL" },
+              ]}
+            >
+              <Input
+                placeholder="Enter video URL (YouTube, Vimeo, etc.)"
+                readOnly={viewMode}
+              />
+            </Form.Item>
+          )}
+
+          {/* PDF Section with Preview */}
+          {fileType === "pdf" && (
+            <>
+              <Title level={5} style={{ marginBottom: 8 }}>
+                <FilePdfOutlined /> Document Preview / Upload
+              </Title>
+
+              <div
+                style={{
+                  border: `1px solid ${token.colorBorder}`,
+                  borderRadius: token.borderRadius,
+                  padding: 16,
+                  marginBottom: 16,
+                }}
+              >
+                <Row gutter={16}>
+                  <Col xs={24} md={16}>
+                    {previewUrl ? (
+                      isPdfFile && iframePreviewUrl && !previewLoadError ? (
+                        <iframe
+                          key={iframePreviewUrl}
+                          src={iframePreviewUrl}
+                          title="PDF Preview"
+                          style={{ width: "100%", height: 250, border: "none" }}
+                          onLoad={() => setPreviewLoadError(false)}
+                          onError={() => setPreviewLoadError(true)}
+                        />
+                      ) : (
+                        <div style={{ textAlign: "center", padding: 20 }}>
+                          <FilePdfOutlined style={{ fontSize: 40, color: "#999" }} />
+                          <p style={{ marginTop: 10, color: "#666" }}>
+                            {isPdfFile
+                              ? "Preview not available for this file type."
+                              : "Preview not available for this file type."}
+                          </p>
+                          {!viewMode && previewUrl && (
+                            <Button
+                              type="default"
+                              icon={<DownloadOutlined />}
+                              onClick={handleDownload}
+                            >
+                              Download File
+                            </Button>
+                          )}
+                        </div>
+                      )
                     ) : (
-                      <div style={{ textAlign: "center", padding: 20 }}>
-                        <FilePdfOutlined style={{ fontSize: 40, color: "#999" }} />
-                        <p style={{ marginTop: 10, color: "#666" }}>
-                          {isPdfFile
-                            ? "Preview not available for this file type."
-                            : "Preview not available for this file type."}
-                        </p>
-                        {!viewMode && previewUrl && (
-  <Button
-    type="default"
-    icon={<DownloadOutlined />}
-    onClick={handleDownload}
-  >
-    Download File
-  </Button>
-)}
-                      </div>
-                    )
-                  ) : (
-                    <Empty description="No file uploaded" />
-                  )}
-                </Col>
+                      <Empty description="No file uploaded" />
+                    )}
+                  </Col>
 
-                <Col xs={24} md={8}>
-                  {/* Upload button for non-view modes */}
-                  {!viewMode && (
-                    <Upload
-                      accept=".pdf,.doc,.docx,.xls,.xlsx"
-                      beforeUpload={beforeUpload}
-                      onRemove={handleRemove}
-                      fileList={fileList}
-                      maxCount={1}
-                      customRequest={({ onSuccess }) => {
-                        setTimeout(() => onSuccess("ok"));
-                      }}
-                    >
-                      <Button
-                        icon={<UploadOutlined />}
-                        block
-                        type="primary"
+                  <Col xs={24} md={8}>
+                    {/* Upload button for non-view modes */}
+                    {!viewMode && (
+                      <Upload
+                        accept=".pdf,.doc,.docx,.xls,.xlsx"
+                        beforeUpload={beforeUpload}
+                        onRemove={handleRemove}
+                        fileList={fileList}
+                        maxCount={1}
+                        customRequest={({ onSuccess }) => {
+                          setTimeout(() => onSuccess("ok"));
+                        }}
                       >
-                        Select File
-                      </Button>
-                    </Upload>
-                  )}
+                        <Button
+                          icon={<UploadOutlined />}
+                          block
+                          type="primary"
+                        >
+                          Select File
+                        </Button>
+                      </Upload>
+                    )}
 
-                  {/* Download button only for view mode */}
-                  {viewMode && previewUrl && (
-                    <>
-                      {/* <Button
+                    {/* Download button only for view mode */}
+                    {viewMode && previewUrl && (
+                      <>
+                        {/* <Button
                         icon={<EyeOutlined />}
                         block
                         onClick={handleOpenPreview}
                       >
                         View File
                       </Button> */}
-                      <Button
-                        icon={<DownloadOutlined />}
-                        block
-                        style={{ marginTop: 8 }}
-                        onClick={handleDownload}
-                      >
-                        Download File
-                      </Button>
-                    </>
-                  )}
+                        <Button
+                          icon={<DownloadOutlined />}
+                          block
+                          style={{ marginTop: 8 }}
+                          onClick={handleDownload}
+                        >
+                          Download File
+                        </Button>
+                      </>
+                    )}
 
-                  {/* Show message about existing file in edit mode */}
-                  {isEditMode && !viewMode && getDocumentUrl(initialValues) && !uploadedFile && (
-                    <div style={{ marginTop: 12, color: token.colorInfo, fontSize: 12 }}>
-                      <EyeOutlined /> Current file will be kept if no new file is selected
-                    </div>
-                  )}
-                </Col>
-              </Row>
-            </div>
+                    {/* Show message about existing file in edit mode */}
+                    {isEditMode && !viewMode && getDocumentUrl(initialValues) && !uploadedFile && (
+                      <div style={{ marginTop: 12, color: token.colorInfo, fontSize: 12 }}>
+                        <EyeOutlined /> Current file will be kept if no new file is selected
+                      </div>
+                    )}
+                  </Col>
+                </Row>
+              </div>
 
-            {/* Hidden form item for validation */}
-            <Form.Item
-              name="file"
-              hidden
-              rules={[
-                {
-                  validator: (_, value) => {
-                    if (!uploadedFile && !getDocumentUrl(initialValues)) {
-                      return Promise.reject(new Error("Please upload a document file"));
-                    }
-                    return Promise.resolve();
+              {/* Hidden form item for validation */}
+              <Form.Item
+                name="file"
+                hidden
+                rules={[
+                  {
+                    validator: (_, value) => {
+                      if (!uploadedFile && !getDocumentUrl(initialValues)) {
+                        return Promise.reject(new Error("Please upload a document file"));
+                      }
+                      return Promise.resolve();
+                    },
                   },
-                },
-              ]}
-            >
-              <Input hidden />
-            </Form.Item>
-          </>
-        )}
-
-        
-<Row gutter={16}>
-  {/* Program Field */}
-  <Col xs={24} sm={24} md={selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) ? 12 : 24}>
-    <Form.Item
-      label="Assign to Program"
-      name="program"
-      rules={[{ required: true, message: "Please select program(s)" }]}
-    >
-      <Select
-        mode="multiple"
-        disabled={viewMode}
-        loading={programLoading}
-        allowClear
-        placeholder="Select programs"
-        maxTagCount="responsive"
-        onChange={(values) => {
-          setSelectedPrograms(values);
-
-          if (values.includes(ALL_PROGRAM_VALUE)) {
-            const allProgramIds = programs.map((p) => p.id);
-            form.setFieldsValue({ program: allProgramIds });
-            setSelectedPrograms(allProgramIds);
-            dispatch(clearPackages());
-            form.setFieldsValue({ package: null });
-          } else {
-            const hadAllPrograms = selectedPrograms.includes(ALL_PROGRAM_VALUE);
-            if (hadAllPrograms) {
-              form.setFieldsValue({ program: [] });
-              setSelectedPrograms([]);
-              dispatch(clearPackages());
-              form.setFieldsValue({ package: null });
-            } else {
-              setSelectedPrograms(values);
-              form.setFieldsValue({ package: null });
-              if (values.length === 1) {
-                dispatch(fetchPackagesByProgram(values[0]));
-              } else {
-                dispatch(clearPackages());
-              }
-            }
-          }
-        }}
-        value={selectedPrograms}
-      >
-        <Option value={ALL_PROGRAM_VALUE}>
-          <GlobalOutlined /> Select All Programs
-        </Option>
-        {programs.map((program) => (
-          <Option key={program.id} value={program.id}>
-            {program.name}
-          </Option>
-        ))}
-      </Select>
-    </Form.Item>
-  </Col>
-
-  {/* Package Field */}
-  {selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) && (
-    <Col xs={24} sm={24} md={12}>
-      <Form.Item
-        label="Counselling Service"
-        name="package"
-        rules={[
-          {
-            required: true,
-            message: "Please select a counselling service when a single program is selected",
-          },
-        ]}
-      >
-        <Select
-          placeholder="Select counselling service"
-          loading={packageLoading}
-          disabled={viewMode}
-          allowClear={false}
-        >
-          {packages.length > 0 ? (
-            packages.map((pkg) => (
-              <Option key={pkg.id} value={pkg.id}>
-                {pkg.name}
-              </Option>
-            ))
-          ) : (
-            <Option value="" disabled>
-              No counselling services available for this program
-            </Option>
+                ]}
+              >
+                <Input hidden />
+              </Form.Item>
+            </>
           )}
-        </Select>
-      </Form.Item>
-    </Col>
-  )}
-</Row>
 
-{/* Warning Message */}
-{selectedPrograms.length === 1 &&
- !selectedPrograms.includes(ALL_PROGRAM_VALUE) &&
- packages.length === 0 &&
- !packageLoading && (
-  <div style={{ color: token.colorWarning, marginBottom: 16 }}>
-    ⚠️ No counselling services available for the selected program
-  </div>
-)}
-{/* Thumbnail Upload */}
-<Title level={5} style={{ marginBottom: 8 }}>
-  Thumbnail Image
-</Title>
 
-<div
-  style={{
-    border: `1px solid ${token.colorBorder}`,
-    borderRadius: token.borderRadius,
-    padding: 16,
-    marginBottom: 16,
-  }}
->
-  <Row gutter={16}>
-    <Col xs={24} md={16}>
-      {thumbnailPreview ? (
-        <img
-          src={thumbnailPreview}
-          alt="Thumbnail Preview"
-          style={{
-            width: "100%",
-            height: 200,
-            objectFit: "cover",
-            borderRadius: 6,
-          }}
-        />
-      ) : (
-        <Empty
-          description="No Thumbnail Selected"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-        />
-      )}
-    </Col>
+          <Row gutter={16}>
+            {/* Program Field */}
+            <Col xs={24} sm={24} md={selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) ? 12 : 24}>
+              <Form.Item
+                label="Assign to Program"
+                name="program"
+                rules={[{ required: true, message: "Please select program(s)" }]}
+              >
+                <Select
+                  mode="multiple"
+                  disabled={viewMode}
+                  loading={programLoading}
+                  allowClear
+                  placeholder="Select programs"
+                  maxTagCount="responsive"
+                  onChange={(values) => {
+                    setSelectedPrograms(values);
 
-    <Col xs={24} md={8}>
-      {!viewMode && (
-        <Upload
-          accept="image/*"
-          beforeUpload={handleThumbnailSelect}
-          onRemove={handleThumbnailRemove}
-          fileList={thumbnailFileList}
-          maxCount={1}
-          customRequest={({ onSuccess }) => {
-            setTimeout(() => onSuccess("ok"));
-          }}
-        >
-          <Button icon={<UploadOutlined />} block type="primary">
-            Select Thumbnail
-          </Button>
-        </Upload>
-      )}
-    </Col>
-  </Row>
-</div>
+                    if (values.includes(ALL_PROGRAM_VALUE)) {
+                      const allProgramIds = programs.map((p) => p.id);
+                      form.setFieldsValue({ program: allProgramIds });
+                      setSelectedPrograms(allProgramIds);
+                      dispatch(clearPackages());
+                      form.setFieldsValue({ package: null });
+                    } else {
+                      const hadAllPrograms = selectedPrograms.includes(ALL_PROGRAM_VALUE);
+                      if (hadAllPrograms) {
+                        form.setFieldsValue({ program: [] });
+                        setSelectedPrograms([]);
+                        dispatch(clearPackages());
+                        form.setFieldsValue({ package: null });
+                      } else {
+                        setSelectedPrograms(values);
+                        form.setFieldsValue({ package: null });
+                        if (values.length === 1) {
+                          dispatch(fetchPackagesByProgram(values[0]));
+                        } else {
+                          dispatch(clearPackages());
+                        }
+                      }
+                    }
+                  }}
+                  value={selectedPrograms}
+                >
+                  <Option value={ALL_PROGRAM_VALUE}>
+                    <GlobalOutlined /> Select All Programs
+                  </Option>
+                  {programs.map((program) => (
+                    <Option key={program.id} value={program.id}>
+                      {program.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
 
-        {/* Toggles */}
-        <div style={{ display: "flex", gap: 40 }}>
-          <Form.Item
-            label="Full Payment Required"
-            name="full_payment"
-            valuePropName="checked"
-            extra={<span style={{ color: 'red' }}>Only unlocked after payment</span>}
+            {/* Package Field */}
+            {selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) && (
+              <Col xs={24} sm={24} md={12}>
+                <Form.Item
+                  label="Counselling Service"
+                  name="package"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please select a counselling service when a single program is selected",
+                    },
+                  ]}
+                >
+                  <Select
+                    placeholder="Select counselling service"
+                    loading={packageLoading}
+                    disabled={viewMode}
+                    allowClear={false}
+                  >
+                    {packages.length > 0 ? (
+                      packages.map((pkg) => (
+                        <Option key={pkg.id} value={pkg.id}>
+                          {pkg.name}
+                        </Option>
+                      ))
+                    ) : (
+                      <Option value="" disabled>
+                        No counselling services available for this program
+                      </Option>
+                    )}
+                  </Select>
+                </Form.Item>
+              </Col>
+            )}
+          </Row>
+
+          {/* Warning Message */}
+          {selectedPrograms.length === 1 &&
+            !selectedPrograms.includes(ALL_PROGRAM_VALUE) &&
+            packages.length === 0 &&
+            !packageLoading && (
+              <div style={{ color: token.colorWarning, marginBottom: 16 }}>
+                ⚠️ No counselling services available for the selected program
+              </div>
+            )}
+          {/* Thumbnail Upload */}
+          <Title level={5} style={{ marginBottom: 8 }}>
+            Thumbnail Image
+          </Title>
+
+          <div
+            style={{
+              border: `1px solid ${token.colorBorder}`,
+              borderRadius: token.borderRadius,
+              padding: 16,
+              marginBottom: 16,
+            }}
           >
-            <Switch
-              checkedChildren="On"
-              unCheckedChildren="Off"
-              disabled={viewMode || isFree}
-            />
-          </Form.Item>
+            <Row gutter={16}>
+              <Col xs={24} md={16}>
+                {thumbnailPreview ? (
+                  <img
+                    src={thumbnailPreview}
+                    alt="Thumbnail Preview"
+                    style={{
+                      width: "100%",
+                      height: 200,
+                      objectFit: "cover",
+                      borderRadius: 6,
+                    }}
+                  />
+                ) : (
+                  <Empty
+                    description="No Thumbnail Selected"
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
+                )}
+              </Col>
 
-          <Form.Item
-            label="Free Content"
-            name="is_free"
-            valuePropName="checked"
-            extra={<span style={{ color: 'green' }}>Make accessible to all users</span>}
-          >
-            <Switch
-              checkedChildren="On"
-              unCheckedChildren="Off"
-              disabled={viewMode}
-            />
-          </Form.Item>
-        </div>
-      </Form>
+              <Col xs={24} md={8}>
+                {!viewMode && (
+                  <Upload
+                    accept="image/*"
+                    beforeUpload={handleThumbnailSelect}
+                    onRemove={handleThumbnailRemove}
+                    fileList={thumbnailFileList}
+                    maxCount={1}
+                    customRequest={({ onSuccess }) => {
+                      setTimeout(() => onSuccess("ok"));
+                    }}
+                  >
+                    <Button icon={<UploadOutlined />} block type="primary">
+                      Select Thumbnail
+                    </Button>
+                  </Upload>
+                )}
+              </Col>
+            </Row>
+          </div>
+
+          {/* Toggles */}
+          <div style={{ display: "flex", gap: 40 }}>
+            <Form.Item
+              label="Full Payment Required"
+              name="full_payment"
+              valuePropName="checked"
+              extra={<span style={{ color: 'red' }}>Only unlocked after payment</span>}
+            >
+              <Switch
+                checkedChildren="On"
+                unCheckedChildren="Off"
+                disabled={viewMode || isFree}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label="Free Content"
+              name="is_free"
+              valuePropName="checked"
+              extra={<span style={{ color: 'green' }}>Make accessible to all users</span>}
+            >
+              <Switch
+                checkedChildren="On"
+                unCheckedChildren="Off"
+                disabled={viewMode}
+              />
+            </Form.Item>
+          </div>
+        </Form>
       </div>
     </Modal>
   );

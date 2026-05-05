@@ -28,7 +28,7 @@ const { Title, Text } = Typography;
 const AptitudeAnalysisReports = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const dispatch = useDispatch();
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const { reports, loading, error } = useSelector((state) => state.reports);
 
@@ -41,61 +41,58 @@ const AptitudeAnalysisReports = () => {
   }, [dispatch]);
 
   /* ---------------- HANDLERS ---------------- */
-const handleDownload = async (url) => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
+  const handleDownload = async (url, fileName) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
 
-    const downloadUrl = window.URL.createObjectURL(blob);
+      const downloadUrl = window.URL.createObjectURL(blob);
 
-    // ✅ extract real filename from URL
-    const fileName = url.split("/").pop().split("?")[0];
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = fileName; // ✅ use backend file_name
 
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.download = fileName; // ✅ real file name
+      document.body.appendChild(a);
+      a.click();
 
-    document.body.appendChild(a);
-    a.click();
-
-    a.remove();
-    window.URL.revokeObjectURL(downloadUrl);
-  } catch (err) {
-    console.error("Download error:", err);
-  }
-};
-
-const getFileType = (url = "") => {
-  try {
-    const cleanUrl = url.split("?")[0].toLowerCase();
-
-    // ✅ CASE 1: API endpoint contains pdf
-    if (cleanUrl.includes("/pdf/") || cleanUrl.endsWith("/pdf")) {
-      return "pdf";
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error("Download error:", err);
     }
+  };
 
-    // ✅ CASE 2: normal file extensions
-    const ext = cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1);
+  const getFileType = (url = "") => {
+    try {
+      const cleanUrl = url.split("?")[0].toLowerCase();
 
-    if (ext === "pdf") return "pdf";
-    if (["xls", "xlsx"].includes(ext)) return "excel";
-    if (["doc", "docx"].includes(ext)) return "word";
+      // ✅ CASE 1: API endpoint contains pdf
+      if (cleanUrl.includes("/pdf/") || cleanUrl.endsWith("/pdf")) {
+        return "pdf";
+      }
 
-    return "other";
-  } catch {
-    return "other";
-  }
-};
+      // ✅ CASE 2: normal file extensions
+      const ext = cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1);
+
+      if (ext === "pdf") return "pdf";
+      if (["xls", "xlsx"].includes(ext)) return "excel";
+      if (["doc", "docx"].includes(ext)) return "word";
+
+      return "other";
+    } catch {
+      return "other";
+    }
+  };
 
 
- const handleView = (url) => {
-  if (!url) return;
-  window.open(url, "_blank");
-};
+  const handleView = (url) => {
+    if (!url) return;
+    window.open(url, "_blank");
+  };
 
-const handleReviewRedirect = (reportId) => {
-  navigate(`/student/write-review`);
-};
+ const handleReviewRedirect = (reportId) => {
+    navigate(`/student/write-review`);
+  };
 
 
   const formatDate = (date) => {
@@ -109,105 +106,128 @@ const handleReviewRedirect = (reportId) => {
 
 
   useEffect(() => {
-  if (reports && reports.length > 0) {
-    // Example: store first report status
-    localStorage.setItem("report_status", reports[0].report_status);
-  }
-}, [reports]);
+    if (reports && reports.length > 0) {
+      // Example: store first report status
+      localStorage.setItem("report_status", reports[0].report_status);
+    }
+  }, [reports]);
   /* ---------------- REPORT CARD ---------------- */
 
- const ReportCard = ({ title, locked, reason, report }) => {
-  const type = getFileType(report?.file_path);
-  const isPdf = type === "pdf";
+  const ReportCard = ({ title, locked, reason, report }) => {
+    const type = getFileType(report?.file_path);
+    const isPdf = type === "pdf";
 
-  return (
-    <Card
-      style={{
-        borderRadius: 16,
-        boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
-        height: "100%",
-      }}
-    >
-      {/* Header */}
-      <Row justify="space-between">
-        <Title level={5}>{title}</Title>
-        <Tag color={locked ? "red" : "green"}>
-          {locked ? "Locked" : "Unlocked"}
-        </Tag>
-      </Row>
-
-      <Divider />
-
-      {/* Preview */}
-      <div
+    return (
+      <Card
         style={{
-          height: 220,
-          borderRadius: 12,
-          background: locked
-            ? "linear-gradient(180deg,#020617,#0f172a)"
-            : "#f3f4f6",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 16,
+          borderRadius: 16,
+          boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+          height: "100%",
         }}
       >
-        {locked ? (
-          <LockOutlined style={{ fontSize: 46, color: "#fff" }} />
-        ) : (
-          <FilePdfOutlined style={{ fontSize: 46 }} />
-        )}
-      </div>
+        {/* Header */}
+        <Row justify="space-between">
+          <Title level={5}>{title}</Title>
+          <Tag color={locked ? "red" : "green"}>
+            {locked ? "Locked" : "Unlocked"}
+          </Tag>
+        </Row>
 
-      {/* Info */}
-      <Row gutter={16} style={{ marginBottom: 12 }}>
-        <Col>
-          <CalendarOutlined /> <Text>{formatDate(report.uploaded_at)}</Text>
-        </Col>
-      </Row>
+        <Divider />
 
-      <Divider />
+        {/* Preview */}
+        <div
+          style={{
+            height: 220,
+            borderRadius: 12,
+            background: locked
+              ? "linear-gradient(180deg,#020617,#0f172a)"
+              : "#f3f4f6",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 16,
+          }}
+        >
+          {locked ? (
+            <LockOutlined style={{ fontSize: 46, color: "#fff" }} />
+          ) : (
+            <FilePdfOutlined style={{ fontSize: 46 }} />
+          )}
+        </div>
 
-      {/* Actions */}
-      {!locked ? (
-        <>
-          {isPdf && (
+        {/* Info */}
+        <Row gutter={16} style={{ marginBottom: 12 }}>
+          <Col>
+            <CalendarOutlined /> <Text>{formatDate(report.uploaded_at)}</Text>
+          </Col>
+        </Row>
+
+        <Divider />
+
+        {/* Actions */}
+        {!locked ? (
+          <>
+            {isPdf && (
+              <Button
+                block
+                icon={<EyeOutlined />}
+                style={{ marginBottom: 10 }}
+                onClick={() => handleView(report.file_path)}
+              >
+                View Report
+              </Button>
+            )}
+
             <Button
               block
-              icon={<EyeOutlined />}
-              style={{ marginBottom: 10 }}
-              onClick={() => handleView(report.file_path)}
+              icon={<DownloadOutlined />}
+              onClick={() => handleDownload(report.file_path, report.file_name)}
             >
-              View Report
+              Download {type.toUpperCase()}
             </Button>
-          )}
-
-          <Button
-            block
-            icon={<DownloadOutlined />}
-            onClick={() => handleDownload(report.file_path)}
-          >
-            Download {type.toUpperCase()}
-          </Button>
-        </>
-      ) : reason === "payment" ? (
-        <Alert
-          type="warning"
-          showIcon
-          message="Payment Pending"
-          description="Complete payment to unlock this report"
-        />
-      ) : (
+          </>
+        ) : reason === "payment" ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="Payment Pending"
+            description="Complete payment to unlock this report"
+          />
+       ) : (
+  <>
+    {!reviewSubmitted ? (
+      <>
         <Alert
           type="info"
           showIcon
           message="Review Required"
-          description="Submit review to unlock report"
+          description="Submit your review to unlock the report"
+          style={{ marginBottom: 12 }}
         />
-      )}
-    </Card>
-  );
-};
+
+        <Button
+          block
+          icon={<StarOutlined />}
+          type="primary"
+          onClick={() => handleReviewRedirect()}
+        >
+          Submit Review
+        </Button>
+      </>
+    ) : (
+      <Alert
+        type="info"
+        showIcon
+        message="Review Submitted"
+        description="Waiting for admin verification"
+      />
+    )}
+  </>
+)}
+      </Card>
+    );
+  };
 
 
 
@@ -292,38 +312,38 @@ const handleReviewRedirect = (reportId) => {
           <Spin size="large" />
         </div>
       ) : (
-       <Row gutter={[24, 24]} justify="center">
-  {reports?.length > 0 ? (
-    reports.map((report) => {
-      if (report.report_status === "not_received") {
-        return (
-          <Col xs={24} md={10} key={report.id}>
-            <PendingUploadCard />
-          </Col>
-        );
-      }
+        <Row gutter={[24, 24]} justify="center">
+          {reports?.length > 0 ? (
+            reports.map((report) => {
+              if (report.report_status === "not_received") {
+                return (
+                  <Col xs={24} md={10} key={report.id}>
+                    <PendingUploadCard />
+                  </Col>
+                );
+              }
 
-      return (
-        <Col xs={24} md={10} key={report.id}>
-          <ReportCard
-            report={report}
-            title="College Preference Excel Sheet"
-           locked={report.report_status !== "received_unlocked"}
-            reason={
-              report.payment_status !== "fully_paid"
-                ? "payment"
-                : "review"
-            }
-          />
-        </Col>
-      );
-    })
-  ) : (
-    <Col xs={24} md={12}>
-      <PendingUploadCard />
-    </Col>
-  )}
-</Row>
+              return (
+                <Col xs={24} md={10} key={report.id}>
+                  <ReportCard
+                    report={report}
+                    title="College Preference Excel Sheet"
+                    locked={report.report_status !== "received_unlocked"}
+                    reason={
+                      report.payment_status !== "fully_paid"
+                        ? "payment"
+                        : "review"
+                    }
+                  />
+                </Col>
+              );
+            })
+          ) : (
+            <Col xs={24} md={12}>
+              <PendingUploadCard />
+            </Col>
+          )}
+        </Row>
       )}
     </div>
   );

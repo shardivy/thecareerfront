@@ -171,6 +171,7 @@ const ReportsManagement = () => {
         ? new Date(item.uploaded_at).toISOString().split("T")[0]
         : "—",
       file_path: item.file_path || "",
+      file_name: item.file_name || "",
     }));
   }, [rawReports]);
 
