@@ -8,13 +8,15 @@ from .models import Event
 
 @shared_task(bind=True)
 def send_event_reminder_by_id(self, event_id):
+    import traceback
+
     print("RUNNING TASK", event_id)
 
     try:
         event = Event.objects.get(id=event_id)
 
-        if not event.concerned_person_email:
-            return "No email found"
+        print("EMAIL:", event.concerned_person_email)
+        print("SMTP HOST:", settings.EMAIL_HOST)
 
         send_mail(
             subject=f"Reminder: {event.seminar_webinar_name}",
@@ -30,13 +32,14 @@ Time: {event.event_start_time}
 Regards,
 Career Counselling Team
             """,
-            from_email=settings.DEFAULT_FROM_EMAIL,  # ✅ FIXED
+            from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[event.concerned_person_email],
             fail_silently=False,
         )
 
+        print("EMAIL SENT SUCCESS")
         return "Email sent"
 
     except Exception as e:
-        print("ERROR:", str(e))
+        print("FULL ERROR:", traceback.format_exc())
         raise self.retry(exc=e, countdown=60, max_retries=3)

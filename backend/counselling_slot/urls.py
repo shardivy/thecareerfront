@@ -29,7 +29,7 @@ urlpatterns = [
     path("slots/create/", SlotCreateAPIView.as_view(), name="create-slot"),
     path("slots/<str:date>/<int:counsellor>/",SlotCreateAPIView.as_view(), name="counsellor-slots"),
     path("slots/<int:slot_id>/",SlotDeleteAPIView.as_view(), name="delete-slot"),
-    path("api/counsellor/status/<int:counsellor>/",UpdateCounsellorStatusAPIView.as_view(),name="update-counsellor-status"),
+    path("counsellor/status/<int:counsellor>/",UpdateCounsellorStatusAPIView.as_view(),name="update-counsellor-status"),
     path('slots/counsellor-wise/', DateWiseSlotListAPIView.as_view(), name='counsellor-wise-slots'),
     
     path("bookings/create/", BookingCreateAPIView.as_view()),

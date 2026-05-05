@@ -26,6 +26,7 @@ class Lead(models.Model):
     dob = models.DateField(blank=True, null=True)
     study_class = models.CharField(max_length=200, null=True, blank=True)
     specialization = models.CharField(max_length=100, blank=True, null=True)
+    stream = models.CharField(max_length=100, blank=True, null=True)
     program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
     source = models.CharField(max_length=20, blank=True, null=True, choices=SOURCE_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='enquiry')
@@ -116,6 +117,7 @@ class StudentProfile(models.Model):
     current_academic_stage = models.CharField(max_length=20, blank=True, null=True)
     current_academic_year = models.CharField(max_length=10, blank=True, null=True)
     specialization = models.CharField(max_length=100, blank=True, null=True)
+    stream = models.CharField(max_length=100, blank=True, null=True)
     preferred_counselling_mode = models.CharField(max_length=50, blank=True, null=True,choices=MODECHOICES) 
 
     school_college = models.CharField(max_length=200, blank=True, null=True)

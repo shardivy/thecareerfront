@@ -550,17 +550,31 @@ class SlotCreateAPIView(APIView):
 
         admin_users = User.objects.filter(is_superuser=True)
 
+        # for admin in admin_users:
+        #     admin_id = admin.id
+
+        #     on_commit(
+        #         lambda admin_id=admin_id, title=title, message=message:
+        #         create_system_notification.delay(
+        #             admin_id,
+        #             title,
+        #             message
+        #         )
+        #     )
         for admin in admin_users:
             admin_id = admin.id
 
-            on_commit(
-                lambda admin_id=admin_id, title=title, message=message:
-                create_system_notification.delay(
-                    admin_id,
-                    title,
-                    message
-                )
-            )
+            def send_notification(admin_id=admin_id):
+                try:
+                    create_system_notification.delay(
+                        admin_id,
+                        title,
+                        message
+                    )
+                except Exception as e:
+                    print("NOTIFICATION ERROR:", str(e))
+
+            on_commit(send_notification)
 
         return Response(
             {
@@ -1572,39 +1586,108 @@ class BookingCreateAPIView(APIView):
 #         )
 
 class CancelBookingAPIView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, booking_id):
 
         try:
-            booking = Booking.objects.get(id=booking_id)
+            with transaction.atomic():
+
+                # =========================
+                # 🔹 GET CURRENT BOOKING
+                # =========================
+                booking = Booking.objects.select_related(
+                    "student",
+                    "slot"
+                ).get(id=booking_id)
+
+                # =========================
+                # 🔒 STATUS CHECK
+                # =========================
+                if booking.status not in ["booked", "confirmed", "rescheduled", "completed", "in_progress"]:
+                    return Response(
+                        {
+                            "message": f"Cannot cancel booking with status '{booking.status}'"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # =========================
+                # 🔹 GET OLD COUNSELLORS
+                # =========================
+                old_counsellors = BookingCounsellor.objects.filter(booking=booking)
+
+                # =========================
+                # 🔹 CREATE CANCELLED BOOKING COPY
+                # =========================
+                cancelled_booking = Booking.objects.create(
+                    student=booking.student,
+                    slot=booking.slot,
+                    date=booking.date,
+                    status="cancelled"
+                )
+
+                # =========================
+                # 🔹 COPY COUNSELLORS TO CANCELLED BOOKING
+                # =========================
+                for counsellor in old_counsellors:
+                    BookingCounsellor.objects.create(
+                        booking=cancelled_booking,
+                        counsellor=counsellor.counsellor,
+                        role=counsellor.role
+                    )
+
+                # =========================
+                # 🔹 FREE SLOT
+                # =========================
+                if booking.slot:
+                    booking.slot.is_available = True
+                    booking.slot.save(update_fields=["is_available"])
+
+                # =========================
+                # ❌ REMOVE COUNSELLORS FROM ORIGINAL BOOKING
+                # =========================
+                old_counsellors.delete()
+
+                # =========================
+                # 🔹 RESET ORIGINAL BOOKING TO PENDING
+                # =========================
+                booking.status = "pending"
+                booking.date = None
+                booking.slot = None
+                booking.save(update_fields=["status", "date", "slot"])
+
+                # =========================
+                # 🔹 RESPONSE
+                # =========================
+                return Response(
+                    {
+                        "message": "Booking cancelled successfully, cancelled history created, and original moved to pending",
+                        "data": {
+                            "original_booking_id": booking.id,
+                            "cancelled_booking_id": cancelled_booking.id,
+                            "pending_status": booking.status
+                        }
+                    },
+                    status=status.HTTP_200_OK
+                )
+
         except Booking.DoesNotExist:
             return Response(
                 {"message": "Booking not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        with transaction.atomic():
-
-            # ❌ Remove all counsellors
-            BookingCounsellor.objects.filter(booking=booking).delete()
-
-            # ❌ Clear booking details
-            booking.status = "pending"
-            booking.date = None
-            booking.slot = None   # assuming slot is FK
-            booking.save()
-
-        return Response(
-            {
-                "message": "Booking moved to pending successfully",
-                "data": {
-                    "booking_id": booking.id,
-                    "status": booking.status
-                }
-            },
-            status=status.HTTP_200_OK
-        )          
-
+        except Exception as e:
+            return Response(
+                {
+                    "message": "Something went wrong",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+            
 class SessionDashboardCountAPIView(APIView):
     permission_classes = [IsAuthenticated]
 

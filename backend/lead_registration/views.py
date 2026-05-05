@@ -1862,6 +1862,9 @@ class ConvertLeadAPIView(APIView):
                     resume_file = serializer.validated_data.get("resume_file")
                     photo = serializer.validated_data.get("photo")
                     
+                    full_address = request.data.get("full_address", "")
+                    city = request.data.get("city")
+                    
                     print(f"Resume file received: {resume_file}")
                     print(f"Resume file name: {resume_file.name if resume_file else 'None'}")
                     print(f"Photo received: {photo}")
@@ -1874,6 +1877,9 @@ class ConvertLeadAPIView(APIView):
                         participant.user = user
                         participant.mobile = user.phone
                         participant.email = user.email
+                        
+                        participant.full_address = full_address
+                        participant.city = city
 
                         # ✅ FIX: Assign file fields properly
                         if resume_file:
@@ -1892,8 +1898,10 @@ class ConvertLeadAPIView(APIView):
                             user=user,
                             email=user.email,
                             mobile=user.phone,
-                            full_address=serializer.validated_data.get("full_address", ""),
-                            city=serializer.validated_data.get("city"),
+                            # full_address=serializer.validated_data.get("full_address", ""),
+                            full_address=full_address,
+                            # city=serializer.validated_data.get("city"),
+                            city=city,
                             preferred_counselling_mode=serializer.validated_data.get("preferred_counselling_mode"),
                             resume_file=resume_file,  # This should work
                             photo=photo,  # This should work
@@ -1964,6 +1972,8 @@ class ConvertLeadAPIView(APIView):
                             "preferred_counselling_mode"
                         ),
                         dob=lead.dob if lead.dob else None,
+                        specialization=lead.specialization if lead.specialization else None,
+                        stream=lead.stream if lead.stream else None,
                     )
                 else:
                     student_profile = None  # ✅ explicitly ensure
@@ -2531,6 +2541,7 @@ class StudentRegistrationAPIView(APIView):
                 program=data["program"],
                 study_class=data["study_class"],
                 specialization=data.get("specialization"),
+                stream=data.get("stream"),
                 source="website",
                 status="enquiry",
                 date=timezone.now().date()

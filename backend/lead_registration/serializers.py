@@ -544,7 +544,8 @@ class StudentRegistrationSerializer(serializers.Serializer):
     student_email = serializers.EmailField(required=True)
     student_mobile = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     study_class = serializers.CharField(required=True)
-    stream_id = serializers.IntegerField(required=False, allow_null=True)
+    specialization = serializers.CharField(required=False, allow_blank=True)
+    stream = serializers.CharField(required=False, allow_blank=True)
 
     # =========================
     # 👨‍👩 Parent
