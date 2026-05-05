@@ -43,6 +43,8 @@ class LeadAdmin(admin.ModelAdmin):
         'phone',
         'email',
         'source',
+        'specialization',
+        'stream',
         'status',
         'assigned_admin',
         'created_at'

@@ -1173,14 +1173,15 @@ class ProfileUpdateAPIView(APIView):
             # ==========================
             # 🔹 Stream
             # ==========================
-            stream = StudentStream.objects.filter(
-                student_profile=student_profile
-            ).select_related("stream").first()
+            # stream = StudentStream.objects.filter(
+            #     student_profile=student_profile
+            # ).select_related("stream").first()
 
-            response_data["stream"] = {
-                "stream_id": stream.stream.id,
-                "stream_name": stream.stream.name
-            } if stream else None
+            # response_data["stream"] = {
+            #     "stream_id": stream.stream.id,
+            #     "stream_name": stream.stream.name
+            # } if stream else None
+            response_data["stream"] = student_profile.stream
 
             # ==========================
             # 🔹 Subject Preferences
@@ -1970,6 +1971,10 @@ class ProfileUpdateAPIView(APIView):
         student_profile.specialization = data.get(
             "specialization",
             student_profile.specialization
+        )
+        student_profile.stream = data.get(
+            "stream",
+            student_profile.stream
         )
         
         previous_percentage = data.get("previous_class_percentage")

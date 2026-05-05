@@ -16,6 +16,7 @@ class CompletedExamReportSerializer(serializers.Serializer):
     exam_status = serializers.CharField()
     report_status = serializers.CharField(allow_null=True)
     file_path = serializers.CharField(allow_null=True)
+    file_name = serializers.CharField(allow_null=True)
     uploaded_at = serializers.DateTimeField(allow_null=True)
     payment_status = serializers.CharField(allow_null=True)
     
@@ -41,6 +42,7 @@ class EngineeringTestAnalysisReportSerializer(serializers.Serializer):
 
     report_status = serializers.CharField(allow_null=True)
     file_path = serializers.CharField(allow_null=True)
+    file_name = serializers.CharField(allow_null=True)
     uploaded_at = serializers.DateTimeField(allow_null=True)
 
     payment_status = serializers.CharField(allow_null=True)

@@ -13,7 +13,7 @@ from report.utils import get_completed_exam_report_data, send_report_uploaded_em
 from payment.models import Payment
 from program_package.models import CollegeListAnalysis, UserProgramPackage
 from rest_framework.response import Response
-from rest_framework.views import APIView
+from rest_framework.views import APIView, settings
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from django.shortcuts import get_object_or_404
@@ -291,25 +291,23 @@ class CompletedExamReportAPIView(APIView):
                         # ✅ Actual uploaded file name
                         file_name = os.path.basename(report.file_path.name)
 
-                        # ✅ Get extension
+                        # ✅ Get file extension
                         file_extension = os.path.splitext(file_name)[1].lower()
 
                         # ==========================================
-                        # 🔹 PDF FILE
+                        # 🔹 PDF FILE → Preview API
                         # ==========================================
                         if file_extension == ".pdf":
-                            # Use preview endpoint
                             file_url = request.build_absolute_uri(
                                 f"/api/report/report/pdf/{report.id}/"
                             )
 
                         # ==========================================
-                        # 🔹 OTHER FILES (Excel, Doc, Zip, etc.)
+                        # 🔹 OTHER FILES → Direct Media URL
                         # ==========================================
                         else:
-                            # Direct media file URL
                             file_url = request.build_absolute_uri(
-                                report.file_path.url
+                                settings.MEDIA_URL + report.file_path.name
                             )
 
                     except Exception:
