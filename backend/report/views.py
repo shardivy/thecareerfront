@@ -1,3 +1,4 @@
+import mimetypes
 import os
 
 from django.shortcuts import render
@@ -283,6 +284,39 @@ class CompletedExamReportAPIView(APIView):
                 # =============================
                 # FILE DETAILS
                 # =============================
+                # file_url = None
+                # file_name = None
+
+                # if report.file_path:
+                #     try:
+                #         # ✅ Actual uploaded file name
+                #         file_name = os.path.basename(report.file_path.name)
+
+                #         # ✅ Get extension
+                #         file_extension = os.path.splitext(file_name)[1].lower()
+
+                #         # ==========================================
+                #         # 🔹 PDF FILE
+                #         # ==========================================
+                #         if file_extension == ".pdf":
+                #             # Use preview endpoint
+                #             file_url = request.build_absolute_uri(
+                #                 f"/api/report/report/pdf/{report.id}/"
+                #             )
+
+                #         # ==========================================
+                #         # 🔹 OTHER FILES (Excel, Doc, Zip, etc.)
+                #         # ==========================================
+                #         else:
+                #             # Direct media file URL
+                #             file_url = request.build_absolute_uri(
+                #                 report.file_path.url
+                #             )
+
+                #     except Exception:
+                #         file_url = None
+                #         file_name = None
+                
                 file_url = None
                 file_name = None
 
@@ -291,24 +325,10 @@ class CompletedExamReportAPIView(APIView):
                         # ✅ Actual uploaded file name
                         file_name = os.path.basename(report.file_path.name)
 
-                        # ✅ Get file extension
-                        file_extension = os.path.splitext(file_name)[1].lower()
-
-                        # ==========================================
-                        # 🔹 PDF FILE → Preview API
-                        # ==========================================
-                        if file_extension == ".pdf":
-                            file_url = request.build_absolute_uri(
-                                f"/api/report/report/pdf/{report.id}/"
-                            )
-
-                        # ==========================================
-                        # 🔹 OTHER FILES → Direct Media URL
-                        # ==========================================
-                        else:
-                            file_url = request.build_absolute_uri(
-                                settings.MEDIA_URL + report.file_path.name
-                            )
+                        # ✅ ALL FILE TYPES use same API
+                        file_url = request.build_absolute_uri(
+                            f"/api/report/report/pdf/{report.id}/"
+                        )
 
                     except Exception:
                         file_url = None
@@ -650,15 +670,60 @@ class CompletedExamReportStudentIDAPIView(APIView):
 #         response["X-Frame-Options"] = "ALLOWALL"
 #         return response
 
+# class ReportPDFView(APIView):
+#     authentication_classes = []          # 🔥 skips JWT completely
+#     permission_classes = [AllowAny] 
+
+#     def get(self, request, report_id):
+#         # This will return 404 if report doesn't exist
+#         report = get_object_or_404(Report, id=report_id)
+        
+#         # Check if file path exists
+#         if not report.file_path:
+#             return Response(
+#                 {
+#                     "error": "File path not found",
+#                     "message": f"No file path associated with report {report_id}"
+#                 },
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+        
+#         # Check if physical file exists
+#         if not os.path.exists(report.file_path.path):
+#             return Response(
+#                 {
+#                     "error": "PDF file not found",
+#                     "message": f"The PDF file for report {report_id} could not be found on the server"
+#                 },
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+        
+#         # Try to open and serve the file
+#         try:
+#             response = FileResponse(
+#                 report.file_path.open("rb"),
+#                 content_type="application/pdf"
+#             )
+#             response["Content-Disposition"] = "inline"
+#             response["X-Frame-Options"] = "ALLOWALL"
+#             return response
+            
+#         except (FileNotFoundError, IOError, OSError) as e:
+#             return Response(
+#                 {
+#                     "error": "File access error",
+#                     "message": f"Unable to access the PDF file: {str(e)}"
+#                 },
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             ) 
+
 class ReportPDFView(APIView):
-    authentication_classes = []          # 🔥 skips JWT completely
-    permission_classes = [AllowAny] 
+    authentication_classes = []
+    permission_classes = [AllowAny]
 
     def get(self, request, report_id):
-        # This will return 404 if report doesn't exist
         report = get_object_or_404(Report, id=report_id)
-        
-        # Check if file path exists
+
         if not report.file_path:
             return Response(
                 {
@@ -667,35 +732,54 @@ class ReportPDFView(APIView):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        # Check if physical file exists
+
         if not os.path.exists(report.file_path.path):
             return Response(
                 {
-                    "error": "PDF file not found",
-                    "message": f"The PDF file for report {report_id} could not be found on the server"
+                    "error": "File not found",
+                    "message": f"The file for report {report_id} could not be found on the server"
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        # Try to open and serve the file
+
         try:
+            file_path = report.file_path.path
+            file_name = os.path.basename(file_path)
+
+            # ✅ Detect correct content type
+            content_type, _ = mimetypes.guess_type(file_path)
+
+            if not content_type:
+                content_type = "application/octet-stream"
+
             response = FileResponse(
-                report.file_path.open("rb"),
-                content_type="application/pdf"
+                open(file_path, "rb"),
+                content_type=content_type
             )
-            response["Content-Disposition"] = "inline"
-            response["X-Frame-Options"] = "ALLOWALL"
+
+            # ==========================================
+            # 🔹 PDF → Preview
+            # ==========================================
+            if content_type == "application/pdf":
+                response["Content-Disposition"] = f'inline; filename="{file_name}"'
+                response["X-Frame-Options"] = "ALLOWALL"
+
+            # ==========================================
+            # 🔹 Other files → Download
+            # ==========================================
+            else:
+                response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+
             return response
-            
+
         except (FileNotFoundError, IOError, OSError) as e:
             return Response(
                 {
                     "error": "File access error",
-                    "message": f"Unable to access the PDF file: {str(e)}"
+                    "message": f"Unable to access file: {str(e)}"
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )  
+            ) 
 
 
 # class UploadReportAPIView(APIView):
