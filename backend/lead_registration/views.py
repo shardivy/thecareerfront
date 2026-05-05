@@ -2508,7 +2508,21 @@ class StudentRegistrationAPIView(APIView):
     def post(self, request):
         try:
             serializer = StudentRegistrationSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
+
+            # ===============================
+            # Custom Validation Error Response
+            # ===============================
+            if not serializer.is_valid():
+                first_error = next(iter(serializer.errors.values()))[0]
+
+                return Response(
+                    {
+                        "message": "Registration failed",
+                        "error": str(first_error)
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             data = serializer.validated_data
 
             # ===============================

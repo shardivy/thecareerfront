@@ -1973,7 +1973,7 @@ class ProfileUpdateAPIView(APIView):
             student_profile.specialization
         )
         student_profile.stream = data.get(
-            "stream",
+            "stream_id",
             student_profile.stream
         )
         
