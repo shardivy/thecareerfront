@@ -674,3 +674,251 @@ class StudentPaymentDetailSerializer(serializers.ModelSerializer):
     def get_payments(self, obj):
         payments = Payment.objects.filter(user=obj.user).select_related("package", "verified_by")
         return StudentPaymentSerializer(payments, many=True).data
+    
+    
+class PaymentCreateStudentSerializer(serializers.ModelSerializer):
+    student_profile = serializers.PrimaryKeyRelatedField(
+        queryset=StudentProfile.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
+
+    handholding_participant = serializers.PrimaryKeyRelatedField(
+        queryset=HandHoldingParticipant.objects.all(),
+        required=False,
+        allow_null=True,
+        write_only=True
+    )
+
+    transaction_id = serializers.CharField(
+        required=False,
+        allow_blank=False,
+        allow_null=True
+    )
+
+    proof_file = serializers.FileField(
+        required=False,
+        allow_null=True
+    )
+
+    class Meta:
+        model = Payment
+        fields = [
+            "student_profile",
+            "handholding_participant",
+            "package",
+            "amount",
+            "payment_type",
+            "method",
+            "transaction_id",
+            "payment_date",
+            "proof_file",
+        ]
+
+    def validate(self, attrs):
+
+        student_profile = attrs.get("student_profile")
+        handholding_participant = attrs.get("handholding_participant")
+        package = attrs.get("package")
+        amount = attrs.get("amount")
+
+        
+        # ✅ Only required during CREATE
+        if not self.instance:
+            if not student_profile and not handholding_participant:
+                raise serializers.ValidationError(
+                    "Either student_profile OR handholding_participant is required."
+                )
+
+            if student_profile and handholding_participant:
+                raise serializers.ValidationError(
+                    "Provide only one: student_profile OR handholding_participant."
+                )
+
+        # ❌ Optional: prevent both together
+        if student_profile and handholding_participant:
+            raise serializers.ValidationError(
+                "Provide only one: student_profile OR handholding_participant."
+            )
+
+        # 🎯 Get user
+        if student_profile:
+            user = student_profile.user
+        elif handholding_participant:
+            user = handholding_participant.user
+        else:
+            user = self.instance.user if self.instance else None
+
+        if not user:
+            raise serializers.ValidationError("User mapping missing.")
+
+        # ✅ Required fields
+        if not package:
+            raise serializers.ValidationError("Package is required.")
+
+        if amount is None:
+            raise serializers.ValidationError("Amount is required.")
+
+        # =========================
+        # 💰 PAYMENT CALCULATION
+        # =========================
+        # package_amount = package.price
+
+        # payments_qs = Payment.objects.filter(
+        #     user=user,
+        #     package=package
+        # ).exclude(status="not_paid")
+
+        # if self.instance:
+        #     payments_qs = payments_qs.exclude(id=self.instance.id)
+
+        # total_paid = payments_qs.aggregate(
+        #     total=Sum("amount")
+        # )["total"] or 0
+
+        # remaining_amount = package_amount - total_paid
+
+        # # 🚨 Already fully paid
+        # if remaining_amount <= 0:
+        #     raise serializers.ValidationError(
+        #         {"message": "You already paid the full package amount."}
+        #     )
+
+        # # 🚨 Overpayment check
+        # if amount > remaining_amount:
+        #     raise serializers.ValidationError(
+        #         {"message": "You are paying more than the package amount."}
+        #     )
+
+        # # ✅ Save computed values
+        # attrs["remaining_amount"] = remaining_amount
+        # attrs["user"] = user   # 🔥 IMPORTANT FIX
+        from decimal import Decimal
+        package_amount = package.price or Decimal("0")
+
+        # =========================================
+        # 🚨 NEW VALIDATION (YOUR REQUIREMENT)
+        # =========================================
+        if amount > package_amount:
+            raise serializers.ValidationError({
+                "amount": f"Payment amount cannot exceed package price ₹{package_amount}."
+            })
+        
+        package_amount = package.price
+
+        payments_qs = Payment.objects.filter(
+            user=user,
+            package=package
+        ).exclude(status="not_paid")
+
+        # exclude current instance (for update)
+        if self.instance:
+            payments_qs = payments_qs.exclude(id=self.instance.id)
+
+        total_paid = payments_qs.aggregate(
+            total=Sum("amount")
+        )["total"] or 0
+
+        # ✅ include current amount
+        new_total = total_paid + amount
+
+        # 🚨 Already fully paid
+        if total_paid >= package_amount:
+            raise serializers.ValidationError({
+                "message": "Full payment already completed. No further payment allowed."
+            })
+
+        # 🚨 Overpayment check
+        if new_total > package_amount:
+            remaining = package_amount - total_paid
+
+            raise serializers.ValidationError({
+                "message": f"Payment exceeds package price. You can only pay ₹{remaining} more."
+            })
+
+        # ✅ Save remaining correctly
+        attrs["remaining_amount"] = package_amount - new_total
+
+        # ✅ IMPORTANT
+        attrs["user"] = user
+
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop("student_profile", None)
+        validated_data.pop("handholding_participant", None)
+
+        remaining_amount = validated_data.pop("remaining_amount")
+
+        user = validated_data.get("user")
+        amount = validated_data.get("amount")
+        package = validated_data.get("package")
+
+        # 🔥 Status logic
+        if amount == remaining_amount:
+            validated_data["status"] = "fully_paid"
+        else:
+            validated_data["status"] = "partial_paid"
+
+        payment = super().create(validated_data)
+
+        # 🔁 Update all payments if fully paid
+        total_paid_after = (
+            Payment.objects.filter(
+                user=user,
+                package=package
+            ).aggregate(total=Sum("amount"))["total"] or 0
+        )
+
+        # if total_paid_after >= package.price:
+        #     Payment.objects.filter(
+        #         user=user,
+        #         package=package
+        #     ).update(status="fully_paid")
+        payment.status = "verification_pending"
+        payment.save(update_fields=["status"])
+
+        return payment
+        
+    def update(self, instance, validated_data):
+
+        student_profile = validated_data.pop("student_profile", None)
+        validated_data.pop("remaining_amount", None)
+
+        # =========================
+        # 🎓 Update user
+        # =========================
+        if student_profile:
+            instance.user = student_profile.user
+
+        # =========================
+        # 🔄 Update fields
+        # =========================
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        # =========================
+        # 📌 Keep verification pending
+        # =========================
+        instance.status = "verification_pending"
+
+        # =========================
+        # 💾 Save same record
+        # =========================
+        instance.save()
+
+        # ✅ No new payment created
+        return instance
+
+    def to_internal_value(self, data):
+        data = data.copy()   # ✅ MAKE IT MUTABLE
+
+        student_profile = data.get("student_profile")
+
+        if student_profile in ["null", "", None]:
+            data["student_profile"] = None
+
+        return super().to_internal_value(data)
+
+

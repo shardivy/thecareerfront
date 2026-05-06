@@ -1,6 +1,6 @@
 from django.urls import path
 
-from payment.views import GenerateReceiptByHandHoldingParticipantAPIView, GenerateReceiptByStudentAPIView, HandHoldingPaymentReminderAPI, HandholdingPaymentProgressAPIView, PaymentCreateAPIView, PaymentListAPIView, PaymentLogListAPIView, PaymentProofFileView, PaymentReminderAPI, PaymentStatsAPIView, PendingHandHoldingParticipantsAPIView, PendingPaymentUsersAPIView, StudentPackagePaymentSummaryAPIView, StudentPaymentDetailAPIView, StudentPaymentListAPIView, StudentPaymentProgressAPIView, UpdatePaymentStatusAPIView, VerifyPaymentAPIView
+from payment.views import GenerateReceiptByHandHoldingParticipantAPIView, GenerateReceiptByStudentAPIView, HandHoldingPaymentReminderAPI, HandholdingPaymentProgressAPIView, PaymentCreateAPIView, PaymentCreateByStudentAPIView, PaymentListAPIView, PaymentLogListAPIView, PaymentProofFileView, PaymentReminderAPI, PaymentStatsAPIView, PendingHandHoldingParticipantsAPIView, PendingPaymentUsersAPIView, StudentPackagePaymentSummaryAPIView, StudentPaymentDetailAPIView, StudentPaymentListAPIView, StudentPaymentProgressAPIView, UpdatePaymentStatusAPIView, VerifyPaymentAPIView
 
 
 urlpatterns = [
@@ -75,6 +75,16 @@ urlpatterns = [
     ),
     path("receipt/<int:student_id>/", GenerateReceiptByStudentAPIView.as_view()), 
     path("handholding/receipt/<int:participant_id>/", GenerateReceiptByHandHoldingParticipantAPIView.as_view()),
+    
+    path(
+    "payment/create/student/<int:student_id>/",
+    PaymentCreateByStudentAPIView.as_view()
+),
+
+# path(
+#     "payment/create/student/<int:student_id>/<int:payment_id>/",
+#     PaymentCreateByStudentAPIView.as_view()
+# ),
 # ========================= Student Payment Summary API =========================
 
     path(
