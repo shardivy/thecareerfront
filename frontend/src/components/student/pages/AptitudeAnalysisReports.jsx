@@ -90,7 +90,7 @@ const AptitudeAnalysisReports = () => {
     window.open(url, "_blank");
   };
 
- const handleReviewRedirect = (reportId) => {
+  const handleReviewRedirect = (reportId) => {
     navigate(`/student/write-review`);
   };
 
@@ -194,37 +194,44 @@ const AptitudeAnalysisReports = () => {
             message="Payment Pending"
             description="Complete payment to unlock this report"
           />
-       ) : (
-  <>
-    {!reviewSubmitted ? (
-      <>
-        <Alert
-          type="info"
-          showIcon
-          message="Review Required"
-          description="Submit your review to unlock the report"
-          style={{ marginBottom: 12 }}
-        />
+        ) : reason === "counselling" ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="Counselling Session Not Completed"
+            description="Please complete your counselling session to unlock this report"
+          />
+        ) : (
+          <>
+            {!reviewSubmitted ? (
+              <>
+                <Alert
+                  type="info"
+                  showIcon
+                  message="Review Required"
+                  description="Submit your review to unlock the report"
+                  style={{ marginBottom: 12 }}
+                />
 
-        <Button
-          block
-          icon={<StarOutlined />}
-          type="primary"
-          onClick={() => handleReviewRedirect()}
-        >
-          Submit Review
-        </Button>
-      </>
-    ) : (
-      <Alert
-        type="info"
-        showIcon
-        message="Review Submitted"
-        description="Waiting for admin verification"
-      />
-    )}
-  </>
-)}
+                <Button
+                  block
+                  icon={<StarOutlined />}
+                  type="primary"
+                  onClick={() => handleReviewRedirect()}
+                >
+                  Submit Review
+                </Button>
+              </>
+            ) : (
+              <Alert
+                type="info"
+                showIcon
+                message="Review Submitted"
+                description="Waiting for admin verification"
+              />
+            )}
+          </>
+        )}
       </Card>
     );
   };
@@ -332,7 +339,9 @@ const AptitudeAnalysisReports = () => {
                     reason={
                       report.payment_status !== "fully_paid"
                         ? "payment"
-                        : "review"
+                        : report.booking_status !== "completed"
+                          ? "counselling"
+                          : "review"
                     }
                   />
                 </Col>

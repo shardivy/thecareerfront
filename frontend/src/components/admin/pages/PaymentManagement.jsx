@@ -342,10 +342,10 @@ const PaymentManagement = () => {
         try {
           setReminderLoadingId(id); // ✅ FIXED
 
-  const res =
-  activeTab === "handholding"
-    ? await dispatch(sendHandholdingPaymentReminder(id)).unwrap()
-    : await dispatch(sendPaymentReminder(id)).unwrap();
+          const res =
+            activeTab === "handholding"
+              ? await dispatch(sendHandholdingPaymentReminder(id)).unwrap()
+              : await dispatch(sendPaymentReminder(id)).unwrap();
 
           message.success(res?.message || "Reminder sent successfully");
 
@@ -360,47 +360,47 @@ const PaymentManagement = () => {
   };
 
 
- const handleBulkSendReminder = async () => {
-  if (selectedRowKeys.length === 0) return;
+  const handleBulkSendReminder = async () => {
+    if (selectedRowKeys.length === 0) return;
 
-  setReminderLoadingId("bulk");
+    setReminderLoadingId("bulk");
 
-  try {
-    const selectedPayments = filteredData.filter((p) =>
-      selectedRowKeys.includes(p.key)
-    );
+    try {
+      const selectedPayments = filteredData.filter((p) =>
+        selectedRowKeys.includes(p.key)
+      );
 
-    const ids = selectedPayments
-      .map((p) =>
-        activeTab === "handholding"
-          ? p.originalData?.handholding_participant_id
-          : p.originalData?.student_id
-      )
-      .filter(Boolean);
+      const ids = selectedPayments
+        .map((p) =>
+          activeTab === "handholding"
+            ? p.originalData?.handholding_participant_id
+            : p.originalData?.student_id
+        )
+        .filter(Boolean);
 
-    if (ids.length === 0) {
-      message.error("No valid IDs found");
-      return;
+      if (ids.length === 0) {
+        message.error("No valid IDs found");
+        return;
+      }
+
+      await Promise.all(
+        ids.map((id) =>
+          activeTab === "handholding"
+            ? dispatch(sendHandholdingPaymentReminder(id)).unwrap()
+            : dispatch(sendPaymentReminder(id)).unwrap()
+        )
+      );
+
+      const label = activeTab === "handholding" ? "users" : "students";
+
+      message.success(`Reminder sent to ${ids.length} ${label}!`);
+      setSelectedRowKeys([]);
+    } catch (error) {
+      message.error("Failed to send reminders");
+    } finally {
+      setReminderLoadingId(null);
     }
-
-    await Promise.all(
-      ids.map((id) =>
-        activeTab === "handholding"
-          ? dispatch(sendHandholdingPaymentReminder(id)).unwrap()
-          : dispatch(sendPaymentReminder(id)).unwrap()
-      )
-    );
-
-  const label = activeTab === "handholding" ? "users" : "students";
-
-message.success(`Reminder sent to ${ids.length} ${label}!`);
-    setSelectedRowKeys([]);
-  } catch (error) {
-    message.error("Failed to send reminders");
-  } finally {
-    setReminderLoadingId(null);
-  }
-};
+  };
 
 
 
@@ -620,7 +620,7 @@ message.success(`Reminder sent to ${ids.length} ${label}!`);
                 setIsModalOpen(true);
               }}
             >
-              {/* Verify */}
+              Verify
             </Button>
           );
         }

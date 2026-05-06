@@ -11,6 +11,7 @@ import {
   fetchPendingPaymentStudentsApi,
   sendPaymentReminderApi,
   fetchPaymentReceiptApi,
+  submitStudentPaymentApi,
 } from "../adminApi/paymentApi";
 
 /* ================= SUBMIT PAYMENT ================= */
@@ -182,6 +183,18 @@ export const fetchPaymentReceipt = createAsyncThunk(
   }
 );
 
+
+export const submitStudentPayment = createAsyncThunk(
+  "payment/submitStudentPayment",
+  async ({ studentId, payload }, { rejectWithValue }) => {
+    try {
+      return await submitStudentPaymentApi(studentId, payload);
+    } catch (error) {
+      return rejectWithValue(error.response?.data || "Payment failed");
+    }
+  }
+);
+
 /* ================= SLICE ================= */
 const paymentSlice = createSlice({
   name: "payment",
@@ -237,6 +250,12 @@ const paymentSlice = createSlice({
 
     receiptLoading: false,
     receiptError: null,
+
+    studentName: "",
+    studentEmail: "",
+
+      verifyApproveLoading: false,
+  verifyRejectLoading: false,
 
   },
 
@@ -403,33 +422,21 @@ const paymentSlice = createSlice({
       })
 
       /* ================= VERIFY ================= */
-      .addCase(verifyPayment.pending, (state) => {
-        state.verifyLoading = true;
-        state.verifyError = null;
-      })
-      .addCase(verifyPayment.fulfilled, (state, action) => {
-        state.verifyLoading = false;
-        state.verifySuccess = true;
-
-        const paymentId =
-          action.payload?.data?.payment_id ||
-          action.payload?.payment_id;
-
-        if (paymentId) {
-          const index = state.list.findIndex(
-            (p) => p.id === paymentId
-          );
-
-          if (index !== -1) {
-            state.list[index].payment_status = "verified";
-            state.list[index].status = "verified";
-          }
-        }
-      })
-      .addCase(verifyPayment.rejected, (state, action) => {
-        state.verifyLoading = false;
-        state.verifyError = action.payload;
-      })
+     .addCase(verifyPayment.pending, (state, action) => {
+  if (action.meta.arg.payload.action === "approve") {
+    state.verifyApproveLoading = true;
+  } else {
+    state.verifyRejectLoading = true;
+  }
+})
+.addCase(verifyPayment.fulfilled, (state, action) => {
+  state.verifyApproveLoading = false;
+  state.verifyRejectLoading = false;
+})
+.addCase(verifyPayment.rejected, (state) => {
+  state.verifyApproveLoading = false;
+  state.verifyRejectLoading = false;
+})
 
       /* ================= UPDATE ================= */
       .addCase(updatePayment.pending, (state) => {
@@ -491,6 +498,9 @@ const paymentSlice = createSlice({
 
         state.historyList = payload.data || [];
         state.remainingAmount = payload.remaining_amount || 0;
+
+        state.studentName = payload.student_name || "";
+        state.studentEmail = payload.student_email || "";
       })
       .addCase(fetchStudentPaymentHistory.rejected, (state, action) => {
         state.historyLoading = false;
@@ -548,6 +558,19 @@ const paymentSlice = createSlice({
         state.receiptLoading = false;
         state.receiptError = action.payload;
       })
+
+      .addCase(submitStudentPayment.pending, (state) => {
+  state.submitLoading = true;
+  state.submitError = null;
+})
+.addCase(submitStudentPayment.fulfilled, (state) => {
+  state.submitLoading = false;
+  state.submitSuccess = true;
+})
+.addCase(submitStudentPayment.rejected, (state, action) => {
+  state.submitLoading = false;
+  state.submitError = action.payload;
+})
   },
 });
 

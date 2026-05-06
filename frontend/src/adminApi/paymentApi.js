@@ -115,3 +115,12 @@ export const fetchPaymentReceiptApi = async (studentId) => {
   );
   return response.data;
 };
+
+// ================= SUBMIT PAYMENT by STUDENT  =================
+export const submitStudentPaymentApi = async (studentId, formData) => {
+  const response = await axiosInstance.post(
+    `/payment/payment/create/student/${studentId}/`,
+    formData
+  );
+  return response.data;
+};

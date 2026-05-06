@@ -418,6 +418,13 @@ const ReportManagement = () => {
             message="Payment Pending"
             description="Complete payment to unlock this report"
           />
+        ) : reason === "counselling" ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="Counselling Session Not Completed"
+            description="Please complete your counselling session to unlock this report"
+          />
         ) : (
           <>
             {!reviewSubmitted ? (
@@ -551,9 +558,11 @@ const ReportManagement = () => {
               const reason =
                 report.payment_status !== "fully_paid"
                   ? "payment"
-                  : report.report_status === "received_locked"
-                    ? "review"
-                    : null;
+                  : report.booking_status !== "completed"
+                    ? "counselling"
+                    : report.report_status === "received_locked"
+                      ? "review"
+                      : null;
 
               return (
                 <Col xs={24} md={10} key={report.id}>

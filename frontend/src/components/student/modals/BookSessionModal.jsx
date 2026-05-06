@@ -214,7 +214,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
   return (
     <ConfigProvider>
       <div style={{ padding: "16px 12px" }}>
-        <Title level={3}>{rescheduleData ? "Reschedule Counselling Session" : "Book Counselling Session"}</Title>
+        <Title level={3}>{rescheduleData ? "Book Counselling Session" : "Book Counselling Session"}</Title>
         <Text type="colorTextSecondary">
           {rescheduleData ? "Update your session date and time" : "Select your preferred date, counsellor and time slot"}
         </Text>

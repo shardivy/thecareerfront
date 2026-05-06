@@ -19,11 +19,13 @@ import {
   WhatsAppOutlined,
   PhoneOutlined,
   CheckCircleFilled,
+  UploadOutlined,
 } from "@ant-design/icons";
 import { useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchStudentPaymentHistory } from "../../../adminSlices/paymentSlice";
 import { fetchProgramPackageDetails } from "../../../adminSlices/packageSlice";
+import UploadPaymentModal from "../modals/UploadPaymentModal";
 
 
 const { Title, Text } = Typography;
@@ -36,30 +38,29 @@ const PaymentPage = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const { packageId, programId, isFreeUser } = location.state || {};
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [paymentUploaded, setPaymentUploaded] = useState(false);
 
   const { selectedPackage } = useSelector((state) => state.packages);
 
-  const { historyList, historyLoading } = useSelector(
+  const { historyList, historyLoading, remainingAmount } = useSelector(
     (state) => state.payment
   );
 
   const studentId = localStorage.getItem("studentId");
   const package_price = Number(localStorage.getItem("packagePrice")) || 0;
+  const role = localStorage.getItem("adminRole");
 
   const [mode, setMode] = useState("UPI");
 
   const amount = isFreeUser
     ? selectedPackage?.price || 0
-    : historyList?.length > 0
-      ? historyList[0]?.remaining_amount ||
-      historyList[0]?.amount ||
-      0
-      : 0;
+    : remainingAmount || 0;
 
 
   const offlineAdvance = 500;
-  const offlineRemaining = isFreeUser 
-    ? amount - offlineAdvance 
+  const offlineRemaining = isFreeUser
+    ? amount - offlineAdvance
     : package_price - offlineAdvance;
 
   const isMobile = !screens.md;
@@ -80,6 +81,14 @@ const PaymentPage = () => {
       );
     }
   }, [dispatch, programId, packageId, isFreeUser]);
+
+
+  /* ================= FETCH STUDENT PAYMENT HISTORY ================= */
+  useEffect(() => {
+    if (role === "student" && studentId) {
+      dispatch(fetchStudentPaymentHistory(studentId));
+    }
+  }, [dispatch, role, studentId]);
 
 
   return (
@@ -243,104 +252,151 @@ const PaymentPage = () => {
 
                 <Divider />
 
-  <Alert
-  type="warning"
-  showIcon
-  style={{ marginBottom: 20, borderRadius: 10 }}
-  message="Important Payment Instruction"
-  description={
-    <Text>
-      If you opt for <b>online counselling session</b>, please pay the complete{" "}
-      <b>
-        {isFreeUser ? (
-          historyLoading ? (
-            <Spin size="small" />
-          ) : (
-            `₹ ${amount}`
-          )
-        ) : (
-          `₹ ${package_price}`
-        )}
-        /-
-      </b>.{" "}
-      
-      If you wish to take <b>offline counselling at Bavdhan, Pune</b>, just pay{" "}
-      <b>₹{offlineAdvance}/-</b> now and the remaining{" "}
-      <b>₹{offlineRemaining}/-</b> can be paid in cash during the offline session.
-    </Text>
-  }
-/>
-
-                <Divider />
-
                 <Alert
-                  message="After making payment"
-                  description={
-                    <>
-                      Please send payment screenshot to Admin's WhatsApp{" "}
-                      <a href="tel:9922695424">9922695424</a> or contact Admin for confirmation.
-                    </>
-                  }
-                  type="info"
+                  type="warning"
                   showIcon
-                  style={{ marginBottom: 24 }}
+                  style={{ marginBottom: 20, borderRadius: 10 }}
+                  message="Important Payment Instruction"
+                  description={
+                    <Text>
+                      If you opt for <b>online counselling session</b>, please pay the complete{" "}
+                      <b>
+                        {isFreeUser ? (
+                          historyLoading ? (
+                            <Spin size="small" />
+                          ) : (
+                            `₹ ${amount}`
+                          )
+                        ) : (
+                          `₹ ${package_price}`
+                        )}
+                        /-
+                      </b>.{" "}
+
+                      If you wish to take <b>offline counselling at Bavdhan, Pune</b>, just pay{" "}
+                      <b>₹{offlineAdvance}/-</b> now and the remaining{" "}
+                      <b>₹{offlineRemaining}/-</b> can be paid in cash during the offline session.
+                    </Text>
+                  }
                 />
 
-                <Space
-                  direction="vertical"
-                  size="middle"
-                  style={{ width: "100%" }}
-                >
+
+                <Divider />
+                {role === "basic_user" && (
+                  <Alert
+                    message="After making payment"
+                    description={
+                      <>
+                        Please send payment screenshot to Admin's WhatsApp{" "}
+                        <a href="tel:9922695424">9922695424</a> or contact Admin for confirmation.
+                      </>
+                    }
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 24 }}
+                  />
+                )}
+
+                {role === "student" && (
+                  <Alert
+                    message="After making payment"
+                    description="Kindly upload your payment screenshot below to complete the verification process."
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 24 }}
+                  />
+                )}
+
+                {role === "student" && (
                   <Button
                     type="primary"
+                    icon={<UploadOutlined />}
                     block
                     size={isMobile ? "middle" : "large"}
-                    href={`https://wa.me/${adminWhatsApp}`}
-                    target="_blank"
-                    style={{
-                      marginBottom: 12,
-                      height: isMobile ? "auto" : undefined,
-                      padding: isMobile ? "10px 0" : undefined,
-                    }}
+                    onClick={() => setUploadModalOpen(true)}
+                    disabled={paymentUploaded}
                   >
-                    {isMobile ? (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        <WhatsAppOutlined style={{ fontSize: 18, marginRight: 6 }} />
-                        <span>
-                          Send Screenshot on <br />
-                          WhatsApp
-                        </span>
-                      </div>
-                    ) : (
-                      <>
-                        <WhatsAppOutlined style={{ marginRight: 6 }} />
-                        Send Screenshot on WhatsApp
-                      </>
-                    )}
+                    Upload Payment Screenshot
                   </Button>
+                )}
 
-                  <Button
-                    icon={<PhoneOutlined />}
-                    block
-                    size={isMobile ? "middle" : "large"}
-                    href={`tel:${adminPhone}`}
+                {paymentUploaded && (
+                  <div style={{ marginTop: 10 }}>
+                    <Alert
+                      type="success"
+                      message="Payment already uploaded successfully - awaiting admin verification"
+                      showIcon
+                    />
+                  </div>
+                )}
+
+                {role === "basic_user" && (
+                  <Space
+                    direction="vertical"
+                    size="middle"
+                    style={{ width: "100%" }}
                   >
-                    Contact Admin
-                  </Button>
-                </Space>
+                    <Button
+                      type="primary"
+                      block
+                      size={isMobile ? "middle" : "large"}
+                      href={`https://wa.me/${adminWhatsApp}`}
+                      target="_blank"
+                      style={{
+                        marginBottom: 12,
+                        height: isMobile ? "auto" : undefined,
+                        padding: isMobile ? "10px 0" : undefined,
+                      }}
+                    >
+                      {isMobile ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            lineHeight: 1.2,
+                          }}
+                        >
+                          <WhatsAppOutlined style={{ fontSize: 18, marginRight: 6 }} />
+                          <span>
+                            Send Screenshot on <br />
+                            WhatsApp
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <WhatsAppOutlined style={{ marginRight: 6 }} />
+                          Send Screenshot on WhatsApp
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      icon={<PhoneOutlined />}
+                      block
+                      size={isMobile ? "middle" : "large"}
+                      href={`tel:${adminPhone}`}
+                    >
+                      Contact Admin
+                    </Button>
+                  </Space>
+                )}
               </div>
             </Col>
 
           </Row>
         </Card>
       </div>
+
+
+      <UploadPaymentModal
+        open={uploadModalOpen}
+        onClose={() => setUploadModalOpen(false)}
+        historyList={historyList}
+        remainingAmount={remainingAmount}
+        historyLoading={historyLoading}
+        onSuccess={() => setPaymentUploaded(true)}
+      />
     </div>
   );
 };

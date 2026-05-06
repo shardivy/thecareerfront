@@ -54,12 +54,13 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
     updateLoading,
     historyLoading,
     historyList,
-    remainingAmount
+    remainingAmount,
+      verifyApproveLoading,
+  verifyRejectLoading,
   } = useSelector((state) => state.payment);
 
   const { details: handholdingDetails, loading: handholdingLoading } =
     useSelector((state) => state.handholdingPayment);
-
 
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
@@ -484,7 +485,7 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
                   <Button
                     danger
                     onClick={handleRejectConfirm}
-                    loading={verifyLoading}
+                  loading={verifyRejectLoading}
                   >
                     Reject
                   </Button>
@@ -792,7 +793,7 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
             <Divider />
             <Row justify="end" gutter={8}>
               <Col>
-                <Button danger onClick={() => handleVerify("reject")}>
+                <Button danger onClick={() => handleVerify("reject")} loading={verifyRejectLoading}>
                   Reject
                 </Button>
               </Col>
@@ -800,7 +801,7 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
                 <Button
                   type="primary"
                   onClick={() => handleVerify("approve")}
-                  loading={verifyLoading}
+               loading={verifyApproveLoading}
                 >
                   Approve
                 </Button>
