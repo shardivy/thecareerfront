@@ -31,7 +31,7 @@ from accounts.permissions import IsAdmin, IsSuperAdmin
 from rest_framework.permissions import IsAuthenticated
 
 from payment.models import Payment, PaymentLog
-from payment.serializers import PaymentCreateSerializer, PaymentListSerializer, PaymentLogSerializer, PaymentResponseSerializer, StudentPaymentDetailSerializer
+from payment.serializers import PaymentCreateSerializer, PaymentCreateStudentSerializer, PaymentListSerializer, PaymentLogSerializer, PaymentResponseSerializer, StudentPaymentDetailSerializer
 from payment.utils import generate_receipt_pdf, send_payment_approved_email, send_payment_created_email, send_payment_reject_email, send_payment_reject_whatsapp, send_payment_rejected_email, send_payment_reminder_email, send_payment_updated_email
 from program_package.models import Package, UserProgramPackage
 
@@ -58,33 +58,69 @@ class PaymentCreateAPIView(APIView):
     
     # def unlock_report_if_paid(self, payment):
     #     """
-    #     Unlock report if total payment reaches package price
+    #     Unlock report ONLY if:
+    #     ✅ Total payment >= package price
+    #     ✅ Review exists for user
+    #     ✅ Review status = submitted
+
+    #     ❌ Else keep locked
     #     """
 
     #     from django.db.models import Sum
 
+    #     # =========================
+    #     # 💳 Total Paid
+    #     # =========================
     #     total_paid = (
     #         Payment.objects.filter(
     #             user=payment.user,
     #             package=payment.package
-    #         ).aggregate(total=Sum("amount"))["total"] or 0
+    #         ).aggregate(
+    #             total=Sum("amount")
+    #         )["total"] or 0
     #     )
 
-    #     package_price = payment.package.price
+    #     package_price = payment.package.price or 0
 
-    #     # ✅ Fully paid condition
-    #     if total_paid >= package_price:
+    #     # =========================
+    #     # 📝 Submitted Review Check
+    #     # =========================
+    #     submitted_review = (
+    #         Review.objects.filter(
+    #             user=payment.user,
+    #             review_status="submitted"
+    #         ).exists()
+    #     )
+
+    #     # =========================
+    #     # 🔓 Unlock Condition
+    #     # =========================
+    #     if (
+    #         total_paid >= package_price
+    #         and submitted_review
+    #     ):
 
     #         Report.objects.filter(
     #             user=payment.user
-    #         ).update(report_status="received_unlocked")
-    
+    #         ).update(
+    #             report_status="received_unlocked"
+    #         )
+
+    #     else:
+    #         # 🔒 Keep locked
+    #         Report.objects.filter(
+    #             user=payment.user
+    #         ).update(
+    #             report_status="received_locked"
+    #         )
+
     def unlock_report_if_paid(self, payment):
         """
         Unlock report ONLY if:
         ✅ Total payment >= package price
         ✅ Review exists for user
         ✅ Review status = submitted
+        ✅ Booking status = completed
 
         ❌ Else keep locked
         """
@@ -116,11 +152,38 @@ class PaymentCreateAPIView(APIView):
         )
 
         # =========================
+        # 🎓 Student Profile
+        # =========================
+        student_profile = (
+            StudentProfile.objects.filter(
+                user=payment.user
+            ).first()
+        )
+
+        # =========================
+        # 📅 Booking Completed Check
+        # =========================
+        completed_booking = False
+
+        if student_profile:
+            completed_booking = (
+                Booking.objects.filter(
+                    student=student_profile,
+                    status="completed"
+                ).exists()
+            )
+
+        # =========================
         # 🔓 Unlock Condition
+        # Must satisfy ALL:
+        # - Full payment
+        # - Review submitted
+        # - Booking completed
         # =========================
         if (
             total_paid >= package_price
             and submitted_review
+            and completed_booking
         ):
 
             Report.objects.filter(
@@ -136,6 +199,7 @@ class PaymentCreateAPIView(APIView):
             ).update(
                 report_status="received_locked"
             )
+
 
     # def post(self, request):
     #     serializer = PaymentCreateSerializer(
@@ -741,6 +805,20 @@ class VerifyPaymentAPIView(APIView):
             )
 
         old_status = payment.status
+        
+        # ======================================
+        # 🔹 ALLOW APPROVE/REJECT ONLY FOR VERIFICATION PENDING
+        # ======================================
+        if action == "approve" and payment.status != "verification_pending":
+            return Response(
+                {
+                    "success": False,
+                    "error": "Only verification pending payments can be approved."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        
         package_price = payment.package.price or Decimal("0")
         current_amount = payment.amount or Decimal("0")
 
@@ -773,7 +851,7 @@ class VerifyPaymentAPIView(APIView):
                 )
 
             # ✅ Determine status
-            if cumulative_amount >= package_price:
+            if cumulative_amount == package_price:
                 payment.status = 'fully_paid'
             else:
                 payment.status = 'partial_paid'
@@ -846,7 +924,7 @@ class VerifyPaymentAPIView(APIView):
 
                     # ✅ GET LAST VALID PAYMENT (NOT REJECTED)
                     payment = payments_qs.filter(
-                        status__in=["partial_paid", "fully_paid"],
+                        status__in=["partial_paid", "fully_paid", "verification_pending"],
                         amount__gt=0   # 🔥 IMPORTANT FIX
                     ).order_by("-created_at", "-id").first()
 
@@ -1649,6 +1727,26 @@ class StudentPaymentListAPIView(APIView):
                 return Response({
                     "message": "student_id or participant_id is required"
                 }, status=400)
+                
+            # =========================
+            # 🔹 USER DETAILS
+            # =========================
+            student_data = None
+            participant_data = None
+
+            if student_id:
+                student_data = {
+                    "student_id": student.id,
+                    "student_name": f"{user.first_name} {user.last_name}".strip(),
+                    "student_email": user.email,
+                }
+
+            elif participant_id:
+                participant_data = {
+                    "participant_id": participant.id,
+                    "participant_name": f"{user.first_name} {user.last_name}".strip(),
+                    "participant_email": user.email,
+                }
 
             # =========================
             # 🔹 GET PAYMENTS
@@ -1718,7 +1816,19 @@ class StudentPaymentListAPIView(APIView):
             # =========================
             # 🔹 ADD REMAINING ROW (BACKEND CONTROLLED)
             # =========================
-            if package_price > 0 and remaining_amount > 0:
+            # if package_price > 0 and remaining_amount > 0:
+            has_verification_pending = payments.filter(
+                status="verification_pending"
+            ).exists()
+
+            # =========================
+            # 🔹 ADD REMAINING ROW ONLY IF NO VERIFICATION PENDING
+            # =========================
+            if (
+                package_price > 0
+                and remaining_amount > 0
+                and not has_verification_pending
+            ):
                 payment_data.insert(0, {
                     "id": None,
                     "amount": str(remaining_amount),
@@ -1739,7 +1849,17 @@ class StudentPaymentListAPIView(APIView):
             # =========================
             # 🔹 RESPONSE
             # =========================
-            return Response({
+            # return Response({
+            #     "message": "Payment list fetched successfully",
+            #     "user_id": user.id,
+            #     "total_payments": len(payment_data),
+            #     "package_price": package_price,
+            #     "total_paid": total_paid,
+            #     "remaining_amount": remaining_amount,
+            #     "payment_progress_percentage": payment_progress,
+            #     "data": payment_data
+            # })
+            response_payload = {
                 "message": "Payment list fetched successfully",
                 "user_id": user.id,
                 "total_payments": len(payment_data),
@@ -1748,7 +1868,18 @@ class StudentPaymentListAPIView(APIView):
                 "remaining_amount": remaining_amount,
                 "payment_progress_percentage": payment_progress,
                 "data": payment_data
-            })
+            }
+
+            # =========================
+            # 🔹 Add Student/Participant Details
+            # =========================
+            if student_data:
+                response_payload.update(student_data)
+
+            if participant_data:
+                response_payload.update(participant_data)
+
+            return Response(response_payload)
 
         except StudentProfile.DoesNotExist:
             return Response({"message": "Student not found"}, status=404)
@@ -2372,16 +2503,16 @@ class GenerateReceiptByStudentAPIView(APIView):
         # =========================
         # GET LATEST BOOKING
         # =========================
-        booking = (
-            Booking.objects
-            .filter(student=student)
-            .select_related("slot")
-            .order_by("-id")
-            .first()
-        )
+        # booking = (
+        #     Booking.objects
+        #     .filter(student=student)
+        #     .select_related("slot")
+        #     .order_by("-id")
+        #     .first()
+        # )
 
-        if not booking:
-            return Response({"message": "No booking found"}, status=404)
+        # if not booking:
+        #     return Response({"message": "No booking found"}, status=404)
 
         # =========================
         # PACKAGE PRICE (FINAL FIX)
@@ -2419,11 +2550,12 @@ class GenerateReceiptByStudentAPIView(APIView):
         # =========================
         # SERVICE NAME
         # =========================
-        service_name = (
-            booking.slot.mode
-            if booking.slot
-            else "Counselling Services"
-        )
+        # service_name = (
+        #     booking.slot.mode
+        #     if booking.slot
+        #     else "Counselling Services"
+        # )
+        service_name = "Counselling Services"
 
         # =========================
         # GENERATE PDF
@@ -2432,7 +2564,8 @@ class GenerateReceiptByStudentAPIView(APIView):
             name=f"{user.first_name} {user.last_name}",
             service_name=service_name,
             amount=package_price,
-            date=booking.date.strftime("%d/%m/%Y") if booking.date else None
+            # date=booking.date.strftime("%d/%m/%Y") if booking.date else None
+            date=None
         )
 
         # =========================
@@ -2520,4 +2653,304 @@ class GenerateReceiptByHandHoldingParticipantAPIView(APIView):
             pdf_buffer,
             as_attachment=True,
             filename=f"handholding_receipt_{participant_id}.pdf"
+        )
+        
+        
+class PaymentCreateByStudentAPIView(APIView):
+    """
+    Create Payment directly using student_id in URL
+
+    URL Example:
+    POST /api/payment/create/student/12/
+
+    ✅ Automatically maps:
+    - student_id → StudentProfile
+    - StudentProfile → User
+    - User → Payment
+
+    ✅ Supports:
+    - Full payment
+    - Partial payment
+    - Online/Offline
+    - Report unlock logic
+    - Notifications
+    - Email
+
+    ❌ Prevents:
+    - Overpayment
+    - Duplicate full payment
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    # =====================================================
+    # 🔓 REPORT UNLOCK LOGIC
+    # =====================================================
+    def unlock_report_if_paid(self, payment):
+        """
+        Unlock report ONLY if:
+        ✅ Full package payment completed
+        ✅ Review submitted
+        ✅ Booking completed
+        """
+
+        from django.db.models import Sum
+
+        # =========================
+        # 💳 Total Paid
+        # =========================
+        total_paid = (
+            Payment.objects.filter(
+                user=payment.user,
+                package=payment.package
+            ).aggregate(
+                total=Sum("amount")
+            )["total"] or 0
+        )
+
+        package_price = payment.package.price or 0
+
+        # =========================
+        # 📝 Review Check
+        # =========================
+        submitted_review = (
+            Review.objects.filter(
+                user=payment.user,
+                review_status="submitted"
+            ).exists()
+        )
+
+        # =========================
+        # 🎓 Student Profile
+        # =========================
+        student_profile = (
+            StudentProfile.objects.filter(
+                user=payment.user
+            ).first()
+        )
+
+        # =========================
+        # 📅 Booking Check
+        # =========================
+        completed_booking = False
+
+        if student_profile:
+            completed_booking = (
+                Booking.objects.filter(
+                    student=student_profile,
+                    status="completed"
+                ).exists()
+            )
+
+        # =========================
+        # 🔓 Unlock Rule
+        # =========================
+        if (
+            total_paid >= package_price
+            and submitted_review
+            and completed_booking
+        ):
+            Report.objects.filter(
+                user=payment.user
+            ).update(
+                report_status="received_unlocked"
+            )
+
+        else:
+            Report.objects.filter(
+                user=payment.user
+            ).update(
+                report_status="received_locked"
+            )
+
+    # =====================================================
+    # 🆕 CREATE PAYMENT
+    # =====================================================
+    def post(self, request, student_id):
+
+        # =========================
+        # 🎓 Get Student
+        # =========================
+        student_profile = get_object_or_404(
+            StudentProfile,
+            id=student_id
+        )
+
+        # =========================
+        # 📥 Copy Request Data
+        # =========================
+        data = request.data.copy()
+
+        # Auto inject student_profile
+        data["student_profile"] = student_profile.id
+
+        # =========================
+        # 🧾 Serializer
+        # =========================
+        serializer = PaymentCreateStudentSerializer(
+            data=data,
+            context={"request": request}
+        )
+
+        if not serializer.is_valid():
+            return Response(
+                {
+                    "success": False,
+                    "errors": serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # =========================
+        # 💾 Save Payment
+        # =========================
+        with transaction.atomic():
+
+            payment = serializer.save()
+
+            # 🔓 Unlock report
+            self.unlock_report_if_paid(payment)
+
+            # =========================
+            # 🔔 Notification
+            # =========================
+            user_name = f"{payment.user.first_name} {payment.user.last_name}"
+            amount = payment.amount
+
+            title = "Payment Received"
+            message = (
+                f"User {user_name} has successfully made a payment of ₹{amount}."
+            )
+
+            admin_users = User.objects.filter(
+                is_superuser=True
+            )
+
+            for admin in admin_users:
+                admin_id = admin.id
+
+                on_commit(
+                    lambda admin_id=admin_id: safe_notify(
+                        admin_id,
+                        title,
+                        message
+                    )
+                )
+
+        # =========================
+        # 📧 Email
+        # =========================
+        try:
+            send_payment_created_email(
+                payment.user,
+                payment
+            )
+        except Exception as e:
+            print("Email error:", e)
+
+        # =========================
+        # 📤 Response
+        # =========================
+        response_data = PaymentResponseSerializer(
+            payment,
+            context={"request": request}
+        ).data
+
+        return Response(
+            {
+                "success": True,
+                "message": "Payment created successfully",
+                "student_id": student_profile.id,
+                "data": response_data
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    # =====================================================
+    # ✏️ UPDATE PAYMENT
+    # =====================================================
+    def put(self, request, student_id):
+
+        # =========================
+        # 🎓 Student
+        # =========================
+        student_profile = get_object_or_404(
+            StudentProfile,
+            id=student_id
+        )
+
+        # =========================
+        # 💳 Payment
+        # =========================
+        # payment = Payment.objects.filter(
+        #     user=student_profile.user
+        # ).order_by("-created_at").first()
+        payment = Payment.objects.filter(
+            user=student_profile.user
+        ).exclude(
+            status="not_paid"
+        ).exclude(
+            amount=0
+        ).order_by("-created_at").first()
+
+        if not payment:
+            return Response(
+                {
+                    "success": False,
+                    "message": "No payment found for this student."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # =========================
+        # 📥 Copy Data
+        # =========================
+        data = request.data.copy()
+        data["student_profile"] = student_profile.id
+
+        serializer = PaymentCreateStudentSerializer(
+            payment,
+            data=data,
+            partial=True,
+            context={"request": request}
+        )
+
+        if not serializer.is_valid():
+            return Response(
+                {
+                    "success": False,
+                    "errors": serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # =========================
+        # 💾 Save
+        # =========================
+        with transaction.atomic():
+            payment = serializer.save()
+
+            self.unlock_report_if_paid(payment)
+
+        # =========================
+        # 📧 Email
+        # =========================
+        send_payment_updated_email(
+            payment.user,
+            payment
+        )
+
+        response_data = PaymentResponseSerializer(
+            payment,
+            context={"request": request}
+        ).data
+
+        return Response(
+            {
+                "success": True,
+                "message": "Payment updated successfully",
+                "student_id": student_profile.id,
+                "data": response_data
+            },
+            status=status.HTTP_200_OK
         )

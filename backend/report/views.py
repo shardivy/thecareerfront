@@ -551,6 +551,16 @@ class CompletedExamReportStudentIDAPIView(APIView):
                 .order_by("-created_at")
                 .first()
             )
+            
+            # ==========================================
+            # 🔹 BOOKING STATUS
+            # ==========================================
+            booking = (
+                Booking.objects
+                .filter(student=student_profile)
+                .order_by("-created_at")
+                .first()
+            )
 
             # ==========================================
             # 🔹 FILE DETAILS
@@ -641,6 +651,7 @@ class CompletedExamReportStudentIDAPIView(APIView):
                 "exam_id": report.exam.id if report.exam else None,
                 "exam": report.exam.name if report.exam else None,
                 "exam_status": user_exam.status if user_exam else None,
+                "booking_status": booking.status if booking else None,
 
                 "report_status": report.report_status,
 
@@ -953,18 +964,59 @@ class UploadReportAPIView(APIView):
             .first()
         )
 
+        # # =========================
+        # # 🔒 Default Locked
+        # # =========================
+        # report_status = "received_locked"
+
+        # # =========================
+        # # 🔓 Unlock Rule
+        # # =========================
+        # if (
+        #     latest_payment
+        #     and latest_payment.status == "fully_paid"
+        #     and submitted_review
+        # ):
+        #     report_status = "received_unlocked"
+        # =========================
+        # 🎓 Student Profile
+        # =========================
+        student_profile = (
+            StudentProfile.objects
+            .filter(user=user)
+            .first()
+        )
         # =========================
         # 🔒 Default Locked
         # =========================
         report_status = "received_locked"
 
         # =========================
+        # 📅 Latest Booking Status
+        # =========================
+        latest_booking = None
+
+        if student_profile:
+            latest_booking = (
+                Booking.objects
+                .filter(student=student_profile)
+                .order_by("-id")
+                .first()
+            )
+
+        # =========================
         # 🔓 Unlock Rule
+        # Must have:
+        # - fully_paid payment
+        # - submitted review
+        # - completed booking
         # =========================
         if (
             latest_payment
             and latest_payment.status == "fully_paid"
             and submitted_review
+            and latest_booking
+            and latest_booking.status == "completed"
         ):
             report_status = "received_unlocked"
 
@@ -1399,6 +1451,19 @@ class EngineeringTestAnalysisReportAPIView(APIView):
                 .order_by("-created_at")
                 .first()
             )
+            
+            # ==========================================
+            # 🔹 BOOKING STATUS
+            # ==========================================
+            booking = None
+
+            if student_profile:
+                booking = (
+                    Booking.objects
+                    .filter(student=student_profile)
+                    .order_by("-created_at")
+                    .first()
+                )
 
             # ==========================================
             # 🔹 FILE DETAILS
@@ -1497,6 +1562,10 @@ class EngineeringTestAnalysisReportAPIView(APIView):
                 ),
 
                 "report_status": report.report_status,
+                "booking_status": (
+                    booking.status
+                    if booking else None
+                ),
 
                 # ✅ Smart file path
                 "file_path": file_url,
@@ -1691,48 +1760,14 @@ class ReviewStartByStudentAPIView(APIView):
             "review_status": review.review_status
         }, status=status.HTTP_201_CREATED)
         
-# class SubmitReviewAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def put(self, request, review_id):
-#         try:
-#             review = Review.objects.get(id=review_id)
-#         except Review.DoesNotExist:
-#             return Response(
-#                 {"message": "Review not found"},
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-#         # ✅ Only allow transition from in_process → submitted
-#         if review.review_status != 'in_process':
-#             return Response({
-#                 "message": f"Cannot submit review in '{review.review_status}' state"
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # ✅ Update fields (optional)
-#         review.review_text = request.data.get("review_text", review.review_text)
-#         review.rating = request.data.get("rating", review.rating)
-
-#         # ✅ Change status
-#         review.review_status = 'submitted'
-#         review.save()
-
-#         return Response({
-#             "message": "Review submitted successfully",
-#             "review_id": review.id,
-#             "review_status": review.review_status
-#         }, status=status.HTTP_200_OK)
 
 # class SubmitReviewAPIView(APIView):
 #     permission_classes = [IsAuthenticated]
 
 #     def put(self, request, review_id=None):
 #         user = request.user
-
-       
 #         related_id = request.data.get("related_id")
 
-        
 #         # =========================
 #         # 🔍 FIND EXISTING REVIEW
 #         # =========================
@@ -1753,35 +1788,73 @@ class ReviewStartByStudentAPIView(APIView):
 #                 rating=request.data.get("rating")
 #             )
 
-#             return Response({
-#                 "message": "Review created and submitted successfully",
-#                 "review_id": review.id,
-#                 "review_status": review.review_status
-#             }, status=status.HTTP_201_CREATED)
+#         else:
+#             # =========================
+#             # 🔄 UPDATE EXISTING REVIEW
+#             # =========================
+#             review.review_text = request.data.get(
+#                 "review_text",
+#                 review.review_text
+#             )
+
+#             review.rating = request.data.get(
+#                 "rating",
+#                 review.rating
+#             )
+
+#             if review.review_status in [
+#                 'not_submitted',
+#                 'in_process',
+#                 'pending_approval'
+#             ]:
+#                 review.review_status = 'submitted'
+
+#             review.save()
 
 #         # =========================
-#         # 🔄 UPDATE EXISTING REVIEW
+#         # 💳 CHECK PAYMENT STATUS
 #         # =========================
-#         review.review_text = request.data.get(
-#             "review_text",
-#             review.review_text
+#         latest_payment = (
+#             Payment.objects
+#             .filter(user=user)
+#             .order_by('-created_at')
+#             .first()
 #         )
 
-#         review.rating = request.data.get(
-#             "rating",
-#             review.rating
-#         )
+#         # =========================
+#         # 🔓 UNLOCK REPORT IF:
+#         # Payment fully paid
+#         # Review submitted
+#         # =========================
+#         if (
+#             latest_payment
+#             and latest_payment.status == "fully_paid"
+#             and review.review_status == "submitted"
+#         ):
+#             Report.objects.filter(
+#                 user=user
+#             ).update(
+#                 report_status="received_unlocked"
+#             )
 
-#         # Optional status logic
-#         if review.review_status in ['not_submitted', 'in_process', 'pending_approval']:
-#             review.review_status = 'submitted'
-
-#         review.save()
-
+#         # =========================
+#         # 📤 RESPONSE
+#         # =========================
 #         return Response({
-#             "message": "Review updated and submitted successfully",
+#             "message": "Review submitted successfully",
 #             "review_id": review.id,
-#             "review_status": review.review_status
+#             "review_status": review.review_status,
+#             "payment_status": (
+#                 latest_payment.status
+#                 if latest_payment else None
+#             ),
+#             "report_status": (
+#                 "received_unlocked"
+#                 if latest_payment
+#                 and latest_payment.status == "fully_paid"
+#                 and review.review_status == "submitted"
+#                 else "received_locked"
+#             )
 #         }, status=status.HTTP_200_OK)
  
 class SubmitReviewAPIView(APIView):
@@ -1835,7 +1908,7 @@ class SubmitReviewAPIView(APIView):
             review.save()
 
         # =========================
-        # 💳 CHECK PAYMENT STATUS
+        # 💳 CHECK LATEST PAYMENT STATUS
         # =========================
         latest_payment = (
             Payment.objects
@@ -1845,41 +1918,80 @@ class SubmitReviewAPIView(APIView):
         )
 
         # =========================
-        # 🔓 UNLOCK REPORT IF:
-        # Payment fully paid
-        # Review submitted
+        # 🎓 GET STUDENT PROFILE
+        # =========================
+        student_profile = (
+            StudentProfile.objects
+            .filter(user=user)
+            .first()
+        )
+
+        # =========================
+        # 📅 CHECK LATEST BOOKING
+        # =========================
+        latest_booking = None
+
+        if student_profile:
+            latest_booking = (
+                Booking.objects
+                .filter(student=student_profile)
+                .order_by("-id")
+                .first()
+            )
+
+        # =========================
+        # 🔒 DEFAULT REPORT STATUS
+        # =========================
+        report_status = "received_locked"
+
+        # =========================
+        # 🔓 UNLOCK REPORT ONLY IF:
+        # ✅ Payment fully paid
+        # ✅ Review submitted
+        # ✅ Booking completed
         # =========================
         if (
             latest_payment
             and latest_payment.status == "fully_paid"
             and review.review_status == "submitted"
+            and latest_booking
+            and latest_booking.status == "completed"
         ):
-            Report.objects.filter(
-                user=user
-            ).update(
-                report_status="received_unlocked"
-            )
+            report_status = "received_unlocked"
+
+        # =========================
+        # 📄 UPDATE REPORT STATUS
+        # =========================
+        Report.objects.filter(
+            user=user
+        ).update(
+            report_status=report_status
+        )
 
         # =========================
         # 📤 RESPONSE
         # =========================
         return Response({
             "message": "Review submitted successfully",
+
             "review_id": review.id,
+
             "review_status": review.review_status,
+
             "payment_status": (
                 latest_payment.status
-                if latest_payment else None
-            ),
-            "report_status": (
-                "received_unlocked"
                 if latest_payment
-                and latest_payment.status == "fully_paid"
-                and review.review_status == "submitted"
-                else "received_locked"
-            )
+                else None
+            ),
+
+            "booking_status": (
+                latest_booking.status
+                if latest_booking
+                else None
+            ),
+
+            "report_status": report_status
         }, status=status.HTTP_200_OK)
- 
       
 class GetReviewStatusAPIView(APIView):
     permission_classes = [IsAuthenticated]
