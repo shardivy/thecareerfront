@@ -28,7 +28,7 @@ def send_booking_cancel_notification(student_email, counsellor_emails, slot_deta
     Your booking has been cancelled.
 
     Date: {slot_details['date']}
-    Time: {slot_details['start_time']} - {slot_details['end_time']}
+    Time: {slot_details['start_time']} 
     Mode: {slot_details['mode']}
     """
 

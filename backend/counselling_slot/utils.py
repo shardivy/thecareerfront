@@ -147,6 +147,11 @@ Instructions for Online:
 - Join using the provided meeting link
 - Keep necessary documents ready
 
+For any queries or assistance:
+
+Call / WhatsApp:
++91 99226 95424 | +91 82080 30557
+
 Regards,
 Abhinav Career Scope.
 """.strip()
@@ -167,6 +172,11 @@ Instructions for Offline:
 - Carry required documents
 - Be punctual
 - Contact counsellor if delayed
+
+For any queries or assistance:
+
+Call / WhatsApp:
++91 99226 95424 | +91 82080 30557
 
 Regards,
 Abhinav Career Scope.

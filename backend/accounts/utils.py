@@ -187,11 +187,13 @@ def send_credentials_email(
 ):
     """
     Send login credentials email
-    
-    Show:
+
     - Online → Zoom link + online instructions
-    - Offline → office address + offline instructions
+    - Offline → Office address + offline instructions
     """
+
+    from django.conf import settings
+    from django.core.mail import send_mail
 
     subject = "Congratulations! Your Account Has Been Successfully Created"
 
@@ -200,78 +202,74 @@ def send_credentials_email(
     ).lower()
 
     # ==========================================
-    # 🔹 COMMON MESSAGE
+    # COMMON MESSAGE
     # ==========================================
     common_message = f"""
-Dear Candidate,
+Dear Student,
 
 Congratulations!
 
-You have been successfully selected for the {program_name} program under the {package_name} service.
+You have been successfully selected for the {program_name} under the {package_name} service.
 
 We are excited to support you in your career journey.
 
---------------------------------------------------
-Access Your Dashboard
---------------------------------------------------
+________________________________________
 
-You can access your dashboard and track your complete counselling journey using the login credentials below:
+Dashboard Access
 
 Login Link:
 https://staging.abhinavcareerscope.com/
 
 Login Credentials:
+
 Email: {email}
 Password: {password}
 
---------------------------------------------------
-Payment Details
---------------------------------------------------
+________________________________________
 
-Session Fees:
-🔹 Online Session: ₹5,000 (via GPay)
+Session Fees
 
-🔹 Offline Session:
-₹500 via GPay + ₹4,500 cash at the time of counseling
+Online Session: ₹5,000 (via GPay)
 
---------------------------------------------------
+Offline Session:
+₹500 via GPay + ₹4,500 cash during counselling
+
+________________________________________
+
 Important Instructions
---------------------------------------------------
 
-✔️ Please join using a Laptop only
-✔️ Join 5 minutes before the scheduled session
-✔️ Keep paper and pen ready for taking notes
+• Join using a laptop only
+• Join 5 minutes before the session
+• Keep a notebook and pen ready
 """
 
     # ==========================================
-    # 🔹 ONLINE MODE
+    # ONLINE SESSION
     # ==========================================
     if preferred_mode == "online":
 
         mode_message = """
---------------------------------------------------
-Online Session Instructions
---------------------------------------------------
+________________________________________
 
-Session Link:
+Online Session Details
+
+Zoom Link:
 https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09
 
-✔️ Please join 5 minutes before the scheduled time
-✔️ Ensure you have a stable internet connection
-✔️ Keep your audio/video ready
-✔️ Join the session using a Laptop
-✔️ Keep necessary documents ready
+• Ensure a stable internet connection
+• Keep audio/video ready
+• Keep required documents handy
 """
 
     # ==========================================
-    # 🔹 OFFLINE MODE
+    # OFFLINE SESSION
     # ==========================================
     else:
 
         mode_message = """
---------------------------------------------------
+________________________________________
+
 Offline Session Process
---------------------------------------------------
 
 Office Address:
 
@@ -291,30 +289,32 @@ Bavdhan, Pune – 411021
 """
 
     # ==========================================
-    # 🔹 FEE REMINDER
+    # CLOSING MESSAGE
     # ==========================================
     closing_message = """
---------------------------------------------------
-Fee Reminder (If Applicable)
---------------------------------------------------
+________________________________________
 
-Kindly pay the remaining ₹4,500 in cash at the time of counseling.
+Fee Reminder
 
-(If the fees are already fully paid, please ignore this reminder.)
+Kindly pay the remaining ₹4,500 in cash at the time of counselling.
 
---------------------------------------------------
+(If already paid in full, please ignore this reminder.)
 
-If you have any questions or need assistance, feel free to contact our support team.
+________________________________________
 
-We look forward to guiding you through your career journey.
+For any queries or assistance:
+
+Call / WhatsApp:
++91 99226 95424 | +91 82080 30557
+
+We look forward to guiding you in your career journey.
 
 Best Regards,
-Career Counselling Team
-CareerFutura
+Abhinav Career Scope
 """
 
     # ==========================================
-    # 🔹 FINAL EMAIL BODY
+    # FINAL MESSAGE
     # ==========================================
     message = (
         common_message
@@ -323,7 +323,7 @@ CareerFutura
     )
 
     # ==========================================
-    # 🔹 SEND EMAIL
+    # SEND EMAIL
     # ==========================================
     email_status = send_mail(
         subject,
@@ -332,7 +332,9 @@ CareerFutura
         [email],
         fail_silently=False
     )
+
     print("EMAIL STATUS:", email_status)
+
 
 
 

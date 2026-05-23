@@ -1,4 +1,5 @@
 from decimal import Decimal
+import json
 from urllib import request
 
 from rest_framework import serializers
@@ -69,7 +70,17 @@ class HandHoldingParticipantSerializer(serializers.ModelSerializer):
 
 
 class LeadSerializer(serializers.ModelSerializer):
-    program_detail = ProgramSerializer(source='program', read_only=True)
+    program = serializers.PrimaryKeyRelatedField(
+        queryset=Program.objects.all(),
+        # many=True,
+        required=False
+    )
+
+    program_detail = ProgramSerializer(
+        source='program',
+        # many=True,
+        read_only=True
+    )
     package_detail = serializers.SerializerMethodField()
     preferred_counselling_mode = serializers.SerializerMethodField()
     handholding_details = serializers.SerializerMethodField() 
@@ -93,6 +104,30 @@ class LeadSerializer(serializers.ModelSerializer):
             'date',
         )
         read_only_fields = ('status',) 
+        
+    # def create(self, validated_data):
+    #     programs = validated_data.pop("programs", [])
+
+    #     lead = Lead.objects.create(**validated_data)
+
+    #     if programs:
+    #         lead.programs.set(programs)
+
+    #     return lead
+
+
+    # def update(self, instance, validated_data):
+    #     programs = validated_data.pop("programs", None)
+
+    #     for attr, value in validated_data.items():
+    #         setattr(instance, attr, value)
+
+    #     instance.save()
+
+    #     if programs is not None:
+    #         instance.programs.set(programs)
+
+    #     return instance
         
     # def get_preferred_counselling_mode(self, obj):
     #     try:
@@ -344,7 +379,201 @@ class AddUserSerializer(serializers.Serializer):
 
         return attrs
 
+# class AddUserSerializer(serializers.Serializer):
+#     # -------------------------
+#     # User fields
+#     # -------------------------
+#     first_name = serializers.CharField()
+#     last_name = serializers.CharField()
+#     email = serializers.EmailField(required=False)
+#     phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+#     password = serializers.CharField(required=False, write_only=True)
+    
+#     photo = serializers.FileField(required=False, allow_null=True)
+#     resume_file = serializers.FileField(required=False, allow_null=True)
+#     show_profile = serializers.BooleanField(required=False, default=False)
 
+#     # -------------------------
+#     # StudentProfile fields
+#     # -------------------------
+#     study_class = serializers.CharField(required=False, allow_blank=True)
+#     current_academic_stage = serializers.CharField(required=False, allow_blank=True)
+#     current_academic_year = serializers.CharField(required=False, allow_blank=True)
+#     school_college = serializers.CharField(required=False, allow_blank=True)
+#     city = serializers.CharField(required=False, allow_blank=True)
+#     preferred_counselling_mode = serializers.CharField(required=False, allow_blank=True)
+
+#     # -------------------------
+#     # Program & Package - NEW FORMAT
+#     # -------------------------
+#     program_packages = serializers.JSONField(required=False, write_only=True)
+    
+#     # Keep old fields for backward compatibility
+#     programs = serializers.PrimaryKeyRelatedField(
+#         queryset=Program.objects.all(),
+#         many=True,
+#         required=False
+#     )
+#     package = serializers.PrimaryKeyRelatedField(
+#         queryset=Package.objects.all(), 
+#         required=False, 
+#         allow_null=True
+#     )
+
+#     # -------------------------
+#     # Payment (optional)
+#     # -------------------------
+#     amount = serializers.DecimalField(
+#         max_digits=20, decimal_places=2, required=False, allow_null=True
+#     )
+#     payment_type = serializers.ChoiceField(
+#         choices=Payment.PAYMENTTYPE_CHOICE, required=False, allow_null=True, allow_blank=True
+#     )
+#     transaction_id = serializers.CharField(
+#         required=False, allow_blank=True, allow_null=True
+#     )
+#     method = serializers.CharField(required=False, allow_blank=True)
+#     proof_file = serializers.FileField(required=False, allow_null=True)
+
+#     # -------------------------
+#     # Email Validation
+#     # -------------------------
+#     def validate_email(self, value):
+#         user_id = self.context.get("user_id")
+
+#         qs = User.objects.filter(email=value)
+#         if user_id:
+#             qs = qs.exclude(id=user_id)
+
+#         if qs.exists():
+#             raise serializers.ValidationError("Email already exists.")
+
+#         return value
+
+#     # -------------------------
+#     # Validate program_packages
+#     # -------------------------
+#     def validate_program_packages(self, value):
+#         if not value:
+#             return value
+            
+#         # If it's a string, try to parse it as JSON
+#         if isinstance(value, str):
+#             try:
+#                 value = json.loads(value)
+#             except json.JSONDecodeError:
+#                 raise serializers.ValidationError("Invalid JSON format for program_packages")
+        
+#         # Check if it's a list
+#         if not isinstance(value, list):
+#             raise serializers.ValidationError("program_packages must be a list of objects")
+        
+#         # Validate each item in the list
+#         validated_items = []
+#         for idx, item in enumerate(value):
+#             if not isinstance(item, dict):
+#                 raise serializers.ValidationError(
+#                     f"Item {idx} must be an object/dictionary"
+#                 )
+            
+#             if 'program' not in item:
+#                 raise serializers.ValidationError(
+#                     f"Item {idx} missing 'program' field"
+#                 )
+#             if 'package' not in item:
+#                 raise serializers.ValidationError(
+#                     f"Item {idx} missing 'package' field"
+#                 )
+            
+#             # Validate that program exists
+#             try:
+#                 program = Program.objects.get(id=item['program'])
+#             except Program.DoesNotExist:
+#                 raise serializers.ValidationError(
+#                     f"Program with id {item['program']} does not exist"
+#                 )
+            
+#             # Validate that package exists
+#             try:
+#                 package_obj = Package.objects.get(id=item['package'])
+#             except Package.DoesNotExist:
+#                 raise serializers.ValidationError(
+#                     f"Package with id {item['package']} does not exist"
+#                 )
+            
+#             # Validate package belongs to program
+#             if package_obj.program_id != item['program']:
+#                 raise serializers.ValidationError(
+#                     f"Package {item['package']} does not belong to program {item['program']}"
+#                 )
+            
+#             validated_items.append({
+#                 'program': program,
+#                 'package': package_obj,
+#                 'program_id': item['program'],
+#                 'package_id': item['package']
+#             })
+        
+#         return validated_items
+
+#     # -------------------------
+#     # Cross-field Validation
+#     # -------------------------
+#     def validate(self, attrs):
+#         # Check which format is being used
+#         program_packages = attrs.get("program_packages")
+#         programs = attrs.get("programs", [])
+#         package = attrs.get("package")
+#         amount = attrs.get("amount")
+        
+#         # Determine if using new format or old format
+#         using_new_format = program_packages is not None and len(program_packages) > 0
+        
+#         if using_new_format:
+#             # NEW FORMAT VALIDATION
+#             # program_packages is already validated by validate_program_packages
+#             # So it contains objects like [{'program': Program_obj, 'package': Package_obj}, ...]
+            
+#             # Store for use in view
+#             attrs['parsed_program_packages'] = program_packages
+#             attrs['parsed_programs'] = [item['program'] for item in program_packages]
+            
+#             # Payment validation for new format
+#             if amount is not None:
+#                 first_package = program_packages[0]['package']
+#                 if not first_package.is_handholding and amount > first_package.price:
+#                     raise serializers.ValidationError({
+#                         "amount": f"Amount cannot exceed package price ₹{first_package.price}."
+#                     })
+            
+#         else:
+#             # OLD FORMAT VALIDATION (backward compatible)
+#             is_handholding = package.is_handholding if package else False
+
+#             if not is_handholding:
+#                 # Package required for other programs
+#                 if not package:
+#                     raise serializers.ValidationError({
+#                         "package": "This field is required."
+#                     })
+
+#                 # Ensure package belongs to program
+#                 if package and programs:
+#                     if package.program not in programs:
+#                         raise serializers.ValidationError({
+#                             "package": "Selected package does not belong to selected program."
+#                         })
+
+#             # Payment validation
+#             if amount is not None and not is_handholding:
+#                 package_price = package.price if package else Decimal("0")
+                
+#                 if amount > package_price:
+#                     raise serializers.ValidationError({
+#                         "amount": f"Amount cannot exceed package price ₹{package_price}."
+#                     })
+        
+#         return attrs
 
 class UserProgramPackageResponseSerializer(serializers.ModelSerializer):
     program = ProgramSerializer(read_only=True)
@@ -554,9 +783,14 @@ class StudentRegistrationSerializer(serializers.Serializer):
     parent_email = serializers.EmailField(required=True)
     parent_name = serializers.CharField(required=False, allow_blank=True)
     
+#     programs = serializers.PrimaryKeyRelatedField(
+#     queryset=Program.objects.all(),
+#     many=True
+# )
     program = serializers.PrimaryKeyRelatedField(
-    queryset=Program.objects.all()
-)
+        queryset=Program.objects.all(), 
+        required=True
+    )
 
     # =========================
     # 🔐 Auth

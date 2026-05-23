@@ -39,7 +39,7 @@ class SlotCreateSerializer(serializers.ModelSerializer):
             "counsellor_id",
             "date",
             "start_time",
-            "end_time",
+            # "end_time",
             "mode",
             "created_at",
         )
@@ -432,7 +432,7 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
 
     def get_slot_time(self, obj):
         if obj.slot:
-            return f"{obj.slot.start_time} - {obj.slot.end_time}"
+            return f"{obj.slot.start_time}"
         return None
     
     def get_aptitude_test(self, obj):

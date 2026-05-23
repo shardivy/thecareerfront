@@ -198,7 +198,7 @@ class HandHoldingParticipantSessionSerializer(serializers.ModelSerializer):
         read_only=True
     )
     start_time = serializers.SerializerMethodField()
-    end_time = serializers.SerializerMethodField()
+    # end_time = serializers.SerializerMethodField()
     
     student_id = serializers.SerializerMethodField()
 
@@ -212,7 +212,7 @@ class HandHoldingParticipantSessionSerializer(serializers.ModelSerializer):
             "email",
             "preferred_counselling_mode",
             "start_time",
-            "end_time",
+            # "end_time",
             "session_no",
             "session_date",
             "status", 
@@ -222,8 +222,8 @@ class HandHoldingParticipantSessionSerializer(serializers.ModelSerializer):
     def get_start_time(self, obj):
         return obj.slot.start_time if obj.slot else None
 
-    def get_end_time(self, obj):
-        return obj.slot.end_time if obj.slot else None
+    # def get_end_time(self, obj):
+    #     return obj.slot.end_time if obj.slot else None
     
     def get_student_id(self, obj):  
         if not obj.slot:

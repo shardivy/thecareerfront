@@ -41,11 +41,33 @@ from counselling_slot.serializers import AddCounsellorSerializer, BookingCreateS
  
 # ============================ New Code Below =========================
 
-FIXED_SLOTS = [
-    ("10:00 AM", "12:00 PM"),
-    ("12:00 PM", "02:00 PM"),
-    ("02:00 PM", "04:00 PM"),
-    ("04:00 PM", "06:00 PM"),
+    # ("10:00 AM", "12:00 PM"),
+    # ("12:00 PM", "02:00 PM"),
+    # ("02:00 PM", "04:00 PM"),
+    # ("04:00 PM", "06:00 PM"),
+
+FIXED_SLOTS = [   
+    "08:00 AM",
+    "08:30 AM",
+    "09:00 AM",
+    "09:30 AM",
+    "10:00 AM",
+    "10:30 AM",
+    "11:00 AM",
+    "11:30 AM",
+    "12:00 PM",
+    "12:30 PM",
+    "01:00 PM",
+    "01:30 PM",
+    "02:00 PM",
+    "02:30 PM",
+    "03:00 PM",
+    "03:30 PM",
+    "04:00 PM",
+    "04:30 PM",
+    "05:00 PM",
+    "05:30 PM",
+    "06:00 PM",
 ]
 
 
@@ -53,11 +75,568 @@ class CounsellorListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        counsellors = Counsellor.objects.select_related("user").all()
+        # counsellors = Counsellor.objects.select_related("user").all()
+        counsellors = Counsellor.objects.select_related("user").exclude(
+            user__first_name__icontains="Reena",
+            user__last_name__icontains="Bhutada"
+        )
         serializer = CounsellorListSerializer(counsellors, many=True)
         return Response(serializer.data)
     
+class ReenaCounsellorAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        counsellors = Counsellor.objects.select_related("user").filter(
+            user__first_name__icontains="Reena",
+            user__last_name__icontains="Bhutada"
+        )
+
+        serializer = CounsellorListSerializer(
+            counsellors,
+            many=True
+        )
+
+        return Response(serializer.data)
+    
+       
 # API to create a counselling slot  
+
+# class SlotCreateAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     @transaction.atomic
+#     def get(self, request, date, counsellor):
+#         """
+#         counsellor → COUNSELLOR TABLE ID from URL
+#         """
+
+#         # =========================
+#         # 🔹 Fetch Counsellor
+#         # =========================
+#         counsellor_obj = Counsellor.objects.select_related("user").filter(
+#             id=counsellor
+#         ).first()
+
+#         if not counsellor_obj:
+#             return Response(
+#                 {"message": "Counsellor not found"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         # ✅ CORRECT IDs
+#         counsellor_table_id = counsellor_obj.id
+#         counsellor_user_id = counsellor_obj.user_id
+#         counsellor_is_active = counsellor_obj.is_active
+
+#         # =========================
+#         # 🔹 Check existing slots
+#         # =========================
+#         existing_slots_qs = Slot.objects.filter(
+#         counsellor_id=counsellor_user_id,
+#         date=date,
+#         # is_deleted=False  
+#     )
+
+
+#         slots_created = False
+
+#         if not existing_slots_qs.exists():
+#             for start_time, end_time in FIXED_SLOTS:
+#                 Slot.objects.create(
+#                     counsellor_id=counsellor_user_id,  # ✅ USER ID ONLY
+#                     date=date,
+#                     start_time=start_time,
+#                     end_time=end_time,
+#                     mode="offline",
+#                     is_available=True
+#                 )
+#             slots_created = True
+
+#         # =========================
+#         # 🔹 Fetch slots
+#         # =========================
+#         slots = Slot.objects.filter(
+#             counsellor_id=counsellor_user_id,
+#             date=date,
+#             is_deleted=False   # ✅ hide deleted slots
+#         ).order_by("start_time")
+
+
+#         # =========================
+#         # 🔹 Booking status map
+#         # =========================
+#         # booking_status_map = {
+#         #     b["slot_id"]: b["status"]
+#         #     for b in Booking.objects
+#         #     .filter(slot__in=slots)
+#         #     .exclude(status="cancelled")
+#         #     .values("slot_id", "status")
+#         # }
+#         bookings = (
+#             Booking.objects
+#             .filter(
+#                 slot__date=date,
+#                 bookingcounsellor__counsellor=counsellor_obj
+#             )
+#             .exclude(status="cancelled")
+#         )
+
+#         booking_status_map = {
+#             (booking.slot.start_time, booking.slot.end_time): booking.status
+#             for booking in bookings
+#         }
+
+#         # =========================
+#         # 🔹 Response slots
+#         # =========================
+#         response_slots = [
+#             {
+#                 "id": slot.id,
+#                 "date": slot.date,
+#                 "start_time": slot.start_time,
+#                 "end_time": slot.end_time,
+#                 "mode": slot.mode,
+#                 "is_available": slot.is_available,
+#                 # "status": booking_status_map.get(slot.id, "available")
+#                 "status": booking_status_map.get(
+#                     (slot.start_time, slot.end_time),
+#                     "available"
+#                 )
+#             }
+#             for slot in slots
+#         ]
+
+#         return Response(
+#             {
+#                 "message": (
+#                     "Slots generated and fetched successfully"
+#                     if slots_created
+#                     else "Slots already exist, fetched successfully"
+#                 ),
+#                 "date": date,
+
+#                 # 🔹 BOTH IDs (clean API)
+#                 "counsellor_id": counsellor_table_id,
+#                 "counsellor_user_id": counsellor_user_id,
+
+#                 "counsellor_first_name": counsellor_obj.user.first_name,
+#                 "counsellor_last_name": counsellor_obj.user.last_name,
+#                 "counsellor_is_active": counsellor_is_active,
+
+#                 "data": response_slots
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
+
+
+#     # @transaction.atomic
+#     # def post(self, request, date, counsellor):
+#     #     """
+#     #     counsellor → COUNSELLOR TABLE ID from URL
+#     #     """
+
+#     #     manual_slots = request.data.get("slots", [])
+
+#     #     # =========================
+#     #     # 🔹 Fetch Counsellor
+#     #     # =========================
+#     #     # counsellor_obj = Counsellor.objects.select_related("user").filter(
+#     #     #     id=counsellor
+#     #     # ).first()
+#     #     # if not counsellor_obj:
+#     #     #     return Response(
+#     #     #         {"message": "Counsellor not found"},
+#     #     #         status=status.HTTP_404_NOT_FOUND
+#     #     #     )
+
+#     #     # # ✅ Correct IDs
+#     #     # counsellor_table_id = counsellor_obj.id
+#     #     # counsellor_user_id = counsellor_obj.user_id
+        
+#     #     # =========================
+#     #     # 🔹 Fetch Counsellors
+#     #     # =========================
+#     #     # counsellor_ids = request.data.get("counsellors", [counsellor])
+#     #     counsellor_ids = request.data.get("counsellor_id", [counsellor])
+
+#     #     counsellors = Counsellor.objects.select_related("user").filter(
+#     #         id__in=counsellor_ids
+#     #     )
+
+#     #     if not counsellors.exists():
+#     #         return Response(
+#     #             {"message": "Counsellor not found"},
+#     #             status=status.HTTP_404_NOT_FOUND
+#     #         )
+
+        
+
+#     #     # =========================
+#     #     # 🔹 FIXED SLOTS SET
+#     #     # =========================
+#     #     fixed_slot_set = set(FIXED_SLOTS)
+
+#     #     # =========================
+#     #     # 🔹 1. CREATE FIXED SLOTS (ONLY IF NO SLOT EXISTS FOR DATE)
+#     #     # =========================
+
+#     #     # existing_slots = Slot.objects.filter(
+#     #     #     counsellor_id=counsellor_user_id,
+#     #     #     date=date
+#     #     # )
+
+#     #     # fixed_created = False
+
+#     #     # if not existing_slots.exists():
+#     #     #     fixed_created = True
+
+#     #     #     fixed_slot_objects = [
+#     #     #         Slot(
+#     #     #             counsellor_id=counsellor_user_id,
+#     #     #             date=date,
+#     #     #             start_time=start_time,
+#     #     #             end_time=end_time,
+#     #     #             is_available=True
+#     #     #         )
+#     #     #         for start_time, end_time in FIXED_SLOTS
+#     #     #     ]
+
+#     #     #     Slot.objects.bulk_create(fixed_slot_objects)
+        
+#     #     created_manual_slots = []
+#     #     fixed_created = False
+
+#     #     for counsellor_obj in counsellors:
+
+#     #         counsellor_table_id = counsellor_obj.id
+#     #         counsellor_user_id = counsellor_obj.user_id
+
+#     #         existing_slots = Slot.objects.filter(
+#     #             counsellor_id=counsellor_user_id,
+#     #             date=date
+#     #         )
+
+#     #         if not existing_slots.exists():
+#     #             fixed_created = True
+
+#     #             fixed_slot_objects = [
+#     #                 Slot(
+#     #                     counsellor_id=counsellor_user_id,
+#     #                     date=date,
+#     #                     start_time=start_time,
+#     #                     end_time=end_time,
+#     #                     is_available=True
+#     #                 )
+#     #                 for start_time, end_time in FIXED_SLOTS
+#     #             ]
+
+#     #             Slot.objects.bulk_create(fixed_slot_objects)
+
+#     #         for slot in manual_slots:
+
+#     #             start_time = slot.get("start_time")
+#     #             end_time = slot.get("end_time")
+
+#     #             if not start_time or not end_time:
+#     #                 continue
+
+#     #             if (start_time, end_time) in fixed_slot_set:
+#     #                 continue
+
+#     #             obj, created = Slot.objects.get_or_create(
+#     #                 counsellor_id=counsellor_user_id,
+#     #                 date=date,
+#     #                 start_time=start_time,
+#     #                 end_time=end_time,
+#     #                 defaults={
+#     #                     "is_available": True
+#     #                 }
+#     #             )
+
+#     #             if created:
+#     #                 created_manual_slots.append(obj)
+
+
+#     #     # =========================
+#     #     # 🔹 2. CREATE MANUAL SLOTS
+#     #     # =========================
+#     #     created_manual_slots = []
+
+#     #     for slot in manual_slots:
+#     #         start_time = slot.get("start_time")
+#     #         end_time = slot.get("end_time")
+
+#     #         if not start_time or not end_time:
+#     #             continue
+
+#     #         # 🚫 Skip FIXED slots
+#     #         if (start_time, end_time) in fixed_slot_set:
+#     #             continue
+
+#     #         obj, created = Slot.objects.get_or_create(
+#     #             counsellor_id=counsellor_user_id,   # ✅ USER ID
+#     #             date=date,
+#     #             start_time=start_time,
+#     #             end_time=end_time,
+#     #             defaults={
+#     #                 "is_available": True
+#     #             }
+#     #         )
+
+#     #         if created:
+#     #             created_manual_slots.append(obj)
+
+#     #     # =========================
+#     #     # 🔹 3. FETCH ALL SLOTS
+#     #     # =========================
+#     #     # slots = Slot.objects.filter(
+#     #     #     counsellor_id=counsellor_user_id,   # ✅ USER ID
+#     #     #     date=date
+#     #     # ).order_by("start_time")
+#     #     slots = Slot.objects.filter(
+#     #         counsellor_id__in=[c.user_id for c in counsellors],
+#     #         date=date
+#     #     ).order_by("start_time")
+        
+#     #     # =========================
+#     #     # 🔔 SEND NOTIFICATION TO SUPERADMIN (ASYNC)
+#     #     # =========================
+
+#     #     from django.db.transaction import on_commit
+#     #     from django.contrib.auth import get_user_model
+#     #     from counselling_slot.tasks import create_system_notification
+
+#     #     User = get_user_model()
+
+#     #     # Counsellor name
+#     #     counsellor_name = f"{counsellor_obj.user.first_name} {counsellor_obj.user.last_name}"
+
+#     #     title = "New Slots Created"
+
+#     #     message = (
+#     #         f"Counsellor {counsellor_name} has created slots for date {date}. "
+#     #         f"Total slots: {slots.count()}."
+#     #     )
+
+#     #     # Get superadmins (or staff)
+#     #     admin_users = User.objects.filter(is_superuser=True)  # or is_staff=True
+
+#     #     for admin in admin_users:
+#     #         admin_id = admin.id  # ✅ fix lambda issue
+
+#     #         on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+#     #             admin_id,
+#     #             title,
+#     #             message
+#     #         ))
+
+#     #     return Response(
+#     #         {
+#     #             "message": "Slots processed successfully",
+#     #             "date": date,
+
+#     #             # 🔹 Return BOTH IDs (clean API)
+#     #             "counsellor_id": counsellor_table_id,
+#     #             "counsellor_user_id": counsellor_user_id,
+
+#     #             "fixed_slots_created": fixed_created,
+#     #             "new_manual_slots_created": len(created_manual_slots),
+#     #             "total_slots": slots.count(),
+#     #             "data": SlotCreateSerializer(slots, many=True).data
+#     #         },
+#     #         status=status.HTTP_201_CREATED
+#     #     )
+#     @transaction.atomic
+#     def post(self, request, date, counsellor):
+#         """
+#         counsellor → COUNSELLOR TABLE ID from URL
+#         """
+
+#         manual_slots = request.data.get("slots", [])
+
+#         # =========================
+#         # 🔹 Fetch Counsellors
+#         # =========================
+#         counsellor_ids = request.data.get("counsellor_id", [counsellor])
+
+#         # ✅ FIX: ensure iterable for id__in
+#         if isinstance(counsellor_ids, int):
+#             counsellor_ids = [counsellor_ids]
+
+#         counsellors = Counsellor.objects.select_related("user").filter(
+#             id__in=counsellor_ids
+#         )
+
+#         if not counsellors.exists():
+#             return Response(
+#                 {"message": "Counsellor not found"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         # =========================
+#         # 🔹 FIXED SLOTS SET
+#         # =========================
+#         fixed_slot_set = set(FIXED_SLOTS)
+
+#         created_manual_slots = []
+#         fixed_created = False
+
+#         # =========================
+#         # 🔹 CREATE FIXED + MANUAL SLOTS PER COUNSELLOR
+#         # =========================
+#         for counsellor_obj in counsellors:
+
+#             counsellor_table_id = counsellor_obj.id
+#             counsellor_user_id = counsellor_obj.user_id
+
+#             existing_slots = Slot.objects.filter(
+#                 counsellor_id=counsellor_user_id,
+#                 date=date
+#             )
+
+#             if not existing_slots.exists():
+#                 fixed_created = True
+
+#                 fixed_slot_objects = [
+#                     Slot(
+#                         counsellor_id=counsellor_user_id,
+#                         date=date,
+#                         start_time=start_time,
+#                         end_time=end_time,
+#                         is_available=True
+#                     )
+#                     for start_time, end_time in FIXED_SLOTS
+#                 ]
+
+#                 Slot.objects.bulk_create(fixed_slot_objects)
+
+#             for slot in manual_slots:
+
+#                 start_time = slot.get("start_time")
+#                 end_time = slot.get("end_time")
+
+#                 if not start_time or not end_time:
+#                     continue
+
+#                 if (start_time, end_time) in fixed_slot_set:
+#                     continue
+
+#                 obj, created = Slot.objects.get_or_create(
+#                     counsellor_id=counsellor_user_id,
+#                     date=date,
+#                     start_time=start_time,
+#                     end_time=end_time,
+#                     defaults={
+#                         "is_available": True
+#                     }
+#                 )
+
+#                 if created:
+#                     created_manual_slots.append(obj)
+
+#         # =========================
+#         # 🔹 2. CREATE MANUAL SLOTS
+#         # =========================
+#         created_manual_slots = []
+
+#         for slot in manual_slots:
+#             start_time = slot.get("start_time")
+#             end_time = slot.get("end_time")
+
+#             if not start_time or not end_time:
+#                 continue
+
+#             # 🚫 Skip FIXED slots
+#             if (start_time, end_time) in fixed_slot_set:
+#                 continue
+
+#             obj, created = Slot.objects.get_or_create(
+#                 counsellor_id=counsellor_user_id,   # ✅ USER ID
+#                 date=date,
+#                 start_time=start_time,
+#                 end_time=end_time,
+#                 defaults={
+#                     "is_available": True
+#                 }
+#             )
+
+#             if created:
+#                 created_manual_slots.append(obj)
+
+#         # =========================
+#         # 🔹 3. FETCH ALL SLOTS
+#         # =========================
+#         slots = Slot.objects.filter(
+#             counsellor_id__in=[c.user_id for c in counsellors],
+#             date=date
+#         ).order_by("start_time")
+
+#         # =========================
+#         # 🔔 SEND NOTIFICATION TO SUPERADMIN (ASYNC)
+#         # =========================
+
+#         from django.db.transaction import on_commit
+#         from django.contrib.auth import get_user_model
+#         from counselling_slot.tasks import create_system_notification
+
+#         User = get_user_model()
+
+#         counsellor_name = f"{counsellor_obj.user.first_name} {counsellor_obj.user.last_name}"
+
+#         title = "New Slots Created"
+
+#         message = (
+#             f"Counsellor {counsellor_name} has created slots for date {date}. "
+#             f"Total slots: {slots.count()}."
+#         )
+
+#         admin_users = User.objects.filter(is_superuser=True)
+
+#         # for admin in admin_users:
+#         #     admin_id = admin.id
+
+#         #     on_commit(
+#         #         lambda admin_id=admin_id, title=title, message=message:
+#         #         create_system_notification.delay(
+#         #             admin_id,
+#         #             title,
+#         #             message
+#         #         )
+#         #     )
+#         for admin in admin_users:
+#             admin_id = admin.id
+
+#             def send_notification(admin_id=admin_id):
+#                 try:
+#                     create_system_notification.delay(
+#                         admin_id,
+#                         title,
+#                         message
+#                     )
+#                 except Exception as e:
+#                     print("NOTIFICATION ERROR:", str(e))
+
+#             on_commit(send_notification)
+
+#         return Response(
+#             {
+#                 "message": "Slots processed successfully",
+#                 "date": date,
+
+#                 "counsellor_id": counsellor_table_id,
+#                 "counsellor_user_id": counsellor_user_id,
+
+#                 "fixed_slots_created": fixed_created,
+#                 "new_manual_slots_created": len(created_manual_slots),
+#                 "total_slots": slots.count(),
+#                 "data": SlotCreateSerializer(slots, many=True).data
+#             },
+#             status=status.HTTP_201_CREATED
+#         )  
+ 
 class SlotCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -98,12 +677,11 @@ class SlotCreateAPIView(APIView):
         slots_created = False
 
         if not existing_slots_qs.exists():
-            for start_time, end_time in FIXED_SLOTS:
+            for start_time in FIXED_SLOTS:
                 Slot.objects.create(
                     counsellor_id=counsellor_user_id,  # ✅ USER ID ONLY
                     date=date,
                     start_time=start_time,
-                    end_time=end_time,
                     mode="offline",
                     is_available=True
                 )
@@ -139,7 +717,7 @@ class SlotCreateAPIView(APIView):
         )
 
         booking_status_map = {
-            (booking.slot.start_time, booking.slot.end_time): booking.status
+            (booking.slot.start_time): booking.status
             for booking in bookings
         }
 
@@ -151,12 +729,12 @@ class SlotCreateAPIView(APIView):
                 "id": slot.id,
                 "date": slot.date,
                 "start_time": slot.start_time,
-                "end_time": slot.end_time,
+                # "end_time": slot.end_time,
                 "mode": slot.mode,
                 "is_available": slot.is_available,
                 # "status": booking_status_map.get(slot.id, "available")
                 "status": booking_status_map.get(
-                    (slot.start_time, slot.end_time),
+                    (slot.start_time),
                     "available"
                 )
             }
@@ -185,225 +763,6 @@ class SlotCreateAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
-
-
-    # @transaction.atomic
-    # def post(self, request, date, counsellor):
-    #     """
-    #     counsellor → COUNSELLOR TABLE ID from URL
-    #     """
-
-    #     manual_slots = request.data.get("slots", [])
-
-    #     # =========================
-    #     # 🔹 Fetch Counsellor
-    #     # =========================
-    #     # counsellor_obj = Counsellor.objects.select_related("user").filter(
-    #     #     id=counsellor
-    #     # ).first()
-    #     # if not counsellor_obj:
-    #     #     return Response(
-    #     #         {"message": "Counsellor not found"},
-    #     #         status=status.HTTP_404_NOT_FOUND
-    #     #     )
-
-    #     # # ✅ Correct IDs
-    #     # counsellor_table_id = counsellor_obj.id
-    #     # counsellor_user_id = counsellor_obj.user_id
-        
-    #     # =========================
-    #     # 🔹 Fetch Counsellors
-    #     # =========================
-    #     # counsellor_ids = request.data.get("counsellors", [counsellor])
-    #     counsellor_ids = request.data.get("counsellor_id", [counsellor])
-
-    #     counsellors = Counsellor.objects.select_related("user").filter(
-    #         id__in=counsellor_ids
-    #     )
-
-    #     if not counsellors.exists():
-    #         return Response(
-    #             {"message": "Counsellor not found"},
-    #             status=status.HTTP_404_NOT_FOUND
-    #         )
-
-        
-
-    #     # =========================
-    #     # 🔹 FIXED SLOTS SET
-    #     # =========================
-    #     fixed_slot_set = set(FIXED_SLOTS)
-
-    #     # =========================
-    #     # 🔹 1. CREATE FIXED SLOTS (ONLY IF NO SLOT EXISTS FOR DATE)
-    #     # =========================
-
-    #     # existing_slots = Slot.objects.filter(
-    #     #     counsellor_id=counsellor_user_id,
-    #     #     date=date
-    #     # )
-
-    #     # fixed_created = False
-
-    #     # if not existing_slots.exists():
-    #     #     fixed_created = True
-
-    #     #     fixed_slot_objects = [
-    #     #         Slot(
-    #     #             counsellor_id=counsellor_user_id,
-    #     #             date=date,
-    #     #             start_time=start_time,
-    #     #             end_time=end_time,
-    #     #             is_available=True
-    #     #         )
-    #     #         for start_time, end_time in FIXED_SLOTS
-    #     #     ]
-
-    #     #     Slot.objects.bulk_create(fixed_slot_objects)
-        
-    #     created_manual_slots = []
-    #     fixed_created = False
-
-    #     for counsellor_obj in counsellors:
-
-    #         counsellor_table_id = counsellor_obj.id
-    #         counsellor_user_id = counsellor_obj.user_id
-
-    #         existing_slots = Slot.objects.filter(
-    #             counsellor_id=counsellor_user_id,
-    #             date=date
-    #         )
-
-    #         if not existing_slots.exists():
-    #             fixed_created = True
-
-    #             fixed_slot_objects = [
-    #                 Slot(
-    #                     counsellor_id=counsellor_user_id,
-    #                     date=date,
-    #                     start_time=start_time,
-    #                     end_time=end_time,
-    #                     is_available=True
-    #                 )
-    #                 for start_time, end_time in FIXED_SLOTS
-    #             ]
-
-    #             Slot.objects.bulk_create(fixed_slot_objects)
-
-    #         for slot in manual_slots:
-
-    #             start_time = slot.get("start_time")
-    #             end_time = slot.get("end_time")
-
-    #             if not start_time or not end_time:
-    #                 continue
-
-    #             if (start_time, end_time) in fixed_slot_set:
-    #                 continue
-
-    #             obj, created = Slot.objects.get_or_create(
-    #                 counsellor_id=counsellor_user_id,
-    #                 date=date,
-    #                 start_time=start_time,
-    #                 end_time=end_time,
-    #                 defaults={
-    #                     "is_available": True
-    #                 }
-    #             )
-
-    #             if created:
-    #                 created_manual_slots.append(obj)
-
-
-    #     # =========================
-    #     # 🔹 2. CREATE MANUAL SLOTS
-    #     # =========================
-    #     created_manual_slots = []
-
-    #     for slot in manual_slots:
-    #         start_time = slot.get("start_time")
-    #         end_time = slot.get("end_time")
-
-    #         if not start_time or not end_time:
-    #             continue
-
-    #         # 🚫 Skip FIXED slots
-    #         if (start_time, end_time) in fixed_slot_set:
-    #             continue
-
-    #         obj, created = Slot.objects.get_or_create(
-    #             counsellor_id=counsellor_user_id,   # ✅ USER ID
-    #             date=date,
-    #             start_time=start_time,
-    #             end_time=end_time,
-    #             defaults={
-    #                 "is_available": True
-    #             }
-    #         )
-
-    #         if created:
-    #             created_manual_slots.append(obj)
-
-    #     # =========================
-    #     # 🔹 3. FETCH ALL SLOTS
-    #     # =========================
-    #     # slots = Slot.objects.filter(
-    #     #     counsellor_id=counsellor_user_id,   # ✅ USER ID
-    #     #     date=date
-    #     # ).order_by("start_time")
-    #     slots = Slot.objects.filter(
-    #         counsellor_id__in=[c.user_id for c in counsellors],
-    #         date=date
-    #     ).order_by("start_time")
-        
-    #     # =========================
-    #     # 🔔 SEND NOTIFICATION TO SUPERADMIN (ASYNC)
-    #     # =========================
-
-    #     from django.db.transaction import on_commit
-    #     from django.contrib.auth import get_user_model
-    #     from counselling_slot.tasks import create_system_notification
-
-    #     User = get_user_model()
-
-    #     # Counsellor name
-    #     counsellor_name = f"{counsellor_obj.user.first_name} {counsellor_obj.user.last_name}"
-
-    #     title = "New Slots Created"
-
-    #     message = (
-    #         f"Counsellor {counsellor_name} has created slots for date {date}. "
-    #         f"Total slots: {slots.count()}."
-    #     )
-
-    #     # Get superadmins (or staff)
-    #     admin_users = User.objects.filter(is_superuser=True)  # or is_staff=True
-
-    #     for admin in admin_users:
-    #         admin_id = admin.id  # ✅ fix lambda issue
-
-    #         on_commit(lambda admin_id=admin_id: create_system_notification.delay(
-    #             admin_id,
-    #             title,
-    #             message
-    #         ))
-
-    #     return Response(
-    #         {
-    #             "message": "Slots processed successfully",
-    #             "date": date,
-
-    #             # 🔹 Return BOTH IDs (clean API)
-    #             "counsellor_id": counsellor_table_id,
-    #             "counsellor_user_id": counsellor_user_id,
-
-    #             "fixed_slots_created": fixed_created,
-    #             "new_manual_slots_created": len(created_manual_slots),
-    #             "total_slots": slots.count(),
-    #             "data": SlotCreateSerializer(slots, many=True).data
-    #         },
-    #         status=status.HTTP_201_CREATED
-    #     )
     @transaction.atomic
     def post(self, request, date, counsellor):
         """
@@ -460,10 +819,10 @@ class SlotCreateAPIView(APIView):
                         counsellor_id=counsellor_user_id,
                         date=date,
                         start_time=start_time,
-                        end_time=end_time,
+                        # end_time=end_time,
                         is_available=True
                     )
-                    for start_time, end_time in FIXED_SLOTS
+                    for start_time in FIXED_SLOTS
                 ]
 
                 Slot.objects.bulk_create(fixed_slot_objects)
@@ -471,19 +830,19 @@ class SlotCreateAPIView(APIView):
             for slot in manual_slots:
 
                 start_time = slot.get("start_time")
-                end_time = slot.get("end_time")
+                # end_time = slot.get("end_time")
 
-                if not start_time or not end_time:
+                if not start_time :
                     continue
 
-                if (start_time, end_time) in fixed_slot_set:
+                if (start_time) in fixed_slot_set:
                     continue
 
                 obj, created = Slot.objects.get_or_create(
                     counsellor_id=counsellor_user_id,
                     date=date,
                     start_time=start_time,
-                    end_time=end_time,
+                    # end_time=end_time,
                     defaults={
                         "is_available": True
                     }
@@ -499,20 +858,20 @@ class SlotCreateAPIView(APIView):
 
         for slot in manual_slots:
             start_time = slot.get("start_time")
-            end_time = slot.get("end_time")
+            # end_time = slot.get("end_time")
 
-            if not start_time or not end_time:
+            if not start_time :
                 continue
 
             # 🚫 Skip FIXED slots
-            if (start_time, end_time) in fixed_slot_set:
+            if (start_time) in fixed_slot_set:
                 continue
 
             obj, created = Slot.objects.get_or_create(
                 counsellor_id=counsellor_user_id,   # ✅ USER ID
                 date=date,
                 start_time=start_time,
-                end_time=end_time,
+                # end_time=end_time,
                 defaults={
                     "is_available": True
                 }
@@ -591,32 +950,9 @@ class SlotCreateAPIView(APIView):
             },
             status=status.HTTP_201_CREATED
         )  
+ 
+ 
         
-# API to delete a slot
-# class SlotDeleteAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     @transaction.atomic
-#     def delete(self, request, slot_id):
-#         slot = get_object_or_404(Slot, id=slot_id)
-
-#         # 🚨 Do not allow deleting if booked
-#         if Booking.objects.filter(slot=slot).exists():
-#             return Response(
-#                 {"success": False, "message": "Slot cannot be deleted because it is already booked."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         # ✅ Soft delete only
-#         slot.is_deleted = True
-#         slot.is_available = False
-#         slot.save(update_fields=["is_deleted", "is_available"])
-
-#         return Response(
-#             {"success": True, "message": "Slot deleted successfully."},
-#             status=status.HTTP_200_OK
-#         )
-
 # Add debugging to verify your delete method is being called
 class SlotDeleteAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -803,7 +1139,7 @@ class DateWiseSlotListAPIView(APIView):
             date_map[date_key]["counsellors"][user_id]["slots"].append({
                 "slot_id": slot.id,
                 "start_time": slot.start_time,
-                "end_time": slot.end_time,
+                # "end_time": slot.end_time,
                 "mode": slot.mode,
                 "is_available": slot.is_available,
                 "status": booking_status_map.get(slot.id, "available")
@@ -907,75 +1243,6 @@ class BookingCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
     
     
-    # def post(self, request):
-    #     serializer = BookingCreateSerializer(data=request.data)
-    #     serializer.is_valid(raise_exception=True)
-
-    #     student = serializer.validated_data["student_id"]
-    #     date = serializer.validated_data["date"]
-    #     slots = serializer.validated_data["slots"]
-    #     counsellors = serializer.validated_data["counsellors_data"]
-
-    #     created_bookings = []
-
-    #     with transaction.atomic():
-
-    #         for slot in slots:
-    #             for item in counsellors:
-
-    #                 booking = Booking.objects.create(
-    #                     student=student,
-    #                     slot=slot,
-    #                     date=date,
-    #                     status="booked"
-    #                 )
-
-    #                 BookingCounsellor.objects.create(
-    #                     booking=booking,
-    #                     counsellor=item["counsellor_id"],
-    #                     role=item["role"]
-    #                 )
-
-    #                 created_bookings.append({
-    #                     "booking_id": booking.id,
-    #                     "counsellor_id": item["counsellor_id"].id,
-    #                     "status": booking.status,
-    #                     "slot": {
-    #                         "id": slot.id,
-    #                         "date": slot.date,
-    #                         "start_time": slot.start_time,
-    #                         "end_time": slot.end_time,
-    #                         "mode": slot.mode,
-    #                     }
-    #                 })
-
-    #         # send email once
-    #         send_booking_created_email(student.user, slots, date)
-
-    #         student_name = f"{student.user.first_name} {student.user.last_name}"
-
-    #         title = "New Booking Created"
-
-    #         message = (
-    #             f"Student {student_name} has created a counselling slot on {date}."
-    #         )
-
-    #         admin_users = User.objects.filter(is_staff=True)
-
-    #         for admin in admin_users:
-    #             on_commit(lambda admin_id=admin.id: create_system_notification.delay(
-    #                 admin_id,
-    #                 title,
-    #                 message
-    #             ))
-
-    #     return Response(
-    #         {
-    #             "message": "Booking created successfully",
-    #             "data": created_bookings
-    #         },
-    #         status=status.HTTP_201_CREATED
-    #     ) 
     def post(self, request):
         serializer = BookingCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -1018,30 +1285,21 @@ class BookingCreateAPIView(APIView):
                         }
                     })
 
-            # =========================
-            # 📧 EMAIL
-            # =========================
-            try:
-                send_booking_created_email(student.user, slots, date)
-            except Exception as e:
-                print("❌ Email error:", str(e))
+            # send email once
+            send_booking_created_email(student.user, slots, date)
 
-            # =========================
-            # 🔔 NOTIFICATION (FIXED)
-            # =========================
             student_name = f"{student.user.first_name} {student.user.last_name}"
 
             title = "New Booking Created"
-            message = f"Student {student_name} has created a counselling slot on {date}."
+
+            message = (
+                f"Student {student_name} has created a counselling slot on {date}."
+            )
 
             admin_users = User.objects.filter(is_staff=True)
 
             for admin in admin_users:
-                admin_id = admin.id  # ✅ FIXED (capture here)
-
-                print(f"DEBUG: Sending booking notification to {admin_id}")
-
-                on_commit(lambda admin_id=admin_id: safe_notify(
+                on_commit(lambda admin_id=admin.id: create_system_notification.delay(
                     admin_id,
                     title,
                     message
@@ -1053,14 +1311,9 @@ class BookingCreateAPIView(APIView):
                 "data": created_bookings
             },
             status=status.HTTP_201_CREATED
-        )
-        
-    # def put(self, request, booking_id):
-    #     # serializer = BookingCreateSerializer(data=request.data)
-    #     serializer = BookingCreateSerializer(
-    #         data=request.data,
-    #         context={"booking_id": booking_id}
-    #     )
+        ) 
+    # def post(self, request):
+    #     serializer = BookingCreateSerializer(data=request.data)
     #     serializer.is_valid(raise_exception=True)
 
     #     student = serializer.validated_data["student_id"]
@@ -1068,70 +1321,88 @@ class BookingCreateAPIView(APIView):
     #     slots = serializer.validated_data["slots"]
     #     counsellors = serializer.validated_data["counsellors_data"]
 
-    #     try:
-    #         base_booking = Booking.objects.get(id=booking_id)
-    #     except Booking.DoesNotExist:
-    #         return Response(
-    #             {"message": "Booking not found"},
-    #             status=status.HTTP_404_NOT_FOUND
-    #         )
-
     #     created_bookings = []
+        
+    #     fixed_lead_counsellor = Counsellor.objects.get(
+    #         user__first_name="Reena",
+    #         user__last_name="Bhutada"
+    #     )
 
     #     with transaction.atomic():
-    #         # 🔥 Remove old counsellors + bookings (same student & date)
-    #         old_bookings = Booking.objects.filter(
-    #             student=base_booking.student,
-    #             date=base_booking.date
-    #         )
 
-    #         BookingCounsellor.objects.filter(
-    #             booking__in=old_bookings
-    #         ).delete()
-
-    #         old_bookings.delete()
-
-    #         # 🔥 Create new bookings
     #         for slot in slots:
-    #             booking = Booking.objects.create(
-    #                 student=student,
-    #                 slot=slot,
-    #                 date=date,
-    #                 # status="booked"
-    #                 status="rescheduled"
-    #             )
-
     #             for item in counsellors:
+
+    #                 booking = Booking.objects.create(
+    #                     student=student,
+    #                     slot=slot,
+    #                     date=date,
+    #                     status="booked"
+    #                 )
+
+    #                 if item["role"].strip().lower() == "lead":
+    #                     assigned_counsellor = fixed_lead_counsellor
+    #                 else:
+    #                     assigned_counsellor = item["counsellor_id"]
+
     #                 BookingCounsellor.objects.create(
     #                     booking=booking,
-    #                     counsellor=item["counsellor_id"],
+    #                     counsellor=assigned_counsellor,
     #                     role=item["role"]
     #                 )
 
-    #             created_bookings.append({
-    #                 "booking_id": booking.id,
-    #                 "status": booking.status,
-    #                 "slot": {
-    #                     "id": slot.id,
-    #                     "date": slot.date,
-    #                     "start_time": slot.start_time,
-    #                     "end_time": slot.end_time,
-    #                     "mode": slot.mode,
-    #                 }
-    #             })
-    #             send_booking_updated_email(
-    #                 student.user,
-    #                 slots,
-    #                 date
-    #             )
+    #                 created_bookings.append({
+    #                     "booking_id": booking.id,
+    #                     # "counsellor_id": item["counsellor_id"].id,
+    #                     "counsellor_id": assigned_counsellor.id,
+    #                     "counsellor_name": f"{assigned_counsellor.user.first_name} {assigned_counsellor.user.last_name}",
+    #                     "status": booking.status,
+    #                     "slot": {
+    #                         "id": slot.id,
+    #                         "date": slot.date,
+    #                         "start_time": slot.start_time,
+    #                         # "end_time": slot.end_time,
+    #                         "mode": slot.mode,
+    #                     }
+    #                 })
+
+    #         # =========================
+    #         # 📧 EMAIL
+    #         # =========================
+    #         try:
+    #             send_booking_created_email(student.user, slots, date)
+    #         except Exception as e:
+    #             print("❌ Email error:", str(e))
+
+    #         # =========================
+    #         # 🔔 NOTIFICATION (FIXED)
+    #         # =========================
+    #         student_name = f"{student.user.first_name} {student.user.last_name}"
+
+    #         title = "New Booking Created"
+    #         message = f"Student {student_name} has created a counselling slot on {date}."
+
+    #         admin_users = User.objects.filter(is_staff=True)
+
+    #         for admin in admin_users:
+    #             admin_id = admin.id  # ✅ FIXED (capture here)
+
+    #             print(f"DEBUG: Sending booking notification to {admin_id}")
+
+    #             on_commit(lambda admin_id=admin_id: safe_notify(
+    #                 admin_id,
+    #                 title,
+    #                 message
+    #             ))
 
     #     return Response(
     #         {
-    #             "message": "Booking updated successfully",
+    #             "message": "Booking created successfully",
     #             "data": created_bookings
     #         },
-    #         status=status.HTTP_200_OK
+    #         status=status.HTTP_201_CREATED
     #     )
+        
     
     def put(self, request, booking_id):
 
@@ -1157,7 +1428,7 @@ class BookingCreateAPIView(APIView):
                 conflict_booking = Booking.objects.filter(
                     slot__date=date,
                     slot__start_time=slot.start_time,
-                    slot__end_time=slot.end_time,
+                    # slot__end_time=slot.end_time,
                     bookingcounsellor__counsellor=counsellor
                 ).exclude(
                     status="cancelled"
@@ -1216,7 +1487,7 @@ class BookingCreateAPIView(APIView):
                         "id": slot.id,
                         "date": slot.date,
                         "start_time": slot.start_time,
-                        "end_time": slot.end_time,
+                        # "end_time": slot.end_time,
                         "mode": slot.mode,
                     }
                 })
@@ -1236,53 +1507,31 @@ class BookingCreateAPIView(APIView):
                 )
 
             # =============================
-            # RESCHEDULE LOGIC
-            # booked / rescheduled / completed
-            # =============================
-            for slot in slots:
+        # RESCHEDULE LOGIC
+        # =============================
+        for slot in slots:
 
-                # get existing counsellors
-                existing_counsellors = list(
-                    BookingCounsellor.objects.filter(booking=base_booking)
+            existing_counsellors = list(
+                BookingCounsellor.objects.filter(
+                    booking=base_booking
                 )
+            )
 
-                # ✅ ADD THIS CONDITION
-                if base_booking.status != "pending":
-                    # create cancelled history
-                    cancelled_booking = Booking.objects.create(
-                        student=base_booking.student,
-                        slot=base_booking.slot,
-                        date=base_booking.date,
-                        status="cancelled"
-                    )
+            # =====================================
+            # PENDING → UPDATE SAME BOOKING
+            # =====================================
+            if base_booking.status == "pending":
 
-                    # copy counsellors to cancelled booking
-                    for c in existing_counsellors:
-                        BookingCounsellor.objects.create(
-                            booking=cancelled_booking,
-                            counsellor=c.counsellor,
-                            role=c.role
-                        )
-
-                # update existing booking
                 base_booking.student = student
                 base_booking.slot = slot
                 base_booking.date = date
-
-                # ✅ keep status logic clean
-                if base_booking.status == "pending":
-                    base_booking.status = "booked"   # or "rescheduled" if your flow requires
-                else:
-                    base_booking.status = "rescheduled"
-
+                base_booking.status = "booked"
                 base_booking.save()
 
-                # remove old counsellors
                 BookingCounsellor.objects.filter(
                     booking=base_booking
                 ).delete()
 
-                # add counsellors
                 for item in counsellors:
                     BookingCounsellor.objects.create(
                         booking=base_booking,
@@ -1297,7 +1546,41 @@ class BookingCreateAPIView(APIView):
                         "id": slot.id,
                         "date": slot.date,
                         "start_time": slot.start_time,
-                        "end_time": slot.end_time,
+                        "mode": slot.mode,
+                    }
+                })
+
+            # =====================================
+            # BOOKED/COMPLETED → CANCEL + NEW ENTRY
+            # =====================================
+            else:
+
+                # old booking cancelled
+                base_booking.status = "cancelled"
+                base_booking.save(update_fields=["status"])
+
+                # new rescheduled booking
+                new_booking = Booking.objects.create(
+                    student=student,
+                    slot=slot,
+                    date=date,
+                    status="rescheduled"
+                )
+
+                for item in counsellors:
+                    BookingCounsellor.objects.create(
+                        booking=new_booking,
+                        counsellor=item["counsellor_id"],
+                        role=item["role"]
+                    )
+
+                created_bookings.append({
+                    "booking_id": new_booking.id,
+                    "status": new_booking.status,
+                    "slot": {
+                        "id": slot.id,
+                        "date": slot.date,
+                        "start_time": slot.start_time,
                         "mode": slot.mode,
                     }
                 })
@@ -1315,6 +1598,246 @@ class BookingCreateAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )  
+    
+    # def put(self, request, booking_id):
+
+    #     serializer = BookingCreateSerializer(
+    #         data=request.data,
+    #         context={"booking_id": booking_id}
+    #     )
+    #     serializer.is_valid(raise_exception=True)
+
+    #     student = serializer.validated_data["student_id"]
+    #     date = serializer.validated_data["date"]
+    #     slots = serializer.validated_data["slots"]
+    #     counsellors = serializer.validated_data["counsellors_data"]
+        
+    #     # =============================
+    #     # CHECK COUNSELLOR SLOT CONFLICT
+    #     # =============================
+    #     for slot in slots:
+    #         for item in counsellors:
+
+    #             if item["role"].strip().lower() == "lead":
+    #                 counsellor = fixed_lead_counsellor
+    #             else:
+    #                 counsellor = item["counsellor_id"]
+
+    #             conflict_booking = Booking.objects.filter(
+    #                 slot__date=date,
+    #                 slot__start_time=slot.start_time,
+    #                 # slot__end_time=slot.end_time,
+    #                 bookingcounsellor__counsellor=counsellor
+    #             ).exclude(
+    #                 status="cancelled"
+    #             ).exclude(
+    #                 id=booking_id   # ignore current booking
+    #             ).select_related("slot").first()
+
+    #             if conflict_booking:
+    #                 counsellor_name = f"{counsellor.user.first_name} {counsellor.user.last_name}"
+
+    #                 return Response(
+    #                     {
+    #                         "message": f"{counsellor_name} slot is already booked in another counselling session for this date."
+    #                         "Choose another slot or continue with only one counsellor."
+    #                     },
+    #                     status=status.HTTP_400_BAD_REQUEST
+    #                 )
+
+    #     try:
+    #         base_booking = Booking.objects.get(id=booking_id)
+    #     except Booking.DoesNotExist:
+    #         return Response(
+    #             {"message": "Booking not found"},
+    #             status=status.HTTP_404_NOT_FOUND
+    #         )
+
+    #     created_bookings = []
+        
+    #     fixed_lead_counsellor = Counsellor.objects.get(
+    #         user__first_name="Reena",
+    #         user__last_name="Bhutada"
+    #     )
+
+    #     with transaction.atomic():
+
+    #         # =============================
+    #         # NOT_BOOKED → BOOKED
+    #         # =============================
+    #         if base_booking.status == "not_booked":
+
+    #             slot = slots[0]
+
+    #             base_booking.student = student
+    #             base_booking.slot = slot
+    #             base_booking.date = date
+    #             base_booking.status = "booked"
+    #             base_booking.save()
+
+    #             # assign counsellors
+    #             for item in counsellors:
+    #                 if item["role"].strip().lower() == "lead":
+    #                     assigned_counsellor = fixed_lead_counsellor
+    #                 else:
+    #                     assigned_counsellor = item["counsellor_id"]
+
+    #                 BookingCounsellor.objects.create(
+    #                     booking=base_booking,
+    #                     counsellor=assigned_counsellor,
+    #                     role=item["role"]
+    #                 )
+
+    #             created_bookings.append({
+    #                 "booking_id": base_booking.id,
+    #                 "status": base_booking.status,
+    #                 "slot": {
+    #                     "id": slot.id,
+    #                     "date": slot.date,
+    #                     "start_time": slot.start_time,
+    #                     # "end_time": slot.end_time,
+    #                     "mode": slot.mode,
+    #                 }
+    #             })
+
+    #             send_booking_updated_email(
+    #                 student.user,
+    #                 slots,
+    #                 date
+    #             )
+
+    #             return Response(
+    #                 {
+    #                     "message": "Booking created successfully",
+    #                     "data": created_bookings
+    #                 },
+    #                 status=status.HTTP_200_OK
+    #             )
+
+    #         # =============================
+    #         # RESCHEDULE LOGIC
+    #         # booked / rescheduled / completed
+    #         # =============================
+    #         for slot in slots:
+
+    #             # get existing counsellors
+    #             # existing_counsellors = list(
+    #             #     BookingCounsellor.objects.filter(booking=base_booking)
+    #             # )
+
+    #             # # ✅ ADD THIS CONDITION
+    #             # if base_booking.status != "pending":
+    #             #     # create cancelled history
+    #             #     cancelled_booking = Booking.objects.create(
+    #             #         student=base_booking.student,
+    #             #         slot=base_booking.slot,
+    #             #         date=base_booking.date,
+    #             #         status="cancelled"
+    #             #     )
+
+    #             #     # copy counsellors to cancelled booking
+    #             #     for c in existing_counsellors:
+    #             #         BookingCounsellor.objects.create(
+    #             #             booking=cancelled_booking,
+    #             #             counsellor=c.counsellor,
+    #             #             role=c.role
+    #             #         )
+
+    #             # # update existing booking
+    #             # base_booking.student = student
+    #             # base_booking.slot = slot
+    #             # base_booking.date = date
+
+    #             # # ✅ keep status logic clean
+    #             # if base_booking.status == "pending":
+    #             #     base_booking.status = "booked"   # or "rescheduled" if your flow requires
+    #             # else:
+    #             #     base_booking.status = "rescheduled"
+
+    #             # base_booking.save()
+                
+    #             # get existing counsellors
+    #             existing_counsellors = list(
+    #                 BookingCounsellor.objects.filter(booking=base_booking)
+    #             )
+
+    #             # =============================
+    #             # STEP 1 → CREATE CANCELLED ENTRY FIRST
+    #             # =============================
+    #             if base_booking.status != "pending":
+
+    #                 cancelled_booking = Booking.objects.create(
+    #                     student=base_booking.student,
+    #                     slot=base_booking.slot,
+    #                     date=base_booking.date,
+    #                     status="cancelled"
+    #                 )
+
+    #                 # copy old counsellors
+    #                 for c in existing_counsellors:
+    #                     BookingCounsellor.objects.create(
+    #                         booking=cancelled_booking,
+    #                         counsellor=c.counsellor,
+    #                         role=c.role
+    #                     )
+
+    #             # =============================
+    #             # STEP 2 → UPDATE CURRENT BOOKING
+    #             # =============================
+    #             base_booking.student = student
+    #             base_booking.slot = slot
+    #             base_booking.date = date
+
+    #             if base_booking.status == "pending":
+    #                 base_booking.status = "booked"
+    #             else:
+    #                 base_booking.status = "rescheduled"
+
+    #             base_booking.save()
+
+    #             # remove old counsellors
+    #             BookingCounsellor.objects.filter(
+    #                 booking=base_booking
+    #             ).delete()
+
+    #             # add counsellors
+    #             for item in counsellors:
+    #                 if item["role"].strip().lower() == "lead":
+    #                     assigned_counsellor = fixed_lead_counsellor
+    #                 else:
+    #                     assigned_counsellor = item["counsellor_id"]
+
+    #                 BookingCounsellor.objects.create(
+    #                     booking=base_booking,
+    #                     counsellor=assigned_counsellor,
+    #                     role=item["role"]
+    #                 )
+
+    #             created_bookings.append({
+    #                 "booking_id": base_booking.id,
+    #                 "status": base_booking.status,
+    #                 "slot": {
+    #                     "id": slot.id,
+    #                     "date": slot.date,
+    #                     "start_time": slot.start_time,
+    #                     # "end_time": slot.end_time,
+    #                     "mode": slot.mode,
+    #                 }
+    #             })
+
+    #         send_booking_updated_email(
+    #             student.user,
+    #             slots,
+    #             date
+    #         )
+
+    #     return Response(
+    #         {
+    #             "message": "Booking updated successfully",
+    #             "data": created_bookings
+    #         },
+    #         status=status.HTTP_200_OK
+    #     )  
     
     
     
@@ -1418,35 +1941,26 @@ class BookingCreateAPIView(APIView):
                 continue
 
             slot_date = slot.date
-            end_time = slot.end_time
+            start_time = slot.start_time
 
-            # Handle time range like "12:30 PM - 02:30 PM"
-            if isinstance(end_time, str):
-
-                if "-" in end_time:
-                    end_time = end_time.split("-")[1].strip()
-
+            if isinstance(start_time, str):
                 try:
-                    end_time = datetime.strptime(end_time.strip(), "%I:%M %p").time()
+                    start_time = datetime.strptime(start_time.strip(), "%I:%M %p").time()
                 except ValueError:
                     try:
-                        end_time = datetime.strptime(end_time.strip(), "%H:%M:%S").time()
+                        start_time = datetime.strptime(start_time.strip(), "%H:%M:%S").time()
                     except ValueError:
-                        end_time = datetime.strptime(end_time.strip(), "%H:%M").time()
+                        start_time = datetime.strptime(start_time.strip(), "%H:%M").time()
 
-            # Combine date and time
-            end_datetime = datetime.combine(slot_date, end_time)
+            start_datetime = datetime.combine(slot_date, start_time)
+            start_datetime = ist.localize(start_datetime)
 
-            # Convert to IST timezone
-            end_datetime = ist.localize(end_datetime)
-
-            # 🔥 Auto complete 30 minutes before slot end
-            auto_complete_time = end_datetime - timedelta(minutes=30)
+            auto_complete_time = start_datetime + timedelta(hours=1, minutes=30)
 
             if now >= auto_complete_time:
                 booking.status = "completed"
                 booking.save(update_fields=["status"])
-
+                
         # =============================
         # SINGLE BOOKING
         # =============================
@@ -1516,7 +2030,7 @@ class BookingCreateAPIView(APIView):
         slot_details = {
             "date": str(booking.slot.date),
             "start_time": str(booking.slot.start_time),
-            "end_time": str(booking.slot.end_time),
+            # "end_time": str(booking.slot.end_time),
             "mode": booking.slot.mode,
         }
 
@@ -1759,10 +2273,31 @@ class SessionDashboardCountAPIView(APIView):
 
 
 FIXED_SLOTS = [
-    ("10:00 AM", "12:00 PM"),
-    ("12:00 PM", "02:00 PM"),
-    ("02:00 PM", "04:00 PM"),
-    ("04:00 PM", "06:00 PM"),
+    # ("10:00 AM", "12:00 PM"),
+    # ("12:00 PM", "02:00 PM"),
+    # ("02:00 PM", "04:00 PM"),
+    # ("04:00 PM", "06:00 PM"),
+    "08:00 AM",
+    "08:30 AM",
+    "09:00 AM",
+    "09:30 AM",
+    "10:00 AM",
+    "10:30 AM",
+    "11:00 AM",
+    "11:30 AM",
+    "12:00 PM",
+    "12:30 PM",
+    "01:00 PM",
+    "01:30 PM",
+    "02:00 PM",
+    "02:30 PM",
+    "03:00 PM",
+    "03:30 PM",
+    "04:00 PM",
+    "04:30 PM",
+    "05:00 PM",
+    "05:30 PM",
+    "06:00 PM",
 ]         
 
 class CounsellorSlotByDateAPIView(APIView):
@@ -1802,10 +2337,9 @@ class CounsellorSlotByDateAPIView(APIView):
                         counsellor_id=counsellor_user_id,
                         date=selected_date,
                         start_time=start_time,
-                        end_time=end_time,
                         is_available=True
                     )
-                    for start_time, end_time in FIXED_SLOTS
+                    for start_time in FIXED_SLOTS
                 ]
                 # Slot.objects.bulk_create(fixed_slot_objects)
                 Slot.objects.bulk_create(
@@ -1840,7 +2374,7 @@ class CounsellorSlotByDateAPIView(APIView):
             #     for booking in bookings
             # }
             booking_status_map = {
-                (booking.slot.start_time, booking.slot.end_time): booking.status
+                (booking.slot.start_time): booking.status
                 for booking in bookings
             }
 
@@ -1848,11 +2382,10 @@ class CounsellorSlotByDateAPIView(APIView):
                 {
                     "slot_id": slot.id,
                     "start_time": slot.start_time,
-                    "end_time": slot.end_time,
                     "mode": slot.mode,
                     "is_available": slot.is_available,
                     "status": booking_status_map.get(
-                        (slot.start_time, slot.end_time),
+                        slot.start_time,
                         "available"
                     )
                 }
@@ -2129,6 +2662,53 @@ class StudentBookingListAPIView(APIView):
 class CounsellorStudentBookingListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    # def auto_complete_bookings(self):
+    #     now = timezone.now()
+
+    #     bookings = Booking.objects.filter(
+    #         status="booked",
+    #         slot__isnull=False
+    #     ).select_related("slot")
+
+    #     for booking in bookings:
+
+    #         end_time = booking.slot.end_time
+
+    #         # convert string → time safely
+    #         if isinstance(end_time, str):
+    #             try:
+    #                 end_time = datetime.strptime(
+    #                     end_time,
+    #                     "%I:%M %p"
+    #                 ).time()
+    #             except ValueError:
+    #                 end_time = datetime.strptime(
+    #                     end_time,
+    #                     "%H:%M:%S"
+    #                 ).time()
+
+    #         # combine date + time
+    #         end_datetime = datetime.combine(
+    #             booking.date,
+    #             end_time
+    #         )
+
+    #         # timezone safe
+    #         end_datetime = timezone.make_aware(
+    #             end_datetime,
+    #             timezone.get_current_timezone()
+    #         )
+
+    #         if timezone.is_naive(now):
+    #             now = timezone.make_aware(
+    #                 now,
+    #                 timezone.get_current_timezone()
+    #             )
+
+    #         if now >= (end_datetime - timedelta(minutes=30)):
+    #             booking.status = "completed"
+    #             booking.save(update_fields=["status"])
+
     def auto_complete_bookings(self):
         now = timezone.now()
 
@@ -2139,32 +2719,46 @@ class CounsellorStudentBookingListAPIView(APIView):
 
         for booking in bookings:
 
-            end_time = booking.slot.end_time
+            start_time = booking.slot.start_time
 
             # convert string → time safely
-            if isinstance(end_time, str):
+            if isinstance(start_time, str):
                 try:
-                    end_time = datetime.strptime(
-                        end_time,
+                    start_time = datetime.strptime(
+                        start_time,
                         "%I:%M %p"
                     ).time()
                 except ValueError:
-                    end_time = datetime.strptime(
-                        end_time,
-                        "%H:%M:%S"
-                    ).time()
+                    try:
+                        start_time = datetime.strptime(
+                            start_time,
+                            "%H:%M:%S"
+                        ).time()
+                    except ValueError:
+                        start_time = datetime.strptime(
+                            start_time,
+                            "%H:%M"
+                        ).time()
 
-            # combine date + time
-            end_datetime = datetime.combine(
+            start_datetime = datetime.combine(
                 booking.date,
-                end_time
+                start_time
             )
 
-            # timezone safe
-            end_datetime = timezone.make_aware(
-                end_datetime,
-                timezone.get_current_timezone()
+            # Convert only if naive
+            if timezone.is_naive(start_datetime):
+                start_datetime = timezone.make_aware(
+                    start_datetime,
+                    timezone.get_current_timezone()
+                )
+
+            # auto complete after 1.5 hours
+            auto_complete_time = start_datetime + timedelta(
+                hours=1,
+                minutes=30
             )
+
+            now = timezone.now()
 
             if timezone.is_naive(now):
                 now = timezone.make_aware(
@@ -2172,9 +2766,11 @@ class CounsellorStudentBookingListAPIView(APIView):
                     timezone.get_current_timezone()
                 )
 
-            if now >= (end_datetime - timedelta(minutes=30)):
+            if now >= auto_complete_time:
                 booking.status = "completed"
                 booking.save(update_fields=["status"])
+
+    
 
     def get(self, request):
 

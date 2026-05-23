@@ -927,9 +927,18 @@ class BookHandHoldingSessionAPIView(APIView):
                 # =========================
                 # 🔹 GET SLOT
                 # =========================
+                print("Fetching slot with ID:", slot_id)
+                print(
+                    Slot.objects.filter(id=slot_id).values(
+                        "id",
+                        "is_available",
+                        "is_deleted",
+                        "is_handholding_session_available"
+                    )
+                )
                 slot = Slot.objects.select_related("counsellor").get(
                     id=slot_id,
-                    is_available=True,
+                    # is_available=True,
                     is_deleted=False
                 )
 
@@ -1009,8 +1018,19 @@ class BookHandHoldingSessionAPIView(APIView):
                 # 🔹 BLOCK SLOT
                 # =========================
                 # slot.is_available = False
-                slot.is_handholding_session_available = False
-                slot.save(update_fields=["is_handholding_session_available"])
+                # slot.is_handholding_session_available = False
+                # slot.save(update_fields=["is_handholding_session_available"])
+                updated=Slot.objects.filter(id=slot.id).update(
+                    is_handholding_session_available=False
+                )
+                
+                print("Rows Updated:", updated)
+                slot.refresh_from_db()
+
+                print(
+                    "is_handholding_session_available:",
+                    slot.is_handholding_session_available
+                )
 
                 # =========================
                 # 🔹 RESPONSE
@@ -1303,7 +1323,8 @@ class RescheduleSessionAPIView(APIView):
 
                     # Block new slot
                     new_slot.is_available = False
-                    new_slot.save(update_fields=["is_available"])
+                    new_slot.is_handholding_session_available = False
+                    new_slot.save(update_fields=["is_available", "is_handholding_session_available"])
 
                     return Response({
                         "message": "Session rescheduled successfully",
@@ -1639,27 +1660,34 @@ class HandHoldingSessionListAPIView(APIView):
         )
 
         for session in today_sessions:
-            if session.slot and session.slot.end_time:
+            if session.slot and session.slot.start_time:
 
                 # ✅ convert string → time
-                end_time_obj = datetime.strptime(session.slot.end_time, "%I:%M %p").time()
+                start_time_obj = datetime.strptime(
+                    session.slot.start_time,
+                    "%I:%M %p"
+                ).time()
 
-                # ✅ combine date + time (NAIVE)
-                session_end_datetime = datetime.combine(
+                # ✅ combine date + start time
+                session_start_datetime = datetime.combine(
                     session.session_date.date(),
-                    end_time_obj
+                    start_time_obj
                 )
 
-                # ✅ convert BOTH to naive (IMPORTANT FIX)
-                now_naive = now.replace(tzinfo=None)
+                # ✅ auto complete after 1 hour 30 minutes
+                auto_complete_time = session_start_datetime + timedelta(
+                    hours=1,
+                    minutes=30
+                )
 
                 # ✅ compare safely
-                if now_naive >= (session_end_datetime - timedelta(minutes=30)):
+                now_naive = now.replace(tzinfo=None)
+
+                if now_naive >= auto_complete_time:
                     session.status = "completed"
                     session.completed_at = now
                     session.save(update_fields=["status", "completed_at"])
-            
-            
+                    
         sessions = HandHoldingParticipantSession.objects.select_related(
             "handholding_participant__user", "slot"
         )
@@ -3327,7 +3355,7 @@ class EventCreateAPIView(APIView):
         slot = Slot.objects.select_related("counsellor").filter(
             date=event_date,
             start_time=start_time,
-            end_time=end_time,
+            # end_time=end_time,
             is_deleted=False
         ).first()
 
@@ -3340,7 +3368,7 @@ class EventCreateAPIView(APIView):
         existing_booking = Booking.objects.select_related("slot__counsellor").filter(
             slot__date=event_date,
             slot__start_time=start_time,
-            slot__end_time=end_time,
+            # slot__end_time=end_time,
             status__in=["booked", "pending", "rescheduled"]
         ).first()
 
@@ -3371,7 +3399,8 @@ class EventCreateAPIView(APIView):
                                 "counsellor_name": full_name,
                                 "email": counsellor.email,
                                 "date": event_date,
-                                "time": f"{start_time} - {end_time}"
+                                # "time": f"{start_time} - {end_time}"
+                                "time": f"{start_time} "
                             },
                             "error": "If you want to proceed with this event, please cancel the existing booking for this slot first."
                         },

@@ -2,36 +2,92 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 
+# def send_exam_approved_email(user, completed_at, description=None):
+#     """
+#     Email when user's exam is approved
+#     """
+
+#     subject = "Your Exam Has Been Approved"
+    
+#     description_text = description if description else "No additional remarks."
+
+
+#     message = f"""
+# Dear {user.first_name},
+
+# Congratulations! Your exam has been successfully reviewed and approved.
+
+# Exam Details:
+
+# Completion Date: {completed_at.strftime('%d %B %Y')}
+
+# Remarks from reviewer:
+# {description_text}
+
+# Our team will now prepare your detailed report based on your exam results.
+
+# Once the report is ready, it will be uploaded to your student portal.
+
+# If you have any questions, please feel free to contact our support team.
+
+# Best Regards  
+# Support Team
+# """
+
+#     send_mail(
+#         subject,
+#         message,
+#         settings.DEFAULT_FROM_EMAIL,
+#         [user.email],
+#         fail_silently=True
+#     )
+
 def send_exam_approved_email(user, completed_at, description=None):
     """
     Email when user's exam is approved
     """
 
-    subject = "Your Exam Has Been Approved"
-    
-    description_text = description if description else "No additional remarks."
+    from django.conf import settings
+    from django.core.mail import send_mail
 
+    subject = "Your Exam Has Been Approved"
+
+    description_text = (
+        description
+        if description
+        else "No additional remarks."
+    )
 
     message = f"""
-Dear {user.first_name},
+Dear Student,
 
 Congratulations! Your exam has been successfully reviewed and approved.
 
-Exam Details:
+________________________________________
 
-Completion Date: {completed_at.strftime('%d %B %Y')}
+Exam Details
 
-Remarks from reviewer:
+Completion Date:
+{completed_at.strftime('%d %B %Y')}
+
+Reviewer Remarks:
 {description_text}
+
+________________________________________
 
 Our team will now prepare your detailed report based on your exam results.
 
-Once the report is ready, it will be uploaded to your student portal.
+Once ready, the report will be uploaded to your student portal.
 
-If you have any questions, please feel free to contact our support team.
+________________________________________
 
-Best Regards  
-Support Team
+For any queries or assistance, feel free to contact:
+
+Call / WhatsApp:
++91 99226 95424 | +91 82080 30557
+
+Best Regards,
+Abhinav Career Scope
 """
 
     send_mail(
@@ -41,7 +97,9 @@ Support Team
         [user.email],
         fail_silently=True
     )
-    
+
+
+   
 def send_exam_rejected_email(user, rejected_at, description=None):
     """
     Email when a user's exam is rejected and sent back to in_progress

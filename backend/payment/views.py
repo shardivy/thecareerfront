@@ -62,6 +62,7 @@ class PaymentCreateAPIView(APIView):
     #     ✅ Total payment >= package price
     #     ✅ Review exists for user
     #     ✅ Review status = submitted
+    #     ✅ Booking status = completed
 
     #     ❌ Else keep locked
     #     """
@@ -93,11 +94,38 @@ class PaymentCreateAPIView(APIView):
     #     )
 
     #     # =========================
+    #     # 🎓 Student Profile
+    #     # =========================
+    #     student_profile = (
+    #         StudentProfile.objects.filter(
+    #             user=payment.user
+    #         ).first()
+    #     )
+
+    #     # =========================
+    #     # 📅 Booking Completed Check
+    #     # =========================
+    #     completed_booking = False
+
+    #     if student_profile:
+    #         completed_booking = (
+    #             Booking.objects.filter(
+    #                 student=student_profile,
+    #                 status="completed"
+    #             ).exists()
+    #         )
+
+    #     # =========================
     #     # 🔓 Unlock Condition
+    #     # Must satisfy ALL:
+    #     # - Full payment
+    #     # - Review submitted
+    #     # - Booking completed
     #     # =========================
     #     if (
     #         total_paid >= package_price
     #         and submitted_review
+    #         and completed_booking
     #     ):
 
     #         Report.objects.filter(
@@ -113,7 +141,6 @@ class PaymentCreateAPIView(APIView):
     #         ).update(
     #             report_status="received_locked"
     #         )
-
     def unlock_report_if_paid(self, payment):
         """
         Unlock report ONLY if:
@@ -123,7 +150,15 @@ class PaymentCreateAPIView(APIView):
         ✅ Booking status = completed
 
         ❌ Else keep locked
+
+        🚫 Skip report status update for College List Analysis packages
         """
+
+        # ==================================
+        # 🚫 Skip College List Analysis users
+        # ==================================
+        if payment.package and payment.package.engineering_test_analysis:
+            return
 
         from django.db.models import Sum
 
@@ -175,31 +210,24 @@ class PaymentCreateAPIView(APIView):
 
         # =========================
         # 🔓 Unlock Condition
-        # Must satisfy ALL:
-        # - Full payment
-        # - Review submitted
-        # - Booking completed
         # =========================
         if (
             total_paid >= package_price
             and submitted_review
             and completed_booking
         ):
-
             Report.objects.filter(
                 user=payment.user
             ).update(
                 report_status="received_unlocked"
             )
-
         else:
-            # 🔒 Keep locked
             Report.objects.filter(
                 user=payment.user
             ).update(
                 report_status="received_locked"
             )
-
+        
 
     # def post(self, request):
     #     serializer = PaymentCreateSerializer(
@@ -961,12 +989,24 @@ class VerifyPaymentAPIView(APIView):
                     # ======================================
                     # 🔒 LOCK USER REPORT IF PREVIOUSLY UNLOCKED
                     # ======================================
-                    Report.objects.filter(
-                        user=payment.user,
-                        report_status="received_unlocked"
-                    ).update(
-                        report_status="received_locked"
-                    )
+                    # Report.objects.filter(
+                    #     user=payment.user,
+                    #     report_status="received_unlocked"
+                    # ).update(
+                    #     report_status="received_locked"
+                    # )
+                    # College List Analysis → do nothing
+                    if payment.package and payment.package.engineering_test_analysis:
+                        pass
+
+                    # Normal counselling reports
+                    else:
+                        Report.objects.filter(
+                            user=payment.user,
+                            report_status="received_unlocked"
+                        ).update(
+                            report_status="received_locked"
+                        )
 
                     # ======================================
                     # ✅ UPDATE PREVIOUS PAYMENTS
@@ -2692,7 +2732,18 @@ class PaymentCreateByStudentAPIView(APIView):
         ✅ Full package payment completed
         ✅ Review submitted
         ✅ Booking completed
+        Skip report logic for College List Analysis packages.
         """
+        
+        # ======================================
+        # 🚫 Skip report lock/unlock for
+        # College List Analysis students
+        # ======================================
+        if (
+            payment.package
+            and payment.package.engineering_test_analysis
+        ):
+            return
 
         from django.db.models import Sum
 

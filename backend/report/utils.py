@@ -56,35 +56,103 @@ def get_completed_exam_report_data():
     return data
 
 
+# def send_report_uploaded_email(user, report):
+#     """
+#     Send email notification when report is uploaded
+#     """
+
+#     subject = "Your Report Has Been Uploaded"
+
+#     message = f"""
+# Dear {user.first_name},
+
+# Your report has been successfully uploaded.
+
+# Report Details:
+# Report ID: {report.id}
+# Upload Date: {report.uploaded_at.strftime('%d %B %Y')}
+# Report Status: {report.report_status}
+# """
+
+#     if report.report_status == "received_unlocked":
+#         message += "\nYour report is now available and unlocked."
+#     else:
+#         message += "\nYour report has been uploaded but is locked until payment is completed."
+
+#     message += """
+
+# Please login to the student portal to view your report.
+
+# Best Regards,
+# Support Team
+# """
+
+#     send_mail(
+#         subject,
+#         message,
+#         settings.DEFAULT_FROM_EMAIL,
+#         [user.email],
+#         fail_silently=True
+#     )
+
+
 def send_report_uploaded_email(user, report):
     """
     Send email notification when report is uploaded
     """
-
+    
     subject = "Your Report Has Been Uploaded"
 
+    # ==========================================
+    # REPORT STATUS TEXT
+    # ==========================================
+    if report.report_status == "received_unlocked":
+        status_text = "Received & Unlocked"
+
+        status_message = """
+The report is now available and unlocked.
+
+Please log in to the student portal to view your report.
+"""
+
+    else:
+        status_text = "Received & Locked"
+
+        status_message = """
+The report is currently locked and will be accessible after completion of your counselling session.
+
+Please log in to the student portal to view the report once the counselling session is completed.
+"""
+
+    # ==========================================
+    # EMAIL MESSAGE
+    # ==========================================
     message = f"""
-Dear {user.first_name},
+Dear Student,
 
 Your report has been successfully uploaded.
 
-Report Details:
-Report ID: {report.id}
-Upload Date: {report.uploaded_at.strftime('%d %B %Y')}
-Report Status: {report.report_status}
-"""
+________________________________________
 
-    if report.report_status == "received_unlocked":
-        message += "\nYour report is now available and unlocked."
-    else:
-        message += "\nYour report has been uploaded but is locked until payment is completed."
+Report Details
 
-    message += """
+Report ID:
+{report.id}
 
-Please login to the student portal to view your report.
+Upload Date:
+{report.uploaded_at.strftime('%d %B %Y')}
+
+Status:
+{status_text}
+
+________________________________________
+
+{status_message}
+
+________________________________________
 
 Best Regards,
-Support Team
+Abhinav Career Scope
 """
 
     send_mail(
@@ -94,3 +162,4 @@ Support Team
         [user.email],
         fail_silently=True
     )
+

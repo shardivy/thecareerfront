@@ -92,86 +92,6 @@ class StudentProfileSerializer(serializers.ModelSerializer):
         ]
         
 
-
-# class StudentListSerializer(serializers.ModelSerializer):
-#     profile = serializers.SerializerMethodField()
-#     program_package = serializers.SerializerMethodField()
-#     payment_status = serializers.SerializerMethodField()
-#     exam_status = serializers.SerializerMethodField()
-#     sessions = serializers.SerializerMethodField()
-
-#     class Meta:
-#         model = User
-#         fields = [
-#             "id",
-#             "first_name",
-#             "last_name",
-#             "email",
-#             "phone",
-#             "profile",
-#             "program_package",
-#             "exam_status",
-#             "payment_status",
-#             "sessions",
-#         ]
-
-#     def get_profile(self, obj):
-#         profile = StudentProfile.objects.filter(user=obj).first()
-#         return StudentProfileSerializer(profile).data if profile else None
-
-#     def get_program_package(self, obj):
-#         upp = UserProgramPackage.objects.filter(user=obj).first()
-#         return UserProgramPackageSerializer(upp).data if upp else None
-
-#     def get_exam_status(self, obj):
-#         upp = UserProgramPackage.objects.filter(user=obj).first()
-#         if not upp:
-#             return []
-
-#         package_exams = PackageExam.objects.filter(package=upp.package)
-
-#         exam_status_list = []
-
-#         for pe in package_exams:
-#             user_exam = UserExam.objects.filter(
-#                 user=obj,
-#                 exam=pe.exam
-#             ).first()
-
-#             exam_status_list.append({
-#                 "exam_name": pe.exam.name,
-#                 "is_mandatory": pe.is_mandatory,
-#                 "sequence_order": pe.sequence_order,
-#                 "status": user_exam.status if user_exam else "not_started",
-#                 "completed_at": user_exam.completed_at if user_exam else None
-#             })
-
-#         return exam_status_list
-
-
-#     def get_payment_status(self, obj):
-#         upp = UserProgramPackage.objects.filter(user=obj).first()
-#         if not upp:
-#             return None
-
-#         payment = (
-#             Payment.objects
-#             .filter(user=obj, package=upp.package)
-#             .order_by("-created_at")
-#             .first()
-#         )
-
-#         if not payment:
-#             return None
-
-#         return payment.status
-
-
-#     def get_sessions(self, obj):
-#         # placeholder – map with Session / Booking model later
-#         return []
-
-
 class StudentListSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source="user.first_name")
     last_name = serializers.CharField(source="user.last_name")
@@ -537,6 +457,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             return "Counselling Service Selection"
 
         return "Registration"
+
 
 class HandholdingUsersListSerializer(serializers.ModelSerializer):
     first_name = serializers.SerializerMethodField()
