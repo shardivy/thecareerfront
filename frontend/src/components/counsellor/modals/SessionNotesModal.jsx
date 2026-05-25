@@ -151,7 +151,7 @@ type:
 
     pdf.text(`Session ID: ${sessionData.id}`, 10, 40);
     pdf.text(`Student: ${sessionData.studentName}`, 10, 50);
-    pdf.text(`Counsellor: ${sessionData.counsellorName}`, 10, 60);
+    // pdf.text(`Counsellor: ${sessionData.counsellorName}`, 10, 60);
     pdf.text(`Date: ${sessionData.date}`, 10, 70);
     pdf.text(`Time: ${sessionData.time}`, 10, 80);
 

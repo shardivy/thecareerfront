@@ -427,7 +427,16 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
                 <Col span={12}>
                   <Form.Item
-                    label="Program"
+                    label={
+                      <span>
+                        Program
+                        {isEdit && (
+                          <Tooltip title="Program cannot be changed in edit mode , please delete the user and recreate if you want to change program">
+                            <InfoCircleOutlined style={{ color: "#1890ff", cursor: "pointer", marginLeft: 6 }} />
+                          </Tooltip>
+                        )}
+                      </span>
+                    }
                     name="program"
                     rules={isView ? [] : [{ required: true, message: "Please select program" }]}
                   >
@@ -436,7 +445,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                       loading={programsLoading}
                       onChange={handleProgramChange}
                       allowClear
-                      disabled={isView}
+                      disabled={isView || isEdit}
                     >
                       {programs.map((p) => (
                         <Option key={p.id} value={p.id}>
@@ -449,7 +458,16 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
 
                 <Col span={12}>
                   <Form.Item
-                    label="Counselling Services"
+                    label={
+                      <span>
+                        Counselling Services
+                        {isEdit && (
+                          <Tooltip title="Counselling service cannot be changed in edit mode , please delete the user and recreate if you want to change counselling service">
+                            <InfoCircleOutlined style={{ color: "#1890ff", cursor: "pointer", marginLeft: 6 }} />
+                          </Tooltip>
+                        )}
+                      </span>
+                    }
                     name="package"
                     rules={isView ? [] : [{ required: true, message: "Please select counselling service" }]}
                   >
@@ -457,7 +475,7 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                       placeholder={packagesLoading ? "Loading..." : "Select counselling service"}
                       loading={packagesLoading}
                       allowClear
-                      disabled={isView}
+                      disabled={isView || isEdit}
                     >
                       {packages.map((p) => (
                         <Option key={p.id} value={p.id}>

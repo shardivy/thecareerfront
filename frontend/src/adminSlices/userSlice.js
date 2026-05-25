@@ -59,6 +59,19 @@ export const updateUser = createAsyncThunk(
 );
 
 // DELETE USER
+// export const deleteUser = createAsyncThunk(
+//   "users/deleteUser",
+//   async (userId, { rejectWithValue }) => {
+//     try {
+//       await deleteUserApi(userId);
+//       return userId;
+//     } catch (error) {
+//       return rejectWithValue(error.response?.data || "Delete failed");
+//     }
+//   }
+// );
+
+/* ---------- DELETE USER ---------- */
 export const deleteUser = createAsyncThunk(
   "users/deleteUser",
   async (userId, { rejectWithValue }) => {

@@ -35,7 +35,7 @@ import {
   fetchCounsellingSessionCount,
   cancelCounsellingBooking,
   sendCounsellingReminder,
-  markCounsellingBookingCompleted 
+  markCounsellingBookingCompleted
   // deleteCounsellingBooking,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchLeadCounsellors, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
@@ -65,13 +65,13 @@ const SlotBooking = () => {
   const [pageSize, setPageSize] = useState(5);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [statsPeriod, setStatsPeriod] = useState("today"); 
+  const [statsPeriod, setStatsPeriod] = useState("today");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("create");
   const [rescheduleData, setRescheduleData] = useState(null);
   const [counsellorFilter, setCounsellorFilter] = useState(null);
-  const [activeTab, setActiveTab] = useState("booked"); 
+  const [activeTab, setActiveTab] = useState("booked");
 
   /* ================= FETCH BOOKINGS ================= */
   useEffect(() => {
@@ -199,29 +199,29 @@ const SlotBooking = () => {
   };
 
   const handleMarkCompleted = (record) => {
-  Modal.confirm({
-    title: "Mark Session as Completed",
-    content: `Are you sure you want to mark session for ${record.studentName} as completed?`,
-    okText: "Yes",
-    cancelText: "No",
-    centered: true,
+    Modal.confirm({
+      title: "Mark Session as Completed",
+      content: `Are you sure you want to mark session for ${record.studentName} as completed?`,
+      okText: "Yes",
+      cancelText: "No",
+      centered: true,
 
-    onOk: () => {
-      return dispatch(markCounsellingBookingCompleted(record.id))
-        .unwrap()
-        .then(() => {
-          message.success("Session marked as completed");
+      onOk: () => {
+        return dispatch(markCounsellingBookingCompleted(record.id))
+          .unwrap()
+          .then(() => {
+            message.success("Session marked as completed");
 
-          // refresh table + stats
-          dispatch(fetchCounsellingBookings());
-          dispatch(fetchCounsellingSessionCount(statsPeriod));
-        })
-        .catch((err) => {
-          message.error(err || "Failed to mark session completed");
-        });
-    },
-  });
-};
+            // refresh table + stats
+            dispatch(fetchCounsellingBookings());
+            dispatch(fetchCounsellingSessionCount(statsPeriod));
+          })
+          .catch((err) => {
+            message.error(err || "Failed to mark session completed");
+          });
+      },
+    });
+  };
 
   const handleSendReminder = (record) => {
     Modal.confirm({
@@ -257,7 +257,7 @@ const SlotBooking = () => {
       },
       {
         title: "User Name",
-        width: 200,
+        width: 150,
         render: (_, r) => (
           <>
             <Text strong>{r.studentName}</Text>
@@ -268,7 +268,7 @@ const SlotBooking = () => {
       },
       {
         title: "Counsellors",
-        width: 200,
+        width: 150,
         render: (_, r) =>
           r.counsellorDisplay.length ? (
             r.counsellorDisplay.map((c, i) => (
@@ -386,7 +386,7 @@ const SlotBooking = () => {
                     setIsModalOpen(true);
                   }}
                 >
-                  Reschedule
+                 Reschedule
                 </Button>
 
                 <Button
@@ -411,46 +411,46 @@ const SlotBooking = () => {
                   setIsModalOpen(true);
                 }}
               >
-                Reschedule
+                {activeTab === "booked" ? "Edit / Reschedule" : "Reschedule"}
               </Button>
 
-{(() => {
-  const sessionDate = dayjs(record.date).format("YYYY-MM-DD");
+              {(() => {
+                const sessionDate = dayjs(record.date).format("YYYY-MM-DD");
 
-  const slotStart = dayjs(
-    `${sessionDate} ${record.slot?.start_time}`,
-    "YYYY-MM-DD hh:mm A"
-  );
+                const slotStart = dayjs(
+                  `${sessionDate} ${record.slot?.start_time}`,
+                  "YYYY-MM-DD hh:mm A"
+                );
 
-  const fifteenMinutesBefore = slotStart.subtract(15, "minute");
+                const fifteenMinutesBefore = slotStart.subtract(15, "minute");
 
-  const markCompletedEnabled = dayjs().isAfter(fifteenMinutesBefore);
+                const markCompletedEnabled = dayjs().isAfter(fifteenMinutesBefore);
 
-  return (
-    (record.status === "booked" ||
-      record.status === "rescheduled") && (
-      <Button
-        type="primary"
-        disabled={!markCompletedEnabled}
-        style={{
-          backgroundColor: markCompletedEnabled
-            ? "#349304"
-            : "#d9d9d9",
-          borderColor: markCompletedEnabled
-            ? "#349304"
-            : "#d9d9d9",
-          color: markCompletedEnabled
-            ? "#fff"
-            : "rgba(0,0,0,0.25)",
-        }}
-        icon={<CheckCircleOutlined />}
-        onClick={() => handleMarkCompleted(record)}
-      >
-        Mark Completed
-      </Button>
-    )
-  );
-})()}
+                return (
+                  (record.status === "booked" ||
+                    record.status === "rescheduled") && (
+                    <Button
+                      type="primary"
+                      disabled={!markCompletedEnabled}
+                      style={{
+                        backgroundColor: markCompletedEnabled
+                          ? "#349304"
+                          : "#d9d9d9",
+                        borderColor: markCompletedEnabled
+                          ? "#349304"
+                          : "#d9d9d9",
+                        color: markCompletedEnabled
+                          ? "#fff"
+                          : "rgba(0,0,0,0.25)",
+                      }}
+                      icon={<CheckCircleOutlined />}
+                      onClick={() => handleMarkCompleted(record)}
+                    >
+                      Mark Completed
+                    </Button>
+                  )
+                );
+              })()}
 
               <Button icon={<BellOutlined />}
                 onClick={() => handleSendReminder(record)}
@@ -472,7 +472,7 @@ const SlotBooking = () => {
         },
       },
     ];
-}, [activeTab, currentPage, pageSize, dispatch, statsPeriod]);
+  }, [activeTab, currentPage, pageSize, dispatch, statsPeriod]);
 
   return (
     <div style={{ padding: "12px" }}>
@@ -619,7 +619,7 @@ const SlotBooking = () => {
             >
               <Option value="not_booked">Not Booked</Option>
               <Option value="booked">Booked</Option>
-              <Option value="completed">Completed</Option> 
+              <Option value="completed">Completed</Option>
               <Option value="pending">Pending</Option>
               <Option value="cancelled">Cancelled</Option>
             </Select>
@@ -644,7 +644,7 @@ const SlotBooking = () => {
           loading={loading}
           rowKey="key"
           size="small"
-          scroll={{ x: 1000 }}
+          scroll={{ x: "max-content" }}
           pagination={{
             current: currentPage,
             pageSize: pageSize,

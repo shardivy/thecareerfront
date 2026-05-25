@@ -22,7 +22,7 @@ import {
   markCounsellingBookingCompleted,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchPendingPaymentStudents } from "../../../adminSlices/paymentSlice";
-import { fetchReenaCounsellor,fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
+import { fetchReenaCounsellor, fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
 import { fetchSlotsByDate } from "../../../adminSlices/counsellingSlotSlice";
 
 const { Option } = Select;
@@ -158,7 +158,7 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
       slot.status === "available" || slot.status === "pending";
 
     const isBookedLike =
-      slot.status === "booked" || slot.status === "rescheduled";
+      slot.status === "booked" || slot.status === "rescheduled" || slot.status === "completed";;
 
     if (isView) {
       return selectedSlot ? slot.id === selectedSlot.id : false;
@@ -443,18 +443,18 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item label="Lead Counsellor" name="primaryCounsellor" rules={[{ required: true }]}>
-                 <Select
-  disabled={isView}
-  loading={counsellorsLoading}
-  labelInValue
-  placeholder="Select Lead Counsellor"
->
-  {leadCounsellors.map((c) => (
-    <Option key={c.id} value={c.id}>
-      {c.first_name} {c.last_name}
-    </Option>
-  ))}
-</Select>
+                  <Select
+                    disabled={isView}
+                    loading={counsellorsLoading}
+                    labelInValue
+                    placeholder="Select Lead Counsellor"
+                  >
+                    {leadCounsellors.map((c) => (
+                      <Option key={c.id} value={c.id}>
+                        {c.first_name} {c.last_name}
+                      </Option>
+                    ))}
+                  </Select>
                 </Form.Item>
               </Col>
               <Col span={12}>
@@ -487,11 +487,14 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
                       <Button
                         type={selectedSlot?.id === slot.id && slot.status === "available" ? "primary" : "default"}
                         disabled={slot.status === "booked" ||
-                          slot.status === "rescheduled" || !slot.is_available || isSlotExpired(slot)}
+                          slot.status === "rescheduled" || slot.status === "completed" || !slot.is_available || isSlotExpired(slot)}
                         onClick={() => {
                           if (
-                            (slot.status === "available" || slot.status === "pending") &&
-                            slot.is_available
+                            (slot.status === "available" ||
+                              slot.status === "pending") &&
+                            slot.status !== "completed" &&
+                            slot.is_available &&
+                            !isSlotExpired(slot)
                           ) {
                             setSelectedSlot(slot);
                           }

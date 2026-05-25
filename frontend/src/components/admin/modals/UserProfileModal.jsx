@@ -59,10 +59,10 @@ const journeySteps =
     "Payment",
     "Exam",
     "Questionnaire",
+    "Analysis Report",
     "Counselling Slot Booking",
     "Review",
     "Report",
-    "Analysis Report",
     "Full Access",
   ]
 baseJourneySteps;

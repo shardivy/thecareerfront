@@ -117,18 +117,22 @@ const SessionsHistory = () => {
     {
       title: "User Name",
       dataIndex: "studentName",
+      render: (text, record) => (
+        <div>
+          <div style={{ fontWeight: 600 }}>{record.studentName}</div>
+          <div>{record.studentEmail}</div>
+        </div>
+      ),
     },
     {
       title: "Date",
       dataIndex: "date",
       render: (date) => dayjs(date).format("DD-MM-YYYY"),
     },
-    {
-      title: "Slot Time",
-      render: (_, record) =>
-        `${dayjs(record.startTime, "HH:mm").format("hh:mm A")}`,
-
-    },
+   {
+  title: "Slot Time",
+  dataIndex: "startTime",
+},
     {
       title: "Preferred Counselling Mode",
       dataIndex: "preferred_counselling_mode",

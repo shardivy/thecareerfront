@@ -357,6 +357,21 @@ export default function StudentLayout() {
         // SLOT BOOKING AFTER QUESTIONNAIRES
         ...(!isBasicUser
           ? [
+
+             {
+          key: "/student/analysis-report",
+          icon: <FileTextFilled />,
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Analysis Report</div>
+            </div>
+          ),
+          onClick: () => {
+            navigate("/student/analysis-report");
+            setDrawerVisible(false);
+          },
+          style: { marginBottom: 18 },
+        },
               {
                 key: "/student/slot-booking",
                 icon: <ScheduleFilled />,
@@ -379,20 +394,7 @@ export default function StudentLayout() {
           : []),
 
         // ANALYSIS REPORT AFTER REVIEW
-        {
-          key: "/student/analysis-report",
-          icon: <FileTextFilled />,
-          label: (
-            <div style={{ lineHeight: "20px" }}>
-              <div>Analysis Report</div>
-            </div>
-          ),
-          onClick: () => {
-            navigate("/student/analysis-report");
-            setDrawerVisible(false);
-          },
-          style: { marginBottom: 18 },
-        },
+       
       ]
     : []),
 

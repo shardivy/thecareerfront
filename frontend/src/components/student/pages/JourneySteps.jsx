@@ -66,9 +66,10 @@ const JourneySteps = ({
     if (engineeringTestAnalysis) {
       steps.push(
         "Questionnaire",
+        "Analysis Report",
         "Counselling Slot Booking",
         "Review",
-        "Analysis Report"
+     
       );
     }
 

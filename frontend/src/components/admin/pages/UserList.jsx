@@ -476,14 +476,14 @@ const UserList = () => {
             Edit
           </Button>
 
-          {/* <Button
+          <Button
             type="default"
             danger
             icon={<DeleteOutlined />}
             onClick={() => handleDelete(record)}
           >
             Delete
-          </Button> */}
+          </Button>
         </Space>
       ),
     },

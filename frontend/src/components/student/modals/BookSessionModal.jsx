@@ -149,6 +149,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
   const isBookedLike =
     slot.status === "booked" ||
     slot.status === "rescheduled" ||
+    slot.status === "completed" ||
     !slot.is_available;
 
   if (slotFilter === "all") return true;
@@ -304,13 +305,15 @@ const filteredSlots = slotsByDate.filter((slot) => {
                       <Button
                         block
                         size="large"
-                        disabled={slot.status === "booked" ||  slot.status === "rescheduled" || !slot.is_available || isSlotExpired(slot)}
+                        disabled={slot.status === "booked" ||  slot.status === "rescheduled" ||   slot.status === "completed" || !slot.is_available ||  isSlotExpired(slot)}
                         type={selectedSlot?.id === slot.id ? "primary" : "default"} // compare objects by id
                         onClick={() => {
-                        if (
-  (slot.status === "available" || slot.status === "pending") &&  
-  !isSlotExpired(slot)  &&
-                            slot.is_available
+if (
+  (slot.status === "available" ||
+    slot.status === "pending") &&
+  slot.status !== "completed" &&
+  !isSlotExpired(slot) &&
+  slot.is_available
 ) {
   setSelectedSlot(slot);
 }

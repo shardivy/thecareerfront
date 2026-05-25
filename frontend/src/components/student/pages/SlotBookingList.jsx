@@ -86,13 +86,23 @@ const isReportAvailable =
   const mappedSessions = sessions.map((s) => ({
     ...s,
     key: s.id,
+    // counsellorsList: Array.isArray(s.counsellors)
+    //   ? s.counsellors.map((c) => ({
+    //     id: c.counsellor?.id,
+    //     name: `${c.counsellor?.first_name || ""} ${c.counsellor?.last_name || ""}`,
+    //     role: c.role,
+    //   }))
+    //   : [],
+
     counsellorsList: Array.isArray(s.counsellors)
-      ? s.counsellors.map((c) => ({
+  ? s.counsellors
+      .filter((c) => c.role !== "assistant") // hide assistant counsellor
+      .map((c) => ({
         id: c.counsellor?.id,
         name: `${c.counsellor?.first_name || ""} ${c.counsellor?.last_name || ""}`,
         role: c.role,
       }))
-      : [],
+  : [],
     mode: s.preferred_counselling_mode
       ? s.preferred_counselling_mode.charAt(0).toUpperCase() + s.preferred_counselling_mode.slice(1)
       : "N/A",
@@ -256,7 +266,7 @@ const isReportAvailable =
               <Text type="colorTextSecondary">
                 Counselling sessions are currently unavailable.
                 <br />
-                You will be able to book a slot once your report is unlocked.
+                You will be able to book a slot once your report is uploaded.
               </Text>
             }
           />
