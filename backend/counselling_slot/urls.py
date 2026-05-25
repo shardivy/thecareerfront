@@ -1,6 +1,6 @@
 from django.urls import path
 
-from counselling_slot.views import AddCounsellorAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CancelBookingAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorMonthAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SendReminderAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
+from counselling_slot.views import AddCounsellorAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CancelBookingAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorMonthAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, ReenaCounsellorAPIView, SendReminderAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
 
 
 urlpatterns = [
@@ -26,6 +26,11 @@ urlpatterns = [
     # ==================== New Updates Below ======================================================    
     
     path("counsellors/", CounsellorListAPIView.as_view(), name="counsellor-list"),
+    path(
+    "reena-bhutada-counsellor/",
+    ReenaCounsellorAPIView.as_view(),
+    name="reena-bhutada-counsellor"
+),
     path("slots/create/", SlotCreateAPIView.as_view(), name="create-slot"),
     path("slots/<str:date>/<int:counsellor>/",SlotCreateAPIView.as_view(), name="counsellor-slots"),
     path("slots/<int:slot_id>/",SlotDeleteAPIView.as_view(), name="delete-slot"),

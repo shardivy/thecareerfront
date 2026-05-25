@@ -132,7 +132,8 @@ def get_description(user, action, instance):
         return f"{student_name} made a payment of ₹{instance.amount}"
 
     if action == "update":
-        return None  # ❌ Skip update logs
+        # return None  
+        return f"{get_user_name(user, instance)} updated {model}"
 
     return None
 

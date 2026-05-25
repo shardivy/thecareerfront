@@ -28,6 +28,11 @@ class Lead(models.Model):
     specialization = models.CharField(max_length=100, blank=True, null=True)
     stream = models.CharField(max_length=100, blank=True, null=True)
     program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
+    # programs = models.ManyToManyField(
+    #     Program,
+    #     blank=True,
+    #     related_name="leads"
+    # )
     source = models.CharField(max_length=20, blank=True, null=True, choices=SOURCE_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='enquiry')
     date = models.DateField(blank=True, null=True)

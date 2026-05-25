@@ -612,6 +612,25 @@ class CompletedExamReportStudentIDAPIView(APIView):
                 except Exception:
                     file_url = None
                     file_name = None
+                    
+                    
+            # ==========================================
+            # 🔹 ENGINEERING TEST ANALYSIS CONDITION
+            # ==========================================
+            if getattr(student_profile, "engineering_test_analysis", False):
+
+                college_analysis = (
+                    CollegeListAnalysis.objects
+                    .filter(
+                        user=user,
+                        status="completed"
+                    )
+                    .first()
+                )
+
+                # If engineering analysis is true but college analysis not completed
+                if not college_analysis:
+                    continue
 
             # ==========================================
             # 🔹 RESPONSE DATA
@@ -1593,14 +1612,144 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 
 
 
+# class EngineeringReportUploadAPIView(APIView):
+#     """
+#     Upload or replace a report file.
+
+#     Conditions:
+#     1️⃣ CollegeListAnalysis status must be 'completed'
+#     2️⃣ If latest payment is fully_paid → report received_unlocked
+#     3️⃣ If partial_paid or no payment → report received_locked
+#     """
+
+#     permission_classes = [IsAuthenticated]
+
+#     def handle_upload(self, request, report_id):
+
+#         report = get_object_or_404(Report, id=report_id)
+#         user = report.user
+
+#         # ------------------------------------
+#         # CHECK EXAM EXISTS
+#         # ------------------------------------
+#         # if not report.exam:
+#         #     return Response(
+#         #         {"message": "Exam not linked with this report"},
+#         #         status=status.HTTP_400_BAD_REQUEST
+#         #     )
+
+#         # exam = report.exam
+
+#         # ------------------------------------
+#         # CHECK COLLEGE ANALYSIS STATUS
+#         # ------------------------------------
+#         college_analysis = CollegeListAnalysis.objects.filter(
+#             user=user
+#         ).order_by("-created_at").first()
+
+#         if not college_analysis or college_analysis.status != "completed":
+#             return Response(
+#                 {   
+#                     "message": "College list analysis is not completed. Report upload not allowed."
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ------------------------------------
+#         # FILE VALIDATION
+#         # ------------------------------------
+#         file_path = request.FILES.get("file_path")
+
+#         # Only require file for POST (new upload)
+#         if request.method == "POST" and not file_path:
+#             return Response(
+#                 {"message": "Report file is required"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ------------------------------------
+#         # GET LATEST PAYMENT
+#         # ------------------------------------
+#         latest_payment = (
+#             Payment.objects
+#             .filter(user=user)
+#             .order_by('-created_at')
+#             .first()
+#         )
+
+#         # ------------------------------------
+#         # REPORT STATUS LOGIC
+#         # ------------------------------------
+#         report_status = "received_locked"
+
+#         if latest_payment and latest_payment.status == "fully_paid":
+#             report_status = "received_unlocked"
+
+#         # ------------------------------------
+#         # SAVE REPORT
+#         # ------------------------------------
+#         if file_path:
+#             report.file_path = file_path
+#         report.uploaded_by = request.user
+#         report.uploaded_at = timezone.now()
+#         report.report_status = report_status
+#         report.save()
+
+#         # ------------------------------------
+#         # SEND EMAIL
+#         # ------------------------------------
+#         send_report_uploaded_email(user, report)
+
+#         # ------------------------------------
+#         # CREATE BOOKING IF NOT EXISTS
+#         # ------------------------------------
+#         student_profile = StudentProfile.objects.filter(user=user).first()
+
+#         created = False
+
+#         # if student_profile:
+#         #     booking, created = Booking.objects.get_or_create(
+#         #         student=student_profile,
+#         #         defaults={"status": "not_booked"}
+#         #     )
+#         if student_profile:
+#             booking = Booking.objects.filter(
+#                 student=student_profile
+#             ).first()
+
+#             if not booking:
+#                 booking = Booking.objects.create(
+#                     student=student_profile,
+#                     status="not_booked"
+#                 )
+#                 created = True
+
+#         return Response(
+#             {
+#                 "message": "Report uploaded successfully",
+#                 "report_id": report.id,
+#                 "uploaded_at": report.uploaded_at,
+#                 "report_status": report.report_status,
+#                 "payment_status": latest_payment.status if latest_payment else None,
+#                 "college_analysis_status": college_analysis.status,
+#                 "booking_created": created if student_profile else False
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
+#     def post(self, request, report_id):
+#         return self.handle_upload(request, report_id)
+
+#     def put(self, request, report_id):
+#         return self.handle_upload(request, report_id)
+
 class EngineeringReportUploadAPIView(APIView):
     """
     Upload or replace a report file.
 
-    Conditions:
-    1️⃣ CollegeListAnalysis status must be 'completed'
-    2️⃣ If latest payment is fully_paid → report received_unlocked
-    3️⃣ If partial_paid or no payment → report received_locked
+    Condition:
+    ✅ CollegeListAnalysis status must be completed
+    ✅ Report status always received_unlocked
     """
 
     permission_classes = [IsAuthenticated]
@@ -1611,17 +1760,6 @@ class EngineeringReportUploadAPIView(APIView):
         user = report.user
 
         # ------------------------------------
-        # CHECK EXAM EXISTS
-        # ------------------------------------
-        # if not report.exam:
-        #     return Response(
-        #         {"message": "Exam not linked with this report"},
-        #         status=status.HTTP_400_BAD_REQUEST
-        #     )
-
-        # exam = report.exam
-
-        # ------------------------------------
         # CHECK COLLEGE ANALYSIS STATUS
         # ------------------------------------
         college_analysis = CollegeListAnalysis.objects.filter(
@@ -1630,7 +1768,7 @@ class EngineeringReportUploadAPIView(APIView):
 
         if not college_analysis or college_analysis.status != "completed":
             return Response(
-                {   
+                {
                     "message": "College list analysis is not completed. Report upload not allowed."
                 },
                 status=status.HTTP_400_BAD_REQUEST
@@ -1641,7 +1779,6 @@ class EngineeringReportUploadAPIView(APIView):
         # ------------------------------------
         file_path = request.FILES.get("file_path")
 
-        # Only require file for POST (new upload)
         if request.method == "POST" and not file_path:
             return Response(
                 {"message": "Report file is required"},
@@ -1649,31 +1786,17 @@ class EngineeringReportUploadAPIView(APIView):
             )
 
         # ------------------------------------
-        # GET LATEST PAYMENT
-        # ------------------------------------
-        latest_payment = (
-            Payment.objects
-            .filter(user=user)
-            .order_by('-created_at')
-            .first()
-        )
-
-        # ------------------------------------
-        # REPORT STATUS LOGIC
-        # ------------------------------------
-        report_status = "received_locked"
-
-        if latest_payment and latest_payment.status == "fully_paid":
-            report_status = "received_unlocked"
-
-        # ------------------------------------
         # SAVE REPORT
         # ------------------------------------
         if file_path:
             report.file_path = file_path
+
         report.uploaded_by = request.user
         report.uploaded_at = timezone.now()
-        report.report_status = report_status
+
+        # ALWAYS UNLOCK
+        report.report_status = "received_unlocked"
+
         report.save()
 
         # ------------------------------------
@@ -1688,11 +1811,6 @@ class EngineeringReportUploadAPIView(APIView):
 
         created = False
 
-        # if student_profile:
-        #     booking, created = Booking.objects.get_or_create(
-        #         student=student_profile,
-        #         defaults={"status": "not_booked"}
-        #     )
         if student_profile:
             booking = Booking.objects.filter(
                 student=student_profile
@@ -1711,7 +1829,6 @@ class EngineeringReportUploadAPIView(APIView):
                 "report_id": report.id,
                 "uploaded_at": report.uploaded_at,
                 "report_status": report.report_status,
-                "payment_status": latest_payment.status if latest_payment else None,
                 "college_analysis_status": college_analysis.status,
                 "booking_created": created if student_profile else False
             },
@@ -1722,8 +1839,7 @@ class EngineeringReportUploadAPIView(APIView):
         return self.handle_upload(request, report_id)
 
     def put(self, request, report_id):
-        return self.handle_upload(request, report_id)
-    
+        return self.handle_upload(request, report_id)  
     
 # ======================= Review APIView =======================
 

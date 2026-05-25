@@ -2820,26 +2820,6 @@ class AdminUserListAPIView(APIView):
             "users": data
         }, status=200)
         
-        
-# class StudentListAPIView(APIView):
-#     """
-#     Returns a list of users with the 'student' role 
-#     """
-#     permission_classes = [IsAdmin  | IsSuperAdmin]
-
-#     def get(self, request):
-#         # Filter users with role 'student'
-#         students = User.objects.filter(role__name='student')  # adjust field name if needed
-#         serializer = UserSerializer(students, many=True)
-#         return Response(
-#             {
-#                 "success": True,
-#                 "data": serializer.data,
-#                 "message": "List of student users"
-#             },
-#             status=status.HTTP_200_OK
-#         )
-
       
 class StudentListAPIView(APIView):
     """

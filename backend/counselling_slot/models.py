@@ -34,7 +34,12 @@ class Slot(models.Model):
 
     class Meta:
         db_table = "slots"
-        unique_together = ("counsellor", "date", "start_time", "end_time")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["counsellor", "date", "start_time"],
+                name="unique_counsellor_date_start_time"
+            )
+        ]
         
     def delete(self, using=None, keep_parents=False):
         """Override delete to only soft delete"""
