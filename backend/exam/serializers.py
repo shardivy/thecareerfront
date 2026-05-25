@@ -255,7 +255,7 @@ class UserExamListSerializer(serializers.ModelSerializer):
         if not hasattr(obj, "_upp_cache"):
             obj._upp_cache = UserProgramPackage.objects.filter(
                 user=obj.user
-            ).select_related("program", "package").first()
+            ).select_related("program", "package").order_by("-id").first()
         return obj._upp_cache
 
     # def get_program_id(self, obj):
