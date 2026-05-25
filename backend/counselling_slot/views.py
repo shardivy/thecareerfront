@@ -1507,15 +1507,22 @@ class BookingCreateAPIView(APIView):
                 )
 
             # =============================
-        # RESCHEDULE LOGIC
-        # =============================
-        for slot in slots:
+            # RESCHEDULE LOGIC
+            # =============================
+            new_slot = slots[0]
 
-            existing_counsellors = list(
-                BookingCounsellor.objects.filter(
-                    booking=base_booking
-                )
+            is_slot_changed = (
+                base_booking.date != date
+                or base_booking.slot_id != new_slot.id
             )
+            
+            for slot in slots:
+
+                existing_counsellors = list(
+                    BookingCounsellor.objects.filter(
+                        booking=base_booking
+                    )
+                )
 
             # =====================================
             # PENDING → UPDATE SAME BOOKING
@@ -1553,7 +1560,7 @@ class BookingCreateAPIView(APIView):
             # =====================================
             # BOOKED/COMPLETED → CANCEL + NEW ENTRY
             # =====================================
-            else:
+            elif is_slot_changed:
 
                 # old booking cancelled
                 base_booking.status = "cancelled"
@@ -1582,6 +1589,34 @@ class BookingCreateAPIView(APIView):
                         "date": slot.date,
                         "start_time": slot.start_time,
                         "mode": slot.mode,
+                    }
+                })
+                
+            else:
+                # Only counsellor changed → keep same booking
+
+                base_booking.student = student
+                base_booking.save()
+
+                BookingCounsellor.objects.filter(
+                    booking=base_booking
+                ).delete()
+
+                for item in counsellors:
+                    BookingCounsellor.objects.create(
+                        booking=base_booking,
+                        counsellor=item["counsellor_id"],
+                        role=item["role"]
+                    )
+
+                created_bookings.append({
+                    "booking_id": base_booking.id,
+                    "status": base_booking.status,
+                    "slot": {
+                        "id": base_booking.slot.id,
+                        "date": base_booking.slot.date,
+                        "start_time": base_booking.slot.start_time,
+                        "mode": base_booking.slot.mode,
                     }
                 })
 

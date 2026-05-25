@@ -772,7 +772,25 @@ class AddUserAPIView(APIView):
                 {"message": "Something went wrong", "error": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+            
+    def delete(self, request, id):
+        profile = get_object_or_404(
+            StudentProfile.objects.select_related("user"),
+            id=id
+        )
 
+        user = profile.user
+        user_id = user.id
+
+        user.delete()
+
+        return Response(
+            {
+                "message": "Student deleted successfully",
+                "user_id": user_id
+            },
+            status=status.HTTP_200_OK
+        )
 # class AddUserAPIView(APIView):
 
 #     permission_classes = [IsAuthenticated]

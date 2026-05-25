@@ -2122,32 +2122,63 @@ class SubmitReviewAPIView(APIView):
         # =========================
         # 🔒 DEFAULT REPORT STATUS
         # =========================
-        report_status = "received_locked"
+        # report_status = "received_locked"
 
+        # # =========================
+        # # 🔓 UNLOCK REPORT ONLY IF:
+        # # ✅ Payment fully paid
+        # # ✅ Review submitted
+        # # ✅ Booking completed
+        # # =========================
+        # if (
+        #     latest_payment
+        #     and latest_payment.status == "fully_paid"
+        #     and review.review_status == "submitted"
+        #     and latest_booking
+        #     and latest_booking.status == "completed"
+        # ):
+        #     report_status = "received_unlocked"
+
+        # # =========================
+        # # 📄 UPDATE REPORT STATUS
+        # # =========================
+        # Report.objects.filter(
+        #     user=user
+        # ).update(
+        #     report_status=report_status
+        # )
+        
         # =========================
-        # 🔓 UNLOCK REPORT ONLY IF:
-        # ✅ Payment fully paid
-        # ✅ Review submitted
-        # ✅ Booking completed
+        # REPORT STATUS LOGIC
+        # Skip for engineering analysis students
         # =========================
-        if (
+        report_status = None
+
+        is_engineering_analysis = (
             latest_payment
-            and latest_payment.status == "fully_paid"
-            and review.review_status == "submitted"
-            and latest_booking
-            and latest_booking.status == "completed"
-        ):
-            report_status = "received_unlocked"
-
-        # =========================
-        # 📄 UPDATE REPORT STATUS
-        # =========================
-        Report.objects.filter(
-            user=user
-        ).update(
-            report_status=report_status
+            and latest_payment.package
+            and latest_payment.package.engineering_test_analysis
         )
 
+        if not is_engineering_analysis:
+
+            report_status = "received_locked"
+
+            if (
+                latest_payment
+                and latest_payment.status == "fully_paid"
+                and review.review_status == "submitted"
+                and latest_booking
+                and latest_booking.status == "completed"
+            ):
+                report_status = "received_unlocked"
+
+            Report.objects.filter(
+                user=user
+            ).update(
+                report_status=report_status
+            )
+            
         # =========================
         # 📤 RESPONSE
         # =========================
