@@ -97,8 +97,11 @@ const isReportAvailable =
       ? s.preferred_counselling_mode.charAt(0).toUpperCase() + s.preferred_counselling_mode.slice(1)
       : "N/A",
     rawMode: s.preferred_counselling_mode || "offline",
-    time: s.start_time && s.end_time ? `${s.start_time} - ${s.end_time}` : "N/A",
-    date: s.slot_date || "N/A",
+    // time: s.start_time && s.end_time ? `${s.start_time} - ${s.end_time}` : "N/A",
+    time: s.start_time || "N/A",
+     date: s.slot_date
+    ? dayjs(s.slot_date).format("DD MMM YYYY")
+    : "N/A",
     status: s.status || "not_booked",
     zoomLink: s.meeting_link || "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
   }));
@@ -385,7 +388,7 @@ const isReportAvailable =
                         <div key={c.id}>
                           <Text strong>{c.name}</Text>
                           <br />
-                          <Tag>{c.role}</Tag>
+                          <Tag>Counsellor</Tag>
                         </div>
                       ))
                     ) : (

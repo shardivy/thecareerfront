@@ -64,6 +64,25 @@ import SeminarWebinarManagement from "./components/admin/pages/SeminarWebinarMan
 import Advertisement from "./components/admin/pages/Advertisement";
 import HhProfile from "./components/hh-users/pages/HhProfile";
 import HhPaymentPage from "./components/hh-users/pages/HhPaymentPage";
+import ProgramSelection from "./components/student/pages/ProgramSelection";
+// ----------- Landing pages-------- 
+import LawAdmission from "./components/landing-pages/LawAdmission";
+import PgCounselling from "./components/landing-pages/PgCounselling";
+import MedicalNeetGroup from "./components/landing-pages/MedicalNeetGroup";
+import MedicalEndToEnd from "./components/landing-pages/MedicalEndToEnd";
+import EngineeringPaidGroup from "./components/landing-pages/EngineeringPaidGroup";
+import EngAdmissionSession from "./components/landing-pages/EngAdmissionSession";
+import EngOciNri from "./components/landing-pages/EngOciNri";
+import EleventhAdmission from "./components/landing-pages/EleventhAdmission";
+import AbroadCounselling from "./components/landing-pages/AbroadCounselling";
+import AdmissionCounselling from "./components/landing-pages/AdmissionCounselling";
+import BBAAdmission from "./components/landing-pages/BBAAdmission";
+import HandHolding from "./components/landing-pages/HandHolding";
+import DesignArchPaidGroup from "./components/landing-pages/DesignArchPaidGroup";
+import Apti812 from "./components/landing-pages/Apti812";
+import Apti89 from "./components/landing-pages/Apti89";
+import Apti10 from "./components/landing-pages/Apti10";
+import Apti1112 from "./components/landing-pages/Apti1112";
 
 
 
@@ -79,6 +98,7 @@ const App = () => {
         {/* <Route path="/" element={<StudentLogin />} /> */}
         {/* <Route path="/forgot_password" element={<Forgot_Password />} /> 
         <Route path="/reset_password" element={<Reset_Password />} />  */}
+        <Route path="program-selection" element={<ProgramSelection />} />
 
 
           {/* =================== ADMIN AUTH ROUTES ===================== */}
@@ -91,6 +111,25 @@ const App = () => {
         <Route path="/welcome-enquiry" element={<WelcomeEnquiry />} />
         <Route path="/counselling-service" element={<AptitudeDetails />} />
         <Route path="/register-details" element={<RegisterDetails />} />
+
+        /// ===================== LANDING PAGE ROUTES =====================
+        <Route path="/law-service" element={<LawAdmission />} />
+        <Route path="/pg-counselling-service" element={<PgCounselling />} /> 
+        <Route path="/medical-end-to-end-counselling" element={<MedicalEndToEnd />} /> 
+        <Route path="/medical-paid-group-service" element={<MedicalNeetGroup />} /> 
+        <Route path="/engineering-paid-group-service" element={<EngineeringPaidGroup />} />
+        <Route path="/engineering-end-to-end-counselling" element={<EngAdmissionSession />} />
+        <Route path="/engineering-oci-nri-paid-group-service" element={<EngOciNri />} />
+        <Route path="/11th-admission-free-group-service" element={<EleventhAdmission />} />
+        <Route path="/abroad-counselling-service" element={<AbroadCounselling />} />
+        <Route path="/admission-counselling-service" element={<AdmissionCounselling />} />
+        <Route path="/bba-paid-group-service" element={<BBAAdmission />} />
+        <Route path="/handholding-program-service" element={<HandHolding />} />
+        <Route path="/design-arch-paid-group-service" element={<DesignArchPaidGroup />} />
+        <Route path="/8-12-aptitude-service" element={<Apti812 />} />
+        <Route path="/8-9-aptitude-service" element={<Apti89 />} />
+        <Route path="/10th-aptitude-service" element={<Apti10 />} />
+        <Route path="/11-12-aptitude-service" element={<Apti1112 />} />
 
         {/* ===================== Handholding ROUTES ===================== */}
         <Route path="/hhlogin" element={<HHLogin />} />

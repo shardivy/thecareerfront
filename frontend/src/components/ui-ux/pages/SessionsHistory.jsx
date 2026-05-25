@@ -46,9 +46,9 @@ const SessionsHistory = () => {
   const { students, studentsLoading, notes } = useSelector(
     (state) => state.counsellors
   );
-const { studentProfile, loading: profileLoading } = useSelector(
-  (state) => state.profile
-);
+  const { studentProfile, loading: profileLoading } = useSelector(
+    (state) => state.profile
+  );
 
 
   useEffect(() => {
@@ -57,7 +57,7 @@ const { studentProfile, loading: profileLoading } = useSelector(
 
   const tableData = (students || []).map((item) => {
     const [startTime, endTime] = item.slot_time?.split(" - ") || ["", ""];
-     const preferredMode = item.preferred_counselling_mode || "";
+    const preferredMode = item.preferred_counselling_mode || "";
 
     return {
       ...item, // keep all original fields for modal
@@ -65,11 +65,11 @@ const { studentProfile, loading: profileLoading } = useSelector(
       studentName: item.student_name,
       studentEmail: item.student_email,
       studentPhone: item.student_phone,
-      counsellorName: item.counsellor_name,
+      // counsellorName: item.counsellor_name,
+      counsellorList: item.counsellor_name || [],
       date: item.date,
-      startTime,
-      endTime,
-   preferred_counselling_mode: preferredMode,
+      startTime: item.slot_time || "",
+      preferred_counselling_mode: preferredMode,
 
       status: item.status,
     };
@@ -88,22 +88,22 @@ const { studentProfile, loading: profileLoading } = useSelector(
   const [selectedSession, setSelectedSession] = useState(null);
 
   /* ================= FILTER LOGIC ================= */
-const filteredSessions = tableData.filter((session) => {
-  const matchesSearch = session.studentName
-    .toLowerCase()
-    .includes(searchText.toLowerCase());
+  const filteredSessions = tableData.filter((session) => {
+    const matchesSearch = session.studentName
+      .toLowerCase()
+      .includes(searchText.toLowerCase());
 
-  const matchesDate = filterDate
-    ? dayjs(session.date).format("YYYY-MM-DD") ===
+    const matchesDate = filterDate
+      ? dayjs(session.date).format("YYYY-MM-DD") ===
       dayjs(filterDate).format("YYYY-MM-DD")
-    : true;
+      : true;
 
-  const matchesMode = filterMode
-    ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
-    : true;
+    const matchesMode = filterMode
+      ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
+      : true;
 
-  return matchesSearch && matchesDate && matchesMode;
-});
+    return matchesSearch && matchesDate && matchesMode;
+  });
 
   /* ================= TABLE COLUMNS ================= */
   const columns = [
@@ -126,21 +126,20 @@ const filteredSessions = tableData.filter((session) => {
     {
       title: "Slot Time",
       render: (_, record) =>
-        `${dayjs(record.startTime, "HH:mm").format("hh:mm A")} - 
-         ${dayjs(record.endTime, "HH:mm").format("hh:mm A")}`,
+        `${dayjs(record.startTime, "HH:mm").format("hh:mm A")}`,
 
     },
-   {
-  title: "Preferred Counselling Mode",
-  dataIndex: "preferred_counselling_mode",
-  key: "preferred_counselling_mode",
-  render: (mode) => {
-    if (!mode) return "-";
-    const displayMode = mode.toLowerCase() === "online" ? "Online" : "Offline";
-    const color = displayMode === "Online" ? "green" : "blue";
-    return <Tag color={color}>{displayMode}</Tag>;
-  },
-},
+    {
+      title: "Preferred Counselling Mode",
+      dataIndex: "preferred_counselling_mode",
+      key: "preferred_counselling_mode",
+      render: (mode) => {
+        if (!mode) return "-";
+        const displayMode = mode.toLowerCase() === "online" ? "Online" : "Offline";
+        const color = displayMode === "Online" ? "green" : "blue";
+        return <Tag color={color}>{displayMode}</Tag>;
+      },
+    },
     {
       title: "Actions",
       render: (_, record) => (
@@ -230,40 +229,40 @@ const filteredSessions = tableData.filter((session) => {
 
         {/* ================= TABLE ================= */}
         <div style={{ overflowX: "auto" }}>
-       <Table
-  columns={columns}
-  dataSource={tableData.filter((session) => {
-    const matchesSearch = session.studentName
-      .toLowerCase()
-      .includes(searchText.toLowerCase());
+          <Table
+            columns={columns}
+            dataSource={tableData.filter((session) => {
+              const matchesSearch = session.studentName
+                .toLowerCase()
+                .includes(searchText.toLowerCase());
 
-    const matchesDate = filterDate
-      ? dayjs(session.date).format("YYYY-MM-DD") ===
-        dayjs(filterDate).format("YYYY-MM-DD")
-      : true;
+              const matchesDate = filterDate
+                ? dayjs(session.date).format("YYYY-MM-DD") ===
+                dayjs(filterDate).format("YYYY-MM-DD")
+                : true;
 
-    const matchesMode = filterMode
-      ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
-      : true;
+              const matchesMode = filterMode
+                ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
+                : true;
 
-    return matchesSearch && matchesDate && matchesMode;
-  })}
-  rowKey="id"
-  loading={studentsLoading}
-  pagination={{
-    current: pagination.current,
-    pageSize: pagination.pageSize,
-    showSizeChanger: true,
-    pageSizeOptions: [5, 10, 20, 50],
-    onChange: (page, pageSize) => {
-      setPagination({
-        current: page,
-        pageSize: pageSize,
-      });
-    },
-  }}
-  scroll={{ x: 800 }}
-/>
+              return matchesSearch && matchesDate && matchesMode;
+            })}
+            rowKey="id"
+            loading={studentsLoading}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: [5, 10, 20, 50],
+              onChange: (page, pageSize) => {
+                setPagination({
+                  current: page,
+                  pageSize: pageSize,
+                });
+              },
+            }}
+            scroll={{ x: 800 }}
+          />
         </div>
       </Card>
 

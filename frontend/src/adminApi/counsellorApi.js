@@ -13,6 +13,15 @@ import axiosInstance from "../axiosInstance";
 //   return response.data;
 // };
 
+//* Fetch Reena Bhutada's counselling slots 
+export const fetchReenaCounsellorApi = async () => {
+  const response = await axiosInstance.get(
+    "/counselling_slot/reena-bhutada-counsellor/"
+  );
+
+  return response.data;
+};
+
 export const fetchLeadCounsellorsApi = async () => {
   const response = await axiosInstance.get("/counselling_slot/counsellors/");
   return response.data;

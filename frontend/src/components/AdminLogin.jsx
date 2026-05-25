@@ -62,13 +62,23 @@ const AdminLogin = () => {
           navigate("/student/dashboard");
           break;
 
+        // case "student":
+        //   if (complete_profile) {
+        //     navigate("/student/dashboard");
+        //   } else {
+        //     navigate("/student/student-profile");
+        //   }
+        //   break;
+
         case "student":
-          if (complete_profile) {
-            navigate("/student/dashboard");
-          } else {
-            navigate("/student/student-profile");
-          }
-          break;
+  if (complete_profile) {
+    // 🔥 First go to program selection
+    navigate("/program-selection");
+  } else {
+    // incomplete profile
+    navigate("/student/student-profile");
+  }
+  break;
 
         case "handholding":
           navigate("/handholding/dashboard");

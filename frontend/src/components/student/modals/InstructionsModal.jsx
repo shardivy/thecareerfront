@@ -13,12 +13,18 @@ import {
   FormOutlined,
   CheckCircleOutlined,
   GlobalOutlined,
+  PictureOutlined,
 } from "@ant-design/icons";
 
 const { Title, Text, Link } = Typography;
 const { useToken } = theme;
 
-const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) => {
+const InstructionsModal = ({
+  open,
+  onClose,
+  showStartTestButton,
+  onConfirm,
+}) => {
   const { token } = useToken();
 
   const handleStartTest = () => {
@@ -29,6 +35,7 @@ const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) =>
         "https://www.careerfutura.com/ba/business-associate#",
         "_blank"
       );
+
       if (typeof onConfirm === "function") {
         onConfirm();
       }
@@ -40,10 +47,17 @@ const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) =>
       open={open}
       onCancel={onClose}
       width={850}
+      centered
+        bodyStyle={{
+    maxHeight: "75vh",
+    overflowY: "auto",
+    paddingRight: 8,
+  }}
       footer={[
         <Button key="close" onClick={onClose}>
           Close
         </Button>,
+
         showStartTestButton ? (
           <Button
             key="start"
@@ -73,7 +87,6 @@ const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) =>
       }
     >
       <div style={{ padding: "6px 0 12px 0", lineHeight: 1.35 }}>
-
         {/* GETTING STARTED */}
         <Card
           bodyStyle={{ padding: "12px 16px" }}
@@ -100,7 +113,10 @@ const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) =>
               <List.Item style={{ padding: "4px 0" }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <Text style={{ marginRight: 6 }}>{item}</Text>
-                  <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+
+                  <CheckCircleOutlined
+                    style={{ color: token.colorSuccess }}
+                  />
                 </div>
               </List.Item>
             )}
@@ -132,7 +148,10 @@ const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) =>
               <List.Item style={{ padding: "4px 0" }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <Text style={{ marginRight: 6 }}>{item}</Text>
-                  <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+
+                  <CheckCircleOutlined
+                    style={{ color: token.colorSuccess }}
+                  />
                 </div>
               </List.Item>
             )}
@@ -163,18 +182,92 @@ const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) =>
                   Click here to watch
                 </Link>
               </>,
+
               "For technical help, WhatsApp Mr. Ketan at 8087466154.",
+
               "After completing all sections, WhatsApp to confirm submission.",
             ]}
             renderItem={(item, index) => (
               <List.Item key={index} style={{ padding: "4px 0" }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <Text style={{ marginRight: 6 }}>{item}</Text>
-                  <CheckCircleOutlined style={{ color: token.colorPrimary }} />
+
+                  <CheckCircleOutlined
+                    style={{ color: token.colorPrimary }}
+                  />
                 </div>
               </List.Item>
             )}
           />
+        </Card>
+
+        {/* IMPORTANT TEST NOTE */}
+        <Card
+          bodyStyle={{ padding: "14px 16px" }}
+          style={{
+            borderRadius: 16,
+            marginBottom: 16,
+            background: "linear-gradient(135deg,#fff7e6,#fff1f0)",
+            border: "1px solid #ffd591",
+          }}
+        >
+          <Title level={5} style={{ marginBottom: 10 }}>
+            <PictureOutlined style={{ marginRight: 8 }} />
+            Important Test Instructions
+          </Title>
+
+          {/* IMAGE */}
+          <div
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              overflow: "hidden",
+              marginBottom: 14,
+              border: "1px solid #f0f0f0",
+            }}
+          >
+            <img
+              src="/exam-img.jpeg"
+              alt="Test Completion Example"
+              style={{
+                width: "100%",
+                display: "block",
+                objectFit: "cover",
+              }}
+            />
+          </div>
+
+          {/* TEXT */}
+          <div
+            style={{
+              background: "#fff",
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px dashed #ffa940",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                lineHeight: 1.8,
+                color: "#262626",
+              }}
+            >
+              Please complete all sections of the test until a{" "}
+              <Text strong style={{ color: "#52c41a" }}>
+                green tick
+              </Text>{" "}
+              is visible on all sections as shown in the image.
+              <br />
+              <br />
+              Also,{" "}
+              <Text strong>
+                do not make any payment
+              </Text>{" "}
+              on the test website. Directly fill in your details and
+              begin the test.
+            </Text>
+          </div>
         </Card>
 
         {/* ABOUT */}
@@ -191,13 +284,19 @@ const InstructionsModal = ({ open, onClose, showStartTestButton, onConfirm }) =>
             About Abhinav Career Scope
           </Title>
 
-          <Text>Career guidance company based in Bavdhan, Pune.</Text>
+          <Text>
+            Career guidance company based in Bavdhan, Pune.
+          </Text>
 
           <Divider style={{ margin: "10px 0" }} />
 
           <Text strong>📱 Contact:</Text> 9922695424 <br />
-          <Text strong>📧 Email:</Text> abhinavcareerscope@gmail.com <br />
-          <Text strong>🌐 Website:</Text> www.abhinavcareerscope.com
+
+          <Text strong>📧 Email:</Text>{" "}
+          abhinavcareerscope@gmail.com <br />
+
+          <Text strong>🌐 Website:</Text>{" "}
+          www.abhinavcareerscope.com
         </Card>
       </div>
     </Modal>

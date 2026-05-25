@@ -126,21 +126,16 @@ const ExamManagement = () => {
           <Button
             size="large"
             icon={<QuestionCircleOutlined />}
-            disabled={isExamLocked}
             style={{
               borderRadius: 8,
-              backgroundColor: isExamLocked
-                ? "#d9d9d9"
-                : token.colorPrimary,
+              backgroundColor: token.colorPrimary,
               color: "#fff",
               fontWeight: 600,
               border: "none",
             }}
             onClick={() => {
-              if (!isExamLocked) {
-                setInstructionsMode("view");
-                setInstructionsModalVisible(true);
-              }
+              setInstructionsMode("view");
+              setInstructionsModalVisible(true);
             }}
           >
             Instructions
@@ -204,27 +199,23 @@ const ExamManagement = () => {
               <Divider style={{ margin: "12px 0" }} />
 
 
-              {!isCompleted &&
-                <Button
-                  type="primary"
-                  disabled={isExamLocked}
-                  onClick={() => {
-                    if (!isExamLocked) {
-                      setInstructionsMode("view");
-                      setInstructionsModalVisible(true);
-                    }
-                  }}
-                >
-                  View Full Instructions
-                </Button>
-              }
+              {/* <Button
+                type="primary"
+                onClick={() => {
+                  setInstructionsMode("view");
+                  setInstructionsModalVisible(true);
+                }}
+              >
+                View Full Instructions
+              </Button> */}
+
 
               {isCompleted && (
                 <Text
                   type="colorTextSecondary"
                   style={{ display: "block", marginTop: 8 }}
                 >
-                  Exam completed. Instructions are no longer accessible.
+                  You have successfully completed the Exam. Great job!
                 </Text>
               )}
             </Card>

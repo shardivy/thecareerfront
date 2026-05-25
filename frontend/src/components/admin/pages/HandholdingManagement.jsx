@@ -40,10 +40,11 @@ import CertificateTemplateModal from "../modals/CertificateTemplateModal";
 import HHSessionBookingModal from "../modals/HHSessionBookingModal";
 import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
-import { getSessionBookings, cancelSession, sendHandholdingReminder  } from "../../../hhSlices/sessionBookingSlice";
+import { getSessionBookings, cancelSession, sendHandholdingReminder,  markSessionCompleted,  } from "../../../hhSlices/sessionBookingSlice";
 import { getHandholdingParticipants, getCardStats, updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
 import { getCertificateTemplates, getIssuedCertificates, getCertificateStats } from "../../../hhSlices/certificateSlice";
 import UploadCertificateTemplateModal from "../modals/UploadCertificateTemplateModal.jsx";
+import dayjs from "dayjs";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -150,10 +151,7 @@ const [selectedReminder, setSelectedReminder] = useState(null);
       session: `Session ${item.session_no}`,
       session_no: item.session_no,
       date: item.session_date?.split("T")[0],
-      time:
-        item.start_time && item.end_time
-          ? `${item.start_time} - ${item.end_time}`
-          : "-",
+     time: item.start_time || "-",
       status: statusMap[item.status] || "not_booked",
       preferred_counselling_mode: item.preferred_counselling_mode
         ? item.preferred_counselling_mode.charAt(0).toUpperCase() + item.preferred_counselling_mode.slice(1)
@@ -651,62 +649,36 @@ const handleSendReminder = (record) => {
     item.email.toLowerCase().includes(certificateSearch.toLowerCase())
   );
 
-  // const bookingsData = [
-  //   {
-  //     id: 1,
-  //     name: "Rahul Sharma",
-  //     email: "rahul@gmail.com",
-  //     session: "Session 1",
-  //     date: "2026-04-03",
-  //     time: "10:00 AM - 11:00 AM",
-  //     status: "booked",
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "Priya Singh",
-  //     email: "priya@gmail.com",
-  //     session: "Session 2",
-  //     date: "2026-04-04",
-  //     time: "12:00 PM - 01:00 PM",
-  //     status: "rescheduled",
-  //   },
-  //   {
-  //     id: 3,
-  //     name: "Rahul Sharma",
-  //     email: "rahul@gmail.com",
-  //     session: "Session 1",
-  //     date: "2026-04-03",
-  //     time: "10:00 AM - 11:00 AM",
-  //     status: "pending",
-  //   },
-  //   {
-  //     id: 4,
-  //     name: "Priya Singh",
-  //     email: "priya@gmail.com",
-  //     session: "Session 2",
-  //     date: "2026-04-04",
-  //     time: "12:00 PM - 01:00 PM",
-  //     status: "completed",
-  //   },
-  //   {
-  //     id: 5,
-  //     name: "Amit Kumar",
-  //     email: "amit@gmail.com",
-  //     session: "Session 3",
-  //     date: "2026-04-05",
-  //     time: "02:00 PM - 03:00 PM",
-  //     status: "cancelled",
-  //   },
-  //   {
-  //     id: 6,
-  //     name: "Amit Kumar",
-  //     email: "amit@gmail.com",
-  //     session: "Session 3",
-  //     date: "2026-04-05",
-  //     time: "02:00 PM - 03:00 PM",
-  //     status: "not_booked",
-  //   },
-  // ];
+  const handleMarkCompleted = (record) => {
+  Modal.confirm({
+    title: "Mark Session as Completed",
+    content: `Are you sure you want to mark session for ${record.name} as completed?`,
+    okText: "Yes",
+    cancelText: "No",
+    centered: true,
+
+    onOk: async () => {
+      try {
+        await dispatch(
+          markSessionCompleted({
+            participant_id: record.participant_id,
+            session_no: record.session_no,
+          })
+        ).unwrap();
+
+        message.success("Session marked as completed");
+
+        // ✅ refresh table
+        dispatch(getSessionBookings());
+
+      } catch (err) {
+        message.error(err?.message || "Failed to mark session completed");
+      }
+    },
+  });
+};
+
+
   const bookingColumns = React.useMemo(() => {
     const baseColumns = [
       {
@@ -822,31 +794,69 @@ const handleSendReminder = (record) => {
             );
           }
 
-          if (["booked", "rescheduled"].includes(record.status)) {
-            return (
-              <Space>
-                <Button
-                  type="primary"
-                  icon={<EditOutlined />}
-                  onClick={() => handleEditBooking(record)}
-                >
-                  Reschedule
-                </Button>
+      if (["booked", "rescheduled"].includes(record.status)) {
 
-                <Button icon={<BellOutlined />} onClick={() => handleSendReminder(record)} disabled={!canBookSession(record)}>
-                  Send Reminder
-                </Button>
+  const sessionDate = dayjs(record.date).format("YYYY-MM-DD");
 
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleCancel(record)}
-                >
-                  Cancel
-                </Button>
-              </Space>
-            );
-          }
+  const slotStart = dayjs(
+    `${sessionDate} ${record.time}`,
+    "YYYY-MM-DD hh:mm A"
+  );
+
+  const fifteenMinutesBefore = slotStart.subtract(15, "minute");
+
+  const markCompletedEnabled =
+    dayjs().isAfter(fifteenMinutesBefore);
+
+  return (
+    <Space wrap>
+      <Button
+        type="primary"
+        icon={<EditOutlined />}
+        onClick={() => handleEditBooking(record)}
+      >
+        Reschedule
+      </Button>
+
+      {/* ✅ MARK COMPLETED */}
+      <Button
+        type="primary"
+        disabled={!markCompletedEnabled}
+        style={{
+          backgroundColor: markCompletedEnabled
+            ? "#349304"
+            : "#d9d9d9",
+          borderColor: markCompletedEnabled
+            ? "#349304"
+            : "#d9d9d9",
+          color: markCompletedEnabled
+            ? "#fff"
+            : "rgba(0,0,0,0.25)",
+        }}
+        icon={<CheckCircleOutlined />}
+        onClick={() => handleMarkCompleted(record)}
+      >
+        Mark Completed
+      </Button>
+
+      <Button
+        icon={<BellOutlined />}
+        onClick={() => handleSendReminder(record)}
+        disabled={!canBookSession(record)}
+      >
+        Send Reminder
+      </Button>
+
+      <Button
+        danger
+        icon={<DeleteOutlined />}
+        onClick={() => handleCancel(record)}
+      >
+        Cancel
+      </Button>
+    </Space>
+  );
+}
 
           if (record.status === "completed") {
             return (

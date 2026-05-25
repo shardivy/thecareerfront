@@ -332,7 +332,7 @@ const AptitudeAnalysisReports = () => {
 
               return (
                 <Col xs={24} md={10} key={report.id}>
-                  <ReportCard
+                  {/* <ReportCard
                     report={report}
                     title="College Preference Excel Sheet"
                     locked={report.report_status !== "received_unlocked"}
@@ -343,7 +343,12 @@ const AptitudeAnalysisReports = () => {
                           ? "counselling"
                           : "review"
                     }
-                  />
+                  /> */}
+                  <ReportCard
+  report={report}
+  title="College Preference Excel Sheet"
+  locked={false}
+/>
                 </Col>
               );
             })

@@ -127,7 +127,7 @@ type:
         : [],
 
       date: session.date ? dayjs(session.date).format("DD-MM-YYYY") : "N/A",
-      time: session.slot_time || `${session.startTime} - ${session.endTime}`,
+      time: session.slot_time || `${session.startTime}`,
       status: session.status || "N/A",
       id: session.id,
     }

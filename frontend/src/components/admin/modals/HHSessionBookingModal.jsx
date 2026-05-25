@@ -77,35 +77,6 @@ useEffect(() => {
   }
 }, [selectedDate, dispatch]);
 
-  // ================= PREFILL EDIT / VIEW =================
-  // useEffect(() => {
-  //   if (!visible || !data || mode === "create") return;
-  //   if (!students.length || !counsellors.length) return;
-
-  //   const lead = data.counsellors?.find((c) => c.role === "lead");
-  //   const assistant = data.counsellors?.find((c) => c.role === "assistant");
-
-  //   form.setFieldsValue({
-  //     student: data.student?.id,
-  //     mode: data.slot?.mode
-  //       ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
-  //       : undefined,
-  //     primaryCounsellor: lead
-  //       ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
-  //       : null,
-  //     secondaryCounsellor: assistant
-  //       ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
-  //       : null,
-  //     date: data.date ? dayjs(data.date) : null,
-  //   });
-
-  //   setPrimaryCounsellorId(lead?.counsellor?.id || null);
-  //   setSelectedDate(data.date ? dayjs(data.date) : null);
-  //   setSelectedSlot(data.slot || null);
-  // }, [visible, data, mode, students, counsellors, form]);
-
-
-
 
   // ================= PREFILL CREATE / EDIT / VIEW =================
 useEffect(() => {
@@ -163,14 +134,6 @@ useEffect(() => {
 
 }, [visible, data, students]);
 
-  // ================= SLOT FILTER =================
-  // const filteredSlots = slotsByDate.filter((slot) => {
-  //   if (isView) return selectedSlot ? slot.id === selectedSlot.id : false; // Only booked slot in view
-  //   if (filter === "All") return true; // Show all in create/edit
-  //   if (filter === "Available") return slot.status === "available";
-  //   if (filter === "Booked") return slot.status === "booked";
-  //   return true;
-  // });
 
   const isSlotExpired = (slot) => {
     if (!selectedDate) return false;
@@ -200,8 +163,8 @@ const mergedSlots = bookedRescheduledSlots.map((b) => ({
   student_name: b.student_name,
   email: b.email,
   phone: b.phone,
-
-   counsellor_name: b.counsellor_name,
+ counsellor_name:
+    b.counsellors?.map((c) => c.counsellor_name).join(", ") || "-",
 }));
 
 const filteredSlots = mergedSlots.filter((slot) => {
@@ -366,7 +329,7 @@ const handleMarkCompleted = () => {
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
 
               {/* Show Mark as Completed ONLY if not booking mode */}
-              {!isBookingMode && (
+              {/* {!isBookingMode && (
                 <Button
                   key="mark"
                   type="primary"
@@ -389,7 +352,7 @@ const handleMarkCompleted = () => {
                 >
                   Mark as Completed
                 </Button>
-              )}
+              )} */}
 
               <div style={{ marginLeft: "auto" }}>
                 <Button key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
@@ -535,7 +498,7 @@ const handleMarkCompleted = () => {
                           setSelectedSlot(slot);
                         }}
                       >
-                        {slot.start_time} - {slot.end_time} {slot.status === "booked"}
+                        {slot.start_time} {slot.status === "booked"}
                       </Button>
                     </Col>
                   ))
@@ -591,7 +554,7 @@ const handleMarkCompleted = () => {
 
     <p>
       <b>Slot:</b>{" "}
-      {selectedSlot.start_time} - {selectedSlot.end_time}
+      {selectedSlot.start_time}
     </p>
 
     

@@ -97,8 +97,7 @@ const CounsellorDashboard = () => {
       counsellorName: item.counsellor_name,
       counsellorList: item.counsellor_name,
       date: item.date,
-      startTime,
-      endTime,
+      startTime: item.slot_time,
       mode: item.mode === "online" ? "Online" : "Offline",
       status: item.status,
       preferredMode: item.preferred_counselling_mode === "online" ? "Online" : "Offline",
@@ -236,10 +235,10 @@ const CounsellorDashboard = () => {
       render: (date) => dayjs(date).format("DD-MM-YYYY"),
       width: 120,
     },
-    {
-      title: "Slot Time",
-      render: (_, record) => `${record.startTime} - ${record.endTime}`,
-    },
+  {
+  title: "Slot Time",
+  dataIndex: "startTime",
+},
     {
       title: "Preferred Counselling Mode",
       dataIndex: "preferredMode",

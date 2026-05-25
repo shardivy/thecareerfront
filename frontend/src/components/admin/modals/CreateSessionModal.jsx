@@ -22,7 +22,7 @@ import {
   markCounsellingBookingCompleted,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchPendingPaymentStudents } from "../../../adminSlices/paymentSlice";
-import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
+import { fetchReenaCounsellor,fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
 import { fetchSlotsByDate } from "../../../adminSlices/counsellingSlotSlice";
 
 const { Option } = Select;
@@ -55,44 +55,16 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
   const slotsLoading = useSelector((state) => state.counsellingSlots.loading);
 
   const bookingLoading = useSelector((state) => state.counsellingBooking.loading);
+  const leadCounsellors = useSelector((state) => state.counsellors.leadCounsellorList ?? []);
 
   // ================= FETCH DROPDOWNS =================
   useEffect(() => {
     if (visible && !isView) {
       dispatch(fetchPendingPaymentStudents());
+      dispatch(fetchReenaCounsellor());
       dispatch(fetchLeadCounsellors());
     }
   }, [visible, dispatch, isView]);
-
-  // ================= PREFILL EDIT / VIEW =================
-  // useEffect(() => {
-  //   if (!visible || !data || mode === "create") return;
-  //   if (!students.length || !counsellors.length) return;
-
-  //   const lead = data.counsellors?.find((c) => c.role === "lead");
-  //   const assistant = data.counsellors?.find((c) => c.role === "assistant");
-
-  //   form.setFieldsValue({
-  //     student: data.student?.id,
-  //     mode: data.slot?.mode
-  //       ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
-  //       : undefined,
-  //     primaryCounsellor: lead
-  //       ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
-  //       : null,
-  //     secondaryCounsellor: assistant
-  //       ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
-  //       : null,
-  //     date: data.date ? dayjs(data.date) : null,
-  //   });
-
-  //   setPrimaryCounsellorId(lead?.counsellor?.id || null);
-  //   setSelectedDate(data.date ? dayjs(data.date) : null);
-  //   setSelectedSlot(data.slot || null);
-  // }, [visible, data, mode, students, counsellors, form]);
-
-
-
 
   // ================= PREFILL CREATE / EDIT / VIEW =================
   useEffect(() => {
@@ -330,7 +302,7 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
 
               {/* Show Mark as Completed ONLY if not booking mode */}
-              {!isBookingMode && (
+              {/* {!isBookingMode && (
                 <Button
                   key="mark"
                   type="primary"
@@ -353,7 +325,7 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
                 >
                   Mark as Completed
                 </Button>
-              )}
+              )} */}
 
               <div style={{ marginLeft: "auto" }}>
                 <Button key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
@@ -471,11 +443,18 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item label="Lead Counsellor" name="primaryCounsellor" rules={[{ required: true }]}>
-                  <Select disabled={isView} loading={counsellorsLoading} labelInValue placeholder="Select Lead Counsellor">
-                    {counsellors.map((c) => (
-                      <Option key={c.id} value={c.id}>{c.first_name} {c.last_name}</Option>
-                    ))}
-                  </Select>
+                 <Select
+  disabled={isView}
+  loading={counsellorsLoading}
+  labelInValue
+  placeholder="Select Lead Counsellor"
+>
+  {leadCounsellors.map((c) => (
+    <Option key={c.id} value={c.id}>
+      {c.first_name} {c.last_name}
+    </Option>
+  ))}
+</Select>
                 </Form.Item>
               </Col>
               <Col span={12}>
@@ -518,7 +497,7 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
                           }
                         }}
                       >
-                        {slot.start_time} - {slot.end_time} {slot.status === "booked"}
+                        {slot.start_time}  {slot.status === "booked"}
                       </Button>
                     </Col>
                   ))

@@ -198,10 +198,7 @@ const HhSession = () => {
       startTime: item.start_time || null,
       endTime: item.end_time || null,
 
-      time:
-        item.start_time && item.end_time
-          ? `${item.start_time} - ${item.end_time}`
-          : "N/A",
+     time: item.start_time || "N/A",
 
       title: `Session ${index + 1}`,
 
@@ -439,18 +436,18 @@ const HhSession = () => {
                     {session.counsellors?.lead ? (
                       <div>
                         <Text type="colorTextSecondary" style={{ fontSize: 14 }}>{session.counsellors.lead}</Text>
-                        <Tag color="gold" size="small" style={{ marginLeft: 8 }}>Lead</Tag>
+                        {/* <Tag color="gold" size="small" style={{ marginLeft: 8 }}>Lead</Tag> */}
                       </div>
                     ) : (
                       <div>
                         <Text type="colorTextSecondary" style={{ fontSize: 14 }}>Not Assigned</Text>
-                        <Tag size="small" style={{ marginLeft: 8 }}>Lead</Tag>
+                        {/* <Tag size="small" style={{ marginLeft: 8 }}>Lead</Tag> */}
                       </div>
                     )}
                     {session.counsellors?.assistant && (
                       <div style={{ marginTop: 4 }}>
                         <Text type="colorTextSecondary" style={{ fontSize: 14 }}>{session.counsellors.assistant}</Text>
-                        <Tag color="blue" size="small" style={{ marginLeft: 8 }}>Assistant</Tag>
+                        {/* <Tag color="blue" size="small" style={{ marginLeft: 8 }}>Assistant</Tag> */}
                       </div>
                     )}
                   </div>

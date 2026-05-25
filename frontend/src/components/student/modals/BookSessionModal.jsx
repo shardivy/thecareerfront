@@ -28,7 +28,7 @@ import {
 import dayjs from "dayjs";
 
 import { fetchStudents } from "../../../adminSlices/userSlice";
-import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
+import { fetchReenaCounsellor } from "../../../adminSlices/counsellorSlice";
 import { fetchSlotsByDate } from "../../../adminSlices/counsellingSlotSlice";
 import { bookCounsellingSlot, updateCounsellingBooking } from "../../../adminSlices/counsellingBookingSlice";
 
@@ -49,7 +49,7 @@ const [mode, setMode] = useState(preferredMode);
   const students = useSelector((state) => state.users.list ?? []);
   const studentsLoading = useSelector((state) => state.users.loading);
 
-  const leadCounsellors = useSelector((state) => state.counsellors.list ?? []);
+  const leadCounsellors = useSelector((state) => state.counsellors.leadCounsellorList ?? []);
   const counsellorsLoading = useSelector((state) => state.counsellors.loading);
 
   const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? []);
@@ -62,7 +62,7 @@ const [mode, setMode] = useState(preferredMode);
   // ================= FETCH DROPDOWNS =================
   useEffect(() => {
     dispatch(fetchStudents());
-    dispatch(fetchLeadCounsellors());
+    dispatch(fetchReenaCounsellor());
   }, [dispatch]);
 
 
@@ -252,7 +252,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
             <Card style={{ marginTop: 24, borderRadius: 16 }}>
               <Row gutter={[16, 16]}>
                 <Col xs={24} md={12}>
-                  <Text strong><UserOutlined /> Lead Counsellor *</Text>
+                  <Text strong><UserOutlined /> Select Counsellor *</Text>
                   <Select
                     placeholder="Select Lead Counsellor"
                     style={{ width: "100%", marginTop: 8 }}
@@ -266,7 +266,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
                   </Select>
                 </Col>
 
-                <Col xs={24} md={12}>
+                {/* <Col xs={24} md={12}>
                   <Text strong><UserOutlined /> Normal Counsellor (Optional)</Text>
                   <Select
                     placeholder="Select Normal Counsellor"
@@ -279,7 +279,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
                       <Select.Option key={c.id} value={c.id}>{c.first_name} {c.last_name}</Select.Option>
                     ))}
                   </Select>
-                </Col>
+                </Col> */}
 
                 <Col xs={24} md={12}>
                   <Text strong><CalendarOutlined /> Select Date *</Text>
@@ -320,7 +320,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
                           height: 48,
                         }}
                       >
-                        {slot.start_time} - {slot.end_time}
+                        {slot.start_time}
                        
                       </Button>
                     </Col>
@@ -358,9 +358,9 @@ const filteredSlots = slotsByDate.filter((slot) => {
                 <Space>
                   <Avatar size={48} icon={<UserOutlined />} />
                   <div>
-                    <Text strong>Lead Counsellor</Text><br />
-                    <Text type="colorTextSecondary">{selectedLeadData?.first_name ?? "Not selected"}</Text>
-                    {selectedLeadData && <Tag color="gold" size="small">Lead</Tag>}
+                    <Text strong>Counsellor</Text><br />
+                    <Text type="colorTextSecondary">{selectedLeadData?.first_name} {selectedLeadData?.last_name ?? "Not selected"}</Text>
+                    {/* {selectedLeadData && <Tag color="gold" size="small">Lead</Tag>} */}
                   </div>
                 </Space>
 
@@ -369,7 +369,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
                     <Avatar size={48} icon={<UserOutlined />} />
                     <div>
                       <Text strong>Assistant Counsellor</Text><br />
-                      <Text type="colorTextSecondary">{selectedNormalData.first_name}</Text>
+                      <Text type="colorTextSecondary">{selectedNormalData.first_name} {selectedNormalData.last_name ?? "Not selected"}</Text>
                       <Tag color="blue" size="small">Normal</Tag>
                     </div>
                   </Space>
@@ -387,16 +387,16 @@ const filteredSlots = slotsByDate.filter((slot) => {
                   <br />
                   <Text strong>
                     {selectedSlot
-                      ? `${selectedSlot.start_time} - ${selectedSlot.end_time}`
+                      ? `${selectedSlot.start_time}`
                       : "Not selected"}
                   </Text>
                 </div>
 
-
+{/* 
                 <div>
                   <Text type="colorTextSecondary">Duration</Text><br />
                   <Text strong>60 Minutes</Text>
-                </div>
+                </div> */}
 
                 <Button
                   type="primary"

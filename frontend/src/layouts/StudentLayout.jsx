@@ -194,6 +194,7 @@ export default function StudentLayout() {
     "/student/engineering-questionnaires": "Engineering Questionnaires",
     "/student/analysis-report": "Analysis Report",
     "/student/write-review": "Write a Review",
+    "/student/program-selection": "Program Selection",
   };
 
   const pathSnippets = location.pathname.split("/").filter(Boolean);
@@ -285,109 +286,132 @@ export default function StudentLayout() {
 
   // Package-dependent items
   if (hasPackage) {
-    const packageItems = [
-      ...(showExamAndReport
-        ? [
-          {
-            key: "/student/exam-management",
-            icon: <CalendarFilled />,
-            // label: "Exam Management",
-            label: (
-              <div style={{ lineHeight: "20px" }}>
-                <div>Aptitude Test</div>
-                <div>Management</div>
-              </div>
-            ),
-            onClick: () => {
-              navigate("/student/exam-management");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 18 },
+   const packageItems = [
+  // ================= APTITUDE =================
+  ...(showExamAndReport
+    ? [
+        {
+          key: "/student/exam-management",
+          icon: <CalendarFilled />,
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Aptitude Test</div>
+              <div>Management</div>
+            </div>
+          ),
+          onClick: () => {
+            navigate("/student/exam-management");
+            setDrawerVisible(false);
           },
+          style: { marginBottom: 18 },
+        },
 
+        // SLOT BOOKING AFTER EXAM MANAGEMENT
+        ...(!isBasicUser
+          ? [
+              {
+                key: "/student/slot-booking",
+                icon: <ScheduleFilled />,
+                label: (
+                  <div style={{ lineHeight: "20px" }}>
+                    <div>Counselling</div>
+                    <div>Slot Booking</div>
+                  </div>
+                ),
+                onClick: () => {
+                  navigate("/student/slot-booking");
+                  setDrawerVisible(false);
+                },
+                style: { marginBottom: 18 },
+              },
 
-          {
-            key: "/student/report-management",
-            icon: <FileTextFilled />,
-            // label: "Report Management",
-            // label: "Aptitude Test Reports ",
-            label: (
-              <div style={{ lineHeight: "20px" }}>
-                <div>Aptitude Test</div>
-                <div>Reports</div>
-              </div>
-            ),
-            onClick: () => {
-              navigate("/student/report-management");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 18 },
+              // WRITE REVIEW
+              writeReviewItem,
+            ]
+          : []),
+
+        // REPORT AFTER REVIEW
+        {
+          key: "/student/report-management",
+          icon: <FileTextFilled />,
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Aptitude Test</div>
+              <div>Reports</div>
+            </div>
+          ),
+          onClick: () => {
+            navigate("/student/report-management");
+            setDrawerVisible(false);
           },
-        ]
-        : []),
+          style: { marginBottom: 18 },
+        },
+      ]
+    : []),
 
-      ...(showEngineering ? [engineeringQuestionnairesItem] : []),
+  // ================= ENGINEERING =================
+  ...(showEngineering
+    ? [
+        engineeringQuestionnairesItem,
 
-      ...(showEngineering
-        ? [
-          {
-            key: "/student/analysis-report",
-            icon: <FileTextFilled />,
-            label: (
-              <div style={{ lineHeight: "20px" }}>
-                <div>Analysis Report </div>
-              </div>
-            ),
-            onClick: () => {
-              navigate("/student/analysis-report");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 18 },
+        // SLOT BOOKING AFTER QUESTIONNAIRES
+        ...(!isBasicUser
+          ? [
+              {
+                key: "/student/slot-booking",
+                icon: <ScheduleFilled />,
+                label: (
+                  <div style={{ lineHeight: "20px" }}>
+                    <div>Counselling</div>
+                    <div>Slot Booking</div>
+                  </div>
+                ),
+                onClick: () => {
+                  navigate("/student/slot-booking");
+                  setDrawerVisible(false);
+                },
+                style: { marginBottom: 18 },
+              },
+
+              // WRITE REVIEW
+              writeReviewItem,
+            ]
+          : []),
+
+        // ANALYSIS REPORT AFTER REVIEW
+        {
+          key: "/student/analysis-report",
+          icon: <FileTextFilled />,
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Analysis Report</div>
+            </div>
+          ),
+          onClick: () => {
+            navigate("/student/analysis-report");
+            setDrawerVisible(false);
           },
-        ]
-        : []),
+          style: { marginBottom: 18 },
+        },
+      ]
+    : []),
 
-      // Slot Booking
-      ...(!isBasicUser
-        ? [
-          {
-            key: "/student/slot-booking",
-            icon: <ScheduleFilled />,
-            // label: "Slot Booking",
-            label: (
-              <div style={{ lineHeight: "20px" }}>
-                <div>Counselling</div>
-                <div>Slot Booking</div>
-              </div>
-            ),
-            onClick: () => {
-              navigate("/student/slot-booking");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 18 },
+  // ================= PAYMENTS =================
+  ...(!isBasicUser
+    ? [
+        {
+          key: "/student/payments",
+          icon: <CreditCardFilled />,
+          label: "Payments",
+          onClick: () => {
+            navigate("/student/payments");
+            setDrawerVisible(false);
           },
-
-          // 👉 WRITE REVIEW (BEFORE PAYMENTS)
-          writeReviewItem,
-
-
-          // Payments
-          {
-            key: "/student/payments",
-            icon: <CreditCardFilled />,
-            label: "Payments",
-            onClick: () => {
-              navigate("/student/payments");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 12 },
-          },
-
-
-
-        ]
-        : []),
-    ];
+          style: { marginBottom: 12 },
+        },
+      ]
+    : []),
+];
 
 
     // Merge package items

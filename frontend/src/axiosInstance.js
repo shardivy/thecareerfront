@@ -1,20 +1,20 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  // baseURL: "http://192.168.1.7:8000/api",
-  // baseURL: "http://192.168.89.38:8000/api",
+  // baseURL: "http://192.168.1.4:8000/api/",
+  // baseURL: "http://192.168.182.38:8000/api",
   // baseURL: "http://10.121.160.38:8000/api",
   // baseURL: "https://son-functions-ray-wins.trycloudflare.com/api",
 
   baseURL: "https://staging.abhinavcareerscope.com/api",
-
+// 
 
 });
 
 // 👇 PUBLIC ENDPOINTS
 const publicEndpoints = [
   "/forgot-password/",
-  "/login/",
+  "/login/", 
   "/reset-password/",
   "/verify-otp/",
   // "/program-package/get-programs/",

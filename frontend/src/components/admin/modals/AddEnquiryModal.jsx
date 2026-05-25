@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import {
   Modal,
@@ -77,7 +78,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
   const totalPackageAmount = selectedPackage
     ? Number(selectedPackage.price)
     : 0;
-
 
   const isConvert = mode === "convert";
 
@@ -189,7 +189,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
     }
   }, [paymentMethod, form]);
 
-
   /* ================= RESET WHEN ADD MODE ================= */
   useEffect(() => {
     if (open && mode === "add") {
@@ -198,7 +197,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
       setPreviewUrl(null);
     }
   }, [open, mode, form]);
-
 
   /* ================= SUBMIT ================= */
   const handleSubmit = (values) => {
@@ -269,7 +267,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
       });
     }
   }, [open, mode, form]);
-
 
   const disableFutureDates = (current) => {
     return current && current > dayjs().endOf("day");
@@ -431,7 +428,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                   </Form.Item>
                 </Col>
 
-
                 {isConvert && (
                   <>
                     <Col span={24}>
@@ -579,7 +575,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                           </Form.Item>
                         </Col>
 
-
                         {paymentMethod === "upi" && (
                           <Col xs={24} sm={12}>
                             <Form.Item
@@ -591,7 +586,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                             </Form.Item>
                           </Col>
                         )}
-
 
 
                         <Col span={24}>
@@ -611,10 +605,8 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                             </Upload>
                           </Form.Item>
 
-
                         </Col>
                       </>
-
 
                     )}
                   </>
@@ -648,7 +640,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                       : "Add Enquiry"}
                 </Button>
               </div>
-
 
             </Col>
 
@@ -732,3 +723,724 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
 };
 
 export default AddEnquiryModal;
+
+
+
+// import React, { useEffect, useRef, useState } from "react";
+// import {
+//   Modal,
+//   Form,
+//   Input,
+//   Select,
+//   DatePicker,
+//   Button,
+//   Row,
+//   Col,
+//   message,
+//   Divider,
+//   Upload,
+//   Card,
+//   Empty,
+//   Image,
+// } from "antd";
+// import { UploadOutlined, EyeOutlined, DeleteOutlined } from "@ant-design/icons";
+// import dayjs from "dayjs";
+// import { useDispatch, useSelector } from "react-redux";
+
+// import { addEnquiry, clearAddEnquiryState } from "../../../adminSlices/addEnquirySlice";
+// import { convertEnquiry, clearConvertState } from "../../../adminSlices/convertEnquirySlice";
+// import { updateEnquiry, clearUpdateState } from "../../../adminSlices/updateEnquirySlice";
+// import { fetchActivePrograms } from "../../../adminSlices/programSlice";
+// import { fetchPackagesByProgram } from "../../../adminSlices/packageSlice";
+// import { fetchEnquiries } from "../../../adminSlices/enquiryListSlice";
+
+// const { Option } = Select;
+
+// const CLASS_OPTIONS = [
+//   "8", "9", "10", "11", "12",
+//   "Engineering", "Medical", "Law", "Design",
+//   "Commerce", "Arts", "BBA", "UG", "PG", "Others",
+// ];
+
+// const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
+//   const [form] = Form.useForm();
+//   const dispatch = useDispatch();
+
+//   // Watch top-level fields for live preview
+//   const watchedFirstName = Form.useWatch("firstName", form);
+//   const watchedLastName = Form.useWatch("lastName", form);
+//   const watchedPhone = Form.useWatch("phone", form);
+//   const watchedEmail = Form.useWatch("email", form);
+
+//   // *** KEY FIX: Watch programs array directly — always fresh, no lag ***
+//   const watchedPrograms = Form.useWatch("programs", form) || [];
+
+//   // Per-row state maps (keyed by Form.List index)
+//   const [programPackages, setProgramPackages] = useState({});
+//   const [programPkgLoading, setProgramPkgLoading] = useState({});
+//   const [programFileLists, setProgramFileLists] = useState({});
+//   const [programPreviewUrls, setProgramPreviewUrls] = useState({});
+
+//   // Track which index last triggered fetchPackages so we sync Redux list → that slot
+//   const lastFetchIdx = useRef(null);
+
+//   // Redux selectors
+//   const { activeList: programs = [], loading: programsLoading } = useSelector((s) => s.programs);
+//   const { list: reduxPackages = [] } = useSelector((s) => s.packages);
+//   const { fieldErrors = {}, error: convertError } = useSelector((s) => s.convertEnquiry);
+//   const { loading: addLoading, success: addSuccess, message: addMessage } = useSelector((s) => s.addEnquiry);
+//   const { loading: convertLoading, success: convertSuccess, message: convertMessage } = useSelector((s) => s.convertEnquiry);
+//   const { loading: updateLoading, success: updateSuccess, message: updateMessage } = useSelector((s) => s.updateEnquiry);
+
+//   const isConvert = mode === "convert";
+//   const isWebsiteSource = enquiryData?.source?.toLowerCase() === "website";
+
+//   // ── Fetch packages for one row ────────────────────────────────────────────
+//   const loadPackagesForIndex = (idx, programId) => {
+//     lastFetchIdx.current = idx;
+//     setProgramPkgLoading((prev) => ({ ...prev, [idx]: true }));
+//     dispatch(fetchPackagesByProgram(programId)).finally(() => {
+//       setProgramPkgLoading((prev) => ({ ...prev, [idx]: false }));
+//     });
+//   };
+
+//   // Sync Redux packages list → the last-fetched row slot
+//   useEffect(() => {
+//     if (lastFetchIdx.current !== null) {
+//       setProgramPackages((prev) => ({
+//         ...prev,
+//         [lastFetchIdx.current]: reduxPackages,
+//       }));
+//     }
+//   }, [reduxPackages]);
+
+//   // Fetch programs when modal opens
+//   useEffect(() => {
+//     if (open) dispatch(fetchActivePrograms());
+//   }, [open, dispatch]);
+
+//   // Prefill for edit mode
+//   useEffect(() => {
+//     if (!open || !enquiryData || mode === "add" || programs.length === 0) return;
+//     const firstName = enquiryData.name?.split(" ")[0] || "";
+//     const lastName = enquiryData.name?.split(" ").slice(1).join(" ") || "";
+//     const programId =
+//       enquiryData.programId ??
+//       programs.find((p) => p.name === enquiryData.program)?.id ??
+//       null;
+//     form.setFieldsValue({
+//       firstName,
+//       lastName,
+//       phone: enquiryData.phone || "",
+//       email: enquiryData.email || "",
+//       program: programId,
+//       source: enquiryData.source || null,
+//       date: enquiryData.date ? dayjs(enquiryData.date) : null,
+//     });
+//     if (programId) dispatch(fetchPackagesByProgram(programId));
+//   }, [open, enquiryData, programs, dispatch, form, mode]);
+
+//   // Reset for add mode
+//   useEffect(() => {
+//     if (open && mode === "add") {
+//       form.resetFields();
+//       form.setFieldsValue({ programs: [{}] });
+//       setProgramFileLists({});
+//       setProgramPreviewUrls({});
+//       setProgramPackages({});
+//       lastFetchIdx.current = null;
+//     }
+//   }, [open, mode, form]);
+
+//   // Prefill for convert mode
+//   useEffect(() => {
+//     if (open && mode === "convert") {
+//       form.setFieldsValue({
+//         programs: [{
+//           program: enquiryData?.programId || undefined,
+//           preferred_counselling_mode: "online",
+//         }],
+//       });
+//       if (enquiryData?.programId) {
+//         loadPackagesForIndex(0, enquiryData.programId);
+//       }
+//     }
+//   }, [open, mode, enquiryData]); // eslint-disable-line
+
+//   // Success handler
+//   useEffect(() => {
+//     if (addSuccess || convertSuccess || updateSuccess) {
+//       message.success(addMessage || convertMessage || updateMessage || "Operation successful");
+//       dispatch(fetchEnquiries());
+//       form.resetFields();
+//       setProgramFileLists({});
+//       setProgramPreviewUrls({});
+//       setProgramPackages({});
+//       lastFetchIdx.current = null;
+//       dispatch(clearAddEnquiryState());
+//       dispatch(clearConvertState());
+//       dispatch(clearUpdateState());
+//       onCancel();
+//     }
+//   }, [addSuccess, convertSuccess, updateSuccess]); // eslint-disable-line
+
+//   // Server field errors
+//   useEffect(() => {
+//     if (fieldErrors && Object.keys(fieldErrors).length > 0) {
+//       form.setFields(
+//         Object.entries(fieldErrors).map(([name, msgs]) => ({
+//           name,
+//           errors: Array.isArray(msgs) ? msgs : [msgs],
+//         }))
+//       );
+//     }
+//     if (convertError) message.error(convertError);
+//   }, [fieldErrors, convertError, form]);
+
+//   // ── Handlers ──────────────────────────────────────────────────────────────
+
+//   const handleProgramChangeForIndex = (idx, programId) => {
+//     const progs = form.getFieldValue("programs") || [];
+//     progs[idx] = { ...progs[idx], package: undefined };
+//     form.setFieldsValue({ programs: [...progs] });
+//     loadPackagesForIndex(idx, programId);
+//   };
+
+//   const handleFileChange = (idx, { fileList: newList }) => {
+//     setProgramFileLists((prev) => ({ ...prev, [idx]: newList }));
+//     if (newList.length > 0 && newList[0].originFileObj) {
+//       setProgramPreviewUrls((prev) => ({
+//         ...prev,
+//         [idx]: URL.createObjectURL(newList[0].originFileObj),
+//       }));
+//     } else {
+//       setProgramPreviewUrls((prev) => ({ ...prev, [idx]: null }));
+//     }
+//   };
+
+//   const handleRemoveRow = (idx, removeFn, fieldName) => {
+//     removeFn(fieldName);
+//     setProgramPackages((prev) => { const n = { ...prev }; delete n[idx]; return n; });
+//     setProgramFileLists((prev) => { const n = { ...prev }; delete n[idx]; return n; });
+//     setProgramPreviewUrls((prev) => { const n = { ...prev }; delete n[idx]; return n; });
+//     setProgramPkgLoading((prev) => { const n = { ...prev }; delete n[idx]; return n; });
+//   };
+
+//   const disableFutureDates = (current) => current && current > dayjs().endOf("day");
+
+//   // ── Submit ────────────────────────────────────────────────────────────────
+//   const handleSubmit = (values) => {
+//     if (isConvert && enquiryData?.id) {
+//       const formData = new FormData();
+//       const programsPayload = (values.programs || []).map((p) => ({
+//         program: p.program,
+//         package: p.package,
+//         study_class: p.study_class,
+//         preferred_counselling_mode: p.preferred_counselling_mode,
+//         amount: p.amount,
+//         payment_type: p.payment_type || "",
+//         method: p.method || "",
+//         transaction_id: p.transaction_id || "",
+//       }));
+//       formData.append("programs", JSON.stringify(programsPayload));
+//       formData.append("last_name", values.lastName || "");
+//       (values.programs || []).forEach((_, idx) => {
+//         const fl = programFileLists[idx];
+//         if (fl?.[0]?.originFileObj) {
+//           formData.append(`proof_file_${idx}`, fl[0].originFileObj);
+//         }
+//       });
+//       dispatch(convertEnquiry({ id: enquiryData.id, payload: formData }));
+//       return;
+//     }
+
+//     const payload = {
+//       first_name: values.firstName,
+//       last_name: values.lastName,
+//       phone: values.phone,
+//       email: values.email,
+//       program: values.program,
+//       source: values.source ? values.source.toLowerCase() : null,
+//       date: values.date ? values.date.format("YYYY-MM-DD") : null,
+//     };
+//     if (mode === "edit") {
+//       dispatch(updateEnquiry({ id: enquiryData.id, ...payload }));
+//     } else {
+//       dispatch(addEnquiry(payload));
+//     }
+//   };
+
+//   // ── Render ────────────────────────────────────────────────────────────────
+//   return (
+//     <Modal
+//       open={open}
+//       onCancel={onCancel}
+//       footer={null}
+//       width="100%"
+//       style={{ maxWidth: isConvert ? 1200 : 600 }}
+//       centered
+//       bodyStyle={{ padding: 20 }}
+//       destroyOnClose
+//       title={
+//         isConvert ? "Convert Enquiry to User" :
+//           mode === "edit" ? "Edit Enquiry" :
+//             "Add Enquiry"
+//       }
+//     >
+//       <div style={{ maxHeight: "80vh", overflowY: "auto", paddingRight: 8 }}>
+//         <Form layout="vertical" form={form} onFinish={handleSubmit}>
+//           <Row gutter={[16, 16]}>
+
+//             {/* ══════════════ LEFT COLUMN ══════════════ */}
+//             <Col xs={24} lg={isConvert ? 14 : 24}>
+//               <Row gutter={[16, 16]}>
+
+//                 <Col xs={24} sm={12}>
+//                   <Form.Item
+//                     name="firstName" label="First Name"
+//                     rules={[
+//                       { required: true, message: "Please enter first name" },
+//                       { min: 2, message: "At least 2 characters" },
+//                       { pattern: /^[A-Za-z\s]+$/, message: "Letters only" },
+//                     ]}
+//                   >
+//                     <Input placeholder="Enter first name" />
+//                   </Form.Item>
+//                 </Col>
+
+//                 <Col xs={24} sm={12}>
+//                   <Form.Item
+//                     name="lastName" label="Last Name"
+//                     rules={[
+//                       { required: true, message: "Please enter last name" },
+//                       { pattern: /^[A-Za-z\s]+$/, message: "Letters only" },
+//                     ]}
+//                   >
+//                     <Input placeholder="Enter last name" />
+//                   </Form.Item>
+//                 </Col>
+
+//                 <Col xs={24} sm={12}>
+//                   <Form.Item
+//                     name="phone" label="Mobile Number (WhatsApp)"
+//                     rules={[
+//                       { required: true, message: "Mobile number is required" },
+//                       { pattern: /^[0-9]{10}$/, message: "Must be exactly 10 digits" },
+//                     ]}
+//                   >
+//                     <Input
+//                       placeholder="Enter 10-digit mobile number"
+//                       maxLength={10}
+//                       disabled={isConvert && !!enquiryData?.phone}
+//                     />
+//                   </Form.Item>
+//                 </Col>
+
+//                 <Col xs={24} sm={12}>
+//                   <Form.Item
+//                     name="email" label="Email"
+//                     rules={[
+//                       { required: true, message: "Please enter email" },
+//                       { type: "email", message: "Enter a valid email" },
+//                     ]}
+//                   >
+//                     <Input placeholder="Enter email address" disabled={isConvert} />
+//                   </Form.Item>
+//                 </Col>
+
+//                 {/* Program — non-convert only */}
+//                 {!isConvert && (
+//                   <Col xs={24} sm={12}>
+//                     <Form.Item
+//                       name="program" label="Program"
+//                       rules={[{ required: true, message: "Please select program" }]}
+//                     >
+//                       <Select
+//                         placeholder="Select program"
+//                         loading={programsLoading}
+//                         onChange={(val) => dispatch(fetchPackagesByProgram(val))}
+//                       >
+//                         {programs.map((p) => (
+//                           <Option key={p.id} value={p.id}>{p.name}</Option>
+//                         ))}
+//                       </Select>
+//                     </Form.Item>
+//                   </Col>
+//                 )}
+
+//                 <Col xs={24} sm={12}>
+//                   <Form.Item
+//                     name="source" label="Source"
+//                     rules={!isConvert ? [{ required: true, message: "Please select source" }] : []}
+//                   >
+//                     <Select placeholder="Select source" disabled={isConvert}>
+//                       <Option value="website">Website</Option>
+//                       <Option value="whatsapp">WhatsApp</Option>
+//                       <Option value="call">Call</Option>
+//                     </Select>
+//                   </Form.Item>
+//                 </Col>
+
+//                 <Col xs={24} sm={12}>
+//                   <Form.Item
+//                     name="date" label="Enquiry Date"
+//                     rules={[{ required: true, message: "Please select enquiry date" }]}
+//                   >
+//                     <DatePicker
+//                       style={{ width: "100%" }}
+//                       format="YYYY-MM-DD"
+//                       disabled={isConvert}
+//                       disabledDate={disableFutureDates}
+//                     />
+//                   </Form.Item>
+//                 </Col>
+
+//                 {/* ═══════════ PROGRAM CARDS — convert mode ═══════════ */}
+//                 {isConvert && (
+//                   <Col xs={24}>
+//                     <Divider style={{ margin: "4px 0 12px" }} />
+//                     <Form.List name="programs">
+//                       {(fields, { add, remove }) => (
+//                         <>
+//                           {fields.map((field, index) => {
+//                             // *** Read directly from watchedPrograms — always in sync ***
+//                             const rowData = watchedPrograms[index] || {};
+//                             const paymentType = rowData.payment_type;
+//                             const paymentMethod = rowData.method;
+//                             const amount = rowData.amount;
+
+//                             const pkgs = programPackages[index] || [];
+//                             const pkgsLoading = programPkgLoading[index] || false;
+//                             const selectedPkg = pkgs.find((p) => p.id === rowData.package);
+//                             const maxAmount = selectedPkg ? Number(selectedPkg.price) : 0;
+//                             const previewUrl = programPreviewUrls[index] || null;
+//                             const fileList = programFileLists[index] || [];
+
+//                             return (
+//                               <Card
+//                                 key={field.key}
+//                                 style={{ marginBottom: 16, borderRadius: 8, border: "1px solid #e8e8e8" }}
+//                                 styles={{ body: { padding: "12px 16px 8px" } }}
+//                                 title={
+//                                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+//                                     <span style={{ fontWeight: 600, fontSize: 14, color: "#1677ff" }}>
+//                                       {index === 0 ? "Program 1" : `Program ${index + 1}`}
+//                                     </span>
+//                                     <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+//                                       {index === 0 && (
+//                                         <span
+//                                           onClick={() => add({})}
+//                                           style={{ color: "#1677ff", cursor: "pointer", fontSize: 13, fontWeight: 500 }}
+//                                         >
+//                                           + Add Program
+//                                         </span>
+//                                       )}
+//                                       {fields.length > 1 && (
+//                                         <DeleteOutlined
+//                                           onClick={() => handleRemoveRow(index, remove, field.name)}
+//                                           style={{ color: "red", cursor: "pointer", fontSize: 14 }}
+//                                         />
+//                                       )}
+//                                     </div>
+//                                   </div>
+//                                 }
+//                               >
+//                                 <Row gutter={[16, 0]}>
+
+//                                   {/* 1. Program */}
+//                                   <Col xs={24} sm={12}>
+//                                     <Form.Item
+//                                       {...field}
+//                                       name={[field.name, "program"]}
+//                                       label="Program"
+//                                       rules={[{ required: true, message: "Please select program" }]}
+//                                     >
+//                                       <Select
+//                                         placeholder="Select program"
+//                                         loading={programsLoading}
+//                                         disabled={isConvert && !isWebsiteSource && index === 0}
+//                                         onChange={(val) => handleProgramChangeForIndex(index, val)}
+//                                       >
+//                                         {programs.map((p) => (
+//                                           <Option key={p.id} value={p.id}>{p.name}</Option>
+//                                         ))}
+//                                       </Select>
+//                                     </Form.Item>
+//                                   </Col>
+
+//                                   {/* 2. Counselling Service */}
+//                                   <Col xs={24} sm={12}>
+//                                     <Form.Item
+//                                       {...field}
+//                                       name={[field.name, "package"]}
+//                                       label="Counselling Service"
+//                                       rules={[{ required: true, message: "Please select service" }]}
+//                                     >
+//                                       <Select
+//                                         placeholder="Select counselling service"
+//                                         loading={pkgsLoading}
+//                                       >
+//                                         {pkgs.map((p) => (
+//                                           <Option key={p.id} value={p.id}>{p.name}</Option>
+//                                         ))}
+//                                       </Select>
+//                                     </Form.Item>
+//                                   </Col>
+
+//                                   {/* 3. Class / STD */}
+//                                   <Col xs={24} sm={12}>
+//                                     <Form.Item
+//                                       {...field}
+//                                       name={[field.name, "study_class"]}
+//                                       label="Class / STD"
+//                                       rules={[{ required: true, message: "Please select class" }]}
+//                                     >
+//                                       <Select placeholder="Select class / standard">
+//                                         {CLASS_OPTIONS.map((c) => (
+//                                           <Option key={c} value={c}>{c}</Option>
+//                                         ))}
+//                                       </Select>
+//                                     </Form.Item>
+//                                   </Col>
+
+//                                   {/* 4. Preferred Counselling Mode */}
+//                                   <Col xs={24} sm={12}>
+//                                     <Form.Item
+//                                       {...field}
+//                                       name={[field.name, "preferred_counselling_mode"]}
+//                                       label="Preferred Counselling Mode"
+//                                       rules={[{ required: true, message: "Please select mode" }]}
+//                                     >
+//                                       <Select placeholder="Select mode">
+//                                         <Option value="online">Online</Option>
+//                                         <Option value="offline">Offline</Option>
+//                                       </Select>
+//                                     </Form.Item>
+//                                   </Col>
+
+//                                   {/* 5. Fees Paid */}
+//                                   <Col xs={24} sm={12}>
+//                                     <Form.Item
+//                                       {...field}
+//                                       name={[field.name, "amount"]}
+//                                       label={maxAmount ? `Fees Paid (max ₹${maxAmount})` : "Fees Paid"}
+//                                       rules={[
+//                                         { required: true, message: "Please enter the amount paid" },
+//                                         {
+//                                           validator: (_, value) => {
+//                                             const num = Number(value);
+//                                             if (value === undefined || value === null || value === "") return Promise.resolve();
+//                                             if (isNaN(num)) return Promise.reject("Amount must be a valid number");
+//                                             if (num < 0) return Promise.reject("Amount cannot be negative");
+//                                             if (num !== 0 && num % 100 !== 0)
+//                                               return Promise.reject("Amount must be ₹0 or multiples of ₹100");
+//                                             if (maxAmount && num > maxAmount)
+//                                               return Promise.reject(`Amount cannot exceed ₹${maxAmount}`);
+//                                             return Promise.resolve();
+//                                           },
+//                                         },
+//                                       ]}
+//                                     >
+//                                       <Input type="number" min={0} placeholder="Enter amount" />
+//                                     </Form.Item>
+//                                   </Col>
+
+//                                   {/* ── Payment block: visible only when amount > 0 ── */}
+//                                   <Form.Item shouldUpdate noStyle>
+//                                     {() => {
+//                                       const currentPrograms = form.getFieldValue("programs") || [];
+//                                       const currentRow = currentPrograms[index] || {};
+
+//                                       return Number(currentRow.amount) > 0 ? (
+//                                         <>
+//                                           {/* 6. Payment Type */}
+//                                           <Col xs={24} sm={12}>
+//                                             <Form.Item
+//                                               {...field}
+//                                               name={[field.name, "payment_type"]}
+//                                               label="Payment Type"
+//                                               rules={[{ required: true, message: "Please select payment type" }]}
+//                                             >
+//                                               <Select
+//                                                 placeholder="Select payment type"
+//                                                 onChange={(value) => {
+//                                                   const currentPrograms = form.getFieldValue("programs") || [];
+
+//                                                   currentPrograms[index] = {
+//                                                     ...currentPrograms[index],
+//                                                     payment_type: value,
+//                                                     method: value === "online" ? "UPI" : "Cash",
+//                                                     transaction_id:
+//                                                       value === "offline"
+//                                                         ? ""
+//                                                         : currentPrograms[index]?.transaction_id,
+//                                                   };
+
+//                                                   form.setFieldsValue({
+//                                                     programs: [...currentPrograms],
+//                                                   });
+//                                                 }}
+//                                               >
+//                                                 <Option value="online">Online</Option>
+//                                                 <Option value="offline">Offline</Option>
+//                                               </Select>
+
+//                                             </Form.Item>
+//                                           </Col>
+
+//                                           {/* 7. Payment Method */}
+//                                           <Col xs={24} sm={12}>
+//                                             <Form.Item
+//                                               {...field}
+//                                               name={[field.name, "method"]}
+//                                               label="Payment Method"
+//                                             >
+//                                               <Input
+//                                                 readOnly
+//                                                 placeholder="Payment method"
+//                                                 value={
+//                                                   currentRow?.method === "upi"
+//                                                     ? "UPI"
+//                                                     : currentRow?.method === "cash"
+//                                                       ? "Cash"
+//                                                       : ""
+//                                                 }
+//                                               />
+//                                             </Form.Item>
+//                                           </Col>
+
+//                                           {/* 8. Transaction ID — only for UPI */}
+//                                           {currentRow.method === "upi" && (
+//                                             <Col xs={24} sm={12}>
+//                                               <Form.Item
+//                                                 {...field}
+//                                                 name={[field.name, "transaction_id"]}
+//                                                 label="Transaction ID"
+//                                               >
+//                                                 <Input placeholder="Enter transaction ID" />
+//                                               </Form.Item>
+//                                             </Col>
+//                                           )}
+
+//                                           {/* 9. Upload Receipt */}
+//                                           <Col xs={24}>
+//                                             <Form.Item label="Upload Receipt">
+//                                               <Upload
+//                                                 beforeUpload={() => false}
+//                                                 maxCount={1}
+//                                                 fileList={fileList}
+//                                                 onChange={(info) => handleFileChange(index, info)}
+//                                                 accept="image/*,application/pdf"
+//                                               >
+//                                                 <Button icon={<UploadOutlined />} block>
+//                                                   Upload Receipt
+//                                                 </Button>
+//                                               </Upload>
+//                                             </Form.Item>
+                                           
+//                                           </Col>
+//                                         </>
+//                                       ) : null;
+//                                     }}
+//                                   </Form.Item>
+
+//                                 </Row>
+//                               </Card>
+//                             );
+//                           })}
+//                         </>
+//                       )}
+//                     </Form.List>
+//                   </Col>
+//                 )}
+
+//               </Row>
+
+//               {/* Action buttons */}
+//               <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 16 }}>
+//                 <Button onClick={onCancel}>Cancel</Button>
+//                 <Button
+//                   type="primary"
+//                   htmlType="submit"
+//                   style={{ width: 140 }}
+//                   loading={isConvert ? convertLoading : addLoading || updateLoading}
+//                 >
+//                   {isConvert ? "Convert User" :
+//                     mode === "edit" ? "Update" :
+//                       "Add Enquiry"}
+//                 </Button>
+//               </div>
+//             </Col>
+
+//             {/* ══════════════ RIGHT PREVIEW — convert only ══════════════ */}
+//             {isConvert && (
+//               <Col xs={24} lg={10}>
+//                 <Card
+//                   title="Live Preview"
+//                   style={{ position: "sticky", top: 0 }}
+//                   styles={{ body: { padding: 16 } }}
+//                 >
+//                   {!watchedFirstName ? (
+//                     <Empty description="Fill the form to see preview" />
+//                   ) : (
+//                     <>
+//                       <p><b>Name:</b>   {watchedFirstName} {watchedLastName}</p>
+//                       <p><b>Mobile:</b> {watchedPhone}</p>
+//                       <p><b>Email:</b>  {watchedEmail}</p>
+
+//                       {watchedPrograms.map((prog, idx) => {
+//                         const pkgs = programPackages[idx] || [];
+//                         const progName = programs.find((p) => p.id === prog?.program)?.name;
+//                         const pkgName = pkgs.find((p) => p.id === prog?.package)?.name;
+//                         const preview = programPreviewUrls[idx];
+
+//                         return (
+//                           <div key={idx}>
+//                             <Divider
+//                               orientation="left"
+//                               plain
+//                               style={{ fontSize: 13, color: "#888", margin: "10px 0" }}
+//                             >
+//                               {idx === 0 ? "Program 1" : `Additional Program ${idx + 1}`}
+//                             </Divider>
+//                             <p><b>Program:</b>  {progName || "-"}</p>
+//                             <p><b>Service:</b>  {pkgName || "-"}</p>
+//                             <p><b>Class:</b>    {prog?.study_class || "-"}</p>
+//                             <p><b>Mode:</b>     {prog?.preferred_counselling_mode || "-"}</p>
+//                             <p><b>Amount:</b>   ₹{prog?.amount || "0"}</p>
+//                             {Number(prog?.amount) > 0 && (
+//                               <>
+//                                 <p><b>Payment Type:</b>   {prog?.payment_type || "-"}</p>
+//                                 <p><b>Payment Method:</b> {prog?.method || "-"}</p>
+//                                 {prog?.transaction_id && (
+//                                   <p><b>Transaction ID:</b> {prog.transaction_id}</p>
+//                                 )}
+//                               </>
+//                             )}
+//                             <p><b>Payment Receipt -</b></p>
+//                             {preview ? (
+//                               <Image
+//                                 src={preview}
+//                                 style={{ width: "100%", maxHeight: 160, borderRadius: 6, objectFit: "contain", marginTop: 8 }}
+//                                 preview={{ mask: <EyeOutlined /> }}
+//                               />
+//                             ) : (
+//                               <Empty description="No receipt uploaded" imageStyle={{ height: 40 }} />
+//                             )}
+//                           </div>
+//                         );
+//                       })}
+//                     </>
+//                   )}
+//                 </Card>
+//               </Col>
+//             )}
+
+//           </Row>
+//         </Form>
+//       </div>
+//     </Modal>
+//   );
+// };
+
+// export default AddEnquiryModal;

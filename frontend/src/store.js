@@ -76,7 +76,7 @@ const store = configureStore({
         review: reviewReducer,
         landingPage: landingPageReducer,
         advertisement: advertisementReducer,
-         event: eventReducer,
+        event: eventReducer,
 
         hhRegister: hhRegisterReducer,
         hhSession: handholdingSessionReducer,

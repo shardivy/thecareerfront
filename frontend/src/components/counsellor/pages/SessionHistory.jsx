@@ -62,7 +62,7 @@ const { studentProfile, loading: profileLoading } = useSelector(
       studentName: item.student_name,
       studentEmail: item.student_email,
       studentPhone: item.student_phone,
-      counsellorName: item.counsellor_name,
+        counsellorList: item.counsellor_name || [],
       date: item.date,
       startTime,
       endTime,
@@ -122,8 +122,7 @@ const { studentProfile, loading: profileLoading } = useSelector(
     {
       title: "Slot Time",
       render: (_, record) =>
-        `${dayjs(record.startTime, "HH:mm").format("hh:mm A")} - 
-         ${dayjs(record.endTime, "HH:mm").format("hh:mm A")}`,
+        `${dayjs(record.startTime, "HH:mm").format("hh:mm A")}`,
 
     },
    {

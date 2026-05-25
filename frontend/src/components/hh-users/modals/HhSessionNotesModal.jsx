@@ -138,7 +138,7 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
             date: session?.date && dayjs(session.date).isValid()
                 ? dayjs(session.date).format("DD-MM-YYYY")
                 : session?.date || "N/A",
-            time: session.slot_time || `${session.startTime} - ${session.endTime}`,
+            time: session.slot_time || `${session.startTime}`,
             status: session.status || "N/A",
             id: session.id,
         }
@@ -365,9 +365,9 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
                                             counsellorList.map((c, index) => (
                                                 <div key={index}>
                                                     {capitalizeName(c.counsellor_name)}{" "}
-                                                    <Tag color={c.role === "lead" ? "gold" : "blue"}>
+                                                    {/* <Tag color={c.role === "lead" ? "gold" : "blue"}>
                                                         {c.role}
-                                                    </Tag>
+                                                    </Tag> */}
                                                 </div>
                                             ))
                                         ) : (

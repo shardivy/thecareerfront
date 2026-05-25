@@ -304,7 +304,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
     !slot.is_handholding_session_available;
 
   return (
-    <Col xs={24} sm={12} md={8} key={getSlotKey(slot) ?? `${slot.start_time}-${slot.end_time}`}>
+    <Col xs={24} sm={12} md={8} key={getSlotKey(slot) ?? `${slot.start_time}`}>
       <Button
         block
         size="large"
@@ -322,7 +322,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
           cursor: isDisabled ? "not-allowed" : "pointer",
         }}
       >
-        {slot.start_time} - {slot.end_time}
+        {slot.start_time} 
         {isSlotExpired(slot)}
         {!slot.is_handholding_session_available }
       </Button>
@@ -376,9 +376,9 @@ const filteredSlots = slotsByDate.filter((slot) => {
               <Space>
                 <Avatar size="small" icon={<UserOutlined />} />
                 <Text>{c.counsellor_name}</Text>
-                <Tag color={c.role === "lead" ? "gold" : "blue"}>
+                {/* <Tag color={c.role === "lead" ? "gold" : "blue"}>
                   {c.role === "lead" ? "Lead" : "Assistant"}
-                </Tag>
+                </Tag> */}
               </Space>
             </div>
           ))}
@@ -406,7 +406,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
                     </p>
 
                     <p>
-                      <b>Slot:</b> {selectedSlot.start_time} - {selectedSlot.end_time}
+                      <b>Slot:</b> {selectedSlot.start_time}
                     </p>
 
                   </div>
@@ -418,14 +418,43 @@ const filteredSlots = slotsByDate.filter((slot) => {
             <Col xs={24} md={8} style={{ position: "sticky", top: 24 }}>
               <Card style={{ borderRadius: 16, marginTop: 16 }}>
                 <Space direction="vertical" size="large">
-                  <Space>
+                  {/* <Space>
                     <Avatar size={48} icon={<UserOutlined />} />
                     <div>
-                      <Text strong>Lead Counsellor</Text><br />
+                      <Text strong>Counsellor</Text><br />
                       <Text type="colorTextSecondary">{selectedLeadData?.first_name ?? "Not selected"}</Text>
                       {selectedLeadData && <Tag color="gold" size="small">Lead</Tag>}
                     </div>
-                  </Space>
+                  </Space> */}
+{selectedSlot?.counsellors?.length ? (
+  selectedSlot.counsellors.map((c, index) => (
+    <Space key={index} style={{ marginBottom: 12 }}>
+      <Avatar size={48} icon={<UserOutlined />} />
+
+      <div>
+        <Text strong>Counsellor</Text>
+        <br />
+
+        <Text type="colorTextSecondary">
+          {c.counsellor_name}
+        </Text>
+      </div>
+    </Space>
+  ))
+) : (
+  <Space style={{ marginBottom: 12 }}>
+    <Avatar size={48} icon={<UserOutlined />} />
+
+    <div>
+      <Text strong>Counsellor</Text>
+      <br />
+
+      <Text type="colorTextSecondary">
+        Not Assigned
+      </Text>
+    </div>
+  </Space>
+)}
 
                   {selectedNormalData && (
                     <Space>
@@ -450,16 +479,16 @@ const filteredSlots = slotsByDate.filter((slot) => {
                     <br />
                     <Text strong>
                       {selectedSlot
-                        ? `${selectedSlot.start_time} - ${selectedSlot.end_time}`
+                        ? `${selectedSlot.start_time}`
                         : "Not selected"}
                     </Text>
                   </div>
 
 
-                  <div>
+                  {/* <div>
                     <Text type="colorTextSecondary">Duration</Text><br />
                     <Text strong>60 Minutes</Text>
-                  </div>
+                  </div> */}
 
                   <Button
                     type="primary"
