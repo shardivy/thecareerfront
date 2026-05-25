@@ -558,6 +558,7 @@ class CompletedExamReportStudentIDAPIView(APIView):
             booking = (
                 Booking.objects
                 .filter(student=student_profile)
+                .exclude(status="cancelled")
                 .order_by("-created_at")
                 .first()
             )
@@ -1843,6 +1844,39 @@ class EngineeringReportUploadAPIView(APIView):
     
 # ======================= Review APIView =======================
 
+# class ReviewStartByStudentAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request):
+#         student_id = request.data.get("student_id")
+
+#         if not student_id:
+#             return Response(
+#                 {"message": "student_id is required"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ✅ Get student
+#         try:
+#             student = StudentProfile.objects.get(id=student_id)
+#         except StudentProfile.DoesNotExist:
+#             return Response(
+#                 {"message": "Student not found"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         # ✅ Create review using linked user
+#         review = Review.objects.create(
+#             user=student.user,   # ✅ CORRECT
+#             review_status='in_process'
+#         )
+
+#         return Response({
+#             "message": "Review created and started successfully",
+#             "review_id": review.id,
+#             "review_status": review.review_status
+#         }, status=status.HTTP_201_CREATED)
+
 class ReviewStartByStudentAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1855,7 +1889,6 @@ class ReviewStartByStudentAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ Get student
         try:
             student = StudentProfile.objects.get(id=student_id)
         except StudentProfile.DoesNotExist:
@@ -1864,17 +1897,36 @@ class ReviewStartByStudentAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # ✅ Create review using linked user
+        # ✅ Check existing in_process review
+        existing_review = Review.objects.filter(
+            user=student.user,
+            review_status="in_process"
+        ).first()
+
+        if existing_review:
+            return Response(
+                {
+                    "message": "Review already in progress",
+                    "review_id": existing_review.id,
+                    "review_status": existing_review.review_status
+                },
+                status=status.HTTP_200_OK
+            )
+
+        # ✅ Create only if no in_process review exists
         review = Review.objects.create(
-            user=student.user,   # ✅ CORRECT
-            review_status='in_process'
+            user=student.user,
+            review_status="in_process"
         )
 
-        return Response({
-            "message": "Review created and started successfully",
-            "review_id": review.id,
-            "review_status": review.review_status
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "message": "Review created and started successfully",
+                "review_id": review.id,
+                "review_status": review.review_status
+            },
+            status=status.HTTP_201_CREATED
+        )
         
 
 # class SubmitReviewAPIView(APIView):
@@ -1983,10 +2035,22 @@ class SubmitReviewAPIView(APIView):
         # =========================
         # 🔍 FIND EXISTING REVIEW
         # =========================
+        # review = Review.objects.filter(
+        #     user=user,
+        #     related_id=related_id
+        # ).first()
         review = Review.objects.filter(
             user=user,
-            related_id=related_id
+            related_id=related_id,
+            review_status="in_process"
         ).first()
+
+        # If no in_process review exists, check any existing review
+        if not review:
+            review = Review.objects.filter(
+                user=user,
+                related_id=related_id
+            ).first()
 
         # =========================
         # 🆕 CREATE IF NOT EXISTS
