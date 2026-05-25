@@ -87,6 +87,78 @@ const InstructionsModal = ({
       }
     >
       <div style={{ padding: "6px 0 12px 0", lineHeight: 1.35 }}>
+        {/* IMPORTANT TEST NOTE */}
+        <Card
+          bodyStyle={{ padding: "14px 16px" }}
+          style={{
+            borderRadius: 16,
+            marginBottom: 16,
+            background: "linear-gradient(135deg,#fff7e6,#fff1f0)",
+            border: "1px solid #ffd591",
+          }}
+        >
+          <Title level={5} style={{ marginBottom: 10 }}>
+            <PictureOutlined style={{ marginRight: 8 }} />
+            Important Test Instructions
+          </Title>
+
+          {/* IMAGE */}
+          <div
+            style={{
+              width: "100%",
+              borderRadius: 12,
+              overflow: "hidden",
+              marginBottom: 14,
+              border: "1px solid #f0f0f0",
+              boxShadow: "0 10px 24px rgba(0, 0, 0, 0.12)",
+            }}
+          >
+            <img
+              src="/exam-img.jpeg"
+              alt="Test Completion Example"
+              style={{
+                width: "100%",
+                display: "block",
+                objectFit: "cover",
+                transform: "rotate(-1deg)",
+                transformOrigin: "center center",
+              }}
+            />
+          </div>
+
+          {/* TEXT */}
+          <div
+            style={{
+              background: "#fff",
+              padding: "12px 14px",
+              borderRadius: 12,
+              border: "1px dashed #ffa940",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                lineHeight: 1.8,
+                color: "#262626",
+              }}
+            >
+              Please complete all sections of the test until a{" "}
+              <Text strong style={{ color: "#52c41a" }}>
+                green tick
+              </Text>{" "}
+              is visible on all sections as shown in the image.
+              <br />
+              <br />
+              Also,{" "}
+              <Text strong>
+                do not make any payment
+              </Text>{" "}
+              on the test website. Directly fill in your details and
+              begin the test.
+            </Text>
+          </div>
+        </Card>
+
         {/* GETTING STARTED */}
         <Card
           bodyStyle={{ padding: "12px 16px" }}
@@ -199,75 +271,6 @@ const InstructionsModal = ({
               </List.Item>
             )}
           />
-        </Card>
-
-        {/* IMPORTANT TEST NOTE */}
-        <Card
-          bodyStyle={{ padding: "14px 16px" }}
-          style={{
-            borderRadius: 16,
-            marginBottom: 16,
-            background: "linear-gradient(135deg,#fff7e6,#fff1f0)",
-            border: "1px solid #ffd591",
-          }}
-        >
-          <Title level={5} style={{ marginBottom: 10 }}>
-            <PictureOutlined style={{ marginRight: 8 }} />
-            Important Test Instructions
-          </Title>
-
-          {/* IMAGE */}
-          <div
-            style={{
-              width: "100%",
-              borderRadius: 12,
-              overflow: "hidden",
-              marginBottom: 14,
-              border: "1px solid #f0f0f0",
-            }}
-          >
-            <img
-              src="/exam-img.jpeg"
-              alt="Test Completion Example"
-              style={{
-                width: "100%",
-                display: "block",
-                objectFit: "cover",
-              }}
-            />
-          </div>
-
-          {/* TEXT */}
-          <div
-            style={{
-              background: "#fff",
-              padding: "12px 14px",
-              borderRadius: 12,
-              border: "1px dashed #ffa940",
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 14,
-                lineHeight: 1.8,
-                color: "#262626",
-              }}
-            >
-              Please complete all sections of the test until a{" "}
-              <Text strong style={{ color: "#52c41a" }}>
-                green tick
-              </Text>{" "}
-              is visible on all sections as shown in the image.
-              <br />
-              <br />
-              Also,{" "}
-              <Text strong>
-                do not make any payment
-              </Text>{" "}
-              on the test website. Directly fill in your details and
-              begin the test.
-            </Text>
-          </div>
         </Card>
 
         {/* ABOUT */}

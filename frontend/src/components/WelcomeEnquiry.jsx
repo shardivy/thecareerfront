@@ -31,7 +31,7 @@ const programIconColorMap = {
   "Design & Architecture": { icon: <SketchOutlined />, color: "#9C27B0" },
   Commerce: { icon: <StockOutlined />, color: "#4CAF50" },
   Arts: { icon: <ReadOutlined />, color: "#E91E63" },
-  BBA: { icon: <UsergroupAddOutlined />, color: "#FF9800" },
+  "Commerce (BBA & MBA)": { icon: <UsergroupAddOutlined />, color: "#FF9800" },
   "11th Admission": { icon: <FileTextOutlined />, color: "#795548" },
   "8-12 Aptitude Test": { icon: <CheckCircleOutlined />, color: "#00BCD4" },
   "PG Counselling": { icon: <ApartmentOutlined />, color: "#607D8B" },
@@ -70,56 +70,69 @@ const WelcomeEnquiry = () => {
     setIsModalOpen(true);
   };
 
-const serviceRouteMap = {
-  "Engineering-Paid Whatsapp Group":
-    "/engineering-paid-group-service",
+  const serviceRouteMap = {
+    "Engineering-Paid Whatsapp Group":
+      "/engineering-paid-group-service",
 
-  "Engineering-End to End Councelling Service":
-    "/engineering-end-to-end-counselling",
+    "Engineering-Admission Counselling":
+      "/admission-counselling",
 
-  "Medical-Paid Whatsapp Group":
-    "/medical-paid-group-service",
+    "Engineering-OCI/NRI/CIWG/PIO Paid Whatsapp Group":
+      "/engineering-oci-nri-paid-group-service",
 
-  "Medical-End to End Medical Counselling":
-    "/medical-end-to-end-counselling",
+    // "Engineering-OCI/NRI/CIWG/PIO Engineering Admission End-to-End Guidance":
+    //   "/oci-nri-end-to-end-counselling",
 
-  "Law-Paid Whatsapp Group":
-    "/law-service",
+    "Engineering-CET-Engineering Admission One-on-One Guidance":
+      "/cet-one-on-one-guidance",
 
-  "PG Counselling-Paid Whatsapp Group":
-    "/pg-counselling-service",
+    "Engineering-JEE-Engineering Admission One-on-One Guidance":
+      "/jee-one-on-one-guidance",
 
-  "OCI/NRI/CIWG/PIO Engineering-Paid Whatsapp Group":
-    "/engineering-oci-nri-paid-group-service",
-  
-  "11th Admission-Free Whatsapp Group":
-    "/11th-admission-free-group-service",
+    "Medical-Paid Whatsapp Group":
+      "/medical-paid-group-service",
 
-  "Abroad Counselling-Expert Abroad Counselling Service":
-    "/abroad-counselling-service",
+    "Medical-End to End Medical Counselling":
+      "/medical-end-to-end-counselling",
 
-  "Admission Counselling-Expert Engineering Online Session":
-    "/admission-counselling-service",
+    "Law-Paid Whatsapp Group":
+      "/law-service",
 
-  "BBA-Paid Whatsapp Group":
-    "/bba-paid-group-service",
-  
-  "Hand Holding Program-Hand Holding":
-    "/handholding-program-service",
+    "11th Admission-Free Whatsapp Group":
+      "/11th-admission-free-group-service",
 
-  "Design & Architecture-Paid Whatsapp Group":
-    "/design-arch-paid-group-service",
+    "Abroad Counselling-Expert Abroad Counselling Service":
+      "/abroad-counselling-service",
 
-  "Aptitude Test Counselling-Aptitude Test For 8th-9th std":
-    "/8-9-aptitude-service",
+    // "Admission Counselling-Expert Engineering Online Session":
+    //   "/admission-counselling-service",
 
-  "Aptitude Test Counselling-Aptitude Test Of 10th STD":
-    "/10th-aptitude-service",
+    "Commerce (BBA  & MBA)-Paid Whatsapp Group":
+      "/bba-paid-group-service",
 
-  "Aptitude Test Counselling-Aptitude Test Of 11th-12th STD":
-    "/11-12-aptitude-service",
+    "Hand Holding Program-Hand Holding":
+      "/handholding-program-service",
 
-};
+    "Design & Architecture-Paid Whatsapp Group":
+      "/design-arch-paid-group-service",
+
+    "Aptitude Test Counselling-Aptitude Test For 8th-9th std":
+      "/8-9-aptitude-service",
+
+    "Aptitude Test Counselling-Aptitude Test Of 10th STD":
+      "/10th-aptitude-service",
+
+    "Aptitude Test Counselling-Aptitude Test Of 11th-12th STD":
+      "/11-12-aptitude-service",
+
+        "Aptitude Test Counselling-PG Counselling":
+      "/pg-counselling-service",
+
+
+    "Seminar / Webinar-Seminar / Webinar":
+      "/seminar-webinar-session",
+
+  };
 
   return (
     <div style={{ padding: "20px", background: "#f4f7fb", minHeight: "auto" }}>
@@ -312,171 +325,171 @@ const serviceRouteMap = {
       )}
 
 
-     {/* MODAL FOR PACKAGES */}
-<Modal
-  title={
-    <div
-      style={{
-        fontSize: 22,
-        fontWeight: 700,
-        color: "#111827",
-      }}
-    >
-      {activeProgramName} Services
-    </div>
-  }
-  open={isModalOpen}
-  onCancel={() => setIsModalOpen(false)}
-  footer={null}
-  centered
-  width={900}
-  styles={{
-    body: {
-      paddingTop: 10,
-      background:
-        "linear-gradient(180deg, #F8FAFC 0%, #EEF4FF 100%)",
-      borderRadius: 20,
-    },
-  }}
->
-  {packageLoading ? (
-    <div style={{ textAlign: "center", padding: 40 }}>
-      <Spin size="large" />
-    </div>
-  ) : packages.length === 0 ? (
-    <Empty description="No services found" />
-  ) : (
-    <Row gutter={[24, 24]} align="stretch">
-      {packages.map((pkg) => (
-        <Col xs={24} md={12} key={pkg.id} style={{ display: "flex" }}>
-          <Card
-            hoverable
-            // onClick={() => {
-            //   navigate("/counselling-service", {
-            //     state: {
-            //       fromWelcomePage: true,
-            //       programId: activeProgramId,
-            //       programName: activeProgramName,
-            //       packageId: pkg.id,
-            //       packageName: pkg.name,
-            //       isAptitude: pkg.aptitude_test,
-            //     },
-            //   });
-            // }}
-            onClick={() => {
- const routeKey = `${activeProgramName}-${pkg.name}`;
-
-navigate(
-  serviceRouteMap[routeKey] || "/services/default"
-);
-}}
+      {/* MODAL FOR PACKAGES */}
+      <Modal
+        title={
+          <div
             style={{
-              width: "100%",
-              height: "100%",
-              borderRadius: 24,
-              overflow: "hidden",
-              border: "1px solid #E5E7EB",
-              background:
-                "linear-gradient(180deg, #FFFFFF, #F9FBFF)",
-              boxShadow: "0 10px 28px rgba(15,23,42,0.08)",
-              transition: "all 0.35s ease",
-              cursor: "pointer",
-              position: "relative",
-              minHeight: 260,
-            }}
-            bodyStyle={{
-              padding: "26px",
-              height: "100%",
-              display: "flex",
-              flexDirection: "column",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-8px)";
-              e.currentTarget.style.boxShadow =
-                "0 18px 36px rgba(15,23,42,0.14)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow =
-                "0 10px 28px rgba(15,23,42,0.08)";
+              fontSize: 22,
+              fontWeight: 700,
+              color: "#111827",
             }}
           >
-            {/* TOP BADGE */}
-            <div
-              style={{
-                position: "absolute",
-                top: 18,
-                right: 18,
-                background: "#DBEAFE",
-                color: "#1E40AF",
-                padding: "6px 14px",
-                borderRadius: 999,
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              Service
-            </div>
+            {activeProgramName} Services
+          </div>
+        }
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        footer={null}
+        centered
+        width={900}
+        styles={{
+          body: {
+            paddingTop: 10,
+            background:
+              "linear-gradient(180deg, #F8FAFC 0%, #EEF4FF 100%)",
+            borderRadius: 20,
+          },
+        }}
+      >
+        {packageLoading ? (
+          <div style={{ textAlign: "center", padding: 40 }}>
+            <Spin size="large" />
+          </div>
+        ) : packages.length === 0 ? (
+          <Empty description="No services found" />
+        ) : (
+          <Row gutter={[24, 24]} align="stretch">
+            {packages.map((pkg) => (
+              <Col xs={24} md={12} key={pkg.id} style={{ display: "flex" }}>
+                <Card
+                  hoverable
+                  // onClick={() => {
+                  //   navigate("/counselling-service", {
+                  //     state: {
+                  //       fromWelcomePage: true,
+                  //       programId: activeProgramId,
+                  //       programName: activeProgramName,
+                  //       packageId: pkg.id,
+                  //       packageName: pkg.name,
+                  //       isAptitude: pkg.aptitude_test,
+                  //     },
+                  //   });
+                  // }}
+                  onClick={() => {
+                    const routeKey = `${activeProgramName}-${pkg.name}`;
 
-            {/* ICON */}
-            <div
-              style={{
-                position: "relative",
-                width: 78,
-                height: 78,
-                marginBottom: 22,
-              }}
-            >
-              {/* OUTER GLOW */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  borderRadius: "24px",
-                  background:
-                    "linear-gradient(135deg, #1E40AF, #3B82F6)",
-                  opacity: 0.12,
-                  transform: "rotate(-8deg)",
-                }}
-              />
+                    navigate(
+                      serviceRouteMap[routeKey] || "/default"
+                    );
+                  }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: 24,
+                    overflow: "hidden",
+                    border: "1px solid #E5E7EB",
+                    background:
+                      "linear-gradient(180deg, #FFFFFF, #F9FBFF)",
+                    boxShadow: "0 10px 28px rgba(15,23,42,0.08)",
+                    transition: "all 0.35s ease",
+                    cursor: "pointer",
+                    position: "relative",
+                    minHeight: 260,
+                  }}
+                  bodyStyle={{
+                    padding: "26px",
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "translateY(-8px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 18px 36px rgba(15,23,42,0.14)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow =
+                      "0 10px 28px rgba(15,23,42,0.08)";
+                  }}
+                >
+                  {/* TOP BADGE */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 18,
+                      right: 18,
+                      background: "#DBEAFE",
+                      color: "#1E40AF",
+                      padding: "6px 14px",
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    Service
+                  </div>
 
-              {/* MAIN ICON BOX */}
-              <div
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  borderRadius: "24px",
-                  background:
-                    "linear-gradient(135deg, #1E40AF, #2563EB)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: 34,
-                  position: "relative",
-                  boxShadow:
-                    "0 14px 30px rgba(30,64,175,0.28)",
-                }}
-              >
-                🚀
-              </div>
-            </div>
+                  {/* ICON */}
+                  <div
+                    style={{
+                      position: "relative",
+                      width: 78,
+                      height: 78,
+                      marginBottom: 22,
+                    }}
+                  >
+                    {/* OUTER GLOW */}
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        borderRadius: "24px",
+                        background:
+                          "linear-gradient(135deg, #1E40AF, #3B82F6)",
+                        opacity: 0.12,
+                        transform: "rotate(-8deg)",
+                      }}
+                    />
 
-            {/* PACKAGE NAME */}
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 750,
-                color: "#111827",
-                lineHeight: 1.3,
-                marginBottom: 10,
-              }}
-            >
-              {pkg.name}
-            </div>
+                    {/* MAIN ICON BOX */}
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "24px",
+                        background:
+                          "linear-gradient(135deg, #1E40AF, #2563EB)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        fontSize: 34,
+                        position: "relative",
+                        boxShadow:
+                          "0 14px 30px rgba(30,64,175,0.28)",
+                      }}
+                    >
+                      🚀
+                    </div>
+                  </div>
 
-            {/* DESCRIPTION */}
-            {/* <div
+                  {/* PACKAGE NAME */}
+                  <div
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 750,
+                      color: "#111827",
+                      lineHeight: 1.3,
+                      marginBottom: 10,
+                    }}
+                  >
+                    {pkg.name}
+                  </div>
+
+                  {/* DESCRIPTION */}
+                  {/* <div
               style={{
                 fontSize: 14,
                 color: "#6B7280",
@@ -489,127 +502,127 @@ navigate(
               goals.
             </div> */}
 
-            {/* PRICE */}
-            <div
-              style={{
-                fontSize: 28,
-                fontWeight: 800,
-                color: "#1E40AF",
-                marginBottom: 18,
-              }}
-            >
-              ₹ {pkg.price}
-            </div>
+                  {/* PRICE */}
+                  <div
+                    style={{
+                      fontSize: 28,
+                      fontWeight: 800,
+                      color: "#1E40AF",
+                      marginBottom: 18,
+                    }}
+                  >
+                    ₹ {pkg.price}
+                  </div>
 
-            {/* FEATURES */}
-            {pkg.features && pkg.features.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 700,
-                    color: "#111827",
-                    marginBottom: 10,
-                  }}
-                >
-                  Included Features
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 10,
-                  }}
-                >
-                  {pkg.features
-                    .slice(0, 4)
-                    .map((feature) => (
+                  {/* FEATURES */}
+                  {pkg.features && pkg.features.length > 0 && (
+                    <div style={{ marginBottom: 20 }}>
                       <div
-                        key={feature.id}
                         style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          gap: 10,
-                          fontSize: 13,
-                          color: "#4B5563",
-                          lineHeight: 1.5,
+                          fontSize: 14,
+                          fontWeight: 700,
+                          color: "#111827",
+                          marginBottom: 10,
                         }}
                       >
-                      <div
-  style={{
-    width: 18,
-    height: 18,
-    borderRadius: "50%",
-    background: "#b9fed1", // light green background
-    color: "#16A34A", // green tick color
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 11,
-    flexShrink: 0,
-    marginTop: 1,
-    fontWeight: 700,
-    boxShadow: "0 4px 10px rgba(22,163,74,0.18)",
-  }}
->
-  ✓
-</div>
-
-                        <span>
-                          {feature.description}
-                        </span>
+                        Included Features
                       </div>
-                    ))}
-                </div>
-              </div>
-            )}
 
-            {/* FOOTER */}
-            <div
-              style={{
-                marginTop: "auto",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingTop: 18,
-                borderTop: "1px solid #E5E7EB",
-              }}
-            >
-              <span
-                style={{
-                  color: "#1E40AF",
-                  fontWeight: 700,
-                  fontSize: 15,
-                }}
-              >
-                Continue
-              </span>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 10,
+                        }}
+                      >
+                        {pkg.features
+                          .slice(0, 4)
+                          .map((feature) => (
+                            <div
+                              key={feature.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: 10,
+                                fontSize: 13,
+                                color: "#4B5563",
+                                lineHeight: 1.5,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: 18,
+                                  height: 18,
+                                  borderRadius: "50%",
+                                  background: "#b9fed1", // light green background
+                                  color: "#16A34A", // green tick color
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 11,
+                                  flexShrink: 0,
+                                  marginTop: 1,
+                                  fontWeight: 700,
+                                  boxShadow: "0 4px 10px rgba(22,163,74,0.18)",
+                                }}
+                              >
+                                ✓
+                              </div>
 
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: "50%",
-                  background: "#1E40AF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: 16,
-                  boxShadow:
-                    "0 10px 20px rgba(30,64,175,0.28)",
-                }}
-              >
-                →
-              </div>
-            </div>
-          </Card>
-        </Col>
-      ))}
-    </Row>
-  )}
-</Modal>
+                              <span>
+                                {feature.description}
+                              </span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* FOOTER */}
+                  <div
+                    style={{
+                      marginTop: "auto",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingTop: 18,
+                      borderTop: "1px solid #E5E7EB",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "#1E40AF",
+                        fontWeight: 700,
+                        fontSize: 15,
+                      }}
+                    >
+                      Continue
+                    </span>
+
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: "50%",
+                        background: "#1E40AF",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        fontSize: 16,
+                        boxShadow:
+                          "0 10px 20px rgba(30,64,175,0.28)",
+                      }}
+                    >
+                      →
+                    </div>
+                  </div>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        )}
+      </Modal>
     </div>
   );
 };

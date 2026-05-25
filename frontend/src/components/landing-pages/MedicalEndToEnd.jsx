@@ -22,7 +22,7 @@ export default function MedicalEndToEnd() {
     setPageTitle(defaultPackageName);
     const whatsappText = `Hello Abhinav Career Scope, I want to book counselling for ${defaultPackageName}.`;
     window.open(
-      `https://wa.me/91${phone1.replace(/\D/g, "")}?text=${encodeURIComponent(whatsappText)}`,
+      `https://wa.me/${phone1.replace(/\D/g, "")}?text=${encodeURIComponent(whatsappText)}`,
       "_blank",
       "noopener,noreferrer"
     );
@@ -77,16 +77,33 @@ export default function MedicalEndToEnd() {
 
             
 
-            <div className="loc-row">📍 Bavdhan, Pune, India</div>
+    
 
            
           </div>
 
           {/* sticky contact footer */}
           <div className="law-footer">
-            <div className="footer-label">Connect with Us</div>
-            <div className="contact-info">
-              <div>📞 {phone1} | {phone2}</div>
+            <div className="contact-section">
+              <div className="contact-section-header">
+                <p className="contact-eyebrow">📞 Connect With Us Today</p>
+                <p className="contact-copy">
+                  Don't navigate your admission journey alone. Join our community for premium updates, expert guidance, and timely support.
+                </p>
+              </div>
+
+              <div className="contact-details">
+                <div className="contact-item">
+                  <span className="contact-label">WhatsApp / Call</span>
+                  <span className="contact-value">{phone1}</span>
+                  <span className="contact-value">{phone2}</span>
+                </div>
+
+                <div className="contact-item">
+                  <span className="contact-label">Location</span>
+                  <span className="contact-value">Bavdhan, Pune, India</span>
+                </div>
+              </div>
             </div>
             <div className="btn-row">
               <button className="book-btn" onClick={bookCounselling}>

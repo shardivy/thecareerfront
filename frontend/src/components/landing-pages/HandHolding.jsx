@@ -65,14 +65,31 @@ export default function HandHolding() {
               Join us and transform the future of career counseling!
             </p>
 
-            <div className="loc-row">📍 Pune, India</div>
+         
           </div>
 
           {/* sticky contact footer */}
           <div className="law-footer">
-            <div className="footer-label">Consult Now</div>
-            <div className="contact-info">
-              <div>📞 {phone1} | {phone2}</div>
+            <div className="contact-section">
+              <div className="contact-section-header">
+                <p className="contact-eyebrow">📞 Connect With Us Today</p>
+                <p className="contact-copy">
+                  Don't navigate your admission journey alone. Join our community for premium updates, expert guidance, and timely support.
+                </p>
+              </div>
+
+              <div className="contact-details">
+                <div className="contact-item">
+                  <span className="contact-label">WhatsApp / Call</span>
+                  <span className="contact-value">{phone1}</span>
+                  <span className="contact-value">{phone2}</span>
+                </div>
+
+                <div className="contact-item">
+                  <span className="contact-label">Location</span>
+                  <span className="contact-value">Bavdhan , Pune, India</span>
+                </div>
+              </div>
             </div>
             <div className="btn-row">
               <button className="book-btn" onClick={bookCounselling}>
