@@ -5,6 +5,7 @@ from django.shortcuts import render
 
 from django.http import FileResponse
 from django.urls import reverse
+from payment.views import PaymentCreateAPIView
 from counselling_slot.models import Booking
 from lead_registration.models import StudentProfile
 from rest_framework.permissions import AllowAny
@@ -2090,12 +2091,15 @@ class SubmitReviewAPIView(APIView):
         # =========================
         # 💳 CHECK LATEST PAYMENT STATUS
         # =========================
-        latest_payment = (
-            Payment.objects
-            .filter(user=user)
-            .order_by('-created_at')
-            .first()
-        )
+        # latest_payment = (
+        #     Payment.objects
+        #     .filter(user=user)
+        #     .order_by('-created_at')
+        #     .first()
+        # )
+        
+        # if latest_payment:
+        #     PaymentCreateAPIView().unlock_report_if_paid(latest_payment)
 
         # =========================
         # 🎓 GET STUDENT PROFILE

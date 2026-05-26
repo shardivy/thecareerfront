@@ -2,6 +2,8 @@ import traceback
 
 from django.shortcuts import get_object_or_404, render
 from backend import settings
+from payment.models import Payment
+from payment.views import PaymentCreateAPIView
 from report.models import Report
 from counselling_slot.utils import generate_counselling_reminder, send_booking_created_email, send_booking_updated_email
 from lead_registration.models import StudentProfile
@@ -1996,6 +1998,18 @@ class BookingCreateAPIView(APIView):
                 booking.status = "completed"
                 booking.save(update_fields=["status"])
                 
+                # latest_payment = (
+                #     Payment.objects
+                #     .filter(user=booking.student.user)
+                #     .order_by("-created_at")
+                #     .first()
+                # )
+
+                # if latest_payment:
+                #     PaymentCreateAPIView().unlock_report_if_paid(
+                #         latest_payment
+                #     )
+                
         # =============================
         # SINGLE BOOKING
         # =============================
@@ -2486,13 +2500,45 @@ class SlotAvailabilityUpdateAPIView(APIView):
         )
         
         
+# class BookingMarkCompletedAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def put(self, request, booking_id):
+#         booking = get_object_or_404(Booking, id=booking_id)
+
+#         # Optional validation
+#         if booking.status == "cancelled":
+#             return Response(
+#                 {"message": "Cancelled booking cannot be marked as completed."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         if booking.status == "completed":
+#             return Response(
+#                 {"message": "Booking is already completed."},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ✅ Update status
+#         booking.status = "completed"
+#         booking.save()
+
+#         return Response(
+#             {
+#                 "message": "Booking marked as completed successfully",
+#                 "booking_id": booking.id,
+#                 "status": booking.status,
+#                 "updated_at": booking.updated_at
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
 class BookingMarkCompletedAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, booking_id):
         booking = get_object_or_404(Booking, id=booking_id)
 
-        # Optional validation
         if booking.status == "cancelled":
             return Response(
                 {"message": "Cancelled booking cannot be marked as completed."},
@@ -2505,83 +2551,62 @@ class BookingMarkCompletedAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ✅ Update status
+        # Only update booking status
         booking.status = "completed"
-        booking.save()
+        booking.save(update_fields=["status"])
+        
+        # =====================================
+        # ✅ Check latest payment
+        # =====================================
+        latest_payment = (
+            Payment.objects
+            .filter(user=booking.student.user)
+            .order_by("-created_at")
+            .first()
+        )
 
+        updated_count = 0
+
+        # =====================================
+        # ✅ Unlock report only if fully paid
+        # =====================================
+        if latest_payment and latest_payment.status == "fully_paid":
+
+            updated_count = Report.objects.filter(
+                user=booking.student.user,
+                report_status="received_locked"
+            ).update(
+                report_status="received_unlocked"
+            )
+
+        # return Response(
+        #     {
+        #         "message": "Booking marked as completed successfully",
+        #         "booking_id": booking.id,
+        #         "status": booking.status,
+        #         "updated_at": booking.updated_at
+        #     },
+        #     status=status.HTTP_200_OK
+        # )
         return Response(
             {
                 "message": "Booking marked as completed successfully",
                 "booking_id": booking.id,
                 "status": booking.status,
+                "payment_status": (
+                    latest_payment.status
+                    if latest_payment
+                    else None
+                ),
+                "report_status": (
+                    "received_unlocked"
+                    if updated_count > 0
+                    else "received_locked"
+                ),
                 "updated_at": booking.updated_at
             },
             status=status.HTTP_200_OK
         )
-
-
-# class BookingMarkCompletedAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def put(self, request, booking_id):
-#         booking = get_object_or_404(Booking, id=booking_id)
-
-#         # ❌ Cancelled booking validation
-#         if booking.status == "cancelled":
-#             return Response(
-#                 {"message": "Cancelled booking cannot be marked as completed."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         slot = booking.slot
-
-#         if not slot or not slot.end_time:
-#             return Response(
-#                 {"message": "Slot end time not available."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         try:
-#             # Convert slot date + end_time to datetime
-#             end_datetime = datetime.strptime(
-#                 f"{slot.date} {slot.end_time}",
-#                 "%Y-%m-%d %H:%M"
-#             )
-#             end_datetime = timezone.make_aware(end_datetime)
-
-#             # 30 minutes before end time
-#             trigger_time = end_datetime - timedelta(minutes=120)
-
-#             now = timezone.now()
-
-#             if now >= trigger_time:
-#                 booking.status = "completed"
-#                 booking.save(update_fields=["status"])
-
-#                 return Response(
-#                     {
-#                         "message": "Booking automatically marked as completed (30 minutes before slot end).",
-#                         "booking_id": booking.id,
-#                         "status": booking.status,
-#                         "updated_at": booking.updated_at
-#                     },
-#                     status=status.HTTP_200_OK
-#                 )
-
-#             else:
-#                 return Response(
-#                     {
-#                         "message": "Booking cannot be marked as completed yet. 30 minutes window not reached.",
-#                         "booking_id": booking.id
-#                     },
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-#         except Exception:
-#             return Response(
-#                 {"message": "Invalid slot time format."},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
 
 
 # ================= Student Booking List API (with slot & counsellor details) ================
