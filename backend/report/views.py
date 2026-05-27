@@ -2091,12 +2091,12 @@ class SubmitReviewAPIView(APIView):
         # =========================
         # 💳 CHECK LATEST PAYMENT STATUS
         # =========================
-        # latest_payment = (
-        #     Payment.objects
-        #     .filter(user=user)
-        #     .order_by('-created_at')
-        #     .first()
-        # )
+        latest_payment = (
+            Payment.objects
+            .filter(user=user)
+            .order_by('-created_at')
+            .first()
+        )
         
         # if latest_payment:
         #     PaymentCreateAPIView().unlock_report_if_paid(latest_payment)
@@ -2126,66 +2126,67 @@ class SubmitReviewAPIView(APIView):
         # =========================
         # 🔒 DEFAULT REPORT STATUS
         # =========================
-        # report_status = "received_locked"
+        report_status = "received_locked"
 
-        # # =========================
-        # # 🔓 UNLOCK REPORT ONLY IF:
-        # # ✅ Payment fully paid
-        # # ✅ Review submitted
-        # # ✅ Booking completed
-        # # =========================
-        # if (
-        #     latest_payment
-        #     and latest_payment.status == "fully_paid"
-        #     and review.review_status == "submitted"
-        #     and latest_booking
-        #     and latest_booking.status == "completed"
-        # ):
-        #     report_status = "received_unlocked"
-
-        # # =========================
-        # # 📄 UPDATE REPORT STATUS
-        # # =========================
-        # Report.objects.filter(
-        #     user=user
-        # ).update(
-        #     report_status=report_status
-        # )
-        
         # =========================
-        # REPORT STATUS LOGIC
-        # Skip for engineering analysis students
+        # 🔓 UNLOCK REPORT ONLY IF:
+        # ✅ Payment fully paid
+        # ✅ Review submitted
+        # ✅ Booking completed
         # =========================
-        report_status = None
-
-        is_engineering_analysis = (
+        if (
             latest_payment
-            and latest_payment.package
-            and latest_payment.package.engineering_test_analysis
+            and latest_payment.status == "fully_paid"
+            and review.review_status == "submitted"
+            and latest_booking
+            and latest_booking.status == "completed"
+        ):
+            report_status = "received_unlocked"
+
+        # =========================
+        # 📄 UPDATE REPORT STATUS
+        # =========================
+        Report.objects.filter(
+            user=user
+        ).update(
+            report_status=report_status
         )
+        
+        # # =========================
+        # # REPORT STATUS LOGIC
+        # # Skip for engineering analysis students
+        # # =========================
+        # report_status = None
 
-        if not is_engineering_analysis:
+        # is_engineering_analysis = (
+        #     latest_payment
+        #     and latest_payment.package
+        #     and latest_payment.package.engineering_test_analysis
+        # )
 
-            report_status = "received_locked"
+        # if not is_engineering_analysis:
 
-            if (
-                latest_payment
-                and latest_payment.status == "fully_paid"
-                and review.review_status == "submitted"
-                and latest_booking
-                and latest_booking.status == "completed"
-            ):
-                report_status = "received_unlocked"
+        #     report_status = "received_locked"
 
-            Report.objects.filter(
-                user=user
-            ).update(
-                report_status=report_status
-            )
+        #     if (
+        #         latest_payment
+        #         and latest_payment.status == "fully_paid"
+        #         and review.review_status == "submitted"
+        #         and latest_booking
+        #         and latest_booking.status == "completed"
+        #     ):
+        #         report_status = "received_unlocked"
+
+        #     Report.objects.filter(
+        #         user=user
+        #     ).update(
+        #         report_status=report_status
+        #     )
             
         # =========================
         # 📤 RESPONSE
         # =========================
+        
         return Response({
             "message": "Review submitted successfully",
 
