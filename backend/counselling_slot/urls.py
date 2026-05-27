@@ -1,6 +1,6 @@
 from django.urls import path
 
-from counselling_slot.views import AddCounsellorAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CancelBookingAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorMonthAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, ReenaCounsellorAPIView, SendReminderAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
+from counselling_slot.views import AddCounsellorAPIView, AllCounsellorListAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CancelBookingAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorMonthAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, ReenaCounsellorAPIView, SendReminderAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
 
 
 urlpatterns = [
@@ -26,6 +26,7 @@ urlpatterns = [
     # ==================== New Updates Below ======================================================    
     
     path("counsellors/", CounsellorListAPIView.as_view(), name="counsellor-list"),
+    path("counsellors/all/", AllCounsellorListAPIView.as_view(), name="all-counsellor-list"),
     path(
     "reena-bhutada-counsellor/",
     ReenaCounsellorAPIView.as_view(),

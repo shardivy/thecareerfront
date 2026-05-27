@@ -472,12 +472,26 @@ class AddUserAPIView(APIView):
                 # ✅ Password handling
                 password = data.get("password") or generate_password()
 
-                # ✅ Prefix logic
-                prefix = PROGRAM_PREFIX_MAP.get(program.name)
-                first_name = data["first_name"]
+                # # ✅ Prefix logic
+                # prefix = PROGRAM_PREFIX_MAP.get(program.name)
+                # first_name = data["first_name"]
 
-                if prefix and not first_name.startswith(prefix):
+                # if prefix and not first_name.startswith(prefix):
+                #     first_name = f"{prefix} - {first_name}"
+                
+                program = data["program"]
+
+                program_name = program.name.strip().lower()
+                prefix = PROGRAM_PREFIX_MAP.get(program_name)
+
+                first_name = data["first_name"].strip()
+
+                if prefix and not first_name.startswith(f"{prefix} - "):
                     first_name = f"{prefix} - {first_name}"
+                    
+                print("Program Name:", repr(program.name))
+                print("Normalized:", program.name.strip().lower())
+                print("Prefix:", prefix)
 
                 # ✅ Create user
                 user = User.objects.create(
@@ -791,6 +805,8 @@ class AddUserAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+
+
 # class AddUserAPIView(APIView):
 
 #     permission_classes = [IsAuthenticated]
@@ -1531,12 +1547,22 @@ class ConvertLeadAPIView(APIView):
                     if not password:
                         password = generate_password()
 
+                    # program = serializer.validated_data["program"]
+                    # prefix = PROGRAM_PREFIX_MAP.get(program.name)
+
+                    # first_name = serializer.validated_data["first_name"]
+
+                    # if prefix and not first_name.startswith(prefix):
+                    #     first_name = f"{prefix} - {first_name}"
+                    
                     program = serializer.validated_data["program"]
-                    prefix = PROGRAM_PREFIX_MAP.get(program.name)
 
-                    first_name = serializer.validated_data["first_name"]
+                    program_name = program.name.strip().lower()
+                    prefix = PROGRAM_PREFIX_MAP.get(program_name)
 
-                    if prefix and not first_name.startswith(prefix):
+                    first_name = serializer.validated_data["first_name"].strip()
+
+                    if prefix and not first_name.startswith(f"{prefix} - "):
                         first_name = f"{prefix} - {first_name}"
 
                     user = User.objects.create(
