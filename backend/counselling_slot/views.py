@@ -2576,26 +2576,32 @@ class BookingMarkCompletedAPIView(APIView):
         updated_count = 0
 
         # =====================================
-        # ✅ Unlock report only if fully paid
+        # ✅ Report Unlock Logic
         # =====================================
-        if latest_payment and latest_payment.status == "fully_paid":
+        if latest_payment:
 
-            updated_count = Report.objects.filter(
-                user=booking.student.user,
-                report_status="received_locked"
-            ).update(
-                report_status="received_unlocked"
-            )
+            if latest_payment.status == "fully_paid":
 
-        # return Response(
-        #     {
-        #         "message": "Booking marked as completed successfully",
-        #         "booking_id": booking.id,
-        #         "status": booking.status,
-        #         "updated_at": booking.updated_at
-        #     },
-        #     status=status.HTTP_200_OK
-        # )
+                updated_count = Report.objects.filter(
+                    user=booking.student.user,
+                    report_status="received_locked"
+                ).update(
+                    report_status="received_unlocked"
+                )
+
+            else:
+                # partial_paid / not_paid
+                Report.objects.filter(
+                    user=booking.student.user,
+                    report_status="received_unlocked"
+                ).update(
+                    report_status="received_locked"
+                )
+        
+        report = Report.objects.filter(
+            user=booking.student.user
+        ).first()
+
         return Response(
             {
                 "message": "Booking marked as completed successfully",
@@ -2603,13 +2609,11 @@ class BookingMarkCompletedAPIView(APIView):
                 "status": booking.status,
                 "payment_status": (
                     latest_payment.status
-                    if latest_payment
-                    else None
+                    if latest_payment else None
                 ),
                 "report_status": (
-                    "received_unlocked"
-                    if updated_count > 0
-                    else "received_locked"
+                    report.report_status
+                    if report else None
                 ),
                 "updated_at": booking.updated_at
             },
