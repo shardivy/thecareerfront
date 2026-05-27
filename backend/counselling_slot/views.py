@@ -85,6 +85,14 @@ class CounsellorListAPIView(APIView):
         serializer = CounsellorListSerializer(counsellors, many=True)
         return Response(serializer.data)
     
+class AllCounsellorListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        counsellors = Counsellor.objects.select_related("user").all()
+        serializer = CounsellorListSerializer(counsellors, many=True)
+        return Response(serializer.data)
+    
 class ReenaCounsellorAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
