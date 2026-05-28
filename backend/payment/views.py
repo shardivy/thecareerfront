@@ -239,7 +239,7 @@ class PaymentCreateAPIView(APIView):
             Report.objects.filter(
                 user=payment.user
             ).update(
-                report_status="received_locked"
+                report_status="not_received"
             )  
 
 
