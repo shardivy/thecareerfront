@@ -216,9 +216,9 @@ class PaymentCreateAPIView(APIView):
         # =========================
         uploaded_report = Report.objects.filter(
             user=payment.user,
-            report_file__isnull=False
+            file_path__isnull=False
         ).exclude(
-            report_file=""
+            file_path=""
         ).exists()
 
         # =========================
