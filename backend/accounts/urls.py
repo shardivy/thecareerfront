@@ -1,6 +1,6 @@
 from django.urls import path
 
-from accounts.views import AdminDashboardAPIView, AdminStaffRegisterAPIView, AdminUserListAPIView, AssignPermissionsToRoleAPIView, ForgotPasswordAPIView, LeadStatsAPIView, LoginAPIView, LogoutAPIView, PermissionListCreateAPIView, ProfileUpdateAPIView,  ResetPasswordAPIView, RevenueStatsAPIView, RoleListCreateAPIView, RolePermissionListAPIView, RoleUpdateAPIView, StudentListAPIView, StudentProfileByIdAPIView, VerifyOTPAPIView
+from accounts.views import AdminDashboardAPIView, AdminStaffRegisterAPIView, AdminUserListAPIView, AssignPermissionsToRoleAPIView, ForgotPasswordAPIView, HandholdingUsersListAPIView, LeadStatsAPIView, LoginAPIView, LogoutAPIView, PermissionListCreateAPIView, ProfileUpdateAPIView,  ResetPasswordAPIView, RevenueStatsAPIView, RoleListCreateAPIView, RolePermissionListAPIView, RoleUpdateAPIView, StudentListAPIView, StudentProfileByIdAPIView, VerifyOTPAPIView
 
 urlpatterns = [
     path('register/', AdminStaffRegisterAPIView.as_view(), name='register'),
@@ -22,6 +22,7 @@ urlpatterns = [
     
     path("admin-users/", AdminUserListAPIView.as_view(), name="admin-users"),
     path("only-students/", StudentListAPIView.as_view(), name="only-students"),
+    path("all-users/", HandholdingUsersListAPIView.as_view(), name="all-users"),
     
     #====================== Dashboard Url ===========================
     path('dashboard/', AdminDashboardAPIView.as_view()),

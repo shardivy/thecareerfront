@@ -104,3 +104,23 @@ export const sendPaymentReminderApi = async (studentId) => {
   );
   return response.data;
 };
+
+// ================= FETCH RECEIPT BY STUDENT =================
+export const fetchPaymentReceiptApi = async (studentId) => {
+  const response = await axiosInstance.get(
+    `/payment/receipt/${studentId}/`,
+    {
+      responseType: "blob", 
+    }
+  );
+  return response.data;
+};
+
+// ================= SUBMIT PAYMENT by STUDENT  =================
+export const submitStudentPaymentApi = async (studentId, formData) => {
+  const response = await axiosInstance.post(
+    `/payment/payment/create/student/${studentId}/`,
+    formData
+  );
+  return response.data;
+};

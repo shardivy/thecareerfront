@@ -13,17 +13,18 @@ import {
   ConfigProvider,
   message,
   Spin,
+  Card,
 } from "antd";
 import dayjs from "dayjs";
 
 import {
-  bookCounsellingSlot,
   updateCounsellingBooking,
   markCounsellingBookingCompleted,
 } from "../../../adminSlices/counsellingBookingSlice";
 import { fetchPendingPaymentStudents } from "../../../adminSlices/paymentSlice";
 import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
-import { fetchSlotsByDate } from "../../../adminSlices/counsellingSlotSlice";
+import { fetchHandholdingUsers } from "../../../hhSlices/handholdingUsersSlice";
+import { fetchBookedRescheduled, bookHandholdingSession , rescheduleSession ,markSessionCompleted } from "../../../hhSlices/sessionBookingSlice"
 
 const { Option } = Select;
 const { Text } = Typography;
@@ -39,128 +40,100 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
   const [primaryCounsellorId, setPrimaryCounsellorId] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [markCompletedEnabled, setMarkCompletedEnabled] = useState(false);
-  const [filter, setFilter] = useState(mode === "view" ? "Booked" : "All"); // Default filter
+  const [filter, setFilter] = useState(mode === "view" ? "Available" : "All"); // Default filter
+  const slotData = data?.slot || data; // 👈 IMPORTANT FIX
 
-  const students = useSelector(
-    (state) => state.payment.pendingStudents ?? []
-  );
+ const students = useSelector(
+  (state) => state.handholdingUsers.list ?? []
+);
 
-  const studentsLoading = useSelector(
-    (state) => state.payment.pendingStudentsLoading
-  );
+const studentsLoading = useSelector(
+  (state) => state.handholdingUsers.loading
+);
   const counsellors = useSelector((state) => state.counsellors.list ?? []);
   const counsellorsLoading = useSelector((state) => state.counsellors.loading);
 
-  const slotsByDate = useSelector((state) => state.counsellingSlots.modalSlots ?? []);
   const slotsLoading = useSelector((state) => state.counsellingSlots.loading);
 
   const bookingLoading = useSelector((state) => state.counsellingBooking.loading);
 
+ const bookedRescheduledSlots = useSelector(
+  (state) => state.sessionBooking?.bookedRescheduledList ?? []
+);
   // ================= FETCH DROPDOWNS =================
-  useEffect(() => {
-    if (visible && !isView) {
-      dispatch(fetchPendingPaymentStudents());
-      dispatch(fetchLeadCounsellors());
-    }
-  }, [visible, dispatch, isView]);
-
-  // ================= PREFILL EDIT / VIEW =================
-  // useEffect(() => {
-  //   if (!visible || !data || mode === "create") return;
-  //   if (!students.length || !counsellors.length) return;
-
-  //   const lead = data.counsellors?.find((c) => c.role === "lead");
-  //   const assistant = data.counsellors?.find((c) => c.role === "assistant");
-
-  //   form.setFieldsValue({
-  //     student: data.student?.id,
-  //     mode: data.slot?.mode
-  //       ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
-  //       : undefined,
-  //     primaryCounsellor: lead
-  //       ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
-  //       : null,
-  //     secondaryCounsellor: assistant
-  //       ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
-  //       : null,
-  //     date: data.date ? dayjs(data.date) : null,
-  //   });
-
-  //   setPrimaryCounsellorId(lead?.counsellor?.id || null);
-  //   setSelectedDate(data.date ? dayjs(data.date) : null);
-  //   setSelectedSlot(data.slot || null);
-  // }, [visible, data, mode, students, counsellors, form]);
+ useEffect(() => {
+  if (visible && !isView) {
+    dispatch(fetchHandholdingUsers()); // ✅ NEW API
+    dispatch(fetchLeadCounsellors());
+  }
+}, [visible, dispatch, isView]);
 
 
+useEffect(() => {
+  if (selectedDate) {
+    const formattedDate = dayjs(selectedDate).format("YYYY-MM-DD");
+
+    dispatch(fetchBookedRescheduled(formattedDate));
+  }
+}, [selectedDate, dispatch]);
 
 
   // ================= PREFILL CREATE / EDIT / VIEW =================
-  useEffect(() => {
-    if (!visible || !data) return;
-    if (!students.length || !counsellors.length) return;
+useEffect(() => {
+  if (!visible || !data) return;
+  if (!students?.length) return;
 
-    const lead = data.counsellors?.find((c) => c.role === "lead");
-    const assistant = data.counsellors?.find((c) => c.role === "assistant");
+  const matchedUser = students.find(
+    (s) => s.id === data.participant_id
+  );
 
-    // Determine mode for prefill (from student preference or slot)
-    const prefillMode =
-      data.student?.preferred_counselling_mode?.toLowerCase() === "online"
-        ? "Online"
-        : data.student?.preferred_counselling_mode?.toLowerCase() === "offline"
-          ? "Offline"
-          : data.slot?.mode
-            ? data.slot.mode.charAt(0).toUpperCase() + data.slot.mode.slice(1)
-            : undefined;
+  if (!matchedUser) return;
 
-    form.setFieldsValue({
-      student: {
-        value: data.student?.id,
-        label: (
+  // ✅ Set form values
+  form.setFieldsValue({
+    student: {
+      value: matchedUser.id,
+      label: (
+        <div>
           <div>
-            <div>
-              {data.student?.first_name || ""} {data.student?.last_name || ""}
-            </div>
-            <div style={{ fontSize: 12, color: "#888" }}>
-              {data.student?.email || ""}
-            </div>
+            {matchedUser.first_name} {matchedUser.last_name}
           </div>
-        ),
-      },
-      mode: prefillMode,
-      primaryCounsellor: lead
-        ? { value: lead.counsellor.id, label: `${lead.counsellor.first_name} ${lead.counsellor.last_name}` }
-        : null,
-      secondaryCounsellor: assistant
-        ? { value: assistant.counsellor.id, label: `${assistant.counsellor.first_name} ${assistant.counsellor.last_name}` }
-        : null,
-      date: data.date ? dayjs(data.date) : null,
+          <div style={{ fontSize: 12, color: "#888" }}>
+            {matchedUser.email}
+          </div>
+        </div>
+      ),
+    },
+    preferred_counselling_mode: matchedUser.preferred_counselling_mode
+      ? matchedUser.preferred_counselling_mode.charAt(0).toUpperCase() +
+        matchedUser.preferred_counselling_mode.slice(1).toLowerCase()
+      : undefined,
+
+    // ✅ IMPORTANT: Set date in form
+    date: data.date ? dayjs(data.date) : null,
+  });
+
+  // ✅ IMPORTANT: Set selectedDate (for slot API)
+  if (data.date) {
+    setSelectedDate(dayjs(data.date));
+  }
+
+  // ✅ IMPORTANT: Set selectedSlot
+  if (data.slot) {
+    setSelectedSlot({
+     id: data.slot.slot_id,
+      start_time: data.slot.start_time,
+      end_time: data.slot.end_time,
+      status: data.slot.status || "booked",
+      student_name: data.student_name,
+      email: data.email,
+      phone: data.phone,
+       counsellor_name: data.counsellor_name,
     });
+  }
 
-    setPrimaryCounsellorId(lead?.counsellor?.id || null);
-    setSelectedDate(data.date ? dayjs(data.date) : null);
-    setSelectedSlot(data.slot || null);
-  }, [visible, data, students, counsellors, form]);
+}, [visible, data, students]);
 
-  // ================= FETCH SLOTS =================
-  useEffect(() => {
-    if (primaryCounsellorId && selectedDate && !isView) {
-      dispatch(
-        fetchSlotsByDate({
-          counsellorId: primaryCounsellorId,
-          date: dayjs(selectedDate).format("YYYY-MM-DD"),
-        })
-      );
-    }
-  }, [primaryCounsellorId, selectedDate, dispatch, isView]);
-
-  // ================= SLOT FILTER =================
-  // const filteredSlots = slotsByDate.filter((slot) => {
-  //   if (isView) return selectedSlot ? slot.id === selectedSlot.id : false; // Only booked slot in view
-  //   if (filter === "All") return true; // Show all in create/edit
-  //   if (filter === "Available") return slot.status === "available";
-  //   if (filter === "Booked") return slot.status === "booked";
-  //   return true;
-  // });
 
   const isSlotExpired = (slot) => {
     if (!selectedDate) return false;
@@ -179,74 +152,92 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
     return dayjs().isAfter(slotStart);
   };
 
-  const filteredSlots = slotsByDate.filter((slot) => {
-    const expired = isSlotExpired(slot);
+const mergedSlots = bookedRescheduledSlots.map((b) => ({
+  id: b.slot_id,
+  start_time: b.start_time,
+  end_time: b.end_time,
+  status: b.status,
+   is_handholding_session_available: b.is_handholding_session_available,
 
-    const isAvailableLike =
-      slot.status === "available" || slot.status === "pending";
+  // ✅ ADD THESE
+  student_name: b.student_name,
+  email: b.email,
+  phone: b.phone,
+ counsellor_name:
+    b.counsellors?.map((c) => c.counsellor_name).join(", ") || "-",
+}));
 
-    const isBookedLike =
-      slot.status === "booked" || slot.status === "rescheduled";
+const filteredSlots = mergedSlots.filter((slot) => {
+  if (isView) {
+    return selectedSlot ? slot.id === selectedSlot.id : false;
+  }
 
-    if (isView) {
-      return selectedSlot ? slot.id === selectedSlot.id : false;
-    }
+  if (filter === "All") return true;
 
-    if (filter === "All") return true;
+  if (filter === "Available") {
+    return slot.is_handholding_session_available === true;
+    // ❌ removed !expired
+  }
 
-    if (filter === "Available") {
-      return isAvailableLike && !expired;
-    }
+  if (filter === "Booked") {
+    return slot.is_handholding_session_available === false;
+    // ❌ removed || expired
+  }
 
-    if (filter === "Booked") {
-      return isBookedLike || expired;
-    }
-
-    return true;
-  });
+  return true;
+});
 
   // ================= SUBMIT =================
-  const handleSubmit = () => {
-    form.validateFields().then((values) => {
-      if (!selectedSlot) {
-        message.warning("Please select a slot");
-        return;
-      }
+const handleSubmit = () => {
+  form.validateFields().then((values) => {
+    if (!selectedSlot) {
+      message.warning("Please select a slot");
+      return;
+    }
 
-      const payload = {
-        student_id: values.student.value,
-        date: values.date.format("YYYY-MM-DD"),
-        slots: [selectedSlot.id],
-        counsellors_data: [
-          { counsellor_id: primaryCounsellorId, role: "lead" },
-          ...(values.secondaryCounsellor ? [{ counsellor_id: values.secondaryCounsellor.value, role: "assistant" }] : []),
-        ],
-      };
+    const selectedUser = students.find(
+      (s) => s.id === values.student.value
+    );
 
-      const action = mode === "edit"
-        ? updateCounsellingBooking({ id: data.id, payload })
-        : bookCounsellingSlot(payload);
+    const payload = {
+      participant_id: values.student.value,
+ session_no: data.session_no,
 
-      dispatch(action)
-        .unwrap()
-        .then(() => {
-          message.success(mode === "edit" ? "Session updated successfully" : "Session booked successfully");
-          resetModal();
-          onSave?.();
-          onClose();
-        })
-        .catch((err) => {
-          // err could be string or object { message: "..." }
-          const errorMsg =
-            typeof err === "string" ? err :
-              err?.message ? err.message :
-                "Booking failed";
+      slot_id: selectedSlot.id,
+      date: values.date.format("YYYY-MM-DD"),
 
-          message.error(errorMsg);
-        });
-    });
-  };
+    };
 
+    let action;
+console.log("Selected User:", selectedUser);
+    if (mode === "edit") {
+      // ✅ RESCHEDULE API
+      action = rescheduleSession({
+  id: data.id,
+  ...payload,
+});
+    } else {
+      // ✅ BOOK API
+      action = bookHandholdingSession(payload);
+    }
+
+    dispatch(action)
+      .unwrap()
+      .then(() => {
+        message.success(
+          mode === "edit"
+            ? "Session rescheduled successfully"
+            : "Session booked successfully"
+        );
+        resetModal();
+        onSave?.();
+        onClose();
+      })
+      .catch((err) => {
+        message.error(err?.message || err || "Operation failed");
+      });
+  });
+};
   /* ================= RESET FUNCTION ================= */
   const resetModal = () => {
     form.resetFields();
@@ -257,27 +248,34 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
   };
 
   // ================= MARK AS COMPLETED =================
-  const handleMarkCompleted = () => {
-    if (!data?.id) return;
+const handleMarkCompleted = () => {
+  if (!data) return;
 
-    Modal.confirm({
-      title: "Mark Session as Completed",
-      content: "Are you sure you want to mark this session as completed?",
-      okText: "Yes",
-      cancelText: "No",
-      onOk: () => {
-        dispatch(markCounsellingBookingCompleted(data.id))
-          .unwrap()
-          .then(() => {
-            message.success("Session marked as completed");
-            resetModal();
-            onSave?.();
-            onClose();
-          })
-          .catch((err) => message.error(err));
-      },
-    });
-  };
+  Modal.confirm({
+    title: "Mark Session as Completed",
+    content: "Are you sure you want to mark this session as completed?",
+    okText: "Yes",
+    cancelText: "No",
+    onOk: () => {
+      const payload = {
+        participant_id: data.participant_id,  // ✅ IMPORTANT
+        session_no: data.session_no,          // ✅ IMPORTANT
+      };
+
+      dispatch(markSessionCompleted(payload))
+        .unwrap()
+        .then(() => {
+          message.success("Session marked as completed");
+          resetModal();
+          onSave?.();
+          onClose();
+        })
+        .catch((err) => {
+          message.error(err?.message || err);
+        });
+    },
+  });
+};
 
 
   useEffect(() => {
@@ -308,6 +306,7 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
       <Modal
         open={visible}
         width={820}
+        centered
         title={
           isView
             ? "View Counselling Session"
@@ -330,7 +329,7 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
             <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
 
               {/* Show Mark as Completed ONLY if not booking mode */}
-              {!isBookingMode && (
+              {/* {!isBookingMode && (
                 <Button
                   key="mark"
                   type="primary"
@@ -353,7 +352,7 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
                 >
                   Mark as Completed
                 </Button>
-              )}
+              )} */}
 
               <div style={{ marginLeft: "auto" }}>
                 <Button key="cancel" onClick={onClose} style={{ marginRight: 8 }}>
@@ -413,7 +412,7 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
                     backendMode.slice(1).toLowerCase();
 
                   form.setFieldsValue({
-                    mode: formattedMode,
+                    preferred_counselling_mode: formattedMode,
                   });
                 }
               }
@@ -429,37 +428,38 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
-                  label="User"
+                  label="Select User"
                   name="student"
                   rules={[{ required: true }]}
                 >
                   <Select
+                    placeholder="Select a user"
                     disabled={isView}
                     loading={studentsLoading}
                     showSearch
                     optionFilterProp="label"
                     labelInValue
                   >
-                    {students.map((s) => (
-                      <Option
-                        key={s.student_id || s.id}
-                        value={s.student_id || s.id}
-                        label={`${s.name}  (${s.email})`}
-                      >
-                        <div>
-                          <div>
-                            {s.name}
-                          </div>
-                          <div>{s.email}</div>
-                        </div>
-                      </Option>
-                    ))}
+                   {students.map((s) => (
+  <Option
+    key={s.id}
+    value={s.id}
+    label={`${s.first_name} ${s.last_name} (${s.email})`}
+  >
+    <div>
+      <div>
+        {s.first_name} {s.last_name}
+      </div>
+      <div>{s.email}</div>
+    </div>
+  </Option>
+))}
                   </Select>
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item label="Preferred Counselling Mode" name="mode" rules={[{ required: true }]}>
-                  <Select disabled>
+                <Form.Item label="Preferred Counselling Mode" name="preferred_counselling_mode" rules={[{ required: true }]}>
+                  <Select >
                     <Option value="Online">Online</Option>
                     <Option value="Offline">Offline</Option>
                   </Select>
@@ -483,19 +483,22 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
                   filteredSlots.map((slot) => (
                     <Col key={slot.id}>
                       <Button
-                        type={selectedSlot?.id === slot.id && slot.status === "available" ? "primary" : "default"}
-                        disabled={slot.status === "booked" ||
-                          slot.status === "rescheduled" || !slot.is_available || isSlotExpired(slot)}
+                        // type={selectedSlot?.id === slot.id && slot.status === "available" ? "primary" : "default"}
+                        type={selectedSlot?.id === slot.id ? "primary" : "default"}
+                        // disabled={slot.status === "booked" ||
+                        //   slot.status === "rescheduled" || !slot.is_available || isSlotExpired(slot)}
+                        //  disabled={slot.status === !slot.is_available}
+                        disabled={
+  !slot.is_handholding_session_available ||
+  isSlotExpired(slot)
+}
                         onClick={() => {
-                          if (
-                            (slot.status === "available" || slot.status === "pending") &&
-                            slot.is_available
-                          ) {
-                            setSelectedSlot(slot);
-                          }
+                         
+                          
+                          setSelectedSlot(slot);
                         }}
                       >
-                        {slot.start_time} - {slot.end_time} {slot.status === "booked"}
+                        {slot.start_time} {slot.status === "booked"}
                       </Button>
                     </Col>
                   ))
@@ -521,11 +524,27 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
                 </Space>
               )}
 
-              {selectedSlot && (
-  <Card style={{ marginTop: 16 }} title="Session Summary">
+            {selectedSlot && (
+  <Card style={{ marginTop: 16 }} title="Session Details">
+
+       <p>
+      <b>Counsellor Name:</b>{" "}
+      {selectedSlot.counsellor_name || "-"}
+    </p>
+
     <p>
-      <b>Student:</b>{" "}
-      {form.getFieldValue("student")?.label || "-"}
+      <b>Student Name:</b>{" "}
+      {selectedSlot.student_name || form.getFieldValue("student")?.label || "-"}
+    </p>
+
+    <p>
+      <b>Email:</b>{" "}
+      {selectedSlot.email || "-"}
+    </p>
+
+    <p>
+      <b>Mobile Number:</b>{" "}
+      {selectedSlot.phone || "-"}
     </p>
 
     <p>
@@ -535,15 +554,10 @@ const HHSessionBookingModal = ({ visible, onClose, onSave, mode = "create", data
 
     <p>
       <b>Slot:</b>{" "}
-      {selectedSlot.start_time} - {selectedSlot.end_time}
+      {selectedSlot.start_time}
     </p>
 
-    <p>
-      <b>Counsellor:</b>{" "}
-      {selectedSlot?.counsellor
-        ? `${selectedSlot.counsellor.first_name} ${selectedSlot.counsellor.last_name}`
-        : "Auto Assigned"}
-    </p>
+    
   </Card>
 )}
             </Form.Item>

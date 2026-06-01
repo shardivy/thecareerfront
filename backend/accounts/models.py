@@ -38,7 +38,8 @@ class Role(models.Model):
         ('student', 'Student'),
         ('parent', 'Parent'),
         ('basic_user', 'Basic User'),
-        ('ui_ux', 'UI/UX')
+        ('ui_ux', 'UI/UX'),
+        ('handholding', 'Handholding')
     )
 
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
@@ -72,12 +73,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         blank=True
     )
     first_name = models.CharField(max_length=100)
-    last_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, null=True, blank=True)
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=15, null=True, blank=True)
     # password = models.CharField(max_length=128, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_converted_lead = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)

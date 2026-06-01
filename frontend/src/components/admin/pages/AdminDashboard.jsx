@@ -18,7 +18,7 @@ const AdminDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
 const [pageSize, setPageSize] = useState(5);
   
-  const dispatch = useDispatch();
+const dispatch = useDispatch();
  const { stats: dashboardStats, leadStats, activities, loading, error } =
   useSelector((state) => state.dashboard);
 

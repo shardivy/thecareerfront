@@ -35,6 +35,11 @@ import hhRegisterReducer from "./hhSlices/hhRegisterSlice";
 import handholdingSessionReducer from "./hhSlices/handholdingSessionSlice";
 import handholdingUsersReducer from "./hhSlices/handholdingUsersSlice";
 import handholdingPaymentReducer from "./hhSlices/handholdingPaymentSlice";
+import sessionBookingReducer from "./hhSlices/sessionBookingSlice";
+import landingPageReducer from "./adminSlices/landingPageSlice";
+import certificateReducer from "./hhSlices/certificateSlice";
+import advertisementReducer from "./adminSlices/advertisementSlice";
+import eventReducer from "./adminSlices/eventSlice";
 
 
 const store = configureStore({
@@ -69,11 +74,16 @@ const store = configureStore({
         questions: questionReducer,
         collegeAnalysis: collegeAnalysisReducer,
         review: reviewReducer,
+        landingPage: landingPageReducer,
+        advertisement: advertisementReducer,
+        event: eventReducer,
 
         hhRegister: hhRegisterReducer,
         hhSession: handholdingSessionReducer,
         handholdingUsers: handholdingUsersReducer,
         handholdingPayment: handholdingPaymentReducer,
+        sessionBooking: sessionBookingReducer,
+        certificate: certificateReducer,
 
   },
 });

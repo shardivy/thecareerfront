@@ -451,12 +451,21 @@ class RejectUserExamAPIView(APIView):
             
         # 🔹 Get description from request
         description = request.data.get("description")
+        
+        # ✅ store old status
+        old_status = user_exam.status
 
         # ❌ REJECT
         user_exam.status = "in_progress"
         user_exam.description = description
         user_exam.rejected_by = request.user  # optional field
         user_exam.rejected_at = timezone.now()  # optional field
+        
+        # ✅ FIX: check old status, not current
+        if old_status == "completed":
+            user_exam.completed_at = None
+            user_exam.approved_by = None
+                        
         user_exam.save()
         
         # Send email notification
@@ -476,7 +485,17 @@ class RejectUserExamAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
-
+def safe_notify(admin_id, title, message):
+    try:
+        # ✅ Try Celery async
+        create_system_notification.delay(admin_id, title, message)
+    except Exception as e:
+        print("❌ Celery failed, fallback to sync:", str(e))
+        try:
+            # ✅ Fallback (direct call)
+            create_system_notification(admin_id, title, message)
+        except Exception as inner_e:
+            print("❌ Sync notification failed:", str(inner_e))                                                                                                                                                                                         
 
 class UpdateExamToPendingApprovalAPIView(APIView):
     """
@@ -486,12 +505,68 @@ class UpdateExamToPendingApprovalAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    # def post(self, request, student_id):
+
+    #     student = get_object_or_404(StudentProfile, id=student_id)
+    #     user = student.user
+
+    #     # 🔹 Get latest completed exam
+    #     user_exam = UserExam.objects.filter(
+    #         user=user,
+    #         status__in=["in_progress", "not_started"]
+    #     ).order_by("-created_at").first()
+
+    #     if not user_exam:
+    #         return Response(
+    #             {"message": "No in_progress exam found for this student"},
+    #             status=status.HTTP_404_NOT_FOUND
+    #         )
+
+    #     # 🔹 Update status
+    #     user_exam.status = "pending_approval"
+    #     user_exam.save()
+        
+    #     # =========================
+    #     # 🔔 SEND NOTIFICATION TO SUPERADMIN
+    #     # =========================
+    #     User = get_user_model()
+
+    #     student_name = f"{user.first_name} {user.last_name}"
+    #     exam_name = user_exam.exam.name if user_exam.exam else "Exam"
+
+    #     title = "Exam Approval Request"
+
+    #     message = (
+    #         f"Student {student_name} has requested approval "
+    #         f"for exam '{exam_name}'."
+    #     )
+
+    #     admin_users = User.objects.filter(is_superuser=True)
+
+    #     for admin in admin_users:
+    #         admin_id = admin.id  # ✅ fix lambda issue
+
+    #         on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+    #             admin_id,
+    #             title,
+    #             message
+    #         ))
+
+    #     return Response(
+    #         {
+    #             "message": "Exam status updated to pending approval",
+    #             "student_id": student.id,
+    #             "exam_id": user_exam.id,
+    #             "status": user_exam.status
+    #         },
+    #         status=status.HTTP_200_OK
+    #     )
     def post(self, request, student_id):
 
         student = get_object_or_404(StudentProfile, id=student_id)
         user = student.user
 
-        # 🔹 Get latest completed exam
+        # 🔹 Get latest exam
         user_exam = UserExam.objects.filter(
             user=user,
             status__in=["in_progress", "not_started"]
@@ -506,9 +581,9 @@ class UpdateExamToPendingApprovalAPIView(APIView):
         # 🔹 Update status
         user_exam.status = "pending_approval"
         user_exam.save()
-        
+
         # =========================
-        # 🔔 SEND NOTIFICATION TO SUPERADMIN
+        # 🔔 SEND NOTIFICATION TO SUPERADMIN (SAFE)
         # =========================
         User = get_user_model()
 
@@ -516,18 +591,17 @@ class UpdateExamToPendingApprovalAPIView(APIView):
         exam_name = user_exam.exam.name if user_exam.exam else "Exam"
 
         title = "Exam Approval Request"
-
-        message = (
-            f"Student {student_name} has requested approval "
-            f"for exam '{exam_name}'."
-        )
+        message = f"Student {student_name} has requested approval for exam '{exam_name}'."
 
         admin_users = User.objects.filter(is_superuser=True)
 
         for admin in admin_users:
-            admin_id = admin.id  # ✅ fix lambda issue
+            admin_id = admin.id
 
-            on_commit(lambda admin_id=admin_id: create_system_notification.delay(
+            print(f"DEBUG: Sending exam notification to admin_id={admin_id}")
+
+            # ✅ SAFE CALL (no crash)
+            on_commit(lambda admin_id=admin_id: safe_notify(
                 admin_id,
                 title,
                 message
@@ -541,7 +615,9 @@ class UpdateExamToPendingApprovalAPIView(APIView):
                 "status": user_exam.status
             },
             status=status.HTTP_200_OK
-        )
+        ) 
+        
+     
         
 class StartExamAPIView(APIView):
     """

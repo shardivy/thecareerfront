@@ -13,14 +13,19 @@ import {
   Card,
   Empty,
   Image,
+message,
 } from "antd";
 import { UploadOutlined, EyeOutlined } from "@ant-design/icons";
+import { useDispatch, useSelector } from "react-redux";
+import { updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
+import { fetchPackagesByProgram } from "../../../adminSlices/packageSlice";
 
 const { Option } = Select;
 
 const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
   const [form] = Form.useForm();
   const liveValues = Form.useWatch([], form);
+  const dispatch = useDispatch();
 
   const [photo, setPhoto] = useState([]);
   const [resume, setResume] = useState([]);
@@ -29,6 +34,20 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [resumePreview, setResumePreview] = useState(null);
   const [paymentPreview, setPaymentPreview] = useState(null);
+    const { list: packages, loading: packagesLoading } = useSelector(
+  (state) => state.packages
+);
+
+useEffect(() => {
+  if (!open) return;
+
+  const programId = userData?.program_id;
+
+  if (programId) {
+    console.log("Fetching packages for program:", programId);
+    dispatch(fetchPackagesByProgram(programId));
+  }
+}, [open, userData?.program_id, dispatch]);
 
   /* ================= FILE HANDLER ================= */
   const handleFile = (type) => (e) => {
@@ -56,53 +75,77 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
     }
   };
 
-  /* ================= PREFILL ================= */
-  useEffect(() => {
-    if (!open || !userData) return;
+ useEffect(() => {
+  if (!open || !userData) return;
 
-    form.setFieldsValue({
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      email: userData.email,
-      mobile: userData.mobile,
-      program: userData.program,
-      source: userData.source,
-      date: userData.date,
-      city: userData.city,
-      preferred_counselling_mode: userData.preferred_counselling_mode,
+  form.resetFields(); // 🔥 IMPORTANT FIX
+  console.log("userData inside modal:", userData);
+
+  form.setFieldsValue({
+    firstName: userData.firstName,
+    lastName: userData.lastName,
+    email: userData.email,
+    mobile: userData.mobile,
+    program_name: userData.program_name,
+    source: userData.source,
+    date: userData.date,
+    city: userData.city,
+    preferred_counselling_mode: userData.preferred_counselling_mode,
       address: userData.address,
-      showProfile: userData.showProfile,
+  showProfile: Boolean(userData.showProfile),
+    package_id: userData.package_id,
+  
+  });
+
+  if (userData.photo) setPhotoPreview(userData.photo);
+  if (userData.resume) setResumePreview(userData.resume);
+  if (userData.payment_proof) setPaymentPreview(userData.payment_proof);
+
+}, [open, userData]);
+
+useEffect(() => {
+  if (packages.length && userData?.package_id) {
+    form.setFieldsValue({
+      package_id: userData.package_id,
     });
-
-    // Existing previews
-    if (userData.photo) setPhotoPreview(userData.photo);
-    if (userData.resume) setResumePreview(userData.resume);
-    if (userData.payment_proof) setPaymentPreview(userData.payment_proof);
-
-  }, [open, userData, form]);
+  }
+}, [packages, userData, form]);
 
   /* ================= SUBMIT ================= */
-  const handleSubmit = (values) => {
-    const formData = new FormData();
+const handleSubmit = async (values) => {
+  const formData = new FormData();
 
-    Object.entries(values).forEach(([key, value]) => {
-      formData.append(key, value ?? "");
-    });
+Object.entries(values).forEach(([key, value]) => {
+  if (key === "showProfile") {
+    formData.append("show_profile", value ? "True" : "False");
+  } 
+  else if (key === "address") {
+    // ✅ IMPORTANT FIX
+    formData.append("full_address", value ?? "");
+  } 
+  else {
+    formData.append(key, value ?? "");
+  }
+});
 
-    if (photo[0]?.originFileObj) {
-      formData.append("photo", photo[0].originFileObj);
-    }
-    if (resume[0]?.originFileObj) {
-      formData.append("resume", resume[0].originFileObj);
-    }
-    if (payment[0]?.originFileObj) {
-      formData.append("payment_proof", payment[0].originFileObj);
-    }
+  if (photo[0]?.originFileObj) {
+    formData.append("photo", photo[0].originFileObj);
+  }
 
-    console.log("Edit HH User Payload:", formData);
+  if (resume[0]?.originFileObj) {
+    formData.append("resume", resume[0].originFileObj);
+  }
 
-    onSubmit && onSubmit(formData);
-  };
+  if (payment[0]?.originFileObj) {
+    formData.append("payment_proof", payment[0].originFileObj);
+  }
+
+  // ✅ ADD ID HERE
+  formData.append("id", userData?.id);
+
+  // ✅ CALL PARENT HANDLER
+  onSubmit(formData);
+};
 
   return (
     <Modal
@@ -148,28 +191,47 @@ const EditHHUserModal = ({ open, onCancel, userData, onSubmit }) => {
                 </Col>
 
                 <Col xs={24} sm={12}>
-                  <Form.Item name="program" label="Program">
+                  <Form.Item name="program_name" label="Program">
                     <Input />
                   </Form.Item>
                 </Col>
 
-                <Col xs={24} sm={12}>
+                {/* <Col xs={24} sm={12}>
                   <Form.Item name="source" label="Source">
                     <Input />
                   </Form.Item>
                 </Col>
 
                 <Col xs={24}>
-                  <Form.Item name="date" label="Date">
+                  <Form.Item name="date" label="Enquiry Date">
                     <Input />
                   </Form.Item>
-                </Col>
+                </Col> */}
 
                 <Col xs={24} sm={12}>
                   <Form.Item name="city" label="City">
                     <Input />
                   </Form.Item>
                 </Col>
+
+                <Col xs={24} sm={12}>
+                 <Form.Item
+                   name="package_id"
+                   label="Counselling Service"
+                   rules={[{ required: true, message: "Please select service" }]}
+                 >
+                   <Select
+                     placeholder={packagesLoading ? "Loading services..." : "Select service"}
+                     loading={packagesLoading}
+                   >
+                     {packages.map((pkg) => (
+                       <Option key={pkg.id} value={pkg.id}>
+                         {pkg.name}
+                       </Option>
+                     ))}
+                   </Select>
+                 </Form.Item>
+               </Col>
 
                 <Col xs={24} sm={12}>
                   <Form.Item

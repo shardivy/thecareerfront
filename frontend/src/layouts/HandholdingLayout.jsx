@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState  ,useEffect  } from "react";
 import {
   Layout,
   Menu,
@@ -10,6 +10,8 @@ import {
   Space,
   ConfigProvider,
   Breadcrumb,
+  Dropdown,
+  Modal
 } from "antd";
 import {
   UserOutlined,
@@ -20,9 +22,12 @@ import {
   LogoutOutlined,
   CloseOutlined,
   CreditCardOutlined,
+  ExclamationCircleFilled,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import adminTheme from "../theme/adminTheme";
+import { useDispatch, useSelector } from "react-redux";
+import { getProfile } from "../adminSlices/profileSlice";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -34,16 +39,51 @@ export default function HandholdingLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const screens = useBreakpoint();
+  const dispatch = useDispatch();
+
+const { profile } = useSelector((state) => state.profile);
 
   const [drawerVisible, setDrawerVisible] = useState(false);
+  // const [showModal, setShowModal] = useState(false);
 
-  const username = localStorage.getItem("username") || "Handholding User";
+const username =
+  `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||profile?.email ||"Handholding User";
+  const isProfilePage = location.pathname === "/handholding/profile";
 
   const truncatedUsername = screens.xs
-  ? username.length > 10
-    ? `${username.slice(0, 10)}...`
-    : username
-  : username;
+    ? username.length > 10
+      ? `${username.slice(0, 10)}...`
+      : username
+    : username;
+
+    useEffect(() => {
+  dispatch(getProfile());
+}, [dispatch]);
+
+useEffect(() => {
+  if (profile?.participant_id) {
+    localStorage.setItem("participant_id", profile.participant_id);
+  }
+
+  // Store show_profile
+  if (profile?.show_profile !== undefined) {
+    localStorage.setItem(
+      "show_profile",
+      JSON.stringify(profile.show_profile)
+    );
+  }
+}, [profile]);
+
+// useEffect(() => {
+//   if (profile?.is_converted_lead === false) {
+//     const alreadyShown = localStorage.getItem("conversionMsgShown");
+
+//     if (!alreadyShown) {
+//       setShowModal(true);
+//       localStorage.setItem("conversionMsgShown", "true");
+//     }
+//   }
+// }, [profile]);
 
   /* ================= MENU ================= */
   const menuItems = [
@@ -75,18 +115,19 @@ export default function HandholdingLayout() {
       },
     },
     {
-    key: "/handholding/payments", // ✅ NEW
-    icon: <CreditCardOutlined />,   // 💳 better icon
-    label: "Payments",
-    onClick: () => {
-      navigate("/handholding/payments");
-      setDrawerVisible(false);
+      key: "/handholding/payments", // ✅ NEW
+      icon: <CreditCardOutlined />,   // 💳 better icon
+      label: "Payments",
+      onClick: () => {
+        navigate("/handholding/payments");
+        setDrawerVisible(false);
+      },
     },
-  },
-    
+
   ];
 
   const handleLogout = () => {
+    //      localStorage.removeItem("conversionMsgShown");
     localStorage.clear();
     navigate("/");
   };
@@ -125,12 +166,21 @@ export default function HandholdingLayout() {
     />
   );
 
+  const profileMenu = [
+    {
+      key: "profile",
+      label: "Profile",
+      onClick: () => navigate("/handholding/profile"),
+    },
+
+  ];
+
   return (
     <ConfigProvider theme={adminTheme}>
       <Layout style={{ minHeight: "100vh" }}>
-        
+
         {/* ================= SIDEBAR ================= */}
-        {!screens.xs && (
+        {!screens.xs && !isProfilePage && (
           <Sider
             width={SIDEBAR_WIDTH}
             style={{
@@ -142,7 +192,7 @@ export default function HandholdingLayout() {
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-              
+
               {/* BRANDING */}
               <div
                 style={{
@@ -265,64 +315,130 @@ export default function HandholdingLayout() {
         )}
 
         {/* ================= MAIN ================= */}
-        <Layout style={{ marginLeft: screens.xs ? 0 : SIDEBAR_WIDTH }}>
-          
+        <Layout
+          style={{
+            marginLeft: screens.xs || isProfilePage ? 0 : SIDEBAR_WIDTH,
+          }}
+        >
           {/* HEADER */}
-          <Header
-            style={{
-              background: "#fff",
-              padding: "0 16px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              boxShadow: adminTheme.token.boxShadow,
-            }}
-          >
-            {/* BREADCRUMB */}
-            <div
+          {!isProfilePage && (
+            <Header
               style={{
-                maxWidth: screens.xs ? "60%" : "50%",
-                overflow: "hidden",
-                whiteSpace: "nowrap",
+                background: "#fff",
+                padding: "0 16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                boxShadow: adminTheme.token.boxShadow,
               }}
             >
-              <Breadcrumb
+              {/* BREADCRUMB */}
+              <div
                 style={{
-                  fontSize: screens.xs ? 13 : 15,
+                  maxWidth: screens.xs ? "60%" : "50%",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
                 }}
               >
-                {breadcrumbItems.map((item) => (
-                  <Breadcrumb.Item key={item.key}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        maxWidth: screens.xs ? 100 : "none",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {item.title}
-                    </span>
-                  </Breadcrumb.Item>
-                ))}
-              </Breadcrumb>
-            </div>
+                <Breadcrumb
+                  style={{
+                    fontSize: screens.xs ? 13 : 15,
+                  }}
+                >
+                  {breadcrumbItems.map((item) => (
+                    <Breadcrumb.Item key={item.key}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          maxWidth: screens.xs ? 100 : "none",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                    </Breadcrumb.Item>
+                  ))}
+                </Breadcrumb>
+              </div>
 
-            {/* USER */}
-            <Space>
-              <Text> {truncatedUsername}</Text>
-              <Avatar icon={<UserOutlined />} />
+              {/* USER */}
+              <Space>
+                <Text>{truncatedUsername}</Text>
 
-              {screens.xs && (
-                <Button
-                  type="text"
-                  icon={<MenuOutlined />}
-                  onClick={() => setDrawerVisible(true)}
-                />
-              )}
-            </Space>
-          </Header>
+                <Dropdown
+                  menu={{ items: profileMenu }}
+                  placement="bottomRight"
+                  trigger={["click"]}
+                >
+                  <Avatar
+                    icon={<UserOutlined />}
+                    style={{ cursor: "pointer" }}
+                  />
+                </Dropdown>
+
+                {screens.xs && (
+                  <Button
+                    type="text"
+                    icon={<MenuOutlined />}
+                    onClick={() => setDrawerVisible(true)}
+                  />
+                )}
+              </Space>
+            </Header>
+          )}
+
+          {/* <Modal
+  open={showModal}
+  centered
+  closable={false}
+  maskClosable={false}
+  footer={null}
+>
+  <div style={{ textAlign: "center", padding: "10px 5px" }}>
+    
+    <ExclamationCircleFilled
+      style={{
+        fontSize: 48,
+        color: "#faad14",
+        marginBottom: 12,
+      }}
+    />
+
+    <h2 style={{ marginBottom: 8, fontWeight: 600 }}>
+      Profile Updated
+    </h2>
+
+    <p
+      style={{
+        color: "#555",
+        fontSize: 14,
+        lineHeight: "22px",
+        marginBottom: 24,
+      }}
+    >
+      Your profile has been updated by admin. <br />
+      Please logout and login again to access your dashboard.
+    </p>
+
+    <Button
+      type="primary"
+      danger
+      size="large"
+      icon={<LogoutOutlined />}
+      onClick={handleLogout}
+      style={{
+        borderRadius: 6,
+        padding: "0 30px",
+        height: 42,
+        fontWeight: 500,
+      }}
+    >
+      Logout Now
+    </Button>
+  </div>
+</Modal> */}
 
           {/* CONTENT */}
           <Content

@@ -13,6 +13,7 @@ import {
   Modal,
   Space,
   Grid,
+  message,
 } from "antd";
 import {
   BookOutlined,
@@ -24,6 +25,7 @@ import {
   SearchOutlined,
   EyeOutlined,
   ExclamationCircleOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 
 import AddProgramModal from "../modals/AddProgramModal";
@@ -41,6 +43,8 @@ import {
   createPackage,
   updatePackage,
 } from "../../../adminSlices/packageSlice";
+import AddLandingPageModal from "../modals/AddLandingPageModal";
+import { fetchLandingPages, deleteLandingPage } from "../../../adminSlices/landingPageSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -56,12 +60,16 @@ const Programs = () => {
   const { list: packageData } = useSelector(
     (state) => state.packages
   );
+  const { list: landingData } = useSelector(
+  (state) => state.landingPage
+);
 
   const [activeTab, setActiveTab] = useState("programs");
   const [searchText, setSearchText] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [editingProgram, setEditingProgram] = useState(null);
   const [editingPackage, setEditingPackage] = useState(null);
+  const [editingLanding, setEditingLanding] = useState(null);
   const [viewMode, setViewMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
@@ -75,6 +83,7 @@ const Programs = () => {
     dispatch(fetchPrograms());
     dispatch(fetchPackages());
     dispatch(fetchProgramStats());
+      dispatch(fetchLandingPages());
   }, [dispatch]);
 
   /* ---------- CONFIRM HANDLERS ---------- */
@@ -83,6 +92,21 @@ const Programs = () => {
     setConfirmData({ record, entity });
     setConfirmOpen(true);
   };
+
+const handleDeleteLanding = async (record) => {
+  try {
+    await dispatch(deleteLandingPage(record.id)).unwrap();
+
+    message.success("Landing page deleted successfully");
+
+    // ❌ Not needed (already handled in slice)
+    // dispatch(fetchLandingPages());
+
+  } catch (err) {
+    message.error(err?.message || "Delete failed");
+    throw err; // 👈 IMPORTANT (for Modal)
+  }
+};
 
   const handleConfirmOk = async () => {
     if (!confirmData) return;
@@ -348,22 +372,193 @@ const Programs = () => {
     },
   ];
 
+const landingColumns = [
+  {
+    title: "Sr. No",
+    render: (_, __, index) =>
+      (currentPage - 1) * pageSize + index + 1,
+  },
+
+ {
+  title: "Program / Counselling Service",
+  width: 220,
+  key: "program",
+  render: (_, record) => (
+    <div>
+      <Text strong>
+        {record.program_details?.name || "-"}
+      </Text>
+      <br />
+      <Text type="colorTextSecondary">
+        {record.package_details?.name || "-"}
+      </Text>
+    </div>
+  ),
+},
+
+ {
+  title: "Price",
+  render: (_, record) =>
+    record.package_details?.price
+      ? `₹${record.package_details.price}`
+      : "-",
+},
+
+  {
+    title: "Description",
+    dataIndex: "description",
+    ellipsis: true,
+  },
+
+{
+  title: "Features",
+  render: (_, record) => {
+    const features = record.package_details?.features;
+
+    if (!features || features.length === 0) return "-";
+
+    return (
+      <div>
+        {features.map((f, index) => (
+          <div key={index}>
+            {f.description}
+          </div>
+        ))}
+      </div>
+    );
+  },
+},
+  // {
+  //   title: "Process",
+  //   dataIndex: "process",
+  //   ellipsis: true,
+  // },
+
+  // {
+  //   title: "Contact",
+  //   dataIndex: "contact_numbers",
+  //   render: (nums) => nums?.join(", ") || "-",
+  // },
+
+  {
+    title: "Enterprise",
+    dataIndex: "enterprise_name",
+    render: (t) => t || "-",
+  },
+
+  // {
+  //   title: "Registration",
+  //   dataIndex: "registration_details",
+  //   ellipsis: true,
+  // },
+
+  // {
+  //   title: "Instructions",
+  //   dataIndex: "instructions",
+  //   ellipsis: true,
+  // },
+
+  // {
+  //   title: "URL",
+  //   dataIndex: "url",
+  //   render: (url) =>
+  //     url ? (
+  //       <a href={url} target="_blank" rel="noreferrer">
+  //         {url}
+  //       </a>
+  //     ) : "-",
+  // },
+
+  // {
+  //   title: "Image",
+  //   dataIndex: "thumbnail_url",
+  //   render: (img) =>
+  //     img ? (
+  //       <img
+  //         src={img}
+  //         alt="thumb"
+  //         style={{ width: 50, height: 40, objectFit: "cover" }}
+  //       />
+  //     ) : "-",
+  // },
+
+  // {
+  //   title: "Status",
+  //   render: (_, record) => (
+  //     <Switch
+  //       checked={record.is_active}
+  //       checkedChildren="Active"
+  //       unCheckedChildren="Inactive"
+  //     />
+  //   ),
+  // },
+
+  {
+    title: "Actions",
+    render: (_, record) => (
+      <Space>
+        <Button
+  icon={<EyeOutlined />}
+  onClick={() => {
+    setEditingLanding(record);
+    setModalVisible(true);
+    setViewMode(true); // ✅ important
+  }}
+>
+  View
+</Button>
+
+       <Button
+  icon={<EditOutlined />}
+  type="primary"
+  onClick={() => {
+    setEditingLanding(record);
+    setModalVisible(true);
+    setViewMode(false);
+  }}
+>
+  Edit
+</Button>
+<Button
+  danger
+  icon={<DeleteOutlined />}
+ onClick={() => {
+  Modal.confirm({
+    title: "Delete Landing Page",
+    content: "Are you sure you want to delete this record?",
+    okText: "Yes, Delete",
+    okType: "danger",
+    cancelText: "Cancel",
+  centered: true, 
+    maskClosable: true, // ✅ THIS ENABLES OUTSIDE CLICK CLOSE
+
+    onOk: () => {
+      return handleDeleteLanding(record);
+    },
+  });
+  }}
+>
+  Delete
+</Button>
+      </Space>
+    ),
+  },
+];
+
   /* ---------- FILTER ---------- */
 
-  const filteredData =
-    activeTab === "packages"
-      ? packageData.filter((i) =>
-        JSON.stringify(i)
-          .toLowerCase()
-          .includes(searchText.toLowerCase())
-      )
-      : programData.filter((i) =>
-        JSON.stringify(i)
-          .toLowerCase()
-          .includes(searchText.toLowerCase())
-      );
+const filteredData =
+  activeTab === "packages"
+    ? packageData
+    : activeTab === "programs"
+    ? programData
+    : landingData;
 
+const finalFilteredData = filteredData.filter((i) =>
+  JSON.stringify(i).toLowerCase().includes(searchText.toLowerCase())
+);
   /* ---------- RENDER ---------- */
+  
 
   return (
     <div style={{ padding: screens.md ? 24 : 12 }}>
@@ -409,6 +604,7 @@ const Programs = () => {
             items={[
               { key: "programs", label: "Programs" },
               { key: "packages", label: "Counselling Services" },
+              { key: "landing", label: "Landing Pages" },
             ]}
           />
         </Col>
@@ -421,11 +617,16 @@ const Programs = () => {
             onClick={() => {
               setEditingProgram(null);
               setEditingPackage(null);
+                setEditingLanding(null);
               setModalVisible(true);
                setViewMode(false); 
             }}
           >
-            Create {activeTab === "packages" ? "Counselling Service" : "Program"}
+            Create  {activeTab === "packages"
+    ? "Counselling Service"
+    : activeTab === "programs"
+    ? "Program"
+    : "Landing Page"} 
           </Button>
         </Col>
       </Row>
@@ -436,10 +637,12 @@ const Programs = () => {
 
         <Col>
           <Title level={5} style={{ margin: 10 }}>
-            {activeTab === "packages"
-              ? `Counselling Service Records (${filteredData.length})`
-              : `Program Records (${filteredData.length})`}
-          </Title>
+  {activeTab === "packages"
+    ? `Counselling Service Records (${filteredData.length})`
+    : activeTab === "programs"
+    ? `Program Records (${filteredData.length})`
+    : `Landing Page Records (${filteredData.length})`} {/* ✅ */}
+</Title>
         </Col>
 
 
@@ -456,12 +659,15 @@ const Programs = () => {
         <Table
           rowKey="id"
           scroll={{ x: "max-content" }}
-          columns={
-            activeTab === "packages"
-              ? packageColumns
-              : programColumns
-          }
-          dataSource={filteredData}
+         columns={
+    activeTab === "packages"
+      ? packageColumns
+      : activeTab === "programs"
+      ? programColumns
+      : landingColumns // ✅ NEW
+  }
+
+         dataSource={finalFilteredData}
           pagination={{
             current: currentPage,
             pageSize: pageSize,
@@ -545,6 +751,22 @@ const Programs = () => {
           }}
         />
       )}
+
+
+      {activeTab === "landing" && (
+  <AddLandingPageModal
+    visible={modalVisible}
+    onClose={() => setModalVisible(false)}
+    initialValues={editingLanding}
+       viewMode={viewMode} 
+    programs={programData}
+    packages={packageData}
+    onSubmit={(values) => {
+      // console.log("Landing Page Payload:", values);
+      setModalVisible(false);
+    }}
+  />
+)}
     </div>
   );
 };

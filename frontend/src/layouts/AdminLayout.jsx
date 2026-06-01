@@ -437,25 +437,59 @@ const AdminLayout = () => {
 
 
 
-    // (role === "admin" || role === "superadmin") && {
-    //   key: "/s-admin/hhManagement",
-    //   icon: <SolutionOutlined />, // you can change icon
-    //   label: (
-    //     <div style={{ lineHeight: "20px" }}>
-    //       <div>Handholding</div>
-    //       <div>Management</div>
-    //     </div>
-    //   ),
-    //   onClick: () => {
-    //     navigate("/s-admin/hhManagement");
-    //     setDrawerVisible(false);
-    //   },
-    //   style: { marginBottom: 12 },
-    // },
+    (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/hhManagement",
+      icon: <SolutionOutlined />, // you can change icon
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Handholding</div>
+          <div>Management</div>
+        </div>
+      ),
+      onClick: () => {
+        navigate("/s-admin/hhManagement");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
 
 
 
-    
+        (role === "admin" || role === "superadmin") && {
+      key: "/s-admin/eventOutreach",
+      icon: <CalendarFilled />, // you can change icon
+      label: (
+        <div style={{ lineHeight: "20px" }}>
+          <div>Event Outreach </div>
+          <div>Management</div>
+        </div>
+      ),
+      onClick: () => {
+        navigate("/s-admin/eventOutreach");
+        setDrawerVisible(false);
+      },
+      style: { marginBottom: 12 },
+    },
+
+
+
+
+// ✅ Advertisement Menu Item
+(role === "admin" || role === "superadmin") && {
+  key: "/s-admin/advertisement",
+  icon: <NotificationFilled />,
+  label: (
+    <div style={{ lineHeight: "20px" }}>
+      <div>Advertisement</div>
+      <div>Management</div>
+    </div>
+  ),
+  onClick: () => {
+    navigate("/s-admin/advertisement");
+    setDrawerVisible(false);
+  },
+  style: { marginBottom: 12 },
+},
 
     // (role === "admin" || role === "superadmin") &&
     //   {
@@ -514,41 +548,7 @@ const AdminLayout = () => {
       style: { marginBottom: 12 },
     },
 
-    // (role === "admin" || role === "superadmin") && {
-    //   key: "/s-admin/eventOutreach",
-    //   icon: <CalendarFilled />, // you can change icon
-    //   label: (
-    //     <div style={{ lineHeight: "20px" }}>
-    //       <div>Event Outreach </div>
-    //       <div>Management</div>
-    //     </div>
-    //   ),
-    //   onClick: () => {
-    //     navigate("/s-admin/eventOutreach");
-    //     setDrawerVisible(false);
-    //   },
-    //   style: { marginBottom: 12 },
-    // },
 
-
-
-
-// ✅ Advertisement Menu Item
-// (role === "admin" || role === "superadmin") && {
-//   key: "/s-admin/advertisement",
-//   icon: <NotificationFilled />,
-//   label: (
-//     <div style={{ lineHeight: "20px" }}>
-//       <div>Advertisement</div>
-//       <div>Management</div>
-//     </div>
-//   ),
-//   onClick: () => {
-//     navigate("/s-admin/advertisement");
-//     setDrawerVisible(false);
-//   },
-//   style: { marginBottom: 12 },
-// },
 
     //    (role === "lead_counsellor" || role === "counsellor") &&{
     //   key: "/admin/leadlist",

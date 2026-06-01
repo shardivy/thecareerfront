@@ -111,13 +111,13 @@ const handleResume = () => {
             icon={<QuestionCircleOutlined />}
             style={{
               borderRadius: 8,
-               backgroundColor: isCompleted ? "#d9d9d9" : token.colorPrimary,
+               backgroundColor: token.colorPrimary,
               color: "#fff",
               fontWeight: 600,
               border: "none",
             }}
             onClick={() => setInstructionsOpen(true)}
-             disabled={isCompleted}
+            
           >
             Instructions
           </Button>
@@ -153,17 +153,17 @@ const handleResume = () => {
 
               <Divider />
 
-              {!isCompleted && (
+  
                 <Button type="primary" onClick={() => setInstructionsOpen(true)}>
                   View Instructions
                 </Button>
-              )}
+              
 
-              {isCompleted && (
+              {/* {isCompleted && (
                 <Text type="colorTextSecondary">
                   Instructions are no longer available.
                 </Text>
-              )}
+              )} */}
             </Card>
           </Col>
 

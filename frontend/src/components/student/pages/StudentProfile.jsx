@@ -804,81 +804,87 @@ const StudentProfile = () => {
             <Text>
               Liked Subjects <span style={{ color: "red" }}>*</span>
             </Text>
-            <Select
-              mode="multiple"
-              value={profile.liked_subjects || []}
-              style={{ width: "100%" }}
-              onChange={(v) => handleChange("liked_subjects", v)}
-              loading={subjectsLoading}
-              rules={[{ required: true, message: "Please select at least one liked subject" }]}
-            >
-              {Array.isArray(subjectList) &&
-                subjectList.map((subject) => (
-                  <Option
-                    key={subject.id}
-                    value={subject.id}
-                    disabled={
-                      profile.disliked_subjects?.includes(subject.id) ||
-                      profile.moderate_subjects?.includes(subject.id)
-                    }
-                  >
-                    {subject.name}
-                  </Option>
-                ))}
-            </Select>
+<Select
+  mode="tags"
+  value={profile.liked_subjects || []}
+  style={{ width: "100%" }}
+  placeholder="Select or type subjects"
+  onChange={(values) => {
+    // remove duplicates
+    handleChange("liked_subjects", [...new Set(values)]);
+  }}
+  tokenSeparators={[","]}
+  maxTagCount="responsive"
+>
+  {subjectList?.map((subject) => (
+    <Option
+      key={subject.id}
+      value={subject.id} // keeps IDs
+      disabled={
+        profile.disliked_subjects?.includes(subject.id) ||
+        profile.moderate_subjects?.includes(subject.id)
+      }
+    >
+      {subject.name}
+    </Option>
+  ))}
+</Select>
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>
               Disliked Subjects <span style={{ color: "red" }}>*</span>
             </Text>
-            <Select
-              mode="multiple"
-              value={profile.disliked_subjects || []}
-              style={{ width: "100%" }}
-              onChange={(v) => handleChange("disliked_subjects", v)}
-              loading={subjectsLoading}
-              rules={[{ required: true, message: "Please select at least one disliked subject" }]}
-            >
-              {Array.isArray(subjectList) &&
-                subjectList.map((subject) => (
-                  <Option
-                    key={subject.id}
-                    value={subject.id}
-                    disabled={
-                      profile.liked_subjects?.includes(subject.id) ||
-                      profile.moderate_subjects?.includes(subject.id)
-                    }
-                  >
-                    {subject.name}
-                  </Option>
-                ))}
-            </Select>
+ <Select
+  mode="tags"
+  value={profile.disliked_subjects || []}
+  style={{ width: "100%" }}
+  onChange={(values) =>
+    handleChange("disliked_subjects", [...new Set(values)])
+  }
+  tokenSeparators={[","]}
+  maxTagCount="responsive"
+>
+  {subjectList?.map((subject) => (
+    <Option
+      key={subject.id}
+      value={subject.id}
+      disabled={
+        profile.liked_subjects?.includes(subject.id) ||
+        profile.moderate_subjects?.includes(subject.id)
+      }
+    >
+      {subject.name}
+    </Option>
+  ))}
+</Select>
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>Moderate Subject (if any)</Text>
-            <Select
-              mode="multiple"
-              value={profile.moderate_subjects || []}
-              style={{ width: "100%" }}
-              onChange={(v) => handleChange("moderate_subjects", v)}
-              loading={subjectsLoading}
-            >
-              {Array.isArray(subjectList) &&
-                subjectList.map((subject) => (
-                  <Option
-                    key={subject.id}
-                    value={subject.id}
-                    disabled={
-                      profile.liked_subjects?.includes(subject.id) ||
-                      profile.disliked_subjects?.includes(subject.id)
-                    }
-                  >
-                    {subject.name}
-                  </Option>
-                ))}
-            </Select>
+     <Select
+  mode="tags"
+  value={profile.moderate_subjects || []}
+  style={{ width: "100%" }}
+  onChange={(values) =>
+    handleChange("moderate_subjects", [...new Set(values)])
+  }
+  tokenSeparators={[","]}
+  maxTagCount="responsive"
+>
+  {subjectList?.map((subject) => (
+    <Option
+      key={subject.id}
+      value={subject.id}
+      disabled={
+        profile.liked_subjects?.includes(subject.id) ||
+        profile.disliked_subjects?.includes(subject.id)
+      }
+    >
+      {subject.name}
+    </Option>
+  ))}
+</Select>
           </Col>
 
           <Col xs={24}>
@@ -901,21 +907,23 @@ const StudentProfile = () => {
 
 
 
-        <Select
-          mode="multiple"
-          value={profile.hobbies || []}
-          style={{ width: "100%" }}
-          onChange={(v) => handleChange("hobbies", v)}
-          loading={hobbiesLoading}
-          rules={[{ required: true, message: "Please select at least one hobby" }]}
-        >
-          {Array.isArray(hobbyList) &&
-            hobbyList.map((hobby) => (
-              <Option key={hobby.id} value={hobby.id}>
-                {hobby.name}
-              </Option>
-            ))}
-        </Select>
+  <Select
+  mode="tags"
+  value={profile.hobbies || []}
+  style={{ width: "100%" }}
+  placeholder="Select or type hobbies"
+  onChange={(values) =>
+    handleChange("hobbies", [...new Set(values)])
+  }
+  tokenSeparators={[","]}
+  maxTagCount="responsive"
+>
+  {hobbyList?.map((hobby) => (
+    <Option key={hobby.id} value={hobby.id}>
+      {hobby.name}
+    </Option>
+  ))}
+</Select>
 
         {/* PARENT DETAILS */}
         <Divider />

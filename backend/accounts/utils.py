@@ -78,104 +78,265 @@ Career Counselling Team
     )
 
 
-def send_credentials_email(email, password, program_name, package_name):
-    subject = "Congratulations! Your Account Has Been Successfully Created "
+# def send_credentials_email(email, password, program_name, package_name):
+#     subject = "Congratulations! Your Account Has Been Successfully Created "
 
-    message = f"""
-Dear Candidate,
+#     message = f"""
+# Dear Candidate,
 
-Congratulations! 
+# Congratulations! 
 
-You have been successfully selected for the **{program_name}** program under the **{package_name}** service.
+# You have been successfully selected for the **{program_name}** program under the **{package_name}** service.
 
-We have excited to support you in your career journey.
+# We have excited to support you in your career journey.
 
---------------------------------------------------
-Access Your Dashboard
---------------------------------------------------
+# --------------------------------------------------
+# Access Your Dashboard
+# --------------------------------------------------
 
-You can access your dashboard and track your complete counselling journey using the login credentials below:
+# You can access your dashboard and track your complete counselling journey using the login credentials below:
+
+# Login Link:
+# https://staging.abhinavcareerscope.com/
+
+# Login Credentials:
+# Email: {email}
+# Password: {password}
+
+# --------------------------------------------------
+# Payment Details
+# --------------------------------------------------
+
+# Session Fees:
+
+# 🔹 Online Session: ₹5,000 (via GPay)
+
+# 🔹 Offline Session:
+# ₹500 via GPay + ₹4,500 cash at the time of counseling
+
+# --------------------------------------------------
+# Important Instructions
+# --------------------------------------------------
+
+# ✔️ Please join using a **Laptop only**  
+# ✔️ Join **5 minutes before the scheduled session** for technical checks  
+# ✔️ Keep **paper and pen ready** for taking notes  
+
+# --------------------------------------------------
+# Offline Session Process (If Applicable)
+# --------------------------------------------------
+
+# Office Address:
+
+# Mrs. Reena Bhutada  
+# Abhinav Career Scope, Pune  
+# Bhagwati Maestros, Miller 403  
+# LMD Chowk, Above Indian Smart Bazaar  
+# Bavdhan, Pune – 411021  
+
+# 📌 Important Notes:
+
+# • Office is near **Chandani Chowk, Bavdhan**  
+# • Please start **20 minutes earlier** considering traffic  
+# • **Parking is available outside the building gate**
+
+# --------------------------------------------------
+# Online Session Instructions
+# --------------------------------------------------
+
+# If your session is online:
+
+# ✔️ Please join **5 minutes before the scheduled time**  
+# ✔️ Ensure you have a **stable internet connection**  
+# ✔️ Join the session using a **Laptop**
+
+# --------------------------------------------------
+# Fee Reminder (If Applicable)
+# --------------------------------------------------
+
+# Kindly pay the remaining **₹4,500 in cash** at the time of counseling.
+
+# (If the fees are already fully paid, please ignore this reminder.)
+
+# --------------------------------------------------
+
+# If you have any questions or need assistance, feel free to contact our support team.
+
+# We look forward to guiding you through your career journey.
+
+# Best Regards,  
+# Career Counselling Team  
+# CareerFutura
+# """
+
+#     email_status = send_mail(
+#         subject,
+#         message,
+#         settings.DEFAULT_FROM_EMAIL,
+#         [email],
+#         fail_silently=False
+#     )
+#     print("EMAIL STATUS:", email_status)
+
+def send_credentials_email(
+    email,
+    password,
+    program_name,
+    package_name,
+    preferred_counselling_mode
+):
+    """
+    Send login credentials email
+
+    - Online → Zoom link + online instructions
+    - Offline → Office address + offline instructions
+    """
+
+    from django.conf import settings
+    from django.core.mail import send_mail
+
+    subject = "Congratulations! Your Account Has Been Successfully Created"
+
+    preferred_mode = (
+        preferred_counselling_mode or "online"
+    ).lower()
+
+    # ==========================================
+    # COMMON MESSAGE
+    # ==========================================
+    common_message = f"""
+Dear Student,
+
+Congratulations!
+
+You have been successfully selected for the {program_name} under the {package_name} service.
+
+We are excited to support you in your career journey.
+
+________________________________________
+
+Dashboard Access
 
 Login Link:
 https://staging.abhinavcareerscope.com/
 
 Login Credentials:
+
 Email: {email}
 Password: {password}
 
---------------------------------------------------
-Payment Details
---------------------------------------------------
+________________________________________
 
-Session Fees:
+Session Fees
 
-🔹 Online Session: ₹5,000 (via GPay)
+Online Session: ₹5,000 (via GPay)
 
-🔹 Offline Session:
-₹500 via GPay + ₹4,500 cash at the time of counseling
+Offline Session:
+₹500 via GPay + ₹4,500 cash during counselling
 
---------------------------------------------------
+________________________________________
+
 Important Instructions
---------------------------------------------------
 
-✔️ Please join using a **Laptop only**  
-✔️ Join **5 minutes before the scheduled session** for technical checks  
-✔️ Keep **paper and pen ready** for taking notes  
+• Join using a laptop only
+• Join 5 minutes before the session
+• Keep a notebook and pen ready
+"""
 
---------------------------------------------------
-Offline Session Process (If Applicable)
---------------------------------------------------
+    # ==========================================
+    # ONLINE SESSION
+    # ==========================================
+    if preferred_mode == "online":
+
+        mode_message = """
+________________________________________
+
+Online Session Details
+
+Zoom Link:
+https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09
+
+• Ensure a stable internet connection
+• Keep audio/video ready
+• Keep required documents handy
+"""
+
+    # ==========================================
+    # OFFLINE SESSION
+    # ==========================================
+    else:
+
+        mode_message = """
+________________________________________
+
+Offline Session Process
 
 Office Address:
 
-Mrs. Reena Bhutada  
-Abhinav Career Scope, Pune  
-Bhagwati Maestros, Miller 403  
-LMD Chowk, Above Indian Smart Bazaar  
-Bavdhan, Pune – 411021  
+Mrs. Reena Bhutada
+Abhinav Career Scope, Pune
+Bhagwati Maestros, Miller 403
+LMD Chowk, Above Indian Smart Bazaar
+Bavdhan, Pune – 411021
 
 📌 Important Notes:
 
-• Office is near **Chandani Chowk, Bavdhan**  
-• Please start **20 minutes earlier** considering traffic  
-• **Parking is available outside the building gate**
-
---------------------------------------------------
-Online Session Instructions
---------------------------------------------------
-
-If your session is online:
-
-✔️ Please join **5 minutes before the scheduled time**  
-✔️ Ensure you have a **stable internet connection**  
-✔️ Join the session using a **Laptop**
-
---------------------------------------------------
-Fee Reminder (If Applicable)
---------------------------------------------------
-
-Kindly pay the remaining **₹4,500 in cash** at the time of counseling.
-
-(If the fees are already fully paid, please ignore this reminder.)
-
---------------------------------------------------
-
-If you have any questions or need assistance, feel free to contact our support team.
-
-We look forward to guiding you through your career journey.
-
-Best Regards,  
-Career Counselling Team  
-CareerFutura
+• Office is near Chandani Chowk, Bavdhan
+• Please start 20 minutes earlier considering traffic
+• Parking is available outside the building gate
+• Carry required documents
+• Reach venue 30 minutes early
 """
 
-    send_mail(
+    # ==========================================
+    # CLOSING MESSAGE
+    # ==========================================
+    closing_message = """
+________________________________________
+
+Fee Reminder
+
+Kindly pay the remaining ₹4,500 in cash at the time of counselling.
+
+(If already paid in full, please ignore this reminder.)
+
+________________________________________
+
+For any queries or assistance:
+
+Call / WhatsApp:
++91 99226 95424 | +91 82080 30557
+
+We look forward to guiding you in your career journey.
+
+Best Regards,
+Abhinav Career Scope
+"""
+
+    # ==========================================
+    # FINAL MESSAGE
+    # ==========================================
+    message = (
+        common_message
+        + mode_message
+        + closing_message
+    )
+
+    # ==========================================
+    # SEND EMAIL
+    # ==========================================
+    email_status = send_mail(
         subject,
         message,
         settings.DEFAULT_FROM_EMAIL,
         [email],
         fail_silently=False
     )
+
+    print("EMAIL STATUS:", email_status)
+
+
+
 
 def send_password_reset_email(email, password):
     subject = "Password Reset Successful"

@@ -120,6 +120,70 @@ const Program = () => {
     if (programScrollRef.current) programScrollRef.current.scrollBy({ left: 250, behavior: "smooth" });
   };
 
+    const serviceRouteMap = {
+    "Engineering-Paid Whatsapp Group":
+      "/engineering-paid-group-service",
+
+    "Engineering-Admission Counselling":
+      "/admission-counselling",
+
+    "Engineering-OCI/NRI/CIWG/PIO Paid Whatsapp Group":
+      "/engineering-oci-nri-paid-group-service",
+
+    // "Engineering-OCI/NRI/CIWG/PIO Engineering Admission End-to-End Guidance":
+    //   "/oci-nri-end-to-end-counselling",
+
+    "Engineering-CET-Engineering Admission One-on-One Guidance":
+      "/cet-one-on-one-guidance",
+
+    "Engineering-JEE-Engineering Admission One-on-One Guidance":
+      "/jee-one-on-one-guidance",
+
+    "Medical-Paid Whatsapp Group":
+      "/medical-paid-group-service",
+
+    "Medical-End to End Medical Counselling":
+      "/medical-end-to-end-counselling",
+
+    "Law-Paid Whatsapp Group":
+      "/law-service",
+
+    "11th Admission-Free Whatsapp Group":
+      "/11th-admission-free-group-service",
+
+    "Abroad Counselling-Expert Abroad Counselling Service":
+      "/abroad-counselling-service",
+
+    // "Admission Counselling-Expert Engineering Online Session":
+    //   "/admission-counselling-service",
+
+    "Commerce (BBA  & MBA)-Paid Whatsapp Group":
+      "/bba-paid-group-service",
+
+    "Hand Holding Program-Hand Holding":
+      "/handholding-program-service",
+
+    "Design & Architecture-Paid Whatsapp Group":
+      "/design-arch-paid-group-service",
+
+    "Aptitude Test Counselling-Aptitude Test For 8th-9th std":
+      "/8-9-aptitude-service",
+
+    "Aptitude Test Counselling-Aptitude Test Of 10th STD":
+      "/10th-aptitude-service",
+
+    "Aptitude Test Counselling-Aptitude Test Of 11th-12th STD":
+      "/11-12-aptitude-service",
+
+        "Aptitude Test Counselling-PG Counselling":
+      "/pg-counselling-service",
+
+
+    "Seminar / Webinar-Seminar / Webinar":
+      "/seminar-webinar-session",
+
+  };
+
   // ================= FREE CONTENT CARD =================
   const FreeContentCard = () => (
     <Card
@@ -411,18 +475,28 @@ const Program = () => {
                               flexDirection: screens.xs ? "column" : "row",
                             }}
                           >
-                            <Button
-                              block
-                              onClick={() => {
-                                if (pkg.link_url) {
-                                  window.open(pkg.link_url, "_blank", "noopener,noreferrer");
-                                } else {
-                                  window.location.href = "#";
-                                }
-                              }}
-                            >
-                              Learn More
-                            </Button>
+                         <Button
+  block
+  onClick={() => {
+    const routeKey = `${selectedProgram}-${pkg.name}`;
+
+    const targetRoute =
+      serviceRouteMap[routeKey] || "/default-service";
+
+    navigate(targetRoute, {
+      state: {
+        fromProgramPage: true,
+        programId: pkg.program?.id,
+        programName: selectedProgram,
+        packageId: pkg.id,
+        packageName: pkg.name,
+        isAptitude: pkg.aptitude_test,
+      },
+    });
+  }}
+>
+  Learn More
+</Button>
 
                             <Button
                               type="primary"
@@ -440,7 +514,8 @@ const Program = () => {
                                 });
                               }}
                             >
-                              Select Service
+                              {/* Select Service */}
+                              Register Now
                             </Button>
                           </div>
                         </Card>
@@ -670,16 +745,28 @@ const Program = () => {
     Learn More
   </Button> */}
 
-                            <Button
-                              block
-                              onClick={() => {
-                                const url = pkg?.link_url || "https://abhinavcareerscope.com/";
+<Button
+  block
+  onClick={() => {
+    const routeKey = `${selectedProgram}-${pkg.name}`;
 
-                                window.open(url, "_blank", "noopener,noreferrer");
-                              }}
-                            >
-                              Learn More
-                            </Button>
+    const targetRoute =
+      serviceRouteMap[routeKey] || "/default-service";
+
+    navigate(targetRoute, {
+      state: {
+        fromProgramPage: true,
+        programId: pkg.program?.id,
+        programName: selectedProgram,
+        packageId: pkg.id,
+        packageName: pkg.name,
+        isAptitude: pkg.aptitude_test,
+      },
+    });
+  }}
+>
+  Learn More
+</Button>
 
                             {/* Select / Selected Button */}
                             {profile?.package_id === pkg.id ? (

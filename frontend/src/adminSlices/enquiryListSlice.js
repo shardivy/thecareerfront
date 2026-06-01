@@ -19,6 +19,7 @@ export const fetchEnquiries = createAsyncThunk(
         program: item.program_detail?.name || "N/A",
         programId: item.program,
         programDetail: item.program_detail || null,
+        handholding_details: item.handholding_details || null,
         source: item.source
           ? item.source.charAt(0).toUpperCase() +
             item.source.slice(1).toLowerCase()

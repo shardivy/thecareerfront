@@ -14,7 +14,8 @@ import {
   Grid,
   Divider,
   Empty,
-  Spin, // Make sure Spin is imported
+  Spin,
+  Input,
 } from "antd";
 import {
   TeamOutlined,
@@ -24,8 +25,9 @@ import {
   EnvironmentOutlined,
   CheckCircleOutlined,
   FileTextOutlined,
-  EyeOutlined ,
+  EyeOutlined,
   DownloadOutlined,
+  SearchOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import adminTheme from "../../../theme/adminTheme";
@@ -56,15 +58,16 @@ const CounsellorDashboard = () => {
   });
   const [locationModal, setLocationModal] = useState(false);
   const [reportLoading, setReportLoading] = useState(true); // Add this state
+  const [searchText, setSearchText] = useState("");
   const dispatch = useDispatch();
 
   const { students, studentsLoading, notes } = useSelector(
     (state) => state.counsellors
   );
 
-const { studentProfile, loading: profileLoading } = useSelector(
-  (state) => state.profile
-);
+  const { studentProfile, loading: profileLoading } = useSelector(
+    (state) => state.profile
+  );
   const { dashboardStats, dashboardLoading } = useSelector(
     (state) => state.counsellors
   );
@@ -90,66 +93,123 @@ const { studentProfile, loading: profileLoading } = useSelector(
       student_id: item.student_id,
       studentName: item.student_name,
       studentEmail: item.student_email,
-      studentPhone: item.student_phone,       
+      studentPhone: item.student_phone,
       counsellorName: item.counsellor_name,
-        counsellorList: item.counsellor_name,
+      counsellorList: item.counsellor_name,
       date: item.date,
-      startTime,
-      endTime,
+      startTime: item.slot_time,
       mode: item.mode === "online" ? "Online" : "Offline",
       status: item.status,
       preferredMode: item.preferred_counselling_mode === "online" ? "Online" : "Offline",
-      report_file: item.report_file, 
+      report_file: item.report_file,
       aptitude_test: item.aptitude_test,
       engineering_test_analysis: item.engineering_test_analysis,
-      
+
     };
   });
 
-  // Handle PDF download
-// Handle PDF download
-const handleDownloadReport = async () => {
-  if (!selectedReport?.report_file) {
-    message.warning("No report file available");
-    return;
-  }
+  // Filter sessions based on search text
+  const filteredSessions = upcomingSessions.filter((session) => {
+    if (!searchText) return true;
+    const searchLower = searchText.toLowerCase();
+    return (
+      session.studentName?.toLowerCase().includes(searchLower) ||
+      session.studentEmail?.toLowerCase().includes(searchLower) ||
+      session.date?.toLowerCase().includes(searchLower) ||
+      session.mode?.toLowerCase().includes(searchLower) ||
+      session.preferredMode?.toLowerCase().includes(searchLower) ||
+      session.status?.toLowerCase().includes(searchLower)
+    );
+  });
 
-  setDownloading(true);
-  console.log("⬇️ Download initiated");
+  const getExtensionFromUrl = (url = "") => {
+    try {
+      const cleanUrl = url.split("?")[0];
+      return cleanUrl.substring(cleanUrl.lastIndexOf("."));
+    } catch {
+      return ".pdf";
+    }
+  };
 
-  try {
-    const response = await fetch(selectedReport.report_file);
-    const blob = await response.blob();
+  const handleDownloadReport = async () => {
+    if (!selectedReport?.report_file) {
+      message.warning("No report file available");
+      return;
+    }
 
-    // Create filename from student name or use default
-    const fileName = selectedReport.studentName 
-      ? `${selectedReport.studentName.replace(/\s+/g, '_')}_Report.pdf`
-      : "Report.pdf";
+    setDownloading(true);
 
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
+    try {
+      const response = await fetch(selectedReport.report_file);
+      const blob = await response.blob();
 
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    
-    console.log("✅ Download successful");
-    message.success("Report downloaded successfully");
-    
-    // Close the modal after successful download
-    setReportModal(false);
-    setSelectedReport(null);
-    setReportLoading(true);
-  } catch (error) {
-    console.error("❌ Download failed:", error);
-    message.error("Failed to download report");
-  } finally {
-    setDownloading(false);
-  }
-};
+      const fileNameFromApi = selectedReport.file_name || "";
+
+      let extension = "";
+
+      if (fileType === "pdf") {
+        extension = ".pdf";   // ✅ FORCE PDF
+      } else if (fileNameFromApi.includes(".")) {
+        extension = fileNameFromApi.substring(fileNameFromApi.lastIndexOf("."));
+      } else {
+        extension = getExtensionFromUrl(selectedReport.report_file);
+      }
+
+      const fileName = selectedReport.studentName
+        ? `${selectedReport.studentName.replace(/\s+/g, "_")}_Report${extension}`
+        : `Report${extension}`;
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = fileName; // ✅ correct extension guaranteed
+
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      message.success("Report downloaded successfully");
+      setReportModal(false);
+      setSelectedReport(null);
+    } catch (error) {
+      console.error(error);
+      message.error("Failed to download report");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+
+  const getFileType = (url = "") => {
+    try {
+      const cleanUrl = url.split("?")[0].toLowerCase();
+
+      // ✅ CASE 1: API endpoint contains pdf
+      if (cleanUrl.includes("/pdf/") || cleanUrl.endsWith("/pdf")) {
+        return "pdf";
+      }
+
+      // ✅ CASE 2: normal file extensions
+      const ext = cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1);
+
+      if (ext === "pdf") return "pdf";
+      if (["xls", "xlsx"].includes(ext)) return "excel";
+      if (["doc", "docx"].includes(ext)) return "word";
+
+      return "other";
+    } catch {
+      return "other";
+    }
+  };
+
+  const fileType = selectedReport?.report_file
+    ? getFileType(selectedReport.report_file)
+    : null;
+
+  const canPreview = fileType === "pdf";
 
   const columns = [
     {
@@ -175,10 +235,10 @@ const handleDownloadReport = async () => {
       render: (date) => dayjs(date).format("DD-MM-YYYY"),
       width: 120,
     },
-    {
-      title: "Slot Time",
-      render: (_, record) => `${record.startTime} - ${record.endTime}`,
-    },
+  {
+  title: "Slot Time",
+  dataIndex: "startTime",
+},
     {
       title: "Preferred Counselling Mode",
       dataIndex: "preferredMode",
@@ -243,27 +303,27 @@ const handleDownloadReport = async () => {
             </Button>
 
             {/* View Report Button - FIXED: Use record.report_file directly */}
-          {(record.aptitude_test || record.engineering_test_analysis) && (
-            <Button
-              icon={<EyeOutlined />}
-              onClick={() => {
-                // Use report_file directly from the record
-                if (record.report_file) {
-                  setSelectedReport({
-                    report_file: record.report_file,
-                    studentName: record.studentName,
-                    studentEmail: record.studentEmail,
-                    studentId: record.student_id,
-                  });
-                  setReportModal(true);
-                  setReportLoading(true); // Reset loading state
-                } else {
-                  message.warning("No report available for this student");
-                }
-              }}
-            >
-              View Report
-            </Button>
+            {(record.aptitude_test || record.engineering_test_analysis) && (
+              <Button
+                icon={<EyeOutlined />}
+                onClick={() => {
+                  // Use report_file directly from the record
+                  if (record.report_file) {
+                    setSelectedReport({
+                      report_file: record.report_file,
+                      studentName: record.studentName,
+                      studentEmail: record.studentEmail,
+                      studentId: record.student_id,
+                    });
+                    setReportModal(true);
+                    setReportLoading(true); // Reset loading state
+                  } else {
+                    message.warning("No report available for this student");
+                  }
+                }}
+              >
+                View Report
+              </Button>
             )}
 
             {/* ONLINE SESSION */}
@@ -426,16 +486,29 @@ const handleDownloadReport = async () => {
       <Row style={{ marginTop: 30 }}>
         <Col span={24}>
           <Card title={`All Sessions (${upcomingSessions.length})`}>
+            {/* Search Box */}
+            <Row style={{ marginBottom: 16 }}>
+              <Col xs={24} md={12}>
+                <Input
+                  prefix={<SearchOutlined />}
+                  placeholder="Search by student name, email, date, mode, or status..."
+                  allowClear
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  style={{ width: "100%" }}
+                />
+              </Col>
+            </Row>
             <div style={{ overflowX: "auto" }}>
               <Table
                 columns={columns}
-                dataSource={upcomingSessions}
+                dataSource={filteredSessions}
                 loading={studentsLoading}
                 rowKey="id"
                 scroll={{ x: 1150 }}
                 pagination={{
                   ...pagination,
-                  total: upcomingSessions.length,
+                  total: filteredSessions.length,
                   showSizeChanger: true,
                   pageSizeOptions: ["5", "10", "20", "50"],
                 }}
@@ -537,111 +610,116 @@ const handleDownloadReport = async () => {
       <StudentProfileModal
         open={profileModal}
         onClose={() => setProfileModal(false)}
-       student={studentProfile} 
+        student={studentProfile}
         loading={profileLoading}
       />
 
-  {/* REPORT MODAL - WITHOUT PAGE CONTROLS */}
-<Modal
-  title={`Report - ${selectedReport?.studentName || ""}`}
-  open={reportModal}
-  centered
-  onCancel={() => {
-    setReportModal(false);
-    setSelectedReport(null);
-    setReportLoading(true);
-  }}
-footer={[
-  <Button 
-    key="download" 
-    type="primary" 
-    icon={<DownloadOutlined />} 
-    onClick={handleDownloadReport}
-    disabled={!selectedReport?.report_file || downloading}
-    loading={downloading}
-  >
-    {downloading ? "Downloading..." : "Download"}
-  </Button>,
-  <Button 
-    key="close" 
-    onClick={() => {
-      setReportModal(false);
-      setSelectedReport(null);
-      setReportLoading(true);
-    }}
-  >
-    Close
-  </Button>,
-]}
-  width={screens.xs ? "95%" : 800}
-  style={{ top: 20 }}
->
-  {selectedReport?.report_file ? (
-    <div style={{ 
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      minHeight: "500px",
-      width: "100%", 
-      position: "relative",
-      backgroundColor: "#f5f5f5",
-      borderRadius: "4px",
-      overflow: "hidden",
-      padding: "10px"
-    }}>
-      <div style={{
-        width: "100%",
-        height: "500px",
-        border: "1px solid #e8e8e8",
-        borderRadius: "4px",
-        overflow: "hidden",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
-      }}>
-        <iframe
-          src={`${selectedReport.report_file}#toolbar=0&navpanes=0&scrollbar=0`}
-          title="Report Preview"
-          width="100%"
-          height="100%"
-          style={{ 
-            border: "none",
-            backgroundColor: "#fff"
-          }}
-          onLoad={() => setReportLoading(false)}
-          onError={() => {
-            setReportLoading(false);
-            message.error("Failed to load report. You can download it instead.");
-          }}
-        />
-      </div>
-      {reportLoading && (
-        <div style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          textAlign: "center",
-          backgroundColor: "rgba(255, 255, 255, 0.9)",
-          padding: "20px",
-          borderRadius: "8px",
-          zIndex: 1,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.1)"
-        }}>
-          <Spin size="large" />
-          <p style={{ marginTop: 16, marginBottom: 0 }}>Loading report...</p>
-        </div>
-      )}
-    </div>
-  ) : (
-    <div style={{ 
-      minHeight: "300px", 
-      display: "flex", 
-      alignItems: "center", 
-      justifyContent: "center" 
-    }}>
-      <Empty description="No report available for this student" />
-    </div>
-  )}
-</Modal>
+      {/* REPORT MODAL - WITHOUT PAGE CONTROLS */}
+      <Modal
+        title={`Report - ${selectedReport?.studentName || ""}`}
+        open={reportModal}
+        centered
+        onCancel={() => {
+          setReportModal(false);
+          setSelectedReport(null);
+          setReportLoading(true);
+        }}
+        footer={[
+          // Show Download ONLY when preview is NOT available
+          canPreview && (
+            <Button
+              key="download"
+              type="primary"
+              icon={<DownloadOutlined />}
+              onClick={handleDownloadReport}
+              disabled={!selectedReport?.report_file || downloading}
+              loading={downloading}
+            >
+              {downloading ? "Downloading..." : "Download"}
+            </Button>
+          ),
+
+          <Button
+            key="close"
+            onClick={() => {
+              setReportModal(false);
+              setSelectedReport(null);
+              setReportLoading(true);
+            }}
+          >
+            Close
+          </Button>,
+        ]}
+        width={screens.xs ? "95%" : 800}
+        style={{ top: 20 }}
+      >
+        {selectedReport?.report_file ? (
+          <div
+            style={{
+              minHeight: "500px",
+              width: "100%",
+              backgroundColor: "#f5f5f5",
+              borderRadius: 4,
+              padding: 10,
+            }}
+          >
+            {/* PDF VIEW */}
+            {fileType === "pdf" && (
+              <iframe
+                src={`${selectedReport.report_file}#toolbar=0`}
+                title="Report Preview"
+                width="100%"
+                height="500px"
+                style={{ border: "none" }}
+                onLoad={() => setReportLoading(false)}
+              />
+            )}
+
+            {/* WORD / EXCEL VIEW (Fallback UI) */}
+            {(fileType === "word" || fileType === "excel") && (
+              <div
+                style={{
+                  height: "500px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 12,
+                }}
+              >
+                <FileTextOutlined style={{ fontSize: 50 }} />
+
+                <Text strong>
+                  {fileType === "word"
+                    ? "Word Document Preview not available"
+                    : "Excel File Preview not available"}
+                </Text>
+
+                <Text type="colorTextSecondary">
+                  Please download to view this file
+                </Text>
+
+                <Button
+                  type="primary"
+                  icon={<DownloadOutlined />}
+                  onClick={handleDownloadReport}
+                >
+                  Download File
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{
+            minHeight: "300px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}>
+            <Empty description="No report available for this student" />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

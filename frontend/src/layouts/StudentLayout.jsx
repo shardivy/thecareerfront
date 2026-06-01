@@ -12,6 +12,8 @@ import {
   Space,
   Badge,
   theme,
+  Alert,
+  Modal
 } from "antd";
 import {
   UserOutlined,
@@ -26,6 +28,7 @@ import {
   BellOutlined,
   CreditCardFilled,
   FormOutlined,
+  ExclamationCircleFilled,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import NotificationDropdown from "../components/student/pages/Notification";
@@ -54,6 +57,16 @@ export default function StudentLayout() {
   const getDashboardPath = () => "/student/dashboard";
   const adminRole = localStorage.getItem("adminRole");
   const isBasicUser = adminRole === "basic_user";
+  const [showModal, setShowModal] = useState(false);
+
+  // Check if modal should be shown on component mount
+  useEffect(() => {
+    const modalTriggered = localStorage.getItem("showConversionModal");
+    const handled = localStorage.getItem("conversionHandled");
+    if (modalTriggered === "true" && !handled) {
+      setShowModal(true);
+    }
+  }, []);
 
   // Check if package exists in profile or localStorage
   const hasPackage = !!(profile?.package_id || selectedPackage);
@@ -63,6 +76,8 @@ export default function StudentLayout() {
 
   const username = localStorage.getItem("username") || "Student";
   const userRole = profile?.role;
+
+  const showConversionMsg = profile?.is_converted_lead === false;
 
   // Function to truncate name for smaller screens
   const truncatedUsername = screens.xs
@@ -76,6 +91,35 @@ export default function StudentLayout() {
   }, [dispatch]);
 
   useEffect(() => {
+  if (profile?.role) {
+    const oldRole = localStorage.getItem("adminRole");
+
+    // First time login → just store role
+    if (!oldRole) {
+      localStorage.setItem("adminRole", profile.role);
+      return;
+    }
+
+    // 🔥 Detect role change
+    if (oldRole !== profile.role) {
+      console.log("Role changed detected");
+
+      // Clear old cached UI data
+      localStorage.removeItem("dashboardConfig");
+      localStorage.removeItem("selectedPackage");
+      localStorage.removeItem("aptitude_test");
+      localStorage.removeItem("engineering_test_analysis");
+
+      // Update new role
+      localStorage.setItem("adminRole", profile.role);
+
+      // 🔥 Reload UI
+      window.location.reload();
+    }
+  }
+}, [profile]);
+
+  useEffect(() => {
     if (profile?.aptitude_test !== undefined) {
       localStorage.setItem("aptitude_test", profile.aptitude_test);
     }
@@ -85,6 +129,7 @@ export default function StudentLayout() {
     }
   }, [profile]);
 
+
   const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
 
   const showExamAndReport = aptitudeTestFromStorage === "true";
@@ -92,6 +137,27 @@ export default function StudentLayout() {
   const showEngineering =
     localStorage.getItem("engineering_test_analysis") === "true" &&
     adminRole !== "basic_user";
+
+  // const prevConverted = localStorage.getItem("prev_converted_lead");
+
+// useEffect(() => {
+//   if (profile?.is_converted_lead !== undefined) {
+//     const prev = localStorage.getItem("prev_converted_lead");
+//     const handled = localStorage.getItem("conversionHandled");
+
+//     // Show modal only if just converted (false → true) and not already handled
+//     if (prev === "false" && profile.is_converted_lead === true && !handled) {
+//       setShowModal(true);
+//       localStorage.setItem("showConversionModal", "true");
+//     }
+
+//     // update previous state
+//     localStorage.setItem(
+//       "prev_converted_lead",
+//       profile.is_converted_lead
+//     );
+//   }
+// }, [profile]);
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -128,6 +194,7 @@ export default function StudentLayout() {
     "/student/engineering-questionnaires": "Engineering Questionnaires",
     "/student/analysis-report": "Analysis Report",
     "/student/write-review": "Write a Review",
+    "/student/program-selection": "Program Selection",
   };
 
   const pathSnippets = location.pathname.split("/").filter(Boolean);
@@ -219,109 +286,134 @@ export default function StudentLayout() {
 
   // Package-dependent items
   if (hasPackage) {
-    const packageItems = [
-      ...(showExamAndReport
-        ? [
-          {
-            key: "/student/exam-management",
-            icon: <CalendarFilled />,
-            // label: "Exam Management",
-            label: (
-              <div style={{ lineHeight: "20px" }}>
-                <div>Aptitude Test</div>
-                <div>Management</div>
-              </div>
-            ),
-            onClick: () => {
-              navigate("/student/exam-management");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 18 },
+   const packageItems = [
+  // ================= APTITUDE =================
+  ...(showExamAndReport
+    ? [
+        {
+          key: "/student/exam-management",
+          icon: <CalendarFilled />,
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Aptitude Test</div>
+              <div>Management</div>
+            </div>
+          ),
+          onClick: () => {
+            navigate("/student/exam-management");
+            setDrawerVisible(false);
           },
+          style: { marginBottom: 18 },
+        },
 
+        // SLOT BOOKING AFTER EXAM MANAGEMENT
+        ...(!isBasicUser
+          ? [
+              {
+                key: "/student/slot-booking",
+                icon: <ScheduleFilled />,
+                label: (
+                  <div style={{ lineHeight: "20px" }}>
+                    <div>Counselling</div>
+                    <div>Slot Booking</div>
+                  </div>
+                ),
+                onClick: () => {
+                  navigate("/student/slot-booking");
+                  setDrawerVisible(false);
+                },
+                style: { marginBottom: 18 },
+              },
 
-          {
-            key: "/student/report-management",
-            icon: <FileTextFilled />,
-            // label: "Report Management",
-            // label: "Aptitude Test Reports ",
-            label: (
-              <div style={{ lineHeight: "20px" }}>
-                <div>Aptitude Test</div>
-                <div>Reports</div>
-              </div>
-            ),
-            onClick: () => {
-              navigate("/student/report-management");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 18 },
+              // WRITE REVIEW
+              writeReviewItem,
+            ]
+          : []),
+
+        // REPORT AFTER REVIEW
+        {
+          key: "/student/report-management",
+          icon: <FileTextFilled />,
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Aptitude Test</div>
+              <div>Reports</div>
+            </div>
+          ),
+          onClick: () => {
+            navigate("/student/report-management");
+            setDrawerVisible(false);
           },
-        ]
-        : []),
+          style: { marginBottom: 18 },
+        },
+      ]
+    : []),
 
-      ...(showEngineering ? [engineeringQuestionnairesItem] : []),
+  // ================= ENGINEERING =================
+  ...(showEngineering
+    ? [
+        engineeringQuestionnairesItem,
 
-      ...(showEngineering
-        ? [
-          {
-            key: "/student/analysis-report",
-            icon: <FileTextFilled />,
-            label: (
-              <div style={{ lineHeight: "20px" }}>
-                <div>Analysis Report </div>
-              </div>
-            ),
-            onClick: () => {
-              navigate("/student/analysis-report");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 18 },
+        // SLOT BOOKING AFTER QUESTIONNAIRES
+        ...(!isBasicUser
+          ? [
+
+             {
+          key: "/student/analysis-report",
+          icon: <FileTextFilled />,
+          label: (
+            <div style={{ lineHeight: "20px" }}>
+              <div>Analysis Report</div>
+            </div>
+          ),
+          onClick: () => {
+            navigate("/student/analysis-report");
+            setDrawerVisible(false);
           },
-        ]
-        : []),
+          style: { marginBottom: 18 },
+        },
+              {
+                key: "/student/slot-booking",
+                icon: <ScheduleFilled />,
+                label: (
+                  <div style={{ lineHeight: "20px" }}>
+                    <div>Counselling</div>
+                    <div>Slot Booking</div>
+                  </div>
+                ),
+                onClick: () => {
+                  navigate("/student/slot-booking");
+                  setDrawerVisible(false);
+                },
+                style: { marginBottom: 18 },
+              },
 
-      // Slot Booking
-      ...(!isBasicUser
-        ? [
-          {
-            key: "/student/slot-booking",
-            icon: <ScheduleFilled />,
-            // label: "Slot Booking",
-            label: (
-              <div style={{ lineHeight: "20px" }}>
-                <div>Counselling</div>
-                <div>Slot Booking</div>
-              </div>
-            ),
-            onClick: () => {
-              navigate("/student/slot-booking");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 18 },
+              // WRITE REVIEW
+              writeReviewItem,
+            ]
+          : []),
+
+        // ANALYSIS REPORT AFTER REVIEW
+       
+      ]
+    : []),
+
+  // ================= PAYMENTS =================
+  ...(!isBasicUser
+    ? [
+        {
+          key: "/student/payments",
+          icon: <CreditCardFilled />,
+          label: "Payments",
+          onClick: () => {
+            navigate("/student/payments");
+            setDrawerVisible(false);
           },
-
-          // 👉 WRITE REVIEW (BEFORE PAYMENTS)
-          writeReviewItem,
-
-
-          // Payments
-          {
-            key: "/student/payments",
-            icon: <CreditCardFilled />,
-            label: "Payments",
-            onClick: () => {
-              navigate("/student/payments");
-              setDrawerVisible(false);
-            },
-            style: { marginBottom: 12 },
-          },
-
-
-
-        ]
-        : []),
-    ];
+          style: { marginBottom: 12 },
+        },
+      ]
+    : []),
+];
 
 
     // Merge package items
@@ -336,17 +428,13 @@ export default function StudentLayout() {
 
 
   const handleLogout = () => {
-    // Remove authentication & user info
-    // localStorage.removeItem("studentToken");
-    // localStorage.removeItem("username");
-
-    // // Remove program/package stored from profile
-    // localStorage.removeItem("selectedProgram");
-    // localStorage.removeItem("selectedPackage");
-    // localStorage.removeItem("studentId");
+    // Mark as handled and clear modal flag
+    localStorage.setItem("conversionHandled", "true");
+    localStorage.removeItem("showConversionModal");
 
     localStorage.clear();
-    // 2. Optional: reset Redux state
+
+    // Optional: reset Redux state
     dispatch(clearProfile());
 
     navigate("/", { replace: true });
@@ -468,7 +556,7 @@ export default function StudentLayout() {
                   flex: 1,
                   padding: "8px 12px",
                   overflowY: "auto",
-                  maxHeight: "calc(100vh - 200px)", 
+                  maxHeight: "calc(100vh - 200px)",
                 }}
               >
                 {MenuContent}
@@ -662,6 +750,63 @@ export default function StudentLayout() {
               </div>
             </Header>
           )}
+
+
+
+          {/* <Modal
+            open={showModal}
+            centered
+            closable={false}
+            maskClosable={false}
+            footer={null}
+          >
+            <div style={{ textAlign: "center", padding: "10px 5px" }}>
+
+
+              <ExclamationCircleFilled
+                style={{
+                  fontSize: 48,
+                  color: "#faad14",
+                  marginBottom: 12,
+                }}
+              />
+
+
+              <h2 style={{ marginBottom: 8, fontWeight: 600 }}>
+                Profile Updated
+              </h2>
+
+
+              <p
+                style={{
+                  color: "#555",
+                  fontSize: 14,
+                  lineHeight: "22px",
+                  marginBottom: 24,
+                }}
+              >
+                Your profile has been updated by admin. <br />
+                Please logout and login again to access your dashboard.
+              </p>
+
+
+              <Button
+                type="primary"
+                danger
+                size="large"
+                icon={<LogoutOutlined />}
+                onClick={handleLogout}
+                style={{
+                  borderRadius: 6,
+                  padding: "0 30px",
+                  height: 42,
+                  fontWeight: 500,
+                }}
+              >
+                Logout Now
+              </Button>
+            </div>
+          </Modal> */}
 
           <Content
             style={{

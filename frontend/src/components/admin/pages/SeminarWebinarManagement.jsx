@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Row,
     Col,
@@ -10,6 +10,8 @@ import {
     Tag,
     Input,
     theme,
+    Select,
+    message,
 } from "antd";
 import {
     CalendarFilled,
@@ -19,11 +21,16 @@ import {
     EditOutlined,
     PlusOutlined,
     ClockCircleOutlined,
+    CalendarOutlined,
 } from "@ant-design/icons";
 import AddEventModal from "../modals/AddEventModal";
+import { getEvents } from "../../../adminSlices/eventSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { sendReminder, getEventDashboardCount } from "../../../adminSlices/eventSlice";
 
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const SeminarWebinarManagement = () => {
     const { token } = theme.useToken();
@@ -37,58 +44,79 @@ const SeminarWebinarManagement = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState("add"); // add | edit | view
     const [selectedEvent, setSelectedEvent] = useState(null);
+    const [typeFilter, setTypeFilter] = useState(null);
+    const [loadingId, setLoadingId] = useState(null);
+    const [statusFilter, setStatusFilter] = useState(null);
+
+    const dispatch = useDispatch();
+
+    const { eventList = [], loading, dashboardCount } = useSelector(
+        (state) => state.event
+    );
+
+    useEffect(() => {
+        dispatch(getEvents());
+        dispatch(getEventDashboardCount());
+    }, []);
+
+    const handleSendReminder = async (id) => {
+        try {
+            setLoadingId(id); // ✅ set only this row loading
+
+            await dispatch(sendReminder(id)).unwrap();
+
+            message.success("Reminder sent successfully");
+        } catch (err) {
+            message.error(err || "Failed to send reminder");
+        } finally {
+            setLoadingId(null); // ✅ reset after done
+        }
+    };
+
+
+    const seminarCount =
+        dashboardCount?.upcoming_events?.event_type?.find(
+            (i) => i.type === "seminar"
+        )?.count || 0;
+
+    const webinarCount =
+        dashboardCount?.upcoming_events?.event_type?.find(
+            (i) => i.type === "webinar"
+        )?.count || 0;
+
+    const upcomingTotal = dashboardCount?.upcoming_events?.total || 0;
+
+
+    const paidCount =
+        dashboardCount?.session_type?.find((i) => i.type === "paid")?.count || 0;
+
+    const freeCount =
+        dashboardCount?.session_type?.find((i) => i.type === "free")?.count || 0;
+
 
     /* ================= STATS ================= */
     const stats = [
         {
             title: "Total Events",
-            value: 12,
+            value: dashboardCount?.total_events || 0,
             icon: <CalendarFilled style={{ fontSize: 22, color: token.colorPrimary }} />,
         },
         {
             title: "Upcoming Events",
-            value: 4,
-            subText: `Seminar: ${3} | Webinar: ${1}`,
+            value: upcomingTotal, // ✅ FIXED
+            subText: `Seminar: ${seminarCount} | Webinar: ${webinarCount}`, // ✅ FIXED
             icon: <ClockCircleOutlined style={{ fontSize: 22, color: token.colorSuccess }} />,
         },
         {
+            title: "Event Pricing",
+            value: `${freeCount} / ${paidCount}`,
+            subText: `Free: ${freeCount} | Paid: ${paidCount}`,
+            icon: <CalendarOutlined style={{ fontSize: 22, color: token.colorError }} />,
+        },
+        {
             title: "Completed",
-            value: 8,
+            value: dashboardCount?.completed_events || 0,
             icon: <CheckCircleOutlined style={{ fontSize: 22, color: token.colorWarning }} />,
-        },
-        {
-            title: "Reminders Sent",
-            value: 150,
-            icon: <BellOutlined style={{ fontSize: 22, color: token.colorError }} />,
-        },
-    ];
-
-    const data = [
-        {
-            id: 1,
-            eventName: "Career Guidance Webinar",
-            eventType: "webinar",
-            link: "https://meet.google.com/xyz",
-            date: "2026-04-10",
-            time: "10:00 AM",
-            person: "John Doe",
-            email: "john@example.com",
-            sessionType: "free",
-            attendees: 120,
-            status: "upcoming",
-        },
-        {
-            id: 2,
-            eventName: "UI/UX Seminar",
-            eventType: "seminar",
-            venue: "Pune Office",
-            date: "2026-04-05",
-            time: "02:00 PM",
-            person: "Jane Smith",
-            email: "jane@example.com",
-            sessionType: "paid",
-            attendees: 80,
-            status: "completed",
         },
     ];
 
@@ -105,11 +133,29 @@ const SeminarWebinarManagement = () => {
         return lines;
     };
 
-    const filteredData = data.filter((item) =>
-        (item.eventName || item.title || "")
+    const filteredData = (Array.isArray(eventList) ? eventList : []).filter((item) => {
+        const matchesSearch = (item.seminar_webinar_name || "")
             .toLowerCase()
-            .includes(search.toLowerCase())
-    );
+            .includes(search.toLowerCase());
+
+        const matchesType = !typeFilter || item.event_type === typeFilter;
+
+        const matchesStatus =
+            !statusFilter ||
+            (statusFilter === "upcoming"
+                ? item.session_status !== "completed"
+                : item.session_status === "completed");
+
+        return matchesSearch && matchesType && matchesStatus;
+    });
+
+    const formatLabel = (text) => {
+        if (!text) return "-";
+
+        if (text.toLowerCase() === "upi") return "UPI";
+
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    };
 
     const columns = [
         {
@@ -122,12 +168,12 @@ const SeminarWebinarManagement = () => {
         /* EVENT NAME */
         {
             title: "Event",
-            width: 150,
+            width: 160,
             render: (_, record) => (
                 <div>
-                    <Text strong>{record.eventName}</Text>
+                    <Text strong>{record.seminar_webinar_name}</Text>
                     <div>
-                        {record.date} | {record.time}
+                        {record.event_start_date} | {record.event_end_date}
                     </div>
                 </div>
             ),
@@ -136,7 +182,7 @@ const SeminarWebinarManagement = () => {
         /* EVENT TYPE */
         {
             title: "Type",
-            dataIndex: "eventType",
+            dataIndex: "event_type",
             render: (type) => (
                 <Tag color={type === "webinar" ? "blue" : "purple"}>
                     {type === "webinar" ? "Webinar" : "Seminar"}
@@ -147,68 +193,92 @@ const SeminarWebinarManagement = () => {
         /* LINK / VENUE */
         {
             title: "Location / Link",
-            width: 150,
+            width: 180,
             render: (_, record) => {
-                if (record.eventType === "webinar") {
-                    return (
+                if (record.event_type === "webinar") {
+                    return record.registration_link ? (
                         <a
-                            href={record.link}
+                            href={record.registration_link}
                             target="_blank"
                             rel="noreferrer"
                             style={{ fontWeight: 500 }}
                         >
                             View Link
                         </a>
+                    ) : (
+                        "-"
                     );
                 }
 
                 return (
                     <div>
-                        {formatText(record.venue).map((line, index) => (
-                            <div key={index}>{line}</div>
-                        ))}
+                        <Text strong>{record.address || "-"}</Text>
+                        <div style={{ fontSize: 12, color: "#888" }}>
+                            {record.venue_type || ""}
+                        </div>
                     </div>
                 );
             },
         },
+
         /* ORGANIZER */
         {
-            title: "Organizer",
+            title: "Concerned Person",
             render: (_, record) => (
                 <div>
-                    <Text>{record.person}</Text>
-                    <div>
-                        {record.email}
-                    </div>
+                    <Text strong>{record.concerned_person_name}</Text>
+                    <div>{record.concerned_person_email}</div>
                 </div>
             ),
         },
 
         /* SESSION TYPE */
         {
-            title: "Session",
-            dataIndex: "sessionType",
-            render: (type) => (
-                <Tag color={type === "free" ? "green" : "gold"}>
-                    {type === "free" ? "Free" : "Paid"}
+            title: "Event Pricing",
+            dataIndex: "is_paid",
+            render: (isPaid) => (
+                <Tag color={isPaid ? "gold" : "green"}>
+                    {isPaid ? "Paid" : "Free"}
                 </Tag>
             ),
         },
 
-        /* ATTENDEES */
-        // {
-        //     title: "Attendees",
-        //     dataIndex: "attendees",
-        // },
+        /* PAYMENT INFO */
+        {
+            title: "Payment",
+            render: (_, record) => {
+                return (
+                    <div>
+                        <Text strong>{formatLabel(record.payment_type)}</Text>
+                        <div>
+                            ({record.payment_method ? formatLabel(record.payment_method) : "-"})
+                        </div>
+                    </div>
+                );
+            },
+        },
 
-        /* STATUS */
         {
             title: "Status",
-            render: (_, record) => (
-                <Tag color={record.status === "completed" ? "success" : "processing"}>
-                    {record.status === "completed" ? "Completed" : "Upcoming"}
-                </Tag>
-            ),
+            render: (_, record) => {
+                const status = record.session_status;
+
+                return (
+                    <Tag
+                        color={
+                            status === "completed"
+                                ? "green"
+                                : status === "upcoming"
+                                    ? "blue"
+                                    : "default"
+                        }
+                    >
+                        {status
+                            ? status.charAt(0).toUpperCase() + status.slice(1)
+                            : "Upcoming"}
+                    </Tag>
+                );
+            },
         },
 
         /* ACTIONS */
@@ -239,7 +309,11 @@ const SeminarWebinarManagement = () => {
                         Edit
                     </Button>
 
-                    <Button icon={<BellOutlined />}>
+                    <Button
+                        icon={<BellOutlined />}
+                        loading={loadingId === record.id}
+                        onClick={() => handleSendReminder(record.id)}
+                    >
                         Send Reminder
                     </Button>
                 </Space>
@@ -265,7 +339,8 @@ const SeminarWebinarManagement = () => {
                             bordered={false}
                             style={{
                                 borderRadius: 16,
-                                boxShadow: token.boxShadowSecondary,
+                                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
+
                                 padding: "10px 14px",
                                 width: "100%",
                                 height: "100%", // ✅ Equal height
@@ -325,13 +400,13 @@ const SeminarWebinarManagement = () => {
                     </Col>
                 ))}
             </Row>
-            {/* TABLE */}
+
             {/* TABLE */}
             <Card>
                 <Row gutter={[12, 12]} style={{ marginBottom: 16 }} align="middle">
 
                     {/* 🔍 SEARCH */}
-                    <Col xs={24} sm={12} md={8}>
+                    <Col xs={24} sm={12} md={10}>
                         <Input
                             placeholder="Search events..."
                             value={search}
@@ -341,8 +416,38 @@ const SeminarWebinarManagement = () => {
                         />
                     </Col>
 
-                    {/* ➕ ADD BUTTON (RIGHT SIDE) */}
-                    <Col xs={24} sm={12} md={8} style={{ marginLeft: "auto" }}>
+                    {/* 🎯 TYPE FILTER */}
+                    <Col xs={24} sm={12} md={4}>
+                        <Select
+                            value={typeFilter}
+                            onChange={(value) => setTypeFilter(value)}
+                            allowClear
+                            placeholder="Filter by Type"
+                            size="large"
+                            style={{ width: "100%" }}
+                        >
+                            <Option value="webinar">Webinar</Option>
+                            <Option value="seminar">Seminar</Option>
+                        </Select>
+                    </Col>
+
+                    {/* 📌 STATUS FILTER */}
+                    <Col xs={24} sm={12} md={4}>
+                        <Select
+                            value={statusFilter}
+                            onChange={(value) => setStatusFilter(value)}
+                            allowClear
+                            placeholder="Filter by Status"
+                            size="large"
+                            style={{ width: "100%" }}
+                        >
+                            <Option value="upcoming">Upcoming</Option>
+                            <Option value="completed">Completed</Option>
+                        </Select>
+                    </Col>
+
+                    {/* ➕ ADD BUTTON */}
+                    <Col xs={24} sm={12} md={6} style={{ marginLeft: "auto" }}>
                         <div style={{ display: "flex", justifyContent: "flex-end" }}>
                             <Button
                                 type="primary"

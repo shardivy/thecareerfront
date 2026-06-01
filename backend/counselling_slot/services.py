@@ -3,10 +3,31 @@ from django.db import transaction
 from counselling_slot.models import Booking, Counsellor, Slot
 
 FIXED_SLOTS = [
-    ("10:00 AM", "12:00 PM"),
-    ("12:00 PM", "02:00 PM"),
-    ("02:00 PM", "04:00 PM"),
-    ("04:00 PM", "06:00 PM"),
+    # ("10:00 AM", "12:00 PM"),
+    # ("12:00 PM", "02:00 PM"),
+    # ("02:00 PM", "04:00 PM"),
+    # ("04:00 PM", "06:00 PM"),
+    "08:00 AM",
+    "08:30 AM",
+    "09:00 AM",
+    "09:30 AM",
+    "10:00 AM",
+    "10:30 AM",
+    "11:00 AM",
+    "11:30 AM",
+    "12:00 PM",
+    "12:30 PM",
+    "01:00 PM",
+    "01:30 PM",
+    "02:00 PM",
+    "02:30 PM",
+    "03:00 PM",
+    "03:30 PM",
+    "04:00 PM",
+    "04:30 PM",
+    "05:00 PM",
+    "05:30 PM",
+    "06:00 PM",
 ]
 
 @transaction.atomic
@@ -14,12 +35,12 @@ def generate_slots_for_date(selected_date):
     counsellors = Counsellor.objects.filter(is_active=True).select_related("user")
 
     for counsellor in counsellors:
-        for start_time, end_time in FIXED_SLOTS:
+        for start_time in FIXED_SLOTS:
             slot, created = Slot.objects.get_or_create(
                 counsellor=counsellor.user,
                 date=selected_date,
                 start_time=start_time,
-                end_time=end_time,
+                # end_time=end_time,
                 defaults={
                     "mode": "online",
                     "is_available": True
@@ -55,7 +76,7 @@ def get_counsellor_slots_by_date(selected_date):
         counsellor_data[slot.counsellor.id].append({
             "id": slot.id,
             "start_time": slot.start_time,
-            "end_time": slot.end_time,
+            # "end_time": slot.end_time,
             "mode": slot.mode,
             "is_available": slot.is_available,
             "booking_status": booking.status if booking else None,

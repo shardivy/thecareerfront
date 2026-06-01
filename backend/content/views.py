@@ -1,3 +1,5 @@
+import os
+
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -9,7 +11,7 @@ from django.db.models import Q
 
 from content.serializers import ContentUploadSerializer
 from .models import Content
-from django.http import FileResponse
+from django.http import FileResponse, Http404
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum
@@ -20,8 +22,47 @@ import mimetypes
 
 class ContentUploadAPIView(APIView):
     permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
+
+    def get(self, request, content_id=None):
+
+        # =========================
+        # FILE DOWNLOAD MODE
+        # =========================
+        if content_id:
+            content = get_object_or_404(Content, id=content_id)
+
+            if not content.file_url:
+                raise Http404("File not found")
+
+            file_path = content.file_url.path
+
+            if not os.path.exists(file_path):
+                raise Http404("File does not exist")
+
+            filename = os.path.basename(content.file_url.name)
+
+            # ✅ Terminal log
+            print(f"📥 Download Requested:")
+            print(f"   Content ID: {content.id}")
+            print(f"   Title: {content.title}")
+            print(f"   File Name: {filename}")
+            print(f"   File Path: {file_path}")
+
+            mime_type, _ = mimetypes.guess_type(file_path)
+
+            response = FileResponse(
+                open(file_path, "rb"),
+                as_attachment=True,
+                filename=filename
+            )
+
+            response["Content-Type"] = mime_type or "application/octet-stream"
+
+            return response
+
+        # =========================
+        # CONTENT LIST MODE
+        # =========================
         contents = Content.objects.filter(is_active=True)
 
         tab = request.GET.get("tab")
@@ -38,11 +79,11 @@ class ContentUploadAPIView(APIView):
         elif tab == "draft":
             contents = contents.filter(is_draft=True)
 
-        else:
-            # All Content → show everything
-            contents = contents
-
-        serializer = ContentUploadSerializer(contents, many=True, context={"request": request})
+        serializer = ContentUploadSerializer(
+            contents,
+            many=True,
+            context={"request": request}
+        )
 
         return Response({
             "success": True,
@@ -54,6 +95,16 @@ class ContentUploadAPIView(APIView):
     # CREATE CONTENT (POST)
     # =========================
     def post(self, request):
+
+        uploaded_file = request.FILES.get("file_url")
+
+        # ✅ Terminal log before upload
+        if uploaded_file:
+            print(f"📤 New Upload Started:")
+            print(f"   File Name: {uploaded_file.name}")
+            print(f"   File Size: {uploaded_file.size} bytes")
+            print(f"   File Type: {uploaded_file.content_type}")
+
         serializer = ContentUploadSerializer(
             data=request.data,
             context={"request": request},
@@ -69,7 +120,6 @@ class ContentUploadAPIView(APIView):
                 request.data.get("description"),
             ]
 
-            # ✅ Draft if any field missing
             is_draft_value = not all(required_fields)
 
             message = (
@@ -82,6 +132,13 @@ class ContentUploadAPIView(APIView):
                 created_by=request.user,
                 is_draft=is_draft_value
             )
+
+            # ✅ Terminal log after upload
+            if content.file_url:
+                print(f"✅ Upload Completed:")
+                print(f"   Content ID: {content.id}")
+                print(f"   Stored File Name: {os.path.basename(content.file_url.name)}")
+                print(f"   File URL: {content.file_url.url}")
 
             return Response({
                 "success": True,
@@ -96,12 +153,25 @@ class ContentUploadAPIView(APIView):
             "success": False,
             "errors": serializer.errors
         }, status=400)
-        
+
     # =========================
     # UPDATE CONTENT (PUT)
     # =========================
     def put(self, request, content_id):
         content = get_object_or_404(Content, id=content_id)
+
+        old_file = content.file_url.name if content.file_url else None
+        new_file = request.FILES.get("file_url")
+
+        # ✅ Terminal log before update
+        print(f"📝 Content Update Started:")
+        print(f"   Content ID: {content.id}")
+        print(f"   Old File: {old_file if old_file else 'No previous file'}")
+
+        if new_file:
+            print(f"   New Uploaded File: {new_file.name}")
+            print(f"   New File Size: {new_file.size} bytes")
+            print(f"   New File Type: {new_file.content_type}")
 
         serializer = ContentUploadSerializer(
             content,
@@ -112,6 +182,14 @@ class ContentUploadAPIView(APIView):
 
         if serializer.is_valid():
             content = serializer.save()
+
+            # ✅ Terminal log after update
+            updated_file = content.file_url.name if content.file_url else None
+
+            print(f"✅ Content Update Completed:")
+            print(f"   Content ID: {content.id}")
+            print(f"   Previous File: {old_file}")
+            print(f"   Updated File: {updated_file}")
 
             return Response({
                 "success": True,
@@ -126,19 +204,22 @@ class ContentUploadAPIView(APIView):
             "success": False,
             "errors": serializer.errors
         }, status=400)
-        
+
     # =========================
-    # DELETE CONTENT (Permanent)
+    # DELETE CONTENT
     # =========================
     def delete(self, request, content_id):
         content = get_object_or_404(Content, id=content_id)
 
-        # Optional: Only creator can delete
         if content.created_by != request.user:
             return Response({
                 "success": False,
                 "message": "You do not have permission to delete this content."
             }, status=403)
+
+        print(f"🗑️ Content Deleted:")
+        print(f"   Content ID: {content.id}")
+        print(f"   File: {content.file_url.name if content.file_url else 'No file'}")
 
         content.delete()
 
@@ -155,12 +236,27 @@ class ContentFileView(APIView):
     def get(self, request, content_id):
         content = get_object_or_404(Content, id=content_id, is_active=True)
 
-        file = content.file_url.open("rb")
+        if not content.file_url:
+            raise Http404("File not found")
 
-        mime_type, _ = mimetypes.guess_type(content.file_url.path)
+        file_path = content.file_url.path
 
-        response = FileResponse(file, content_type=mime_type)
-        response["Content-Disposition"] = "inline"
+        if not os.path.exists(file_path):
+            raise Http404("File does not exist")
+
+        file = open(file_path, "rb")
+
+        mime_type, _ = mimetypes.guess_type(file_path)
+
+        filename = os.path.basename(file_path)
+
+        response = FileResponse(
+            file,
+            content_type=mime_type or "application/octet-stream",
+            as_attachment=True,   # Force download
+            filename=filename
+        )
+
         response["X-Frame-Options"] = "ALLOWALL"
 
         return response

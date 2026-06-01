@@ -249,6 +249,7 @@ import {
   InfoCircleOutlined,
   StarOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import { fetchCompletedExamReportsByStudent } from "../../../adminSlices/reportSlice";
 
 const { Title, Text } = Typography;
@@ -256,6 +257,7 @@ const { Title, Text } = Typography;
 const ReportManagement = () => {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const { reports, loading, error } = useSelector((state) => state.reports);
 
@@ -269,40 +271,57 @@ const ReportManagement = () => {
 
   /* ---------------- HANDLERS ---------------- */
 
-const handleDownload = async (url) => {
-  try {
-    const response = await fetch(url);
+  const handleDownload = async (url, fileName) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
 
-    const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
 
-    const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = fileName || "report"; // ✅ use backend filename
 
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.download = "Aptitude_Test_Report.pdf"; // dynamic later if needed
+      document.body.appendChild(a);
+      a.click();
 
-    document.body.appendChild(a);
-    a.click();
-
-    a.remove();
-    window.URL.revokeObjectURL(downloadUrl);
-  } catch (err) {
-    console.error("Download error:", err);
-  }
-};
-
-const handleView = (url) => {
-  if (!url) return;
-  window.open(url, "_blank");
-};
-
-  const handleReviewRedirect = () => {
-    window.open(
-      "https://g.page/Abhinav-career-scope-pune/review?np",
-      "_blank"
-    );
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      console.error("Download error:", err);
+    }
   };
 
+  const getFileType = (url = "") => {
+    try {
+      const cleanUrl = url.split("?")[0].toLowerCase();
+
+      // ✅ CASE 1: API endpoint contains pdf
+      if (cleanUrl.includes("/pdf/") || cleanUrl.endsWith("/pdf")) {
+        return "pdf";
+      }
+
+      // ✅ CASE 2: normal file extensions
+      const ext = cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1);
+
+      if (ext === "pdf") return "pdf";
+      if (["xls", "xlsx"].includes(ext)) return "excel";
+      if (["doc", "docx"].includes(ext)) return "word";
+
+      return "other";
+    } catch {
+      return "other";
+    }
+  };
+
+  const handleView = (url) => {
+    if (!url) return;
+    window.open(url, "_blank");
+  };
+
+  const handleReviewRedirect = (reportId) => {
+    navigate(`/student/write-review`);
+  };
 
   const formatDate = (date) => {
     if (!date) return "-";
@@ -315,124 +334,130 @@ const handleView = (url) => {
 
   /* ---------------- REPORT CARD ---------------- */
 
-  const ReportCard = ({ title, locked, reason, report }) => (
-    <Card
-      style={{
-        borderRadius: 16,
-        boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
-        height: "100%",
-      }}
-    >
-      {/* Header */}
-      <Row justify="space-between">
-        <Title level={5}>{title}</Title>
-        <Tag color={locked ? "red" : "green"}>
-          {locked ? "Locked" : "Unlocked"}
-        </Tag>
-      </Row>
+  const ReportCard = ({ title, locked, reason, report }) => {
+    const type = getFileType(report?.file_path);
+    const isPdf = type === "pdf";
 
-      <Divider />
-
-      {/* Preview */}
-      <div
+    return (
+      <Card
         style={{
-          height: 220,
-          borderRadius: 12,
-          background: locked
-            ? "linear-gradient(180deg,#020617,#0f172a)"
-            : "#f3f4f6",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 16,
+          borderRadius: 16,
+          boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+          height: "100%",
         }}
       >
-        {locked ? (
-          <LockOutlined style={{ fontSize: 46, color: "#fff" }} />
-        ) : (
-          <FilePdfOutlined style={{ fontSize: 46 }} />
-        )}
-      </div>
+        {/* Header */}
+        <Row justify="space-between">
+          <Title level={5}>{title}</Title>
+          <Tag color={locked ? "red" : "green"}>
+            {locked ? "Locked" : "Unlocked"}
+          </Tag>
+        </Row>
 
-      {/* Info */}
-      <Row gutter={16} style={{ marginBottom: 12 }}>
-        <Col>
-          <CalendarOutlined /> <Text>{formatDate(report.uploaded_at)}</Text>
-        </Col>
-        {/* <Col>
+        <Divider />
+
+        {/* Preview */}
+        <div
+          style={{
+            height: 220,
+            borderRadius: 12,
+            background: locked
+              ? "linear-gradient(180deg,#020617,#0f172a)"
+              : "#f3f4f6",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 16,
+          }}
+        >
+          {locked ? (
+            <LockOutlined style={{ fontSize: 46, color: "#fff" }} />
+          ) : (
+            <FilePdfOutlined style={{ fontSize: 46 }} />
+          )}
+        </div>
+
+        {/* Info */}
+        <Row gutter={16} style={{ marginBottom: 12 }}>
+          <Col>
+            <CalendarOutlined /> <Text>{formatDate(report.uploaded_at)}</Text>
+          </Col>
+          {/* <Col>
           <InfoCircleOutlined /> <Text>2.4 MB</Text>
         </Col> */}
-      </Row>
+        </Row>
 
-      <Divider />
+        <Divider />
 
-      {/* Actions */}
-      {!locked ? (
-        <>
-          <Button
-            block
-            icon={<EyeOutlined />}
-            style={{ marginBottom: 10 }}
-            onClick={() => handleView(report.file_path)}
-          >
-            View Report
-          </Button>
-          <Button
-            block
-            icon={<DownloadOutlined />}
-            onClick={() => handleDownload(report.file_path)}
-          >
-            Download PDF
-          </Button>
+        {/* Actions */}
+        {!locked ? (
+          <>
+            {isPdf && (
+              <Button
+                block
+                icon={<EyeOutlined />}
+                style={{ marginBottom: 10 }}
+                onClick={() => handleView(report.file_path)}
+              >
+                View Report
+              </Button>
+            )}
 
-          {/* <Button
-  block
-  icon={<StarOutlined />}
-  type="primary"
-  onClick={handleReviewRedirect}
->
-  Submit Review
-</Button> */}
-        </>
-      ) : reason === "payment" ? (
-        <Alert
-          type="warning"
-          showIcon
-          message="Payment Pending"
-          description="Complete payment to unlock this report"
-        />
-      ) : (
-        <>
-          {!reviewSubmitted ? (
-            <>
+            <Button
+              block
+              icon={<DownloadOutlined />}
+              onClick={() => handleDownload(report.file_path, report.file_name)}
+            >
+              Download {type.toUpperCase()}
+            </Button>
+          </>
+        ) : reason === "payment" ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="Payment Pending"
+            description="Complete payment to unlock this report"
+          />
+        ) : reason === "counselling" ? (
+          <Alert
+            type="warning"
+            showIcon
+            message="Counselling Session Not Completed"
+            description="Please complete your counselling session to unlock this report"
+          />
+        ) : (
+          <>
+            {!reviewSubmitted ? (
+              <>
+                <Alert
+                  type="info"
+                  showIcon
+                  message="Review Required"
+                  description="Submit your review to unlock the report"
+                  style={{ marginBottom: 12 }}
+                />
+                <Button
+                  block
+                  icon={<StarOutlined />}
+                  type="primary"
+                  onClick={handleReviewRedirect}
+                >
+                  Submit Review
+                </Button>
+              </>
+            ) : (
               <Alert
                 type="info"
                 showIcon
-                message="Review Required"
-                description="Submit your review to unlock the report"
-                style={{ marginBottom: 12 }}
+                message="Review Submitted"
+                description="Waiting for admin verification"
               />
-              <Button
-                block
-                icon={<StarOutlined />}
-                type="primary"
-                onClick={handleReviewRedirect}
-              >
-                Submit Review
-              </Button>
-            </>
-          ) : (
-            <Alert
-              type="info"
-              showIcon
-              message="Review Submitted"
-              description="Waiting for admin verification"
-            />
-          )}
-        </>
-      )}
-    </Card>
-  );
+            )}
+          </>
+        )}
+      </Card>
+    );
+  };
 
 
 
@@ -447,7 +472,7 @@ const handleView = (url) => {
       }}
     >
       <Row justify="space-between">
-        <Title level={5}>Career Assessment Report</Title>
+        <Title level={5}>Aptitude Test Report</Title>
         <Tag color="orange">Pending Upload</Tag>
       </Row>
 
@@ -517,38 +542,51 @@ const handleView = (url) => {
           <Spin size="large" />
         </div>
       ) : (
-       <Row gutter={[24, 24]} justify="center">
-  {reports?.length > 0 ? (
-    reports.map((report) => {
-      if (report.report_status === "not_received") {
-        return (
-          <Col xs={24} md={10} key={report.id}>
-            <PendingUploadCard />
-          </Col>
-        );
-      }
+        <Row gutter={[24, 24]} justify="center">
+          {reports?.length > 0 ? (
+            reports.map((report) => {
+              if (report.report_status === "not_received") {
+                return (
+                  <Col xs={24} md={10} key={report.id}>
+                    <PendingUploadCard />
+                  </Col>
+                );
+              }
 
-      return (
-        <Col xs={24} md={10} key={report.id}>
-          <ReportCard
-            report={report}
-            title="Aptitude Test Report"
-           locked={report.report_status !== "received_unlocked"}
-            reason={
-              report.payment_status !== "fully_paid"
-                ? "payment"
-                : "review"
-            }
-          />
-        </Col>
-      );
-    })
-  ) : (
-    <Col xs={24} md={12}>
-      <PendingUploadCard />
-    </Col>
-  )}
-</Row>
+              const isUnlocked = report.report_status === "received_unlocked";
+
+              const reason =
+                report.payment_status !== "fully_paid"
+                  ? "payment"
+                  : report.booking_status !== "completed"
+                    ? "counselling"
+                    : report.report_status === "received_locked"
+                      ? "review"
+                      : null;
+
+              return (
+                <Col xs={24} md={10} key={report.id}>
+                  <ReportCard
+                    report={report}
+                    title="Aptitude Test Report"
+                    //  locked={report.report_status !== "received_unlocked"}
+                    //   reason={
+                    //     report.payment_status !== "fully_paid"
+                    //       ? "payment"
+                    //       : "review"
+                    //   }
+                    locked={!isUnlocked}
+                    reason={reason}
+                  />
+                </Col>
+              );
+            })
+          ) : (
+            <Col xs={24} md={12}>
+              <PendingUploadCard />
+            </Col>
+          )}
+        </Row>
       )}
     </div>
   );

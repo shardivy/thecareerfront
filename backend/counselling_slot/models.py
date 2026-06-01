@@ -27,13 +27,19 @@ class Slot(models.Model):
     # duration_minutes = models.PositiveIntegerField()
     is_available = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
+    is_handholding_session_available = models.BooleanField(default=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "slots"
-        unique_together = ("counsellor", "date", "start_time", "end_time")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["counsellor", "date", "start_time"],
+                name="unique_counsellor_date_start_time"
+            )
+        ]
         
     def delete(self, using=None, keep_parents=False):
         """Override delete to only soft delete"""

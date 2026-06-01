@@ -30,6 +30,8 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
     const [uploadedFile, setUploadedFile] = useState(null);
     const [fileList, setFileList] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [isPdfFile, setIsPdfFile] = useState(false);
+    const [previewLoadError, setPreviewLoadError] = useState(false);
 
     const isEditMode = mode === "edit";
     const isViewMode = mode === "view";
@@ -50,17 +52,23 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
                 : null,
         });
 
-        if (data.file_path) {
-            setPreviewUrl(data.file_path);
-            setFileList([
-                {
-                    uid: "-1",
-                    name: "Report.pdf",
-                    status: "done",
-                    url: data.file_path,
-                },
-            ]);
-        } else {
+       if (data.file_path) {
+    const fileName = getDisplayFileName(data);
+    const isPdf = fileName.toLowerCase().endsWith(".pdf");
+
+    setIsPdfFile(isPdf);
+    setPreviewUrl(data.file_path);
+    setPreviewLoadError(false);
+
+    setFileList([
+        {
+            uid: "-1",
+            name: fileName,
+            status: "done",
+            url: data.file_path,
+        },
+    ]);
+} else {
             setPreviewUrl("");
             setFileList([]);
         }
@@ -68,18 +76,57 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
         setUploadedFile(null);
     }, [data, form]);
 
-    /* ================= FILE SELECT ================= */
-    const handleFileSelect = (file) => {
-        setUploadedFile(file);
-        setPreviewUrl(URL.createObjectURL(file));
-        setFileList([file]);
-        return false;
+    const getDisplayFileName = (reportData = {}) => {
+        if (reportData?.file_name) return reportData.file_name;
+
+        const fallbackName = reportData?.file_path
+            ?.split("/")
+            .filter(Boolean)
+            .pop()
+            ?.split("?")[0]
+            ?.split("#")[0];
+
+        return fallbackName || "Report.pdf";
     };
+
+    const displayFileName = uploadedFile?.name || getDisplayFileName(data);
+
+    /* ================= FILE SELECT ================= */
+const handleFileSelect = (file) => {
+    const allowedTypes = [
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+        message.error("Only PDF, Word, and Excel files are allowed");
+        return Upload.LIST_IGNORE;
+    }
+
+    const isPdf = file.type === "application/pdf";
+setIsPdfFile(isPdf);
+
+    setUploadedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setPreviewLoadError(false);
+    setFileList([file]);
+
+    return false;
+};
 
     const handleRemove = () => {
         setUploadedFile(null);
         setPreviewUrl("");
+        setPreviewLoadError(false);
         setFileList([]);
+    };
+
+    const handleOpenPreview = () => {
+        if (!previewUrl) return;
+        window.open(previewUrl, "_blank", "noopener,noreferrer");
     };
 
     /* ================= DOWNLOAD ================= */
@@ -87,18 +134,26 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
         if (!previewUrl) return;
 
         try {
-            const res = await fetch(previewUrl);
-            const blob = await res.blob();
+            const response = await fetch(previewUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch file: ${response.status}`);
+            }
+            const blob = await response.blob();
 
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            link.download = "Report.pdf";
+
+            const fileName = displayFileName || "Report.pdf";
+            link.download = fileName;
+
             link.click();
 
             window.URL.revokeObjectURL(url);
-        } catch {
-            message.error("Download failed");
+            message.success("Report downloaded successfully");
+        } catch (error) {
+            console.error("❌ Download failed:", error);
+            message.error("Failed to download report");
         }
     };
 
@@ -219,15 +274,48 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
                     <Row gutter={16} style={{ margin: 0 }}>
                         <Col xs={24} md={16}>
                             {previewUrl ? (
-                                <iframe
-                                    src={previewUrl}
-                                    title="PDF Preview"
-                                    style={{
-                                        width: "100%",
-                                        height: 220,
-                                        border: "none",
-                                    }}
-                                />
+                                isPdfFile && !previewLoadError ? (
+                                    <>
+                                        <iframe
+                                            key={previewUrl}
+                                            src={previewUrl}
+                                            title="PDF Preview"
+                                            style={{
+                                                width: "100%",
+                                                height: 220,
+                                                border: "none",
+                                            }}
+                                            onLoad={() => setPreviewLoadError(false)}
+                                            onError={() => setPreviewLoadError(true)}
+                                        />
+                                        {/* <div style={{ marginTop: 12, color: "#333", fontWeight: 500 }}>
+                                            File name: {displayFileName}
+                                        </div> */}
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={{ textAlign: "center", padding: 20 }}>
+                                            <FilePdfOutlined style={{ fontSize: 40, color: "#999" }} />
+                                            <p style={{ marginTop: 10, color: "#666" }}>
+                                                {isPdfFile
+                                                    ? "Inline preview is not available for this file."
+                                                    : "Preview not available for this file type"}
+                                            </p>
+                                            {isEditMode && (
+                                                <Button
+                                                    icon={<DownloadOutlined />}
+                                                    style={{ marginTop: 10 }}
+                                                    onClick={handleDownload}
+                                                >
+                                                    Download File
+                                                </Button>
+                                            )}
+                                        </div>
+                                        {/* <div style={{ marginTop: 12, color: "#333", fontWeight: 500 }}>
+                                            File name: {displayFileName}
+                                        </div> */}
+                                    </>
+                                )
                             ) : (
                                 <Empty description="No file uploaded" />
                             )}
@@ -236,7 +324,7 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
                         <Col xs={24} md={8}>
                             {!isViewMode && (
                                 <Upload
-                                    accept=".pdf"
+                                    accept=".pdf,.doc,.docx,.xls,.xlsx"
                                     beforeUpload={handleFileSelect}
                                     onRemove={handleRemove}
                                     fileList={fileList}
@@ -247,7 +335,7 @@ const ViewAnalyasisReportModal = ({ open, onCancel, data, mode = "upload", onSuc
                                         type="primary"
                                         block
                                     >
-                                        Select PDF
+                                        Select File
                                     </Button>
                                 </Upload>
                             )}

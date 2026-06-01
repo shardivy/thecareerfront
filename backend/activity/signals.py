@@ -48,42 +48,92 @@ ActivityLog = apps.get_model("activity", "ActivityLog")
 
 
 
+# def get_user_name(user, instance):
+#     if user and getattr(user, "is_authenticated", False):
+
+#         full_name = f"{user.first_name} {user.last_name}".strip() or user.email
+
+#         # ✅ Add role prefix
+#         if user and getattr(user, "is_authenticated", False):
+
+#             full_name = f"{user.first_name} {user.last_name}".strip() or user.email
+
+#             if hasattr(user, "role") and user.role:
+#                 role_name = user.role.name.lower()
+
+#                 if role_name == "super admin":
+#                     return f"Superadmin {full_name}"
+
+#                 if role_name == "admin":
+#                     return f"Admin {full_name}"
+
+#             return full_name
+
+#     if hasattr(instance, "student") and instance.student:
+#         student = instance.student
+#         return f"{student.user.first_name} {student.user.last_name}".strip() or student.user.email
+
+#     if hasattr(instance, "user") and instance.user:
+#         u = instance.user
+#         return f"{u.first_name} {u.last_name}".strip() or u.email
+
+#     if hasattr(instance, "booking") and instance.booking:
+#         student = getattr(instance.booking, "student", None)
+#         if student:
+#             return f"{student.user.first_name} {student.user.last_name}".strip() or student.user.email
+
+#     return "User"
+
 def get_user_name(user, instance):
     if user and getattr(user, "is_authenticated", False):
 
-        full_name = f"{user.first_name} {user.last_name}".strip() or user.email
+        full_name = (
+            f"{user.first_name} {user.last_name}".strip()
+            or user.email
+        )
 
-        # ✅ Add role prefix
-        if user and getattr(user, "is_authenticated", False):
+        if getattr(user, "role", None):
+            role_name = user.role.name.lower()
 
-            full_name = f"{user.first_name} {user.last_name}".strip() or user.email
+            if role_name == "super admin":
+                return f"Superadmin {full_name}"
 
-            if hasattr(user, "role") and user.role:
-                role_name = user.role.name.lower()
+            if role_name == "admin":
+                return f"Admin {full_name}"
 
-                if role_name == "super admin":
-                    return f"Superadmin {full_name}"
+        return full_name
 
-                if role_name == "admin":
-                    return f"Admin {full_name}"
+    try:
+        student = getattr(instance, "student", None)
+        if student and student.user:
+            return (
+                f"{student.user.first_name} {student.user.last_name}".strip()
+                or student.user.email
+            )
+    except Exception:
+        pass
 
-            return full_name
+    try:
+        related_user = getattr(instance, "user", None)
+        if related_user:
+            return (
+                f"{related_user.first_name} {related_user.last_name}".strip()
+                or related_user.email
+            )
+    except Exception:
+        pass
 
-    if hasattr(instance, "student") and instance.student:
-        student = instance.student
-        return f"{student.user.first_name} {student.user.last_name}".strip() or student.user.email
-
-    if hasattr(instance, "user") and instance.user:
-        u = instance.user
-        return f"{u.first_name} {u.last_name}".strip() or u.email
-
-    if hasattr(instance, "booking") and instance.booking:
-        student = getattr(instance.booking, "student", None)
-        if student:
-            return f"{student.user.first_name} {student.user.last_name}".strip() or student.user.email
+    try:
+        booking = getattr(instance, "booking", None)
+        if booking and booking.student and booking.student.user:
+            return (
+                f"{booking.student.user.first_name} "
+                f"{booking.student.user.last_name}"
+            ).strip() or booking.student.user.email
+    except Exception:
+        pass
 
     return "User"
-
 
 def get_description(user, action, instance):
 
@@ -132,7 +182,8 @@ def get_description(user, action, instance):
         return f"{student_name} made a payment of ₹{instance.amount}"
 
     if action == "update":
-        return None  # ❌ Skip update logs
+        # return None  
+        return f"{get_user_name(user, instance)} updated {model}"
 
     return None
 

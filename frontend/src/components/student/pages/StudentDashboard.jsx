@@ -52,8 +52,8 @@ const StudentDashboard = () => {
     }
 
     if (profile.package) {
-    localStorage.setItem("selectedPackageName", profile.package);
-  }
+      localStorage.setItem("selectedPackageName", profile.package);
+    }
 
     if (profile.student_id) {
       localStorage.setItem("studentId", profile.student_id);
@@ -83,7 +83,7 @@ const StudentDashboard = () => {
   const showExamAndReport = aptitudeTestFromStorage === "true";
 
   const engineeringTestAnalysis =
-  localStorage.getItem("engineering_test_analysis") === "true";
+    localStorage.getItem("engineering_test_analysis") === "true";
 
   /* ================= FETCH JOURNEY (ONLY FOR PAID USERS) ================= */
   useEffect(() => {
@@ -107,12 +107,12 @@ const StudentDashboard = () => {
   // }
 
   if (!showExamAndReport && currentStep > 2) {
-  currentStep = currentStep - 2;
-}
+    currentStep = currentStep - 2;
+  }
 
-if (!engineeringTestAnalysis && currentStep > 2) {
-  currentStep = currentStep - 2;
-}
+  if (!engineeringTestAnalysis && currentStep > 2) {
+    currentStep = currentStep - 2;
+  }
 
   useEffect(() => {
     if (progressData) {
@@ -174,17 +174,89 @@ if (!engineeringTestAnalysis && currentStep > 2) {
       };
     }
 
-    if (showExamAndReport && progressData.report !== "received_unlocked") {
+    // ================= EXAM FLOW =================
+    if (showExamAndReport && progressData.exam !== "completed") {
+      return {
+        label: "Start Exam →",
+        path: "/student/exam-management",
+      };
+    }
+
+    // SLOT BOOKING AFTER EXAM
+    if (
+      showExamAndReport &&
+      (!progressData.counselling_slot_booking ||
+        progressData.counselling_slot_booking === "not_booked")
+    ) {
+      return {
+        label: "Book Counselling Session →",
+        path: "/student/slot-booking",
+      };
+    }
+
+    // REVIEW AFTER SLOT BOOKING
+    if (
+      showExamAndReport &&
+      (!progressData.review ||
+        progressData.review === "not_submitted")
+    ) {
+      return {
+        label: "Write Review →",
+        path: "/student/write-review",
+      };
+    }
+
+    // REPORT LAST
+    if (
+      showExamAndReport &&
+      progressData.report !== "received_unlocked"
+    ) {
       return {
         label: "View Report →",
         path: "/student/report-management",
       };
     }
 
-    if (!progressData.counselling_slot_booking) {
+    // ================= ENGINEERING FLOW =================
+    if (
+      engineeringTestAnalysis &&
+      progressData.analysis !== "completed"
+    ) {
+      return {
+        label: "Start Questionnaire →",
+        path: "/student/engineering-questionnaires",
+      };
+    }
+
+    if (
+      engineeringTestAnalysis &&
+      (!progressData.counselling_slot_booking ||
+        progressData.counselling_slot_booking === "not_booked")
+    ) {
       return {
         label: "Book Counselling Session →",
         path: "/student/slot-booking",
+      };
+    }
+
+    if (
+      engineeringTestAnalysis &&
+      (!progressData.review ||
+        progressData.review === "not_submitted")
+    ) {
+      return {
+        label: "Write Review →",
+        path: "/student/write-review",
+      };
+    }
+
+    if (
+      engineeringTestAnalysis &&
+      progressData.report !== "received_unlocked"
+    ) {
+      return {
+        label: "View Analysis Report →",
+        path: "/student/analysis-report",
       };
     }
 
@@ -273,7 +345,7 @@ if (!engineeringTestAnalysis && currentStep > 2) {
           <JourneySteps
             currentStep={currentStep}
             showExamAndReport={showExamAndReport}
-            engineeringTestAnalysis={engineeringTestAnalysis} 
+            engineeringTestAnalysis={engineeringTestAnalysis}
             progressData={progressData}
             journeyLoading={journeyLoading}
           />

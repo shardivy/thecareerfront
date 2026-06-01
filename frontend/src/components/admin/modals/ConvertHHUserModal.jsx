@@ -29,12 +29,12 @@ const ConvertHHUserModal = ({ open, onCancel, enquiryData }) => {
 
     const dispatch = useDispatch();
 
-const { loading, error, fieldErrors, success, message: successMessage } =
-  useSelector((state) => state.convertEnquiry);
+    const { loading, error, fieldErrors, success, message: successMessage } =
+        useSelector((state) => state.convertEnquiry);
 
-  const { list: packages, loading: packagesLoading } = useSelector(
-  (state) => state.packages
-);
+    const { list: packages, loading: packagesLoading } = useSelector(
+        (state) => state.packages
+    );
 
     const [photo, setPhoto] = useState([]);
     const [resume, setResume] = useState([]);
@@ -44,38 +44,54 @@ const { loading, error, fieldErrors, success, message: successMessage } =
     const [resumePreview, setResumePreview] = useState(null);
     const [paymentPreview, setPaymentPreview] = useState(null);
 
-useEffect(() => {
-  const programId =
-    enquiryData?.programId || enquiryData?.program_id;
+    useEffect(() => {
+        const programId =
+            enquiryData?.programId || enquiryData?.program_id;
 
-  if (open && programId) {
-    dispatch(fetchPackagesByProgram(programId));
-  }
-}, [open, enquiryData, dispatch]);
+        if (open && programId) {
+            dispatch(fetchPackagesByProgram(programId));
+        }
+    }, [open, enquiryData, dispatch]);
+
+
+    const urlToFileList = (url) => {
+        if (!url) return [];
+        return [
+            {
+                uid: "-1",
+                name: url.split("/").pop(),
+                status: "done",
+                url: url.startsWith("http")
+                    ? url
+                    : `${process.env.REACT_APP_BASE_URL}${url}`,
+            },
+        ];
+    };
 
     /* ================= FILE HANDLER ================= */
     const handleFile = (type) => (e) => {
         const fileList = e.fileList;
+        const file = fileList[0];
 
         if (type === "photo") {
             setPhoto(fileList);
-            if (fileList[0]?.originFileObj) {
-                setPhotoPreview(URL.createObjectURL(fileList[0].originFileObj));
-            }
+            setPhotoPreview(file?.originFileObj
+                ? URL.createObjectURL(file.originFileObj)
+                : file?.url || null);
         }
 
         if (type === "resume") {
             setResume(fileList);
-            if (fileList[0]?.originFileObj) {
-                setResumePreview(URL.createObjectURL(fileList[0].originFileObj));
-            }
+            setResumePreview(file?.originFileObj
+                ? URL.createObjectURL(file.originFileObj)
+                : file?.url || null);
         }
 
         if (type === "payment") {
             setPayment(fileList);
-            if (fileList[0]?.originFileObj) {
-                setPaymentPreview(URL.createObjectURL(fileList[0].originFileObj));
-            }
+            setPaymentPreview(file?.originFileObj
+                ? URL.createObjectURL(file.originFileObj)
+                : file?.url || null);
         }
     };
 
@@ -84,8 +100,7 @@ useEffect(() => {
         if (!open || !enquiryData) return;
 
         const firstName = enquiryData.name?.split(" ")[0] || "";
-        const lastName =
-            enquiryData.name?.split(" ").slice(1).join(" ") || "";
+        const lastName = enquiryData.name?.split(" ").slice(1).join(" ") || "";
 
         form.setFieldsValue({
             firstName,
@@ -96,69 +111,101 @@ useEffect(() => {
             program_id: enquiryData.programId || enquiryData.program_id || "",
             source: enquiryData.source || "",
             date: enquiryData.date || "",
+            package_id: enquiryData.package_id || enquiryData.packageId,
         });
+
+        // ✅ FIXED CONDITION (case insensitive)
+        if (
+            enquiryData.source?.toLowerCase() === "website" &&
+            enquiryData.handholding_details
+        ) {
+            const hh = enquiryData.handholding_details;
+
+            const photoList = urlToFileList(hh.photo);
+            const resumeList = urlToFileList(hh.resume_file);
+            const paymentList = urlToFileList(hh.proof_file);
+
+            setPhoto(photoList);
+            setResume(resumeList);
+            setPayment(paymentList);
+
+            setPhotoPreview(photoList[0]?.url || null);
+            setResumePreview(resumeList[0]?.url || null);
+            setPaymentPreview(paymentList[0]?.url || null);
+
+            // ✅ ALSO SET PROFILE SWITCH VALUE
+            form.setFieldsValue({
+                city: hh.city || "",
+                preferred_counselling_mode: hh.preferred_counselling_mode || "",
+                show_profile: hh.show_profile ?? false,
+                full_address: hh.full_address || "",
+
+
+            });
+        }
     }, [open, enquiryData, form]);
 
     /* ================= SUBMIT ================= */
- const handleSubmit = async (values) => {
-    const formData = new FormData();
-    const payload = {
-        city: values.city ?? "",
-        preferred_counselling_mode: values.preferred_counselling_mode ?? "",
-        address: values.address ?? "",
-       student_profile: values.showProfile ?? false,
-        program: values.program_id ?? enquiryData?.programId ?? enquiryData?.program_id ?? "",
-        package: values.package_id ?? "",
-    };
+    const handleSubmit = async (values) => {
+        const formData = new FormData();
+        const payload = {
+            city: values.city ?? "",
+            preferred_counselling_mode: values.preferred_counselling_mode ?? "",
+            full_address: values.full_address ?? "",
+            show_profile: values.show_profile ?? false,
+            program: values.program_id ?? enquiryData?.programId ?? enquiryData?.program_id ?? "",
+            package: values.package_id ?? "",
+            last_name: values.lastName ?? "",
+        };
 
-    Object.entries(payload).forEach(([key, value]) => {
-        formData.append(key, value);
-    });
+        Object.entries(payload).forEach(([key, value]) => {
+            formData.append(key, value);
+        });
 
-    if (photo[0]?.originFileObj) {
-        formData.append("photo", photo[0].originFileObj);
-    }
-    if (resume[0]?.originFileObj) {
-        formData.append("resume", resume[0].originFileObj);
-    }
-    if (payment[0]?.originFileObj) {
-        formData.append("payment_proof", payment[0].originFileObj);
-    }
-
-    try {
-        await dispatch(
-            convertEnquiry({
-                id: enquiryData?.id, // 👈 IMPORTANT
-                payload: formData,
-            })
-        ).unwrap();
-
-        // message.success("User converted successfully ✅");
-
-        form.resetFields();
-        setPhoto([]);
-        setResume([]);
-        setPayment([]);
-
-        onCancel(); // close modal
-    } catch (err) {
-        console.log("Error:", err);
-
-        if (err?.fieldErrors) {
-            // Set backend validation errors on form
-            const formattedErrors = Object.entries(err.fieldErrors).map(
-                ([name, errors]) => ({
-                    name,
-                    errors,
-                })
-            );
-
-            form.setFields(formattedErrors);
-        } else {
-            message.error(err?.generalError || "Conversion failed ❌");
+        if (photo[0]?.originFileObj) {
+            formData.append("photo", photo[0].originFileObj);
         }
-    }
-};
+        if (resume[0]?.originFileObj) {
+            formData.append("resume_file", resume[0].originFileObj);
+        }
+        if (payment[0]?.originFileObj) {
+            formData.append("proof_file", payment[0].originFileObj);
+        }
+
+        try {
+            await dispatch(
+                convertEnquiry({
+                    id: enquiryData?.id, // 👈 IMPORTANT
+                    payload: formData,
+                })
+            ).unwrap();
+
+            // message.success("User converted successfully ✅");
+
+            form.resetFields();
+            setPhoto([]);
+            setResume([]);
+            setPayment([]);
+
+            onCancel(); // close modal
+        } catch (err) {
+            console.log("Error:", err);
+
+            if (err?.fieldErrors) {
+                // Set backend validation errors on form
+                const formattedErrors = Object.entries(err.fieldErrors).map(
+                    ([name, errors]) => ({
+                        name,
+                        errors,
+                    })
+                );
+
+                form.setFields(formattedErrors);
+            } else {
+                message.error(err?.generalError || "Conversion failed ❌");
+            }
+        }
+    };
 
     return (
         <Modal
@@ -182,13 +229,13 @@ useEffect(() => {
                                 {/* BASIC DETAILS */}
                                 <Col xs={24} sm={12}>
                                     <Form.Item name="firstName" label="First Name">
-                                        <Input disabled />
+                                        <Input />
                                     </Form.Item>
                                 </Col>
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item name="lastName" label="Last Name">
-                                        <Input disabled />
+                                        <Input />
                                     </Form.Item>
                                 </Col>
 
@@ -234,24 +281,24 @@ useEffect(() => {
                                     </Form.Item>
                                 </Col>
 
-    <Col xs={24} sm={12}>
-  <Form.Item
-    name="package_id"
-    label="Counselling Service"
-    rules={[{ required: true, message: "Please select service" }]}
-  >
-    <Select
-      placeholder={packagesLoading ? "Loading services..." : "Select service"}
-      loading={packagesLoading}
-    >
-      {packages.map((pkg) => (
-        <Option key={pkg.id} value={pkg.id}>
-          {pkg.name}
-        </Option>
-      ))}
-    </Select>
-  </Form.Item>
-</Col>
+                                <Col xs={24} sm={12}>
+                                    <Form.Item
+                                        name="package_id"
+                                        label="Counselling Service"
+                                        rules={[{ required: true, message: "Please select service" }]}
+                                    >
+                                        <Select
+                                            placeholder={packagesLoading ? "Loading services..." : "Select service"}
+                                            loading={packagesLoading}
+                                        >
+                                            {packages.map((pkg) => (
+                                                <Option key={pkg.id} value={pkg.id}>
+                                                    {pkg.name}
+                                                </Option>
+                                            ))}
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item
@@ -267,7 +314,7 @@ useEffect(() => {
                                 </Col>
 
                                 <Col span={24}>
-                                    <Form.Item name="address" label="Full Address">
+                                    <Form.Item name="full_address" label="Full Address">
                                         <Input.TextArea rows={3} />
                                     </Form.Item>
                                 </Col>
@@ -277,7 +324,7 @@ useEffect(() => {
                                 {/* UPLOADS */}
                                 <Col xs={24} sm={12}>
                                     <Form.Item label="Upload Photo">
-                                        <Upload beforeUpload={() => false} maxCount={1} onChange={handleFile("photo")}>
+                                        <Upload beforeUpload={() => false} maxCount={1} fileList={photo} onChange={handleFile("photo")}>
                                             <Button icon={<UploadOutlined />}>Upload Photo</Button>
                                         </Upload>
                                     </Form.Item>
@@ -285,7 +332,7 @@ useEffect(() => {
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item label="Upload Resume">
-                                        <Upload beforeUpload={() => false} maxCount={1} onChange={handleFile("resume")}>
+                                        <Upload beforeUpload={() => false} maxCount={1} fileList={resume} onChange={handleFile("resume")}>
                                             <Button icon={<UploadOutlined />}>Upload Resume</Button>
                                         </Upload>
                                     </Form.Item>
@@ -293,7 +340,7 @@ useEffect(() => {
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item label="Payment Proof">
-                                        <Upload beforeUpload={() => false} maxCount={1} onChange={handleFile("payment")}>
+                                        <Upload beforeUpload={() => false} maxCount={1} fileList={payment} onChange={handleFile("payment")}>
                                             <Button icon={<UploadOutlined />} block>
                                                 Upload Payment
                                             </Button>
@@ -303,7 +350,7 @@ useEffect(() => {
 
                                 <Col xs={24} sm={12}>
                                     <Form.Item
-                                        name="student_profile"
+                                        name="show_profile"
                                         label="Show HH User Profile"
                                         valuePropName="checked"
                                     >
@@ -336,12 +383,12 @@ useEffect(() => {
 
                                 <p><b>City:</b> {liveValues?.city || "-"}</p>
                                 <p><b>Preferred Counselling Mode:</b> {liveValues?.preferred_counselling_mode || "-"}</p>
-                                <p><b>Address:</b> {liveValues?.address || "-"}</p>
+                                <p><b>Full Address:</b> {liveValues?.full_address || "-"}</p>
 
 
                                 <p>
                                     <b>Show Profile:</b>{" "}
-                                    {liveValues?.student_profile? "Yes" : "No"}
+                                    {liveValues?.show_profile ? "Yes" : "No"}
                                 </p>
 
                                 <Divider />

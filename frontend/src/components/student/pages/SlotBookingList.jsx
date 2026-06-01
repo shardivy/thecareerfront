@@ -64,7 +64,9 @@ const SlotBookingList = () => {
   const loading = useSelector((state) => state.counsellingBooking.loading);
   const { journey } = useSelector((state) => state.users);
 
-  const isReportUnlocked = journey?.progress?.report === "received_unlocked";
+const isReportAvailable =
+  journey?.progress?.report === "received_locked" ||
+  journey?.progress?.report === "received_unlocked";
 
   useEffect(() => {
     if (studentId) {
@@ -84,19 +86,32 @@ const SlotBookingList = () => {
   const mappedSessions = sessions.map((s) => ({
     ...s,
     key: s.id,
+    // counsellorsList: Array.isArray(s.counsellors)
+    //   ? s.counsellors.map((c) => ({
+    //     id: c.counsellor?.id,
+    //     name: `${c.counsellor?.first_name || ""} ${c.counsellor?.last_name || ""}`,
+    //     role: c.role,
+    //   }))
+    //   : [],
+
     counsellorsList: Array.isArray(s.counsellors)
-      ? s.counsellors.map((c) => ({
+  ? s.counsellors
+      .filter((c) => c.role !== "assistant") // hide assistant counsellor
+      .map((c) => ({
         id: c.counsellor?.id,
         name: `${c.counsellor?.first_name || ""} ${c.counsellor?.last_name || ""}`,
         role: c.role,
       }))
-      : [],
+  : [],
     mode: s.preferred_counselling_mode
       ? s.preferred_counselling_mode.charAt(0).toUpperCase() + s.preferred_counselling_mode.slice(1)
       : "N/A",
     rawMode: s.preferred_counselling_mode || "offline",
-    time: s.start_time && s.end_time ? `${s.start_time} - ${s.end_time}` : "N/A",
-    date: s.slot_date || "N/A",
+    // time: s.start_time && s.end_time ? `${s.start_time} - ${s.end_time}` : "N/A",
+    time: s.start_time || "N/A",
+     date: s.slot_date
+    ? dayjs(s.slot_date).format("DD MMM YYYY")
+    : "N/A",
     status: s.status || "not_booked",
     zoomLink: s.meeting_link || "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
   }));
@@ -121,10 +136,15 @@ const SlotBookingList = () => {
 
   const isNotBooked =
     filteredSessions.length === 1 && filteredSessions[0].status === "not_booked";
+  // const shouldBlockBookingUntilReportUnlock =
+  //   isNotBooked &&
+  //   (aptitudeTestCompleted || engineeringTestAnalysisEnabled) &&
+  //   !isReportUnlocked;
+
   const shouldBlockBookingUntilReportUnlock =
-    isNotBooked &&
-    (aptitudeTestCompleted || engineeringTestAnalysisEnabled) &&
-    !isReportUnlocked;
+  isNotBooked &&
+  (aptitudeTestCompleted || engineeringTestAnalysisEnabled) &&
+  !isReportAvailable;
 
   const formatStatus = (status) => {
     if (!status) return "";
@@ -190,7 +210,7 @@ const SlotBookingList = () => {
     <>
       Your Analysis report is not unlocked yet.
       <br />
-      <b>You will be able to book a session once your report is unlocked.</b>
+      <b>You will be able to book a session once your report is uploaded.</b>
     </>
   ) : (
     <>
@@ -246,7 +266,7 @@ const SlotBookingList = () => {
               <Text type="colorTextSecondary">
                 Counselling sessions are currently unavailable.
                 <br />
-                You will be able to book a slot once your report is unlocked.
+                You will be able to book a slot once your report is uploaded.
               </Text>
             }
           />
@@ -378,7 +398,7 @@ const SlotBookingList = () => {
                         <div key={c.id}>
                           <Text strong>{c.name}</Text>
                           <br />
-                          <Tag>{c.role}</Tag>
+                          <Tag>Counsellor</Tag>
                         </div>
                       ))
                     ) : (

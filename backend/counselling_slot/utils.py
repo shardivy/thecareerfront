@@ -87,3 +87,102 @@ Support Team
         [user.email],
         fail_silently=True
     )
+    
+    
+def generate_counselling_reminder(slot, student_profile, booking_status):
+    """
+    Generate counselling reminder subject + message
+    based on:
+    - booked
+    - rescheduled
+    - not_booked
+    """
+
+    preferred_mode = (
+        student_profile.preferred_counselling_mode or "online"
+    ).lower()
+
+    # ==========================================
+    # 🔹 NOT BOOKED
+    # ==========================================
+    if booking_status == "not_booked":
+        return {
+            "subject": "Slot Booking Reminder | Abhinav Career Scope",
+            "message": f"""
+Greetings from Abhinav Career Scope.
+
+You have not booked your counselling slot yet.
+
+Please book your slot as soon as possible to continue your counselling process.
+
+Regards,
+Abhinav Career Scope.
+""".strip()
+        }
+
+    # ==========================================
+    # 🔹 BOOKED / RESCHEDULED SUBJECT
+    # ==========================================
+    if booking_status == "rescheduled":
+        subject = "Rescheduled Counselling Session Reminder | Abhinav Career Scope"
+        session_label = "Your rescheduled session"
+    else:
+        subject = "Counselling Session Reminder | Abhinav Career Scope"
+        session_label = "Your session"
+
+    # ==========================================
+    # 🔹 ONLINE MESSAGE
+    # ==========================================
+    if preferred_mode == "online":
+
+        message = f"""
+Greetings from Abhinav Career Scope.
+
+{session_label} is scheduled on {slot.date} at {slot.start_time}.
+Please join 15 minutes before the scheduled time.
+
+Instructions for Online:
+- Ensure stable internet connection
+- Keep your audio/video ready
+- Join using the provided meeting link
+- Keep necessary documents ready
+
+For any queries or assistance:
+
+Call / WhatsApp:
++91 99226 95424 | +91 82080 30557
+
+Regards,
+Abhinav Career Scope.
+""".strip()
+
+    # ==========================================
+    # 🔹 OFFLINE MESSAGE
+    # ==========================================
+    else:
+
+        message = f"""
+Greetings from Abhinav Career Scope.
+
+{session_label} is scheduled on {slot.date} at {slot.start_time}.
+Please reach half an hour before the scheduled time.
+
+Instructions for Offline:
+- Reach venue 30 minutes early
+- Carry required documents
+- Be punctual
+- Contact counsellor if delayed
+
+For any queries or assistance:
+
+Call / WhatsApp:
++91 99226 95424 | +91 82080 30557
+
+Regards,
+Abhinav Career Scope.
+""".strip()
+
+    return {
+        "subject": subject,
+        "message": message
+    }

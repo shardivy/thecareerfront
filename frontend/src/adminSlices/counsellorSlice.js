@@ -1,9 +1,25 @@
 // src/adminSlices/counsellorSlice.js
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { fetchLeadCounsellorsApi, getMyStudentsApi, createCounsellingNoteApi, fetchCounsellingNoteApi, fetchCounsellorDashboardCountApi, updateCounsellingNoteApi, fetchCounsellorBookingsApi, deleteCounsellingFileApi, getMyStudentsNewApi } from "../adminApi/counsellorApi";
+import { fetchReenaCounsellorApi, fetchLeadCounsellorsApi, getMyStudentsApi, createCounsellingNoteApi, fetchCounsellingNoteApi, fetchCounsellorDashboardCountApi, updateCounsellingNoteApi, fetchCounsellorBookingsApi, deleteCounsellingFileApi, getMyStudentsNewApi } from "../adminApi/counsellorApi";
 
 /* ================= THUNK ================= */
+
+// ✅ NEW THUNK FOR LEAD COUNSELLOR
+export const fetchReenaCounsellor = createAsyncThunk(
+  "leadCounsellors/fetchReena",
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await fetchReenaCounsellorApi();
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+        "Failed to fetch lead counsellor"
+      );
+    }
+  }
+);
 
 export const fetchLeadCounsellors = createAsyncThunk(
   "leadCounsellors/fetchAll",
@@ -173,7 +189,8 @@ const counsellorSlice = createSlice({
   name: "counsellors",
   initialState: {
     list: [],
-    students: [],          // 👈 my-students list
+    students: [],
+    leadCounsellorList: [],
     notes: {},
     dashboardStats: {
       assignedStudents: 0,
@@ -188,6 +205,32 @@ const counsellorSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
+      /* -------- FETCH REENA COUNSELLOR -------- */
+      .addCase(fetchReenaCounsellor.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+
+      .addCase(fetchReenaCounsellor.fulfilled, (state, action) => {
+        state.loading = false;
+
+        if (Array.isArray(action.payload)) {
+          state.leadCounsellorList = action.payload.map((c) => ({
+            id: c.id || c.id,
+            first_name: c.user?.first_name || "",
+            last_name: c.user?.last_name || "",
+            email: c.user?.email || "",
+          }));
+        } else {
+          state.leadCounsellorList = [];
+        }
+      })
+
+      .addCase(fetchReenaCounsellor.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
       .addCase(fetchLeadCounsellors.pending, (state) => {
         state.loading = true;
         state.error = null;

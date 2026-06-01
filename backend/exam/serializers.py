@@ -247,26 +247,47 @@ class UserExamListSerializer(serializers.ModelSerializer):
     #         return package_exam.package.name
     #     return None
     
+    # def get_user_program_package(self, obj):
+    #     return UserProgramPackage.objects.filter(user=obj.user).select_related(
+    #         "program", "package"
+    #     ).first()
     def get_user_program_package(self, obj):
-        return UserProgramPackage.objects.filter(user=obj.user).select_related(
-            "program", "package"
-        ).first()
+        if not hasattr(obj, "_upp_cache"):
+            obj._upp_cache = UserProgramPackage.objects.filter(
+                user=obj.user
+            ).select_related("program", "package").order_by("-id").first()
+        return obj._upp_cache
 
+    # def get_program_id(self, obj):
+    #     upp = self.get_user_program_package(obj)
+    #     return upp.program.id if upp else None
+
+    # def get_program(self, obj):
+    #     upp = self.get_user_program_package(obj)
+    #     return upp.program.name if upp else None
+
+    # def get_package_id(self, obj):
+    #     upp = self.get_user_program_package(obj)
+    #     return upp.package.id if upp else None
+
+    # def get_package(self, obj):
+    #     upp = self.get_user_program_package(obj)
+    #     return upp.package.name if upp else None
     def get_program_id(self, obj):
         upp = self.get_user_program_package(obj)
-        return upp.program.id if upp else None
+        return upp.program.id if upp and upp.program else None
 
     def get_program(self, obj):
         upp = self.get_user_program_package(obj)
-        return upp.program.name if upp else None
+        return upp.program.name if upp and upp.program else None
 
     def get_package_id(self, obj):
         upp = self.get_user_program_package(obj)
-        return upp.package.id if upp else None
+        return upp.package.id if upp and upp.package else None
 
     def get_package(self, obj):
         upp = self.get_user_program_package(obj)
-        return upp.package.name if upp else None
+        return upp.package.name if upp and upp.package else None
     
 
     def get_approved_by(self, obj):

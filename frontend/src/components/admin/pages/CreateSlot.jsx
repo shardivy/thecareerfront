@@ -309,7 +309,7 @@ const CreateSlot = () => {
                               opacity: isButtonDisabled ? 0.6 : 1,
                             }}
                           >
-                            {slot.start_time} - {slot.end_time}
+                            {slot.start_time}
                           </Button>
 
                           {/* Only show eye icon if counsellor is active */}

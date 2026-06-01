@@ -4,10 +4,12 @@ from .models import Role, User
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "email",
         "role",
         "is_staff",
         "is_active",
+        "is_converted_lead",
         "created_at",
     )
 
@@ -41,6 +43,7 @@ class UserAdmin(admin.ModelAdmin):
                 "role",
                 "is_staff",
                 "is_active",
+                "is_converted_lead",
                 "is_superuser",
                 "groups",
                 "user_permissions",

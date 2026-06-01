@@ -18,11 +18,12 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   UploadOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 
 import UploadPaymentModal from "../modals/UploadPaymentModal";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchStudentPaymentHistory, fetchStudentPaymentProgress } from "../../../adminSlices/paymentSlice";
+import { fetchStudentPaymentHistory, fetchStudentPaymentProgress, fetchPaymentReceipt } from "../../../adminSlices/paymentSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -45,7 +46,7 @@ const Payments = () => {
     (state) => state.payment
   );
 
-  const totalFee = Number(progressData?.package_price) || 0;
+  const totalFee = Number(progressData?.package_price) || Number(localStorage.getItem("packagePrice")) || 0;
   const paidAmount = Number(progressData?.total_paid) || 0;
   const dueAmount = Number(progressData?.remaining_amount) || 0;
 
@@ -66,7 +67,12 @@ const Payments = () => {
 
     if (studentId) {
       dispatch(fetchStudentPaymentHistory(studentId));
-      dispatch(fetchStudentPaymentProgress(studentId));
+      dispatch(fetchStudentPaymentProgress(studentId)).then((action) => {
+        if (action.payload?.package_price) {
+          localStorage.setItem("packagePrice", action.payload.package_price);
+          // console.log("Package price stored in localStorage:", action.payload.package_price);
+        }
+      });
     }
   }, [dispatch]);
 
@@ -91,36 +97,40 @@ const Payments = () => {
   };
 
 
+
   const formattedHistory = historyList.map((item, index) => {
     const rawDate = item.payment_date || item.created_at;
-const savedProgram = localStorage.getItem("selectedProgram");
-const savedPackage = localStorage.getItem("selectedPackageName");
+    const savedProgram = localStorage.getItem("selectedProgram");
+    const savedPackage = localStorage.getItem("selectedPackageName");
     return {
       key: item.id || index,
+      studentId: item.student_id,
       srNo: index + 1,
       // program: item.program_name || item.program || "N/A",
       // package: item.package_name || item.package || "-",
       program:
-  item.program_name ||
-  item.program ||
-  savedProgram ||
-  "N/A",
+        item.program_name ||
+        item.program ||
+        savedProgram ||
+        "N/A",
 
-package:
-  item.package_name ||
-  item.package ||
-  savedPackage ||
-  "-",
+      package:
+        item.package_name ||
+        item.package ||
+        savedPackage ||
+        "-",
       paidAmount: item.amount || 0,
-      packagePrice: item.package_price || 0,
+      packagePrice: item.package_price || Number(localStorage.getItem("packagePrice")) || 0,
       status:
-      item.status === "fully_paid" ||
-      item.status === "paid" ||
-      item.status === "verified"
-        ? "fully_paid"
-        : item.status === "partial_paid"
-        ? "partial_paid"
-        : "not_paid",
+        item.status === "fully_paid" ||
+          item.status === "paid" ||
+          item.status === "verified"
+          ? "fully_paid"
+          : item.status === "partial_paid"
+            ? "partial_paid"
+             : item.status === "verification_pending"
+        ? "verification_pending"
+            : "not_paid",
       paymentMethod: item.method || "-",
       date: rawDate
         ? new Date(rawDate).toLocaleDateString("en-IN")
@@ -198,6 +208,12 @@ package:
           );
         }
 
+         if (status === "verification_pending")
+          return (
+        <Tag color="orange">Verification Pending</Tag>
+          );
+
+    
         return <Tag>{status}</Tag>;
       },
     },
@@ -222,26 +238,108 @@ package:
     {
       title: "Action",
       key: "action",
-      render: (_, record) =>
-        record.status === "not_paid" ? (
-          <Button
-            type="primary"
-            size={isMobile ? "small" : "middle"}
-            icon={<CreditCardOutlined />}
-            onClick={() => navigate("/student/payment-page")}
-          >
-            {isMobile ? "Pay Now" : "Pay Now"}
-          </Button>
+      render: (_, record) => {
+     if (record.status === "not_paid") {
+      return (
+        <Button
+          type="primary"
+          size={isMobile ? "small" : "middle"}
+          icon={<CreditCardOutlined />}
+          onClick={() => navigate("/student/payment-page")}
+          disabled={record.status === "verification_pending"} // safety
+        >
+          Pay Now
+        </Button>
+      );
+    }
 
-        ) : (
+    // 🟠 VERIFICATION PENDING → DISABLED PAY NOW
+    if (record.status === "verification_pending") {
+      return (
+        <Button
+          type="primary"
+          size={isMobile ? "small" : "middle"}
+          icon={<ClockCircleOutlined />}
+          disabled
+        >
+          Verification Pending
+        </Button>
+      );
+    }
+
+        // 🟢 FULLY PAID → View Invoice (ENABLED ✅)
+        if (record.status === "fully_paid") {
+          return (
+            <div style={{ display: "flex", gap: 8 }}>
+
+              {/* 🔍 VIEW BUTTON */}
+              <Button
+                size={isMobile ? "small" : "middle"}
+                icon={<FileTextOutlined />}
+                onClick={async () => {
+                  try {
+                    const studentId = localStorage.getItem("studentId");
+
+                    const blob = await dispatch(
+                      fetchPaymentReceipt(studentId)
+                    ).unwrap();
+
+                    const url = window.URL.createObjectURL(blob);
+                    window.open(url, "_blank");
+
+                  } catch (error) {
+                    console.error("View failed", error);
+                  }
+                }}
+              >
+                {isMobile ? "View Receipt" : "View Receipt"}
+              </Button>
+
+              {/* ⬇ DOWNLOAD BUTTON */}
+              <Button
+                size={isMobile ? "small" : "middle"}
+                icon={<DownloadOutlined />}
+                onClick={async () => {
+                  try {
+                    const studentId = localStorage.getItem("studentId");
+
+                    const blob = await dispatch(
+                      fetchPaymentReceipt(studentId)
+                    ).unwrap();
+
+                    const url = window.URL.createObjectURL(blob);
+
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = `Invoice.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+
+                  } catch (error) {
+                    console.error("Download failed", error);
+                  }
+                }}
+              >
+                {isMobile ? "Download" : "Download"}
+              </Button>
+
+            </div>
+          );
+        }
+
+        // 🟡 PARTIAL PAID → Optional behavior
+        return (
           <Button
             size={isMobile ? "small" : "middle"}
             icon={<FileTextOutlined />}
+            disabled
           >
             {isMobile ? "Invoice" : "View Invoice"}
           </Button>
-        ),
-    },
+        );
+      },
+    }
   ];
 
 

@@ -68,8 +68,17 @@ export const fetchStudentsApi = async () => {
 };
 
 /* ---------- DELETE USER ---------- */
+// export const deleteUserApi = async (id) => {
+//   const response = await axiosInstance.delete(`/users/${id}/`);
+//   return response.data;
+// };
+
+/* ---------- DELETE USER ---------- */
 export const deleteUserApi = async (id) => {
-  const response = await axiosInstance.delete(`/users/${id}/`);
+  const response = await axiosInstance.delete(
+    `/lead-registeration/add-users/${id}/`
+  );
+
   return response.data;
 };
 

@@ -30,6 +30,7 @@ import {
   verifyOtpRegister,
   studentRegister,
 } from "../adminSlices/studentSlice";
+import { registerHH } from "../hhSlices/hhRegisterSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -49,6 +50,10 @@ const StudentRegister = () => {
   const [parentEmailValue, setParentEmailValue] = useState("");
   const [specializationOptions, setSpecializationOptions] = useState([]);
   const [parentNameFromApi, setParentNameFromApi] = useState("");
+
+  const selectedProgram = Form.useWatch("program", form);
+  const hideParentSection = selectedProgram === "Hand Holding Program";
+
 
   // Redux selectors
   const {
@@ -184,13 +189,51 @@ const StudentRegister = () => {
   };
 
   const onFinish = (values) => {
+    const isHandHolding = values.program === "Hand Holding Program";
+
+    // 👉 HAND HOLDING FLOW
+    if (isHandHolding) {
+      const formData = new FormData();
+
+      // split name safely
+    const firstName = values.firstName || "";
+const lastName = values.lastName || "";
+
+      formData.append("first_name", firstName);
+      formData.append("last_name", lastName);
+
+      formData.append("email", values.email || "");
+      formData.append("mobile", values.mobile || "");
+      formData.append("city", values.city || "");
+      formData.append("full_address", values.address || "");
+
+      formData.append(
+        "preferred_counselling_mode",
+        values.preferred_counselling_mode || ""
+      );
+
+      // optional (if needed by backend)
+      formData.append("program", values.program);
+
+      dispatch(registerHH(formData))
+        .unwrap()
+        .then((res) => {
+          message.success(res.message || "Hand Holding registration successful");
+          navigate("/");
+        })
+        .catch((err) => message.error(err));
+
+      return;
+    }
+
+    // 👉 NORMAL FLOW (existing logic)
     if (!otpVerified) {
       message.error("Please verify parent mobile before creating account");
       return;
     }
 
     const payload = {
-      student_name: values.studentName,
+      student_name: `${values.firstName} ${values.lastName}`,
       dob: values.dob ? values.dob.format("YYYY-MM-DD") : null,
       student_email: values.email,
       student_mobile: values.mobile || "",
@@ -213,6 +256,37 @@ const StudentRegister = () => {
       })
       .catch((err) => message.error(err));
   };
+
+  // const onFinish = (values) => {
+  //   if (!otpVerified) {
+  //     message.error("Please verify parent mobile before creating account");
+  //     return;
+  //   }
+
+  //   const payload = {
+  //     student_name: values.studentName,
+  //     dob: values.dob ? values.dob.format("YYYY-MM-DD") : null,
+  //     student_email: values.email,
+  //     student_mobile: values.mobile || "",
+  //     study_class: values.class,
+  //     specialization: values.specialization || "",
+  //     stream: values.stream || "",
+  //     parent_mobile: values.parentMobile,
+  //     parent_email: values.parentEmail,
+  //     parent_name: values.parentName,
+  //     program: programList.find((p) => p.name === values.program)?.id,
+  //     password: values.password,
+  //     confirm_password: values.confirmPassword,
+  //   };
+
+  //   dispatch(studentRegister(payload))
+  //     .unwrap()
+  //     .then((res) => {
+  //       message.success(res.message || "Account created successfully");
+  //       navigate("/");
+  //     })
+  //     .catch((err) => message.error(err));
+  // };
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -251,8 +325,7 @@ const StudentRegister = () => {
             {/* RIGHT FORM PANEL */}
             <Col xs={24} md={14} style={{ padding: "48px 40px", background: "#fff", borderRadius: "0 24px 24px 0" }}>
               {/* LOGO + TITLE */}
-              {/* LOGO + TITLE */}
-              <div style={{ marginBottom: 16 }}>
+                    <div style={{ marginBottom: 16 }}>
                 <img
                   src="/Abhinav-logo.jpg"
                   alt="Career Counselling"
@@ -281,7 +354,7 @@ const StudentRegister = () => {
                     marginBottom: 24,
                   }}
                 >
-                  Student Registration
+                  Student / User Registration
                 </Title>
               </div>
               <Form
@@ -315,88 +388,26 @@ const StudentRegister = () => {
                 }}
                 style={{ marginTop: 28 }}
               >
-                <Divider orientation="left">Student Details</Divider>
-                <Row gutter={16}>
-                  <Col md={12}>
-                    <Form.Item label="Student Full Name" name="studentName" rules={[{ required: true }]}>
-                      <Input size="large" prefix={<UserOutlined />} />
-                    </Form.Item>
-                  </Col>
-                  <Col md={12}>
-                    <Form.Item label="Date of Birth" name="dob">
-                      <DatePicker size="large" style={{ width: "100%" }} />
-                    </Form.Item>
-                  </Col>
-                </Row>
+
+
+
+                {/* 🔥 PROGRAM FIRST */}
+                <Divider orientation="left">Select Program</Divider>
 
                 <Row gutter={16}>
-                  <Col md={12}>
-                    <Form.Item label="Email" name="email" rules={[{ type: "email", required: true }]}>
-                      <Input size="large" prefix={<MailOutlined />} />
-                    </Form.Item>
-                  </Col>
-                  <Col md={12}>
-                    <Form.Item label="Mobile Number" name="mobile">
-                      <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col md={12}>
-                    <Form.Item label="Class" name="class" rules={[{ required: true }]}>
+                  <Col md={24}>
+                    <Form.Item
+                      label="Interested Program"
+                      name="program"
+                      rules={[{ required: true }]}
+                    >
                       <Select
                         size="large"
-                        placeholder="Select Class"
-                        onChange={(value) => {
-                          const specs = specializationMap[value] || [];
-                          setSpecializationOptions(specs);
-                          form.setFieldsValue({ specialization: undefined });
-                        }}
-                      >
-                        {classOptions.map((cls) => (
-                          <Option key={cls} value={cls}>
-                            {cls}
-                          </Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  <Col md={12}>
-                    <Form.Item label="Specialization" name="specialization">
-                      <Select size="large" placeholder="Select Specialization" disabled={specializationOptions.length === 0}>
-                        {specializationOptions.map((spec) => (
-                          <Option key={spec} value={spec}>
-                            {spec}
-                          </Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                </Row>
-
-                <Row gutter={16}>
-                  <Col md={12}>
-                    <Form.Item label="Stream" name="stream">
-                      <Select
-                        size="large"
-                        placeholder={streamsLoading ? "Loading streams..." : "Select Stream"}
-                        loading={streamsLoading}
-                        allowClear
-                      >
-                        {streamList.map((stream) => (
-                          <Option key={stream.id} value={stream.name}>
-                            {stream.name}
-                          </Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  <Col md={12}>
-                    <Form.Item label="Interested Program" name="program" rules={[{ required: true }]}>
-                      <Select
-                        size="large"
-                        placeholder={programsLoading ? "Loading programs..." : "Select Interested Program"}
+                        placeholder={
+                          programsLoading
+                            ? "Loading programs..."
+                            : "Select Interested Program"
+                        }
                         loading={programsLoading}
                       >
                         {programList.map((program) => (
@@ -407,6 +418,147 @@ const StudentRegister = () => {
                       </Select>
                     </Form.Item>
                   </Col>
+                </Row>
+
+                <Divider orientation="left">Student Details</Divider>
+            <Row gutter={16}>
+  <Col md={12}>
+    <Form.Item
+      label="First Name"
+      name="firstName"
+      rules={[{ required: true, message: "Enter first name" }]}
+    >
+      <Input size="large" prefix={<UserOutlined />} />
+    </Form.Item>
+  </Col>
+
+  <Col md={12}>
+    <Form.Item
+      label="Last Name"
+      name="lastName"
+      rules={[{ required: true, message: "Enter last name" }]}
+    >
+      <Input size="large" prefix={<UserOutlined />} />
+    </Form.Item>
+  </Col>
+</Row>
+
+                
+{hideParentSection && (
+  <Row gutter={16}>
+    <Col xs={24} md={12}>
+      <Form.Item
+        label="Email"
+        name="email"
+        rules={[{ type: "email", required: true }]}
+      >
+        <Input size="large" prefix={<MailOutlined />} />
+      </Form.Item>
+    </Col>
+
+    <Col xs={24} md={12}>
+      <Form.Item
+        label="Mobile Number"
+        name="mobile"
+        rules={[{ required: true, message: "Enter mobile number" }]}
+      >
+        <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
+      </Form.Item>
+    </Col>
+  </Row>
+)}
+{!hideParentSection && (
+  <>
+    <Row gutter={16}>
+      <Col xs={24} md={12}>
+        <Form.Item label="Date of Birth" name="dob">
+          <DatePicker size="large" style={{ width: "100%" }} />
+        </Form.Item>
+      </Col>
+
+      <Col xs={24} md={12}>
+        <Form.Item
+          label="Email"
+          name="email"
+          rules={[{ type: "email", required: true }]}
+        >
+          <Input size="large" prefix={<MailOutlined />} />
+        </Form.Item>
+      </Col>
+    </Row>
+
+    <Row gutter={16}>
+      <Col xs={24} md={12}>
+        <Form.Item label="Mobile Number" name="mobile">
+          <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
+        </Form.Item>
+      </Col>
+
+{!hideParentSection && (
+      <Col xs={24} md={12}>
+    <Form.Item
+      label="Class"
+      name="class"
+      rules={[{ required: true }]}
+    >
+      <Select
+        size="large"
+        placeholder="Select Class"
+        onChange={(value) => {
+          const specs = specializationMap[value] || [];
+          setSpecializationOptions(specs);
+          form.setFieldsValue({ specialization: undefined });
+        }}
+      >
+        {classOptions.map((cls) => (
+          <Option key={cls} value={cls}>
+            {cls}
+          </Option>
+        ))}
+      </Select>
+    </Form.Item>
+  </Col>
+)}
+    </Row>
+  </>
+)}
+
+
+
+                <Row gutter={16}>
+                  {!hideParentSection && (
+                    <Col md={12}>
+                      <Form.Item label="Specialization" name="specialization">
+                        <Select size="large" placeholder="Select Specialization" disabled={specializationOptions.length === 0}>
+                          {specializationOptions.map((spec) => (
+                            <Option key={spec} value={spec}>
+                              {spec}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                    </Col>
+                  )}
+
+                  {!hideParentSection && (
+                    <Col md={12}>
+                      <Form.Item label="Stream" name="stream">
+                        <Select
+                          size="large"
+                          placeholder={streamsLoading ? "Loading streams..." : "Select Stream"}
+                          loading={streamsLoading}
+                          allowClear
+                        >
+                          {streamList.map((stream) => (
+                            <Option key={stream.id} value={stream.name}>
+                              {stream.name}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                    </Col>
+                  )}
+
                 </Row>
 
                 <Row gutter={16}>
@@ -435,85 +587,88 @@ const StudentRegister = () => {
                   </Col>
                 </Row>
 
-                <Divider orientation="left">Parent Details</Divider>
+                {!hideParentSection && (
+                  <>
+                    <Divider orientation="left">Parent Details</Divider>
 
-                {/* Parent Mobile & Email */}
-                <Row gutter={16}>
-                  <Col md={12}>
-                    <Form.Item
-                      label="Mobile Number (WhatsApp)"
-                      name="parentMobile"
-                      rules={[
-                        { required: true, message: "Parent mobile number is required" }
-                      ]}
-                    >
-                      <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
-                    </Form.Item>
-                  </Col>
+                    {/* Parent Mobile & Email */}
+                    <Row gutter={16}>
+                      <Col md={12}>
+                        <Form.Item
+                          label="Mobile Number (WhatsApp)"
+                          name="parentMobile"
+                          rules={[
+                            { required: true, message: "Parent mobile number is required" }
+                          ]}
+                        >
+                          <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
+                        </Form.Item>
+                      </Col>
 
-                  <Col md={12}>
-                    <Form.Item
-                      label="Email"
-                      name="parentEmail"
-                      rules={[
-                        { required: true, message: "Parent email is required" },
-                        { type: "email", message: "Enter a valid email address" }
-                      ]}
-                    >
-                      <Input size="large" prefix={<MailOutlined />} />
-                    </Form.Item>
-                  </Col>
-                </Row>
+                      <Col md={12}>
+                        <Form.Item
+                          label="Email"
+                          name="parentEmail"
+                          rules={[
+                            { required: true, message: "Parent email is required" },
+                            { type: "email", message: "Enter a valid email address" }
+                          ]}
+                        >
+                          <Input size="large" prefix={<MailOutlined />} />
+                        </Form.Item>
+                      </Col>
+                    </Row>
 
-                {/* Full Parent Mode */}
-                {parentMode === "full" && otpVerified && (
-                  <Form.Item
-                    label="Parent Name"
-                    name="parentName"
-                    rules={[{ required: true }]}
-                  >
-                    <Input
-                      size="large"
-                      prefix={<UserOutlined />}
-                      disabled={parentExists === true}
-                    />
-                  </Form.Item>
-                )}
+                    {/* Full Parent Mode */}
+                    {parentMode === "full" && otpVerified && (
+                      <Form.Item
+                        label="Parent Name"
+                        name="parentName"
+                        rules={[{ required: true }]}
+                      >
+                        <Input
+                          size="large"
+                          prefix={<UserOutlined />}
+                          disabled={parentExists === true}
+                        />
+                      </Form.Item>
+                    )}
 
-                {/* Send OTP Button */}
-                {canSendOtp && (
-                  <Button
-                    type="primary"
-                    loading={sendOtpLoading}
-                    onClick={parentMode === "full" ? handleSendOtp : handleParentCheck}
-                  >
-                    Send OTP
-                  </Button>
-                )}
-
-                {/* OTP Verification */}
-                {otpSent && !otpVerified && (
-                  <Row gutter={16} align="middle" style={{ marginTop: 16 }}>
-                    <Col md={8}>
-                      <Input placeholder="Enter OTP" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} />
-                    </Col>
-                    <Col>
-                      <Button type="primary" onClick={handleVerifyOtp} loading={verifyOtpLoading}>
-                        Verify OTP
+                    {/* Send OTP Button */}
+                    {canSendOtp && (
+                      <Button
+                        type="primary"
+                        loading={sendOtpLoading}
+                        onClick={parentMode === "full" ? handleSendOtp : handleParentCheck}
+                      >
+                        Send OTP
                       </Button>
-                    </Col>
-                  </Row>
-                )}
+                    )}
 
-                {otpVerified && (
-                  <Text type="success" style={{ display: "block", marginTop: 12 }}>
-                    Parent Email verified ✓
-                  </Text>
-                )}
+                    {/* OTP Verification */}
+                    {otpSent && !otpVerified && (
+                      <Row gutter={16} align="middle" style={{ marginTop: 16 }}>
+                        <Col md={8}>
+                          <Input placeholder="Enter OTP" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} />
+                        </Col>
+                        <Col>
+                          <Button type="primary" onClick={handleVerifyOtp} loading={verifyOtpLoading}>
+                            Verify OTP
+                          </Button>
+                        </Col>
+                      </Row>
+                    )}
 
+                    {otpVerified && (
+                      <Text type="success" style={{ display: "block", marginTop: 12 }}>
+                        Parent Email verified ✓
+                      </Text>
+                    )}
+                  </>
+                )}
                 <Divider />
 
-                <Button type="primary" htmlType="submit" block size="large" loading={registerLoading} disabled={!otpVerified}>
+                <Button type="primary" htmlType="submit" block size="large" loading={registerLoading} disabled={hideParentSection ? false : !otpVerified}>
                   Create Account
                 </Button>
 
@@ -528,7 +683,9 @@ const StudentRegister = () => {
               </Form>
             </Col>
           </Row>
+
         </Card>
+
       </div>
     </ConfigProvider>
   );

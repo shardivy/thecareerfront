@@ -102,11 +102,9 @@ const { modalSlots: fetchedSlots } = useSelector(
             };
 
             const startTime = parseTime(slot.start_time);
-            const endTime = parseTime(slot.end_time);
+    if (!startTime.isValid()) return null;
 
-            if (!startTime.isValid() || !endTime.isValid()) return null;
-
-            return { ...slot, start_time: startTime, end_time: endTime };
+return { ...slot, start_time: startTime };
           } catch {
             return null;
           }
@@ -122,26 +120,31 @@ const { modalSlots: fetchedSlots } = useSelector(
   /* ---------- ADD SLOT ---------- */
 const addSlot = () => {
   const start = form.getFieldValue("start_time");
-  const end = form.getFieldValue("end_time");
 
-  if (!start || !end) {
-    setSlotError("Please select start and end time");
+  if (!start) {
+    setSlotError("Please select start time");
     return;
   }
 
-  if (!end.isAfter(start)) {
-    setSlotError("End time must be after start time");
+  const alreadyExists = slotsList.some(
+    (slot) =>
+      slot.start_time.format("hh:mm A") ===
+      start.format("hh:mm A")
+  );
+
+  if (alreadyExists) {
+    setSlotError("Slot already added");
     return;
   }
 
   const newSlot = {
     start_time: start,
-    end_time: end,
   };
 
   setSlotsList((prev) => [...prev, newSlot]);
 
-  form.setFieldsValue({ start_time: null, end_time: null });
+  form.setFieldsValue({ start_time: null });
+
   setSlotError("");
 };
 
@@ -183,10 +186,9 @@ const handleDeleteSlot = (slotId, index) => {
       return;
     }
 
-    const formattedSlots = slotsList.map((slot) => ({
-      start_time: slot.start_time.format("hh:mm A"),
-      end_time: slot.end_time.format("hh:mm A"),
-    }));
+  const formattedSlots = slotsList.map((slot) => ({
+  start_time: slot.start_time.format("hh:mm A"),
+}));
 
     const payload = {
       counsellor_id: counsellorId,
@@ -294,54 +296,63 @@ useEffect(() => {
             </Form.Item>
           </Col>
 
-          <Col span={24}>
-            <Form.Item
-              name="date"
-              label="Date"
-              rules={[{ required: true, message: "Please select a date" }]}
-            >
-              <DatePicker
-                style={{ width: "100%" }}
-                onChange={handleDateChange}
-                disabledDate={(current) =>
-                  current && current < dayjs().startOf("day")
-                }
-              />
-            </Form.Item>
-          </Col>
+       <Row gutter={16} align="bottom">
+  {/* DATE */}
+  <Col xs={24} md={10}>
+    <Form.Item
+      name="date"
+      label="Date"
+      rules={[{ required: true, message: "Please select a date" }]}
+      style={{ marginBottom: 16 }}
+    >
+      <DatePicker
+        style={{ width: "100%" }}
+        onChange={handleDateChange}
+        disabledDate={(current) =>
+          current && current < dayjs().startOf("day")
+        }
+      />
+    </Form.Item>
+  </Col>
 
-          {/* START & END TIME */}
-          <Col span={10}>
-            <Form.Item name="start_time" label="Start Time" style={{ marginBottom: 12 }}>
-              <TimePicker
-                use12Hours
-                format="hh:mm A"
-                style={{ width: "100%" }}
-                placeholder="Start time"
-                minuteStep={15}
-                showNow={false}
-                  disabledTime={getDisabledTime}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={10}>
-            <Form.Item name="end_time" label="End Time" style={{ marginBottom: 12 }}>
-              <TimePicker
-                use12Hours
-                format="hh:mm A"
-                style={{ width: "100%" }}
-                placeholder="End time"
-                minuteStep={15}
-                showNow={false}
-                  disabledTime={getDisabledTime}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={4} style={{ display: "flex", alignItems: "flex-end" }}>
-            <Button type="primary" onClick={addSlot} style={{ marginBottom: 12 }}>
-              Add
-            </Button>
-          </Col>
+  {/* START TIME */}
+  <Col xs={24} md={10}>
+    <Form.Item
+      name="start_time"
+      label="Start Time"
+      style={{ marginBottom: 16 }}
+    >
+      <TimePicker
+        use12Hours
+        format="hh:mm A"
+        style={{ width: "100%" }}
+        placeholder="Start time"
+        minuteStep={15}
+        showNow={false}
+      />
+    </Form.Item>
+  </Col>
+
+  {/* ADD BUTTON */}
+  <Col
+    xs={24}
+    md={4}
+    style={{
+      display: "flex",
+      alignItems: "flex-end",
+    }}
+  >
+    <Form.Item style={{ width: "100%", marginBottom: 16 }}>
+      <Button
+        type="primary"
+        onClick={addSlot}
+        style={{ width: "100%" }}
+      >
+        Add
+      </Button>
+    </Form.Item>
+  </Col>
+</Row>
 
           {slotError && (
             <Col span={24}>
@@ -378,7 +389,7 @@ useEffect(() => {
                       }}
                     >
                       <span style={{ marginRight: 8 }}>
-                        {slot.start_time.format("hh:mm A")} - {slot.end_time.format("hh:mm A")}
+                        {slot.start_time.format("hh:mm A")}
                       </span>
                       <CloseOutlined
                         onClick={() => handleDeleteSlot(slot.id, index)}

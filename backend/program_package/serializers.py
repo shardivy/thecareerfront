@@ -3,7 +3,7 @@ from rest_framework import serializers
 from payment.models import Payment
 from report.models import Report
 from lead_registration.models import StudentProfile
-from program_package.models import Answer, CollegeListAnalysis, Package, PackageFeature, Program, QuestionAnswer, UserProgramPackage
+from program_package.models import Answer, CollegeListAnalysis, LandingPage, Package, PackageFeature, Program, QuestionAnswer, UserProgramPackage
 
 
 class ProgramListSerializer(serializers.ModelSerializer):
@@ -77,6 +77,7 @@ class PackageCreateSerializer(serializers.ModelSerializer):
             "is_active",
             "aptitude_test",
             "engineering_test_analysis",
+            "is_handholding",
             "features"
         ]
 
@@ -118,6 +119,7 @@ class PackageListSerializer(serializers.ModelSerializer):
             "active_users",
             "aptitude_test",
             "engineering_test_analysis",
+            "is_handholding",
             "features"
         ]
 
@@ -162,6 +164,9 @@ class PackageWithFeaturesSerializer(serializers.ModelSerializer):
             "program",
             "active_users",
             "features",
+            "aptitude_test",
+            "engineering_test_analysis",
+            "is_handholding", 
         )
 
     def get_features(self, obj):
@@ -340,3 +345,24 @@ class AnswerSerializer(serializers.ModelSerializer):
             "answer_text",
             "created_at"
         ]
+
+
+class LandingPageSerializer(serializers.ModelSerializer):
+
+    program_details = ProgramSerializer(source="program", read_only=True)
+    package_details = PackageWithFeaturesSerializer(source="package", read_only=True)
+
+    class Meta:
+        model = LandingPage
+        fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        request = self.context.get("request")
+
+        # ✅ Full image URL
+        if instance.flyer_image and request:
+            data["flyer_image"] = request.build_absolute_uri(instance.flyer_image.url)
+
+        return data

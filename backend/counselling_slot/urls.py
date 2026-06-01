@@ -1,6 +1,6 @@
 from django.urls import path
 
-from counselling_slot.views import AddCounsellorAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CancelBookingAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorMonthAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
+from counselling_slot.views import AddCounsellorAPIView, AllCounsellorListAPIView, AllCounsellorStudentBookingListAPIView, BookingCreateAPIView, BookingMarkCompletedAPIView, CancelBookingAPIView, CounsellingNoteCreateView, CounsellingNoteFileDeleteView, CounsellingNoteFileView, CounsellorCompletedStudentBookingListAPIView, CounsellorDashboardCountAPIView, CounsellorListAPIView, CounsellorMonthAPIView, CounsellorSlotByDateAPIView, CounsellorStudentBookingListAPIView, CreateSlotAPIView, DateWiseSlotListAPIView, LeadCounsellorUserListAPIView, NormalCounsellorUserListAPIView, ReenaCounsellorAPIView, SendReminderAPIView, SessionDashboardCountAPIView, SlotAvailabilityUpdateAPIView, SlotCreateAPIView, SlotDeleteAPIView, StudentBookingListAPIView, UpdateCounsellorStatusAPIView
 
 
 urlpatterns = [
@@ -26,10 +26,16 @@ urlpatterns = [
     # ==================== New Updates Below ======================================================    
     
     path("counsellors/", CounsellorListAPIView.as_view(), name="counsellor-list"),
+    path("counsellors/all/", AllCounsellorListAPIView.as_view(), name="all-counsellor-list"),
+    path(
+    "reena-bhutada-counsellor/",
+    ReenaCounsellorAPIView.as_view(),
+    name="reena-bhutada-counsellor"
+),
     path("slots/create/", SlotCreateAPIView.as_view(), name="create-slot"),
     path("slots/<str:date>/<int:counsellor>/",SlotCreateAPIView.as_view(), name="counsellor-slots"),
     path("slots/<int:slot_id>/",SlotDeleteAPIView.as_view(), name="delete-slot"),
-    path("api/counsellor/status/<int:counsellor>/",UpdateCounsellorStatusAPIView.as_view(),name="update-counsellor-status"),
+    path("counsellor/status/<int:counsellor>/",UpdateCounsellorStatusAPIView.as_view(),name="update-counsellor-status"),
     path('slots/counsellor-wise/', DateWiseSlotListAPIView.as_view(), name='counsellor-wise-slots'),
     
     path("bookings/create/", BookingCreateAPIView.as_view()),
@@ -104,6 +110,12 @@ urlpatterns = [
         name="counsellor-dashboard-count"
     ),
     path('counsellor-bookings-all-list/', CounsellorMonthAPIView.as_view(), name='counsellor-bookings'),
+    
+    path(
+        "send-reminder/<int:booking_id>/",
+        SendReminderAPIView.as_view(),
+        name="send-reminder"
+    ),
 
 
 
