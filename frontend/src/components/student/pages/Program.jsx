@@ -481,7 +481,7 @@ const Program = () => {
     const routeKey = `${selectedProgram}-${pkg.name}`;
 
     const targetRoute =
-      serviceRouteMap[routeKey] || "/default-service";
+      serviceRouteMap[routeKey] || "/default";
 
     navigate(targetRoute, {
       state: {
@@ -751,7 +751,7 @@ const Program = () => {
     const routeKey = `${selectedProgram}-${pkg.name}`;
 
     const targetRoute =
-      serviceRouteMap[routeKey] || "/default-service";
+      serviceRouteMap[routeKey] || "/default";
 
     navigate(targetRoute, {
       state: {
