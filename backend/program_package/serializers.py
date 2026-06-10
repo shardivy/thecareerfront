@@ -293,8 +293,11 @@ class CollegeListAnalysisSerializer(serializers.ModelSerializer):
 
         report = (
             Report.objects
-            .filter(user=obj.user)
-            .order_by("-uploaded_at")
+            .filter(
+                user=obj.user,
+                package__engineering_test_analysis=True
+            )
+            .order_by("-id")
             .first()
         )
 
@@ -308,14 +311,18 @@ class CollegeListAnalysisSerializer(serializers.ModelSerializer):
 
         report = (
             Report.objects
-            .filter(user=obj.user)
-            .order_by("-uploaded_at")
+            .filter(
+                user=obj.user,
+                package__engineering_test_analysis=True
+            )
+            .order_by("-id")
             .first()
         )
-        if not report or not report.report_status:
+
+        if not report:
             return "not_received"
 
-        return report.report_status 
+        return report.report_status or "not_received" 
     
 class QuestionAnswerSerializer(serializers.ModelSerializer):
 

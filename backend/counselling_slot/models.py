@@ -1,6 +1,7 @@
 from django.db import models
 
 from accounts.models import User
+from program_package.models import Package, Program
 from lead_registration.models import StudentProfile
 
 class Counsellor(models.Model):
@@ -64,6 +65,19 @@ class Booking(models.Model):
     )
 
     student = models.ForeignKey(StudentProfile, on_delete=models.CASCADE, related_name='student_bookings')
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
+    package = models.ForeignKey(
+        Package,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     slot = models.ForeignKey(Slot, on_delete=models.CASCADE, null=True, blank=True)
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='booked')
@@ -94,6 +108,19 @@ class BookingCounsellor(models.Model):
 class CounsellingNote(models.Model):
     booking = models.ForeignKey(Booking, on_delete=models.CASCADE, null=True, blank=True)
     counsellor = models.ForeignKey(Counsellor, on_delete=models.CASCADE, null=True, blank=True)
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
+    package = models.ForeignKey(
+        Package,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     notes = models.TextField(null=True, blank=True)
     file1 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
     file2 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)

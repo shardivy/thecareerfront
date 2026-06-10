@@ -9,6 +9,8 @@ class ReportAdmin(admin.ModelAdmin):
     list_display = (
         'id',
         'user',
+        'program',
+        'package',
         'exam',
         'report_status',
         'review_required',

@@ -1,6 +1,7 @@
 from django.db import models
 
 from accounts.models import User
+from program_package.models import Package, Program, UserProgramPackage
 from exam.models import Exam
 
 class Report(models.Model):
@@ -12,6 +13,25 @@ class Report(models.Model):
     )
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # user_program_package = models.ForeignKey(
+    #     UserProgramPackage,
+    #     on_delete=models.CASCADE,
+    #     null=True,
+    #     blank=True
+    # )
+    program = models.ForeignKey(
+        Program,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
+    package = models.ForeignKey(
+        Package,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
     file_path = models.FileField(upload_to='reports/', blank=True, null=True)
     report_status = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES)

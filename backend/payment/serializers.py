@@ -269,7 +269,14 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
 
         student_profile = attrs.get("student_profile")
         handholding_participant = attrs.get("handholding_participant")
+        # package = attrs.get("package")
+
+        # if isinstance(package, list):
+        #     package = package[0] if package else None
         package = attrs.get("package")
+
+        if not package:
+            raise serializers.ValidationError("Package is required.")
         amount = attrs.get("amount")
 
         
@@ -344,7 +351,16 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         # attrs["remaining_amount"] = remaining_amount
         # attrs["user"] = user   # 🔥 IMPORTANT FIX
         from decimal import Decimal
-        package_amount = package.price or Decimal("0")
+
+        packages = attrs.get("package")
+
+        if not isinstance(packages, (list, tuple)):
+            packages = [packages]
+
+        package_amount = sum(
+            (pkg.price or Decimal("0"))
+            for pkg in packages
+        )
 
         # =========================================
         # 🚨 NEW VALIDATION (YOUR REQUIREMENT)
@@ -354,12 +370,15 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
                 "amount": f"Payment amount cannot exceed package price ₹{package_amount}."
             })
         
-        package_amount = package.price
+        package_amount = sum(
+            (pkg.price or Decimal("0"))
+            for pkg in packages
+        )
 
         payments_qs = Payment.objects.filter(
             user=user,
-            package=package
-        ).exclude(status="not_paid")
+            package__in=packages
+        ).distinct().exclude(status="not_paid")
 
         # exclude current instance (for update)
         if self.instance:
@@ -402,81 +421,80 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
 
         user = validated_data.get("user")
         amount = validated_data.get("amount")
-        package = validated_data.get("package")
+        packages = validated_data.get("package")
 
-        # 🔥 Status logic
-        if amount == remaining_amount:
+        package_amount = sum(
+            (pkg.price or 0)
+            for pkg in packages
+        )
+
+        total_paid_after = (
+            Payment.objects.filter(
+                user=user,
+                package__in=packages
+            )
+            .distinct()
+            .aggregate(total=Sum("amount"))["total"] or 0
+        ) + amount
+
+        if total_paid_after >= package_amount:
             validated_data["status"] = "fully_paid"
         else:
             validated_data["status"] = "partial_paid"
 
         payment = super().create(validated_data)
 
-        # 🔁 Update all payments if fully paid
-        total_paid_after = (
-            Payment.objects.filter(
-                user=user,
-                package=package
-            ).aggregate(total=Sum("amount"))["total"] or 0
-        )
-
-        # if total_paid_after >= package.price:
-        #     Payment.objects.filter(
-        #         user=user,
-        #         package=package
-        #     ).update(status="fully_paid")
-        package_amount = package.price
-        if total_paid_after >= package_amount:
-            payment.status = "fully_paid"
-        else:
-            payment.status = "partial_paid"
-
-        payment.save(update_fields=["status"])
+        print("NEW PAYMENT ID =", payment.id)
 
         return payment
-        
+    
     def update(self, instance, validated_data):
 
         student_profile = validated_data.pop("student_profile", None)
         validated_data.pop("remaining_amount", None)
 
-        # If student_profile sent, update user
+        packages = validated_data.pop("package", None)
+
+        # Update user if student profile provided
         if student_profile:
             instance.user = student_profile.user
 
+        # Update normal fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         instance.save()
 
-        # 🔥 Recalculate total
+        # Update many-to-many packages
+        if packages is not None:
+            instance.package.set(packages)
+
+        # =========================
+        # Recalculate payment status
+        # =========================
+
+        package_amount = sum(
+            (pkg.price or 0)
+            for pkg in instance.package.all()
+        )
+
         total_paid_after = (
             Payment.objects.filter(
                 user=instance.user,
-                package=instance.package
-            ).aggregate(total=Sum("amount"))["total"] or 0
+                package__in=instance.package.all()
+            )
+            .distinct()
+            .aggregate(total=Sum("amount"))["total"] or 0
         )
 
-        package_amount = instance.package.price
-
-        # if total_paid_after >= package_amount:
-        #     Payment.objects.filter(
-        #         user=instance.user,
-        #         package=instance.package
-        #     ).update(status="fully_paid")
-        # else:
-        #     Payment.objects.filter(
-        #         user=instance.user,
-        #         package=instance.package
-        #     ).update(status="partial_paid")
-
-        # return instance
         if total_paid_after >= package_amount:
             instance.status = "fully_paid"
         else:
             instance.status = "partial_paid"
 
         instance.save(update_fields=["status"])
+
+        return instance
 
     def to_internal_value(self, data):
         data = data.copy()   # ✅ MAKE IT MUTABLE
@@ -501,10 +519,54 @@ class PackageMiniSerializer(serializers.ModelSerializer):
         model = Package
         fields = ["id", "name", "price", "program_name"]
 
+# class PaymentResponseSerializer(serializers.ModelSerializer):
+#     user = UserMiniSerializer(read_only=True)
+#     package = PackageMiniSerializer(read_only=True)
+#     remaining_amount = serializers.SerializerMethodField()
+#     total_paid = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = Payment
+#         fields = [
+#             "id",
+#             "user",
+#             "package",
+#             "amount",
+#             "payment_type",
+#             "method",
+#             "status",
+#             "transaction_id",
+#             "payment_date",
+#             "proof_file",
+#             "total_paid",
+#             "remaining_amount",
+#             "created_at",
+#         ]
+#     def get_total_paid(self, obj):
+#         total_paid = (
+#             Payment.objects.filter(
+#                 user=obj.user,
+#                 package=obj.package
+#             ).aggregate(total=Sum("amount"))["total"] or 0
+#         )
+#         return total_paid
+
+#     def get_remaining_amount(self, obj):
+#         total_paid = (
+#             Payment.objects.filter(
+#                 user=obj.user,
+#                 package=obj.package
+#             ).aggregate(total=Sum("amount"))["total"] or 0
+#         )
+
+#         package_amount = obj.package.price
+#         remaining = package_amount - total_paid
+
+#         return max(remaining, 0)
 
 class PaymentResponseSerializer(serializers.ModelSerializer):
     user = UserMiniSerializer(read_only=True)
-    package = PackageMiniSerializer(read_only=True)
+    package = PackageMiniSerializer(many=True, read_only=True)
     remaining_amount = serializers.SerializerMethodField()
     total_paid = serializers.SerializerMethodField()
 
@@ -526,27 +588,42 @@ class PaymentResponseSerializer(serializers.ModelSerializer):
             "created_at",
         ]
     def get_total_paid(self, obj):
+
+        package_ids = obj.package.values_list("id", flat=True)
+
         total_paid = (
             Payment.objects.filter(
                 user=obj.user,
-                package=obj.package
-            ).aggregate(total=Sum("amount"))["total"] or 0
+                package__id__in=package_ids
+            )
+            .distinct()
+            .aggregate(total=Sum("amount"))["total"] or 0
         )
+
         return total_paid
 
     def get_remaining_amount(self, obj):
+
+        package_ids = obj.package.values_list("id", flat=True)
+
         total_paid = (
             Payment.objects.filter(
                 user=obj.user,
-                package=obj.package
-            ).aggregate(total=Sum("amount"))["total"] or 0
+                package__id__in=package_ids
+            )
+            .distinct()
+            .aggregate(total=Sum("amount"))["total"] or 0
         )
 
-        package_amount = obj.package.price
-        remaining = package_amount - total_paid
+        package_amount = (
+            Package.objects.filter(
+                id__in=package_ids
+            ).aggregate(
+                total=Sum("price")
+            )["total"] or 0
+        )
 
-        return max(remaining, 0)
-
+        return max(package_amount - total_paid, 0)
 
 class PaymentListSerializer(serializers.ModelSerializer):
     user_first_name = serializers.CharField(source='user.first_name', read_only=True)
@@ -690,6 +767,10 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
         allow_null=True,
         write_only=True
     )
+    package = serializers.PrimaryKeyRelatedField(
+        queryset=Package.objects.all(),
+        many=True
+    )
 
     transaction_id = serializers.CharField(
         required=False,
@@ -720,7 +801,7 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
 
         student_profile = attrs.get("student_profile")
         handholding_participant = attrs.get("handholding_participant")
-        package = attrs.get("package")
+        packages = attrs.get("package")
         amount = attrs.get("amount")
 
         
@@ -754,7 +835,7 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("User mapping missing.")
 
         # ✅ Required fields
-        if not package:
+        if not packages:
             raise serializers.ValidationError("Package is required.")
 
         if amount is None:
@@ -795,7 +876,11 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
         # attrs["remaining_amount"] = remaining_amount
         # attrs["user"] = user   # 🔥 IMPORTANT FIX
         from decimal import Decimal
-        package_amount = package.price or Decimal("0")
+
+        package_amount = sum(
+            (pkg.price or Decimal("0"))
+            for pkg in packages
+        )
 
         # =========================================
         # 🚨 NEW VALIDATION (YOUR REQUIREMENT)
@@ -805,11 +890,11 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
                 "amount": f"Payment amount cannot exceed package price ₹{package_amount}."
             })
         
-        package_amount = package.price
+        # package_amount = package.price
 
         payments_qs = Payment.objects.filter(
-            user=user,
-            package=package
+            user=user
+            # package=package
         ).exclude(status="not_paid")
 
         # exclude current instance (for update)
@@ -856,18 +941,25 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
         package = validated_data.get("package")
 
         # 🔥 Status logic
-        if amount == remaining_amount:
+        # if amount == remaining_amount:
+        #     validated_data["status"] = "fully_paid"
+        # else:
+        #     validated_data["status"] = "partial_paid"
+        if remaining_amount <= 0:
             validated_data["status"] = "fully_paid"
         else:
             validated_data["status"] = "partial_paid"
+        
+        packages = validated_data.pop("package")
 
         payment = super().create(validated_data)
+        payment.package.set(packages)
 
         # 🔁 Update all payments if fully paid
         total_paid_after = (
             Payment.objects.filter(
-                user=user,
-                package=package
+                user=user
+                # package=package
             ).aggregate(total=Sum("amount"))["total"] or 0
         )
 
@@ -891,6 +983,8 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
         # =========================
         if student_profile:
             instance.user = student_profile.user
+        
+        packages = validated_data.pop("package", None)
 
         # =========================
         # 🔄 Update fields
@@ -907,6 +1001,9 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
         # 💾 Save same record
         # =========================
         instance.save()
+        
+        if packages is not None:
+            instance.package.set(packages)      
 
         # ✅ No new payment created
         return instance

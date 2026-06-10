@@ -203,14 +203,16 @@ class CompletedExamReportAPIView(APIView):
         try:
             reports = (
                 Report.objects
-                .select_related('user', 'exam')
+                .select_related('user', 'exam', 'program', 'package')
                 .order_by('-uploaded_at')
             )
 
             response_data = []
 
             # 🔥 PRELOAD DATA
-            user_ids = [r.user_id for r in reports if r.user_id]
+            user_ids = list(
+                reports.values_list("user_id", flat=True)
+            )
 
             user_programs = {
                 up.user_id: up
@@ -240,13 +242,13 @@ class CompletedExamReportAPIView(APIView):
 
                 student_profile = StudentProfile.objects.filter(user=user).first()
 
-                user_program = user_programs.get(user.id)
+                report_program = report.program
+                report_package = report.package
 
                 # 🚫 Skip Engineering Test Analysis
                 if (
-                    user_program
-                    and user_program.package
-                    and user_program.package.engineering_test_analysis
+                    report_package
+                    and report_package.engineering_test_analysis
                 ):
                     continue
 
@@ -266,12 +268,15 @@ class CompletedExamReportAPIView(APIView):
                 # =============================
                 payment_status = None
 
-                if user_program and user_program.package:
-                    package_price = user_program.package.price or 0
+                if report_package:
+                    package_price = report_package.price or 0
 
                     total_paid = (
                         Payment.objects
-                        .filter(user=user, package=user_program.package)
+                        .filter(
+                            user=user,
+                            package=report_package
+                        )
                         .aggregate(total=Sum('amount'))["total"] or 0
                     )
 
@@ -349,12 +354,11 @@ class CompletedExamReportAPIView(APIView):
                     "email": user.email,
                     "phone": getattr(user, "phone", None),
 
-                    "program_id": user_program.program.id if user_program and user_program.program else None,
-                    "program": user_program.program.name if user_program and user_program.program else None,
+                    "program_id": report.program.id if report.program else None,
+                    "program": report.program.name if report.program else None,
 
-                    "package_id": user_program.package.id if user_program and user_program.package else None,
-                    "package": user_program.package.name if user_program and user_program.package else None,
-
+                    "package_id": report.package.id if report.package else None,
+                    "package": report.package.name if report.package else None,
                     "exam_id": report.exam.id if report.exam else None,
                     "exam": report.exam.name if report.exam else None,
 
@@ -516,7 +520,7 @@ class CompletedExamReportStudentIDAPIView(APIView):
         reports = (
             Report.objects
             .filter(user=user)
-            .select_related("user", "exam")
+            .select_related("user", "exam", "program", "package")
             .order_by("-uploaded_at")
         )
 
@@ -648,24 +652,24 @@ class CompletedExamReportStudentIDAPIView(APIView):
                 "phone": getattr(user, "phone", None),
 
                 "program_id": (
-                    user_program.program.id
-                    if user_program and user_program.program
+                    report.program.id
+                    if report.program
                     else None
                 ),
                 "program": (
-                    user_program.program.name
-                    if user_program and user_program.program
+                    report.program.name
+                    if report.program
                     else None
                 ),
 
                 "package_id": (
-                    user_program.package.id
-                    if user_program and user_program.package
+                    report.package.id
+                    if report.package
                     else None
                 ),
                 "package": (
-                    user_program.package.name
-                    if user_program and user_program.package
+                    report.package.name
+                    if report.package
                     else None
                 ),
 
@@ -1084,26 +1088,31 @@ class UploadReportAPIView(APIView):
         # =========================
         # 📅 Booking
         # =========================
-        booking = None
         created = False
 
         if student_profile:
 
-            # ✅ Get latest booking if multiple exist
-            booking = (
-                Booking.objects
-                .filter(student=student_profile)
+            upp = (
+                UserProgramPackage.objects
+                .filter(user=user)
                 .order_by("-id")
                 .first()
             )
+            print("Student Profile:", student_profile.id)
+            print("UPP:", upp)
 
-            # ✅ Create only if no booking exists
-            if not booking:
-                booking = Booking.objects.create(
-                    student=student_profile,
-                    status="not_booked"
-                )
-                created = True
+            
+            booking, created = Booking.objects.get_or_create(
+                student=student_profile,
+                program=report.program,
+                package=report.package,
+                defaults={
+                    "status": "not_booked"
+                }
+            )  
+            print("Booking Created ID:", booking.id)
+
+            created = True
 
         # =========================
         # 📤 Response
@@ -1418,7 +1427,7 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 
         reports = (
             Report.objects
-            .select_related("user", "exam")
+        .select_related("user", "exam", "program", "package")
             .order_by("-uploaded_at")
         )
 
@@ -1440,18 +1449,11 @@ class EngineeringTestAnalysisReportAPIView(APIView):
             # ==========================================
             # 🔹 USER PROGRAM
             # ==========================================
-            user_program = (
-                UserProgramPackage.objects
-                .filter(
-                    user=user,
-                    package__engineering_test_analysis=True
-                )
-                .select_related("program", "package")
-                .first()
-            )
-
-            # Skip non-engineering students
-            if not user_program:
+            # Skip reports that are not Engineering reports
+            if (
+                not report.package
+                or not report.package.engineering_test_analysis
+            ):
                 continue
 
             # ==========================================
@@ -1559,23 +1561,11 @@ class EngineeringTestAnalysisReportAPIView(APIView):
                 "email": user.email,
                 "phone": getattr(user, "phone", None),
 
-                "program_id": (
-                    user_program.program.id
-                    if user_program.program else None
-                ),
-                "program": (
-                    user_program.program.name
-                    if user_program.program else None
-                ),
+                "program_id": report.program.id if report.program else None,
+                "program": report.program.name if report.program else None,
 
-                "package_id": (
-                    user_program.package.id
-                    if user_program.package else None
-                ),
-                "package": (
-                    user_program.package.name
-                    if user_program.package else None
-                ),
+                "package_id": report.package.id if report.package else None,
+                "package": report.package.name if report.package else None,
 
                 "analysis_status": (
                     analysis.status
@@ -2100,6 +2090,7 @@ class SubmitReviewAPIView(APIView):
         
         # if latest_payment:
         #     PaymentCreateAPIView().unlock_report_if_paid(latest_payment)
+        
 
         # =========================
         # 🎓 GET STUDENT PROFILE
@@ -2122,35 +2113,81 @@ class SubmitReviewAPIView(APIView):
                 .order_by("-id")
                 .first()
             )
-
+        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++    
         # =========================
-        # 🔒 DEFAULT REPORT STATUS
+        # 🚫 ENGINEERING TEST ANALYSIS
         # =========================
-        report_status = "received_locked"
-
-        # =========================
-        # 🔓 UNLOCK REPORT ONLY IF:
-        # ✅ Payment fully paid
-        # ✅ Review submitted
-        # ✅ Booking completed
-        # =========================
-        if (
+        is_engineering_analysis = (
             latest_payment
-            and latest_payment.status == "fully_paid"
-            and review.review_status == "submitted"
-            and latest_booking
-            and latest_booking.status == "completed"
-        ):
-            report_status = "received_unlocked"
-
-        # =========================
-        # 📄 UPDATE REPORT STATUS
-        # =========================
-        Report.objects.filter(
-            user=user
-        ).update(
-            report_status=report_status
+            and latest_payment.package.filter(
+                engineering_test_analysis=True
+            ).exists()
         )
+
+        if is_engineering_analysis:
+
+            # Get current report status from DB
+            report = Report.objects.filter(
+                user=user
+            ).first()
+
+            report_status = (
+                report.report_status
+                if report
+                else None
+            )
+
+        else:
+
+            # =========================
+            # 🔒 DEFAULT REPORT STATUS
+            # =========================
+            report_status = "received_locked"
+
+            if (
+                latest_payment
+                and latest_payment.status == "fully_paid"
+                and review.review_status == "submitted"
+                and latest_booking
+                and latest_booking.status == "completed"
+            ):
+                report_status = "received_unlocked"
+
+            Report.objects.filter(
+                user=user
+            ).update(
+                report_status=report_status
+            )
+            # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+        # # =========================
+        # # 🔒 DEFAULT REPORT STATUS
+        # # =========================
+        # report_status = "received_locked"
+
+        # # =========================
+        # # 🔓 UNLOCK REPORT ONLY IF:
+        # # ✅ Payment fully paid
+        # # ✅ Review submitted
+        # # ✅ Booking completed
+        # # =========================
+        # if (
+        #     latest_payment
+        #     and latest_payment.status == "fully_paid"
+        #     and review.review_status == "submitted"
+        #     and latest_booking
+        #     and latest_booking.status == "completed"
+        # ):
+        #     report_status = "received_unlocked"
+
+        # # =========================
+        # # 📄 UPDATE REPORT STATUS
+        # # =========================
+        # Report.objects.filter(
+        #     user=user
+        # ).update(
+        #     report_status=report_status
+        # )
         
         # # =========================
         # # REPORT STATUS LOGIC

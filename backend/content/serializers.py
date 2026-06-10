@@ -81,12 +81,19 @@ class ContentUploadSerializer(serializers.ModelSerializer):
 
         content = Content.objects.create(**validated_data)
 
-        for program in programs:
-            for package in packages:
+        if packages:
+            for program in programs:
+                for package in packages:
+                    ContentPackage.objects.create(
+                        content=content,
+                        program=program,
+                        package=package
+                    )
+        else:
+            for program in programs:
                 ContentPackage.objects.create(
                     content=content,
-                    program=program,
-                    package=package
+                    program=program
                 )
 
         return content
@@ -100,12 +107,19 @@ class ContentUploadSerializer(serializers.ModelSerializer):
         if programs is not None or packages is not None:
             ContentPackage.objects.filter(content=instance).delete()
 
-            for program in programs or []:
-                for package in packages or []:
+            if packages:
+                for program in programs or []:
+                    for package in packages:
+                        ContentPackage.objects.create(
+                            content=instance,
+                            program=program,
+                            package=package
+                        )
+            else:
+                for program in programs or []:
                     ContentPackage.objects.create(
                         content=instance,
-                        program=program,
-                        package=package
+                        program=program
                     )
 
         return instance

@@ -45,6 +45,17 @@ class ActiveProgramListAPIView(APIView):
             "count": programs.count(),
             "data": serializer.data
         })
+        
+class ExcludeHandholdingProgramListAPIView(APIView):
+    
+    def get(self, request):
+        programs = Program.objects.filter(is_active=True).exclude(package__is_handholding=True).distinct()
+        serializer = ProgramSerializer(programs, many=True)
+
+        return Response({
+            "count": programs.count(),
+            "data": serializer.data
+        })
 
 class AddProgramAPIView(APIView):
     """
@@ -590,8 +601,8 @@ class StartQuestionAPIView(APIView):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
-        
-                    
+    
+
 # class SubmitMultipleAnswersAPIView(APIView):
 
 #     permission_classes = [IsAuthenticated]
@@ -600,83 +611,13 @@ class StartQuestionAPIView(APIView):
 
 #         student_id = request.data.get("student_id")
 #         answers_data = request.data.get("answers", [])
+#         is_final_submit = request.data.get("is_final_submit", False)  # ✅ NEW
 
 #         student = get_object_or_404(StudentProfile, id=student_id)
 
 #         created_answers = []
 
-#         for item in answers_data:
-
-#             answer = Answer.objects.create(
-#                 student=student,
-#                 question_id=item.get("question_id"),
-#                 answer_text=item.get("answer_text")
-#             )
-
-#             created_answers.append({
-#                 "id": answer.id,
-#                 "question_id": answer.question.id,
-#                 "answer_text": answer.answer_text
-#             })
-
-#         # Find student's college analysis
-#         analysis = CollegeListAnalysis.objects.filter(user=student.user).first()
-
-#         report_created = False
-#         report = None
-
-#         if analysis:
-#             analysis.status = "completed"
-#             analysis.save(update_fields=["status"])
-
-#             report, report_created = Report.objects.get_or_create(
-#                 user=student.user,
-#                 defaults={
-#                     "exam": None,
-#                     "report_status": "not_received",
-#                 }
-#             )
-
-#             # ✅ If report already existed, update status
-#             if not report_created:
-#                 report.report_status = "not_received"
-#                 report.save(update_fields=["report_status"])
-
-#         return Response(
-#             {
-#                 "message": "Answers submitted successfully",
-#                 "analysis_status": analysis.status if analysis else None,
-#                 "report_created": report_created,
-#                 "report_id": report.id if report else None,
-#                 "report_status": report.report_status if report else None,
-#                 "data": created_answers
-#             },
-#             status=status.HTTP_201_CREATED
-#         )
-        
-  
-  
-# class SubmitMultipleAnswersAPIView(APIView):
-
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request):
-
-#         student_id = request.data.get("student_id")
-#         answers_data = request.data.get("answers", [])
-
-#         student = get_object_or_404(StudentProfile, id=student_id)
-
-#         created_answers = []
-
-#         # ✅ Total questions in system
-#         total_questions = QuestionAnswer.objects.count()
-
-#         # ✅ Answers submitted now
-#         answered_questions = len([a for a in answers_data if a.get("answer_text")])
-
-#         # ✅ Draft logic
-#         is_draft = answered_questions < total_questions
+#         is_draft = not is_final_submit   # ✅ FIXED LOGIC
 
 #         for item in answers_data:
 
@@ -696,7 +637,6 @@ class StartQuestionAPIView(APIView):
 #                 "is_draft": answer.is_draft
 #             })
 
-#         # Find student's college analysis
 #         analysis = CollegeListAnalysis.objects.filter(user=student.user).first()
 
 #         report_created = False
@@ -704,12 +644,14 @@ class StartQuestionAPIView(APIView):
 
 #         if analysis:
 
-#             if is_draft:
+#             if is_final_submit:
+#                 analysis.status = "completed"
+#             else:
 #                 analysis.status = "in_progress"
 
-#             else:
-#                 analysis.status = "completed"
+#             analysis.save(update_fields=["status"])
 
+#             if is_final_submit:
 #                 report, report_created = Report.objects.get_or_create(
 #                     user=student.user,
 #                     defaults={
@@ -722,20 +664,15 @@ class StartQuestionAPIView(APIView):
 #                     report.report_status = "not_received"
 #                     report.save(update_fields=["report_status"])
 
-#             analysis.save(update_fields=["status"])
-
-#         return Response(
-#             {
-#                 "message": "Draft saved successfully" if is_draft else "Answers submitted successfully",
-#                 "analysis_status": analysis.status if analysis else None,
-#                 "report_created": report_created,
-#                 "report_id": report.id if report else None,
-#                 "report_status": report.report_status if report else None,
-#                 "data": created_answers
-#             },
-#             status=status.HTTP_201_CREATED
-#         )
-
+#         return Response({
+#             "message": "Draft saved successfully" if not is_final_submit else "Answers submitted successfully",
+#             "analysis_status": analysis.status if analysis else None,
+#             "report_created": report_created,
+#             "report_id": report.id if report else None,
+#             "report_status": report.report_status if report else None,
+#             "data": created_answers
+#         }, status=status.HTTP_201_CREATED)
+ 
 class SubmitMultipleAnswersAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -776,7 +713,6 @@ class SubmitMultipleAnswersAPIView(APIView):
         report = None
 
         if analysis:
-
             if is_final_submit:
                 analysis.status = "completed"
             else:
@@ -784,18 +720,36 @@ class SubmitMultipleAnswersAPIView(APIView):
 
             analysis.save(update_fields=["status"])
 
-            if is_final_submit:
-                report, report_created = Report.objects.get_or_create(
-                    user=student.user,
-                    defaults={
-                        "exam": None,
-                        "report_status": "not_received",
-                    }
-                )
 
-                if not report_created:
-                    report.report_status = "not_received"
-                    report.save(update_fields=["report_status"])
+        # ✅ CREATE REPORT ON FINAL SUBMIT
+        if is_final_submit:
+            print("Student id:", student.user.id)
+            user_program = CollegeListAnalysis.objects.filter(
+                user=student.user
+            ).select_related(
+                "program",
+                "package"
+            ).first()
+            
+            print("User program:", user_program)
+            if user_program:
+                print("Program:", analysis.program)
+                print("Package:", analysis.package)
+
+            report = Report.objects.create(
+                user=student.user,
+                program=user_program.program if analysis else None,
+                package=user_program.package if analysis else None,
+                exam=None,  # Engineering Analysis
+                report_status="not_received",
+                review_required=False
+            )
+
+            report_created = True
+
+            if not report_created:
+                report.report_status = "not_received"
+                report.save(update_fields=["report_status"])
 
         return Response({
             "message": "Draft saved successfully" if not is_final_submit else "Answers submitted successfully",
@@ -805,6 +759,8 @@ class SubmitMultipleAnswersAPIView(APIView):
             "report_status": report.report_status if report else None,
             "data": created_answers
         }, status=status.HTTP_201_CREATED)
+     
+ 
         
 class UpdateMultipleAnswersAPIView(APIView):
 

@@ -222,12 +222,13 @@ class HandHoldingRegisterAPIView(APIView):
                 date=timezone.now().date(),
                 source="website",
                 status="enquiry",
-                program=program,
+                # program=program,
 
                 # OPTIONAL FIELDS FOR HAND HOLDING
                 study_class=None,
                 specialization=None
             )
+            lead.program.add(program)
 
             # =========================
             # ✅ ASSIGN PROGRAM
@@ -1838,6 +1839,16 @@ class ParticipantSessionListAPIView(APIView):
 
                     # ✅ FIXED
                     "booking_id": booking.id if booking else None,
+                    
+                    "program": {
+                        "id": booking.program.id,
+                        "name": booking.program.name
+                    } if booking and booking.program else None,
+
+                    "package": {
+                        "id": booking.package.id,
+                        "name": booking.package.name
+                    } if booking and booking.package else None,
 
                     "student_id": student.id if student else None,
                     "student_name": (
@@ -1886,6 +1897,15 @@ class ParticipantSessionListAPIView(APIView):
                     "status": session.status,
                     "date": session.session_date,
                     "slot_id": session.slot.id if session.slot else None,
+                    "program": {
+                        "id": booking.program.id,
+                        "name": booking.program.name
+                    } if booking and booking.program else None,
+
+                    "package": {
+                        "id": booking.package.id,
+                        "name": booking.package.name
+                    } if booking and booking.package else None,
                     "start_time": session.slot.start_time if session.slot else None,
                     "end_time": session.slot.end_time if session.slot else None,
                     "counsellor": (

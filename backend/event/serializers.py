@@ -170,11 +170,13 @@ class HandHoldingParticipantSerializer(serializers.ModelSerializer):
         # 🔹 Get package price (latest payment)
         latest_payment = payments.order_by("-created_at").first()
 
-        package_price = (
-            latest_payment.package.price
-            if latest_payment and latest_payment.package and latest_payment.package.price
-            else 0
-        )
+        package_price = 0
+
+        if latest_payment:  
+            package_price = sum(
+                pkg.price or 0
+                for pkg in latest_payment.package.all()
+            )
 
         # 🔹 Determine status
         if total_paid == 0:
