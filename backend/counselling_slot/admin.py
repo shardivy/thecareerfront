@@ -56,6 +56,8 @@ class BookingAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "student",
+        "program",
+        # "package",
         "slot",
         "status",
         "date",

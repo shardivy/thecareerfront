@@ -178,6 +178,12 @@ class HandHoldingRegisterAPIView(APIView):
             # =========================
             password = data.get("password")
             confirm_password = data.get("confirm_password")
+            
+            print("================================")
+            print("REGISTER DEBUG")
+            print("Password Received:", repr(password))
+            print("Confirm Password:", repr(confirm_password))
+            print("================================")
 
             if password or confirm_password:
                 if password != confirm_password:
@@ -199,16 +205,28 @@ class HandHoldingRegisterAPIView(APIView):
                     "is_active": True
                 }
             )
+            print("User Created =", created)
+            print("User ID =", user.id)
 
             if created:
-                user_password = password or generate_password()
+                user_password = password 
+                print("Password Before Hash:", repr(user_password))
                 user.set_password(user_password)
                 user.save()
+                user.refresh_from_db()
+                print(
+                    "Password Check After Save:",
+                    user.check_password(user_password)
+                )   
             else:
                 user.first_name = data.get("first_name")
                 user.last_name = data.get("last_name", "")
                 user.phone = data.get("mobile")
                 user.role = role
+                
+                if password:
+                    user.set_password(password)
+                    print("Password set for existing user")
                 user.save()
 
             # =========================
@@ -222,12 +240,13 @@ class HandHoldingRegisterAPIView(APIView):
                 date=timezone.now().date(),
                 source="website",
                 status="enquiry",
-                program=program,
+                # program=program,
 
                 # OPTIONAL FIELDS FOR HAND HOLDING
                 study_class=None,
                 specialization=None
             )
+            lead.program.add(program)
 
             # =========================
             # ✅ ASSIGN PROGRAM
@@ -1838,6 +1857,16 @@ class ParticipantSessionListAPIView(APIView):
 
                     # ✅ FIXED
                     "booking_id": booking.id if booking else None,
+                    
+                    "program": {
+                        "id": booking.program.id,
+                        "name": booking.program.name
+                    } if booking and booking.program else None,
+
+                    "package": {
+                        "id": booking.package.id,
+                        "name": booking.package.name
+                    } if booking and booking.package else None,
 
                     "student_id": student.id if student else None,
                     "student_name": (
@@ -1886,6 +1915,15 @@ class ParticipantSessionListAPIView(APIView):
                     "status": session.status,
                     "date": session.session_date,
                     "slot_id": session.slot.id if session.slot else None,
+                    "program": {
+                        "id": booking.program.id,
+                        "name": booking.program.name
+                    } if booking and booking.program else None,
+
+                    "package": {
+                        "id": booking.package.id,
+                        "name": booking.package.name
+                    } if booking and booking.package else None,
                     "start_time": session.slot.start_time if session.slot else None,
                     "end_time": session.slot.end_time if session.slot else None,
                     "counsellor": (

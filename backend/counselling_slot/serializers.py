@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 
-from program_package.models import UserProgramPackage
+from program_package.models import Package, Program, UserProgramPackage
 from report.models import Report
 from lead_registration.models import StudentProfile
 from rest_framework import serializers
@@ -20,6 +20,17 @@ class UserMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ("id", "first_name", "last_name", "email")
+
+class ProgramMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Program
+        fields = ["id", "name"]
+
+
+class PackageMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Package
+        fields = ["id", "name"]
 
 class CounsellorListSerializer(serializers.ModelSerializer):
     user = UserMiniSerializer(read_only=True)
@@ -113,6 +124,8 @@ class BookingCounsellorMiniSerializer(serializers.ModelSerializer):
 class BookingReadSerializer(serializers.ModelSerializer):
     student = StudentMiniSerializer(read_only=True)
     slot = SlotMiniSerializer(read_only=True)
+    program = ProgramMiniSerializer(read_only=True)
+    package = PackageMiniSerializer(read_only=True)
     counsellors = BookingCounsellorMiniSerializer(
         source="bookingcounsellor_set",
         many=True,
@@ -125,6 +138,8 @@ class BookingReadSerializer(serializers.ModelSerializer):
             "id",
             "student",
             "slot",
+            "program",
+            "package",
             "date",
             "status",
             "meeting_link",
@@ -138,6 +153,13 @@ class BookingReadSerializer(serializers.ModelSerializer):
 class BookingCreateSerializer(serializers.Serializer):
     student_id = serializers.PrimaryKeyRelatedField(
         queryset=StudentProfile.objects.all()
+    )
+    program = serializers.PrimaryKeyRelatedField(
+        queryset=Program.objects.all()
+    )
+
+    package = serializers.PrimaryKeyRelatedField(
+        queryset=Package.objects.all()
     )
 
     date = serializers.DateField()
@@ -173,6 +195,8 @@ class BookingCreateSerializer(serializers.Serializer):
         # =============================
         existing_booking = Booking.objects.filter(
             student=student,
+            program=data["program"],
+            package=data["package"],
             status__in=["booked", "completed", "rescheduled"]
         )
 
@@ -250,6 +274,8 @@ class BookingCreateSerializer(serializers.Serializer):
                     })
 
         return data
+    
+
 
 class StudentBookingSerializer(serializers.ModelSerializer):
     slot_date = serializers.DateField(source="slot.date", allow_null=True)
@@ -257,6 +283,16 @@ class StudentBookingSerializer(serializers.ModelSerializer):
     end_time = serializers.CharField(source="slot.end_time", allow_null=True)
     mode = serializers.CharField(source="slot.mode", allow_null=True)
     preferred_counselling_mode = serializers.CharField(source="student.preferred_counselling_mode", allow_null=True)
+    
+    program_detail = ProgramMiniSerializer(
+        source="program",
+        read_only=True
+    )
+
+    package_detail = PackageMiniSerializer(
+        source="package",
+        read_only=True
+    )
 
     counsellors = BookingCounsellorMiniSerializer(
         source="bookingcounsellor_set",
@@ -268,6 +304,8 @@ class StudentBookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = [
             "id",
+            "program_detail",
+            "package_detail",
             "slot_date",
             "start_time",
             "end_time",
@@ -290,6 +328,8 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     slot_time = serializers.SerializerMethodField()
     mode = serializers.CharField(source="slot.mode", read_only=True)
+    program = ProgramMiniSerializer(read_only=True)
+    package = PackageMiniSerializer(read_only=True)
     report_file = serializers.SerializerMethodField()
     aptitude_test = serializers.SerializerMethodField()
     engineering_test_analysis = serializers.SerializerMethodField()
@@ -308,6 +348,8 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             "date",
             "slot_time",
             "mode",
+            "program",
+            "package",
             "status",
             "report_file",
             "aptitude_test",
@@ -452,12 +494,22 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
         ).exists()
     
 class CounsellingNoteSerializer(serializers.ModelSerializer):
+    
+    program = serializers.PrimaryKeyRelatedField(
+        queryset=Program.objects.all()
+    )
+
+    package = serializers.PrimaryKeyRelatedField(
+        queryset=Package.objects.all()
+    )
 
     class Meta:
         model = CounsellingNote
         fields = [
             "id",
             "notes",
+            "program",
+            "package",
             "file1",
             "file2",
             "file3",
@@ -476,6 +528,8 @@ class CounsellingNoteSerializer(serializers.ModelSerializer):
         note = CounsellingNote.objects.create(
             booking=booking,
             counsellor=counsellor,  # will be None if user is not counsellor
+            program=validated_data.pop("program"),
+            package=validated_data.pop("package"),
             **validated_data
         )
 

@@ -23,7 +23,11 @@ class Payment(models.Model):
     )
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    package = models.ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
+    # package = models.ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
+    package = models.ManyToManyField(
+        Package,
+        blank=True
+    )
     amount = models.DecimalField(max_digits=20, decimal_places=2, null=True, blank=True)
     payment_type = models.CharField(max_length=50, choices=PAYMENTTYPE_CHOICE, null=True, blank=True)
     method = models.CharField(max_length=200, choices=METHOD_CHOICE, null=True, blank=True)

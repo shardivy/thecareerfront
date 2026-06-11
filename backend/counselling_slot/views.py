@@ -1,5 +1,6 @@
 import traceback
 
+from django.db.migrations import serializer
 from django.shortcuts import get_object_or_404, render
 from backend import settings
 from payment.models import Payment
@@ -1258,6 +1259,8 @@ class BookingCreateAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         student = serializer.validated_data["student_id"]
+        program = serializer.validated_data["program"]
+        package = serializer.validated_data["package"]
         date = serializer.validated_data["date"]
         slots = serializer.validated_data["slots"]
         counsellors = serializer.validated_data["counsellors_data"]
@@ -1271,6 +1274,8 @@ class BookingCreateAPIView(APIView):
 
                     booking = Booking.objects.create(
                         student=student,
+                        program=program,
+                        package=package,
                         slot=slot,
                         date=date,
                         status="booked"
@@ -1579,6 +1584,8 @@ class BookingCreateAPIView(APIView):
                 # new rescheduled booking
                 new_booking = Booking.objects.create(
                     student=student,
+                    program=base_booking.program,
+                    package=base_booking.package,
                     slot=slot,
                     date=date,
                     status="rescheduled"
@@ -2024,7 +2031,7 @@ class BookingCreateAPIView(APIView):
 
         if booking_id:
             booking = get_object_or_404(
-                Booking.objects.select_related("student", "slot")
+                Booking.objects.select_related("student", "slot", "program", "package")
                 .prefetch_related(
                     "bookingcounsellor_set__counsellor__user"
                 ),
@@ -2046,7 +2053,7 @@ class BookingCreateAPIView(APIView):
         # =============================
 
         bookings = Booking.objects.select_related(
-            "student", "slot"
+            "student", "slot", "program", "package"
         ).prefetch_related(
             "bookingcounsellor_set__counsellor__user"
         ).order_by("-created_at")
@@ -2856,7 +2863,9 @@ class CounsellorStudentBookingListAPIView(APIView):
             status__in=["booked", "completed", "rescheduled"]
         ).select_related(
             "student__user",
-            "slot"
+            "slot",
+            "program",
+            "package"
         ).prefetch_related(
             "bookingcounsellor_set__counsellor__user"
         ).distinct().order_by("-date")
@@ -2922,7 +2931,7 @@ class CounsellorStudentBookingListAPIView(APIView):
             file_url = None
             file_name = None
 
-            if report.file_path:
+            if report and report.file_path:
                 try:
                     # ✅ Actual uploaded file name
                     file_name = os.path.basename(report.file_path.name)
@@ -2954,7 +2963,9 @@ class CounsellorCompletedStudentBookingListAPIView(APIView):
             status="completed"
         ).select_related(
             "student__user",
-            "slot"
+            "slot",
+            "program",
+            "package"
         ).prefetch_related(
             "bookingcounsellor_set__counsellor__user"
         ).distinct().order_by("-date")

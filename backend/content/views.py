@@ -253,8 +253,11 @@ class ContentFileView(APIView):
         response = FileResponse(
             file,
             content_type=mime_type or "application/octet-stream",
-            as_attachment=True,   # Force download
+            # as_attachment=True,   # Force download
             filename=filename
+        )
+        response["Content-Disposition"] = (
+            f'inline; filename="{filename}"'
         )
 
         response["X-Frame-Options"] = "ALLOWALL"
@@ -426,3 +429,6 @@ class ProgramContentAPIView(APIView):
             "count": contents.count(),
             "data": serializer.data
         })
+        
+        
+        

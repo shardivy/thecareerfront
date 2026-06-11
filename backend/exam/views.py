@@ -23,7 +23,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils.timezone import now
 
-from program_package.models import Package, PackageExam
+from program_package.models import Package, PackageExam, UserProgramPackage
 
 class ExamCreateAPIView(APIView):
     """
@@ -396,15 +396,36 @@ class ApproveUserExamAPIView(APIView):
             user_exam.completed_at,
             description
         )
+        
+        print("user",user_exam.user.id)
+        print("exam",user_exam.exam)
 
         # ✅ CREATE / GET REPORT
+        # report, _ = Report.objects.get_or_create(
+        #     user=user_exam.user,
+        #     exam=user_exam.exam,
+        #     defaults={
+        #         "report_status": "not_received",
+        #         "review_required": False,
+        #     }
+        # )
+        # Get user's program/package
+        user_program = UserProgramPackage.objects.filter(
+            user=user_exam.user,
+            package__aptitude_test=True
+        ).select_related(
+            "program",
+            "package"
+        ).order_by("-id").first()
+
+        # Create report
         report, _ = Report.objects.get_or_create(
             user=user_exam.user,
+            program=user_program.program if user_program else None,
+            package=user_program.package if user_program else None,
             exam=user_exam.exam,
-            defaults={
-                "report_status": "not_received",
-                "review_required": False,
-            }
+            report_status="not_received",
+            review_required=False,
         )
 
         serializer = UserExamApproveResponseSerializer(user_exam)
