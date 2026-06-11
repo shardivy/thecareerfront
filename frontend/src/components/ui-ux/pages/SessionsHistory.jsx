@@ -70,8 +70,11 @@ const SessionsHistory = () => {
       date: item.date,
       startTime: item.slot_time || "",
       preferred_counselling_mode: preferredMode,
-
       status: item.status,
+      programId: item.program?.id || null,
+      packageId: item.package?.id || null,
+      programName: item.program?.name || "-",
+      packageName: item.package?.name || "-",
     };
   });
   /* ================= STATES ================= */
@@ -117,6 +120,7 @@ const SessionsHistory = () => {
     {
       title: "User Name",
       dataIndex: "studentName",
+      width: 150,
       render: (text, record) => (
         <div>
           <div style={{ fontWeight: 600 }}>{record.studentName}</div>
@@ -125,14 +129,33 @@ const SessionsHistory = () => {
       ),
     },
     {
+      title: "Program / Service",
+      key: "programService",
+      width: 180,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600 }}>
+            {record.programName}
+          </div>
+
+          <div
+            tyle="colorTextSecondary"
+          >
+            {record.packageName}
+          </div>
+        </div>
+      ),
+    },
+    {
       title: "Date",
       dataIndex: "date",
+      width: 160,
       render: (date) => dayjs(date).format("DD-MM-YYYY"),
     },
-   {
-  title: "Slot Time",
-  dataIndex: "startTime",
-},
+    {
+      title: "Slot Time",
+      dataIndex: "startTime",
+    },
     {
       title: "Preferred Counselling Mode",
       dataIndex: "preferred_counselling_mode",
@@ -265,7 +288,7 @@ const SessionsHistory = () => {
                 });
               },
             }}
-            scroll={{ x: 800 }}
+            scroll={{ x: 1000 }}
           />
         </div>
       </Card>

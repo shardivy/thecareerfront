@@ -34,6 +34,7 @@ import {
   deleteCounsellingFile
 } from "../../../adminSlices/counsellorSlice";
 import jsPDF from "jspdf";
+import UploadContentModal from "../../counsellor/modals/UploadContentModal";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -46,6 +47,7 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
   const [discussion, setDiscussion] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [editMode, setEditMode] = useState(false);
+  const [contentModalOpen, setContentModalOpen] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -61,21 +63,21 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
   };
 
   const cleanFileName = (url) => {
-  if (!url) return "file";
+    if (!url) return "file";
 
-  let name = url.split("/").pop();
+    let name = url.split("/").pop();
 
-  // remove query params if any
-  name = name.split("?")[0];
+    // remove query params if any
+    name = name.split("?")[0];
 
-  // truncate long names
-  if (name.length > 25) {
-    const ext = name.split(".").pop();
-    name = name.substring(0, 18) + "..." + ext;
-  }
+    // truncate long names
+    if (name.length > 25) {
+      const ext = name.split(".").pop();
+      name = name.substring(0, 18) + "..." + ext;
+    }
 
-  return name;
-};
+    return name;
+  };
 
   /* LOAD NOTES */
   useEffect(() => {
@@ -89,18 +91,18 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
 
       setUploadedFiles(
         filesArray.map((file, index) => ({
-         name: cleanFileName(file.url) || `File-${index + 1}`,
+          name: cleanFileName(file.url) || `File-${index + 1}`,
           url: file.url,
-type:
-  file.url.endsWith(".pdf")
-    ? "application/pdf"
-    : file.url.match(/\.(jpg|jpeg|png|gif)$/i)
-    ? "image/*"
-    : file.url.match(/\.(doc|docx)$/i)
-    ? "word"
-    : file.url.match(/\.(xls|xlsx)$/i)
-    ? "excel"
-    : "other",
+          type:
+            file.url.endsWith(".pdf")
+              ? "application/pdf"
+              : file.url.match(/\.(jpg|jpeg|png|gif)$/i)
+                ? "image/*"
+                : file.url.match(/\.(doc|docx)$/i)
+                  ? "word"
+                  : file.url.match(/\.(xls|xlsx)$/i)
+                    ? "excel"
+                    : "other",
           key: file.key, // store backend key
         }))
       );
@@ -121,7 +123,7 @@ type:
       studentName: session.studentName || "N/A",
       email: session.studentEmail || "N/A",
       phone: session.studentPhone || "N/A",
-    
+
       counsellorList: Array.isArray(session.counsellorList)
         ? session.counsellorList.map((c) => capitalizeName(c.counsellor_name))
         : [],
@@ -173,38 +175,38 @@ type:
 
     multiple: true,
 
-   beforeUpload: (file) => {
-  const isAllowed =
-    file.type === "application/pdf" ||
-    file.type.startsWith("image/") ||
+    beforeUpload: (file) => {
+      const isAllowed =
+        file.type === "application/pdf" ||
+        file.type.startsWith("image/") ||
 
-    // ✅ ADD THESE
-    file.type === "application/msword" || // .doc
-    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || // .docx
-    file.type === "application/vnd.ms-excel" || // .xls
-    file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // .xlsx
+        // ✅ ADD THESE
+        file.type === "application/msword" || // .doc
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || // .docx
+        file.type === "application/vnd.ms-excel" || // .xls
+        file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; // .xlsx
 
-  if (!isAllowed) {
-    message.error("Only PDF, Image, Word, and Excel files allowed!");
-    return Upload.LIST_IGNORE;
-  }
+      if (!isAllowed) {
+        message.error("Only PDF, Image, Word, and Excel files allowed!");
+        return Upload.LIST_IGNORE;
+      }
 
-  const fileUrl = URL.createObjectURL(file);
+      const fileUrl = URL.createObjectURL(file);
 
-  setUploadedFiles((prev) => [
-    ...prev,
-    {
-      name: file.name,
-      url: fileUrl,
-      type: file.type,
-      originFileObj: file,
+      setUploadedFiles((prev) => [
+        ...prev,
+        {
+          name: file.name,
+          url: fileUrl,
+          type: file.type,
+          originFileObj: file,
+        },
+      ]);
+
+      return false;
     },
-  ]);
-
-  return false;
-},
     showUploadList: false,
-accept: "application/pdf,image/*,.doc,.docx,.xls,.xlsx",
+    accept: "application/pdf,image/*,.doc,.docx,.xls,.xlsx",
 
   };
 
@@ -249,6 +251,8 @@ accept: "application/pdf,image/*,.doc,.docx,.xls,.xlsx",
   const handleSave = async () => {
     const formData = new FormData();
     formData.append("notes", discussion);
+    formData.append("program", session?.programId);
+    formData.append("package", session?.packageId);
 
     // Only append NEW uploaded files
     uploadedFiles.slice(0, 5).forEach((file, index) => {
@@ -387,11 +391,20 @@ accept: "application/pdf,image/*,.doc,.docx,.xls,.xlsx",
                 <>
                   <Divider />
 
-                  <Upload {...uploadProps}>
-                    <Button icon={<UploadOutlined />}>
-                    Upload Files
-                    </Button>
-                  </Upload>
+                  <Space>
+                    <Upload {...uploadProps}>
+                      <Button icon={<UploadOutlined />}>
+                        Upload Files
+                      </Button>
+                    </Upload>
+
+                    {/* <Button
+                      type="default"
+                      onClick={() => setContentModalOpen(true)}
+                    >
+                      Upload From Content Library
+                    </Button> */}
+                  </Space>
                 </>
               )}
 
@@ -483,6 +496,27 @@ accept: "application/pdf,image/*,.doc,.docx,.xls,.xlsx",
 
             </Card>
           </Col>
+
+
+          <UploadContentModal
+            open={contentModalOpen}
+            onCancel={() => setContentModalOpen(false)}
+            onSubmit={(content) => {
+              // console.log("Selected Content:", content);
+
+              // Add selected content to uploaded files list
+              setUploadedFiles((prev) => [
+                ...prev,
+                {
+                  name: content.title,
+                  url: content.file_url,
+                  type: "application/pdf",
+                },
+              ]);
+
+              setContentModalOpen(false);
+            }}
+          />
 
         </Row>
       </div>

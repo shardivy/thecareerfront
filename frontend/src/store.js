@@ -40,6 +40,7 @@ import landingPageReducer from "./adminSlices/landingPageSlice";
 import certificateReducer from "./hhSlices/certificateSlice";
 import advertisementReducer from "./adminSlices/advertisementSlice";
 import eventReducer from "./adminSlices/eventSlice";
+import studentSelectionReducer from "./adminSlices/studentSelectionSlice";
 
 
 const store = configureStore({
@@ -77,6 +78,8 @@ const store = configureStore({
         landingPage: landingPageReducer,
         advertisement: advertisementReducer,
         event: eventReducer,
+
+        studentSelection: studentSelectionReducer,
 
         hhRegister: hhRegisterReducer,
         hhSession: handholdingSessionReducer,

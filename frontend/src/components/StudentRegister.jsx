@@ -52,8 +52,6 @@ const StudentRegister = () => {
   const [parentNameFromApi, setParentNameFromApi] = useState("");
 
   const selectedProgram = Form.useWatch("program", form);
-  const hideParentSection = selectedProgram === "Hand Holding Program";
-
 
   // Redux selectors
   const {
@@ -61,9 +59,16 @@ const StudentRegister = () => {
     verifyOtpLoading,
     registerLoading
   } = useSelector((state) => state.student || {});
-  const { activeList: programList, loading: programsLoading } = useSelector(
+  const { activeList: programList = [], loading: programsLoading } = useSelector(
     (state) => state.programs
   );
+  const handHoldingProgramId = programList.find((p) => p.name === "Hand Holding Program")?.id;
+  const hideParentSection = handHoldingProgramId
+    ? Array.isArray(selectedProgram)
+      ? selectedProgram.includes(handHoldingProgramId)
+      : selectedProgram === handHoldingProgramId
+    : false;
+
   const { streamList, loading: streamsLoading } = useSelector(
     (state) => state.streams
   );
@@ -189,15 +194,20 @@ const StudentRegister = () => {
   };
 
   const onFinish = (values) => {
-    const isHandHolding = values.program === "Hand Holding Program";
+    const selectedProgramIds = Array.isArray(values.program)
+      ? values.program
+      : [values.program];
+    const isHandHolding = handHoldingProgramId
+      ? selectedProgramIds.includes(handHoldingProgramId)
+      : false;
 
     // 👉 HAND HOLDING FLOW
     if (isHandHolding) {
       const formData = new FormData();
 
       // split name safely
-    const firstName = values.firstName || "";
-const lastName = values.lastName || "";
+      const firstName = values.firstName || "";
+      const lastName = values.lastName || "";
 
       formData.append("first_name", firstName);
       formData.append("last_name", lastName);
@@ -212,8 +222,14 @@ const lastName = values.lastName || "";
         values.preferred_counselling_mode || ""
       );
 
+      formData.append("password", values.password || "");
+      formData.append("confirm_password", values.confirmPassword || "");
+
       // optional (if needed by backend)
-      formData.append("program", values.program);
+      const programValue = Array.isArray(values.program)
+        ? JSON.stringify(values.program)
+        : values.program;
+      formData.append("program", programValue);
 
       dispatch(registerHH(formData))
         .unwrap()
@@ -243,7 +259,9 @@ const lastName = values.lastName || "";
       parent_mobile: values.parentMobile,
       parent_email: values.parentEmail,
       parent_name: values.parentName,
-      program: programList.find((p) => p.name === values.program)?.id,
+      program: Array.isArray(values.program)
+        ? values.program
+        : [values.program],
       password: values.password,
       confirm_password: values.confirmPassword,
     };
@@ -325,7 +343,7 @@ const lastName = values.lastName || "";
             {/* RIGHT FORM PANEL */}
             <Col xs={24} md={14} style={{ padding: "48px 40px", background: "#fff", borderRadius: "0 24px 24px 0" }}>
               {/* LOGO + TITLE */}
-                    <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 16 }}>
                 <img
                   src="/Abhinav-logo.jpg"
                   alt="Career Counselling"
@@ -339,7 +357,7 @@ const lastName = values.lastName || "";
 
                 <div
                   style={{
-                    fontSize: 28,   // bigger like Title
+                    fontSize: 28,
                     fontWeight: 700,
                     color: "#1E40AF",
                   }}
@@ -348,7 +366,7 @@ const lastName = values.lastName || "";
                 </div>
 
                 <Title
-                  level={3}   // smaller title
+                  level={3}
                   style={{
                     marginTop: 12,
                     marginBottom: 24,
@@ -396,22 +414,24 @@ const lastName = values.lastName || "";
 
                 <Row gutter={16}>
                   <Col md={24}>
-                    <Form.Item
-                      label="Interested Program"
-                      name="program"
-                      rules={[{ required: true }]}
-                    >
+                    <Form.Item label="Interested Program" name="program" rules={[{ required: true }]}>
                       <Select
+                        key={hideParentSection ? "single" : "multiple"}  // ✅ forces remount on mode change
                         size="large"
-                        placeholder={
-                          programsLoading
-                            ? "Loading programs..."
-                            : "Select Interested Program"
-                        }
+                        mode={hideParentSection ? undefined : "multiple"}
+                        placeholder={programsLoading ? "Loading programs..." : "Select Interested Programs"}
                         loading={programsLoading}
+                        allowClear
+                        onChange={(value) => {
+                          // When switching to HH (single), clear field then set
+                          if (value === handHoldingProgramId ||
+                            (Array.isArray(value) && value.includes(handHoldingProgramId))) {
+                            form.setFieldsValue({ program: handHoldingProgramId });
+                          }
+                        }}
                       >
                         {programList.map((program) => (
-                          <Option key={program.id} value={program.name}>
+                          <Option key={program.id} value={program.id}>
                             {program.name}
                           </Option>
                         ))}
@@ -421,107 +441,107 @@ const lastName = values.lastName || "";
                 </Row>
 
                 <Divider orientation="left">Student Details</Divider>
-            <Row gutter={16}>
-  <Col md={12}>
-    <Form.Item
-      label="First Name"
-      name="firstName"
-      rules={[{ required: true, message: "Enter first name" }]}
-    >
-      <Input size="large" prefix={<UserOutlined />} />
-    </Form.Item>
-  </Col>
+                <Row gutter={16}>
+                  <Col md={12}>
+                    <Form.Item
+                      label="First Name"
+                      name="firstName"
+                      rules={[{ required: true, message: "Enter first name" }]}
+                    >
+                      <Input size="large" prefix={<UserOutlined />} />
+                    </Form.Item>
+                  </Col>
 
-  <Col md={12}>
-    <Form.Item
-      label="Last Name"
-      name="lastName"
-      rules={[{ required: true, message: "Enter last name" }]}
-    >
-      <Input size="large" prefix={<UserOutlined />} />
-    </Form.Item>
-  </Col>
-</Row>
+                  <Col md={12}>
+                    <Form.Item
+                      label="Last Name"
+                      name="lastName"
+                      rules={[{ required: true, message: "Enter last name" }]}
+                    >
+                      <Input size="large" prefix={<UserOutlined />} />
+                    </Form.Item>
+                  </Col>
+                </Row>
 
-                
-{hideParentSection && (
-  <Row gutter={16}>
-    <Col xs={24} md={12}>
-      <Form.Item
-        label="Email"
-        name="email"
-        rules={[{ type: "email", required: true }]}
-      >
-        <Input size="large" prefix={<MailOutlined />} />
-      </Form.Item>
-    </Col>
 
-    <Col xs={24} md={12}>
-      <Form.Item
-        label="Mobile Number"
-        name="mobile"
-        rules={[{ required: true, message: "Enter mobile number" }]}
-      >
-        <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
-      </Form.Item>
-    </Col>
-  </Row>
-)}
-{!hideParentSection && (
-  <>
-    <Row gutter={16}>
-      <Col xs={24} md={12}>
-        <Form.Item label="Date of Birth" name="dob">
-          <DatePicker size="large" style={{ width: "100%" }} />
-        </Form.Item>
-      </Col>
+                {hideParentSection && (
+                  <Row gutter={16}>
+                    <Col xs={24} md={12}>
+                      <Form.Item
+                        label="Email"
+                        name="email"
+                        rules={[{ type: "email", required: true }]}
+                      >
+                        <Input size="large" prefix={<MailOutlined />} />
+                      </Form.Item>
+                    </Col>
 
-      <Col xs={24} md={12}>
-        <Form.Item
-          label="Email"
-          name="email"
-          rules={[{ type: "email", required: true }]}
-        >
-          <Input size="large" prefix={<MailOutlined />} />
-        </Form.Item>
-      </Col>
-    </Row>
+                    <Col xs={24} md={12}>
+                      <Form.Item
+                        label="Mobile Number"
+                        name="mobile"
+                        rules={[{ required: true, message: "Enter mobile number" }]}
+                      >
+                        <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                )}
+                {!hideParentSection && (
+                  <>
+                    <Row gutter={16}>
+                      <Col xs={24} md={12}>
+                        <Form.Item label="Date of Birth" name="dob">
+                          <DatePicker size="large" style={{ width: "100%" }} />
+                        </Form.Item>
+                      </Col>
 
-    <Row gutter={16}>
-      <Col xs={24} md={12}>
-        <Form.Item label="Mobile Number" name="mobile">
-          <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
-        </Form.Item>
-      </Col>
+                      <Col xs={24} md={12}>
+                        <Form.Item
+                          label="Email"
+                          name="email"
+                          rules={[{ type: "email", required: true }]}
+                        >
+                          <Input size="large" prefix={<MailOutlined />} />
+                        </Form.Item>
+                      </Col>
+                    </Row>
 
-{!hideParentSection && (
-      <Col xs={24} md={12}>
-    <Form.Item
-      label="Class"
-      name="class"
-      rules={[{ required: true }]}
-    >
-      <Select
-        size="large"
-        placeholder="Select Class"
-        onChange={(value) => {
-          const specs = specializationMap[value] || [];
-          setSpecializationOptions(specs);
-          form.setFieldsValue({ specialization: undefined });
-        }}
-      >
-        {classOptions.map((cls) => (
-          <Option key={cls} value={cls}>
-            {cls}
-          </Option>
-        ))}
-      </Select>
-    </Form.Item>
-  </Col>
-)}
-    </Row>
-  </>
-)}
+                    <Row gutter={16}>
+                      <Col xs={24} md={12}>
+                        <Form.Item label="Mobile Number" name="mobile">
+                          <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
+                        </Form.Item>
+                      </Col>
+
+                      {!hideParentSection && (
+                        <Col xs={24} md={12}>
+                          <Form.Item
+                            label="Class"
+                            name="class"
+                            rules={[{ required: true }]}
+                          >
+                            <Select
+                              size="large"
+                              placeholder="Select Class"
+                              onChange={(value) => {
+                                const specs = specializationMap[value] || [];
+                                setSpecializationOptions(specs);
+                                form.setFieldsValue({ specialization: undefined });
+                              }}
+                            >
+                              {classOptions.map((cls) => (
+                                <Option key={cls} value={cls}>
+                                  {cls}
+                                </Option>
+                              ))}
+                            </Select>
+                          </Form.Item>
+                        </Col>
+                      )}
+                    </Row>
+                  </>
+                )}
 
 
 

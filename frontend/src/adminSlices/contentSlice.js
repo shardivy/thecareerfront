@@ -16,7 +16,6 @@ export const uploadContent = createAsyncThunk(
   }
 );
 
-
 // ================= UPDATE THUNK =================
 export const updateContent = createAsyncThunk(
   "content/updateContent",

@@ -53,7 +53,7 @@ export const updatePaymentApi = async (id, payload) => {
     payload,
     {
       headers: {
-        "Content-Type": "multipart/form-data", // needed if receipt is updated
+        "Content-Type": "multipart/form-data", 
       },
     }
   );

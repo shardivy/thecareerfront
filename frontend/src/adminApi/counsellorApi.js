@@ -27,6 +27,15 @@ export const fetchLeadCounsellorsApi = async () => {
   return response.data;
 };
 
+/*** Fetch all counsellors */
+export const fetchAllCounsellorsApi = async () => {
+  const response = await axiosInstance.get(
+    "/counselling_slot/counsellors/all/"
+  );
+
+  return response.data;
+};
+
 // Fetch my students from the new endpoint
 export const getMyStudentsNewApi = async () => {
   const response = await axiosInstance.get(
@@ -42,6 +51,7 @@ export const getMyStudentsApi = async () => {
 
   return response.data; 
 };
+
 
 /*** Fetch counsellor bookings (session history UIUX) */
 export const fetchCounsellorBookingsApi = async () => {

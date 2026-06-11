@@ -9,8 +9,6 @@ export const loginUser = createAsyncThunk(
   async (payload, { rejectWithValue }) => {
     try {
       const data = await loginApi(payload);
-
-      // ✅ HANDLE BACKEND ERROR PROPERLY
       if (data.error) {
         return rejectWithValue(data.error);
       }
@@ -21,6 +19,11 @@ export const loginUser = createAsyncThunk(
       localStorage.setItem(
         "userEmail",
         data.user.email || data.user.Email || ""
+      );
+
+      localStorage.setItem(
+        "programPackages",
+        JSON.stringify(data.program_packages || [])
       );
 
       return data;
@@ -41,7 +44,7 @@ const authSlice = createSlice({
     loading: false,
     error: null,
     success: false,
-    successMessage: null, 
+    successMessage: null,
     complete_profile: null,
   },
   reducers: {
@@ -58,7 +61,7 @@ const authSlice = createSlice({
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
-        state.success = false; 
+        state.success = false;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
@@ -67,9 +70,9 @@ const authSlice = createSlice({
         state.user = action.payload.user || null;
         state.accessToken = action.payload.access;
 
-          // ✅ STORE COMPLETE PROFILE
+        // ✅ STORE COMPLETE PROFILE
         state.complete_profile = action.payload.complete_profile;
-          state.is_handholding = action.payload.is_handholding;
+        state.is_handholding = action.payload.is_handholding;
 
         // ✅ store backend message
         state.successMessage = action.payload.message || "Login successful";

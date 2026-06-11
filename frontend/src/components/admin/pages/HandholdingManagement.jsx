@@ -962,7 +962,7 @@ const handleSendReminder = (record) => {
             window.URL.revokeObjectURL(url);
 
           } catch (err) {
-            console.error(err);
+            // console.error(err);
           }
         };
 

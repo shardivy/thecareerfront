@@ -45,19 +45,6 @@ const ViewReportModal = ({ open, onCancel, data, mode }) => {
   const isBulkMode = mode === "bulkUpload";
   const isUploadMode = mode === "upload";
 
-  /* ---------------- LOG MODE WHEN MODAL OPENS ---------------- */
-  useEffect(() => {
-    if (open) {
-      console.log("📱 MODAL OPENED");
-      console.log("📋 Mode:", mode);
-      console.log("📊 Data received:", data);
-      console.log("🎭 Mode details:");
-      console.log("  - isEditMode:", isEditMode);
-      console.log("  - isViewMode:", isViewMode);
-      console.log("  - isBulkMode:", isBulkMode);
-      console.log("  - isUploadMode:", isUploadMode);
-    }
-  }, [open, mode, data, isEditMode, isViewMode, isBulkMode, isUploadMode]);
 
   /* ---------------- PREFILL ---------------- */
   useEffect(() => {
@@ -81,14 +68,10 @@ const fileName = getDisplayFileName(data);
           url: data.file_path,
         },
       ]);
-      console.log("📄 Existing file found:", data.file_path);
-      console.log("📄 File name:", fileName);
-      console.log("📄 Is PDF:", isPdf);
     } else {
       setPreviewUrl("");
       setIsPdfFile(false);
       setFileList([]);
-      console.log("📄 No existing file");
     }
 
     setUploadedFile(null);
@@ -109,8 +92,6 @@ const fileName = getDisplayFileName(data);
       return Upload.LIST_IGNORE;
     }
 
-    console.log("📁 File selected:", file.name);
-    console.log("📁 File type:", file.type);
 
     const isPdf = file.type === "application/pdf";
     setIsPdfFile(isPdf);
@@ -122,7 +103,6 @@ const fileName = getDisplayFileName(data);
   };
 
   const handleRemove = () => {
-    console.log("🗑️ File removed");
     setUploadedFile(null);
     setPreviewUrl("");
     setIsPdfFile(false);
@@ -155,10 +135,8 @@ const fileName = getDisplayFileName(data);
 
   /* ---------------- DOWNLOAD ---------------- */
   const handleDownload = async () => {
-    console.log("⬇️ Download initiated");
     if (!previewUrl) {
-      console.log("❌ No file to download");
-      return;
+          return;
     }
 
     try {
@@ -181,30 +159,22 @@ const fileName = getDisplayFileName(data);
 
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      console.log("✅ Download successful");
       message.success("Report downloaded successfully");
     } catch (error) {
-      console.error("❌ Download failed:", error);
-      message.error("Failed to download report");
+          message.error("Failed to download report");
     }
   };
 
 
   /* ---------------- UPLOAD / UPDATE ---------------- */
   const handleSubmit = async () => {
-    console.log("🚀 Submit button clicked");
-    console.log("🎭 Current mode on submit:", mode);
-    console.log("📦 Uploaded file:", uploadedFile?.name || "None");
-    console.log("🔗 Preview URL exists:", !!previewUrl);
 
     if (isUploadMode && !uploadedFile) {
-      console.log("⚠️ Upload mode requires file but none selected");
       message.warning("Please select a PDF file");
       return;
     }
 
     if (isEditMode && !uploadedFile && !previewUrl) {
-      console.log("⚠️ Edit mode requires file but none exists or selected");
       message.warning("Please upload a file or keep the existing one");
       return;
     }
@@ -215,10 +185,7 @@ const fileName = getDisplayFileName(data);
       if (uploadedFile) {
         // Case 1: New file is uploaded - send as binary
         formData.append("file_path", uploadedFile);
-        console.log("➕ Added new file (binary):", uploadedFile.name);
       } else if (isEditMode && data?.file_path) {
-        // Case 2: No new file, but we have existing file - fetch and send it
-        console.log("📥 Fetching existing file from:", data.file_path);
 
         try {
           // Fetch the existing file
@@ -231,9 +198,7 @@ const fileName = getDisplayFileName(data);
 
           // Append to formData
           formData.append("file_path", existingFile);
-          console.log("➕ Added existing file (binary):", fileName, `size: ${existingFile.size} bytes`);
-        } catch (fetchError) {
-          console.error("❌ Failed to fetch existing file:", fetchError);
+         } catch (fetchError) {
           message.error("Failed to process existing file");
           setLoading(false);
           return;
@@ -257,7 +222,6 @@ const fileName = getDisplayFileName(data);
       let response;
       if (isUploadMode) {
         // For upload mode, use uploadReport
-        console.log("📤 Using uploadReport API");
         response = await dispatch(
           uploadReport({
             reportId: data.id,
@@ -266,7 +230,7 @@ const fileName = getDisplayFileName(data);
         ).unwrap();
       } else if (isEditMode) {
         // For edit mode, use updateReport
-        console.log("📤 Using updateReport API");
+
         response = await dispatch(
           updateReport({
             reportId: data.id,
@@ -279,7 +243,6 @@ const fileName = getDisplayFileName(data);
         ? "Report uploaded successfully"
         : "Report updated successfully";
 
-      console.log("✅ " + successMessage, response);
       message.success(successMessage);
 
       // Refresh the reports list
@@ -288,24 +251,18 @@ const fileName = getDisplayFileName(data);
       // Close the modal
       onCancel();
     } catch (error) {
-      console.error("❌ Operation failed:", error);
-      console.error("Error details:", error.response?.data || error.message);
       message.error("Operation failed: " + (error.response?.data?.message || "Please try again"));
     } finally {
       setLoading(false);
     }
   };
-  /* ---------------- LOG WHEN MODE CHANGES ---------------- */
-  useEffect(() => {
-    console.log("🔄 Mode changed to:", mode);
-  }, [mode]);
+
 
   return (
     <Modal
       open={open}
       onCancel={() => {
-        console.log("❌ Modal closed");
-        onCancel();
+           onCancel();
       }}
       footer={null}
       width={720}

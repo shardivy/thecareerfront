@@ -3,12 +3,9 @@ import axiosInstance from "../axiosInstance";
 // 📥 Get College List Analysis (User Requests)
 export const getCollegeListAnalysisApi = async ({ studentId, tab } = {}) => {
   let url = "/program-package/college-list-analysis/";
-
-  // ✅ add query params only when needed
   if (tab === "draft" && studentId) {
     url += `?tab=draft&student_id=${studentId}`;
   }
-
   const response = await axiosInstance.get(url);
   return response.data;
 };
@@ -34,9 +31,9 @@ export const startCollegeAnalysisApi = async (studentId) => {
 // ✏️ UPDATE ANSWERS API
 export const updateAnswersApi = async ({ studentId, answers }) => {
   const response = await axiosInstance.put(
-    `/program-package/answers/update/${studentId}/`, // ✅ FIXED
+    `/program-package/answers/update/${studentId}/`, 
     {
-      answers, // ✅ ONLY answers in body
+      answers, 
     }
   );
   return response.data;
@@ -82,9 +79,8 @@ export const updateAnalysisReportApi = async (id, file, isExisting) => {
   let payload;
 
   if (isExisting) {
-    // ✅ send existing file path (NO FormData)
     payload = {
-      file_path: file, // existing URL
+      file_path: file, 
     };
 
     const response = await axiosInstance.put(
@@ -94,7 +90,6 @@ export const updateAnalysisReportApi = async (id, file, isExisting) => {
 
     return response.data;
   } else {
-    // ✅ send new file
     const formData = new FormData();
     formData.append("file_path", file);
 

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import {
   Modal,
@@ -100,8 +99,8 @@ const UploadContentModal = ({
 
   const isEditMode = !!initialValues;
   const isFree = Form.useWatch("is_free", form);
-  // const showAccessControls = Form.useWatch("show_access_controls", form);
-  // const shouldShowAccessControls = showAccessControls !== undefined ? showAccessControls : true;
+  const showAccessControls = Form.useWatch("show_access_controls", form);
+  const shouldShowAccessControls = showAccessControls !== undefined ? showAccessControls : true;
 
   /* ---------------- LOG MODE WHEN MODAL OPENS ---------------- */
   // useEffect(() => {
@@ -858,7 +857,7 @@ const UploadContentModal = ({
             <Col
               xs={24}
               sm={24}
-              md={selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) ? 12 : 24}
+              md={selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) ? 8 : 24}
             >
               <Form.Item
                 label="Assign to Program"
@@ -914,7 +913,7 @@ const UploadContentModal = ({
             {/* Package Field */}
             {selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) && (
               <>
-                <Col xs={24} sm={24} md={12}>
+                <Col xs={24} sm={24} md={8}>
                   <Form.Item
                     label="Counselling Service"
                     name="package"
@@ -946,11 +945,16 @@ const UploadContentModal = ({
                   </Form.Item>
                 </Col>
 
-                {/* <Col xs={24} sm={24} md={8}>
+                <Col xs={24} sm={24} md={8}>
                   <Form.Item
                     label="Stream"
                     name="stream"
-                    
+                    // rules={[
+                    //   {
+                    //     required: true,
+                    //     message: "Please select a stream",
+                    //   },
+                    // ]}
                   >
                     <Select
                       placeholder={streamsLoading ? "Loading streams..." : "Select Stream"}
@@ -971,7 +975,7 @@ const UploadContentModal = ({
                       )}
                     </Select>
                   </Form.Item>
-                </Col> */}
+                </Col>
               </>
             )}
           </Row>
@@ -1040,7 +1044,7 @@ const UploadContentModal = ({
             </Row>
           </div>
 
-          {/* <Form.Item
+          <Form.Item
             label="Make accessible to all users?"
             name="show_access_controls"
             valuePropName="checked"
@@ -1050,10 +1054,10 @@ const UploadContentModal = ({
               unCheckedChildren="No"
               disabled={viewMode}
             />
-          </Form.Item> */}
+          </Form.Item>
 
-                <div style={{ display: "flex", gap: 40 }}>
-                  
+          {shouldShowAccessControls && (
+            <div style={{ display: "flex", gap: 40 }}>
               <Form.Item
                 label="Full Payment Required"
                 name="full_payment"
@@ -1079,7 +1083,7 @@ const UploadContentModal = ({
                 />
               </Form.Item>
             </div>
-        
+          )}
         </Form>
       </div>
     </Modal>

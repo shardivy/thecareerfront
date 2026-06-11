@@ -198,7 +198,7 @@ const HhSession = () => {
       startTime: item.start_time || null,
       endTime: item.end_time || null,
 
-     time: item.start_time || "N/A",
+      time: item.start_time || "N/A",
 
       title: `Session ${index + 1}`,
 
@@ -225,6 +225,12 @@ const HhSession = () => {
       show_profile:
         item?.show_profile === true ||
         item?.show_profile === "true",
+
+      programId: item?.program?.id || null,
+      programName: item?.program?.name || null,
+
+      packageId: item?.package?.id || null,
+      packageName: item?.package?.name || null,
     };
   });
 
@@ -645,6 +651,8 @@ const HhSession = () => {
             ...selectedSession,
             id: selectedSession?.booking_id,
             counsellorList: selectedSession?.counsellor || [],
+            // program: selectedSession?.program || "N/A",
+            // package: selectedSession?.package || "N/A",
           }}
           onClose={() => setNotesModal(false)}
           isViewMode={!!notes?.[selectedSession?.booking_id]}

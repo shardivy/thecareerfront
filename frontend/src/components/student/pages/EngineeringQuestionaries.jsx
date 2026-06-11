@@ -277,7 +277,7 @@ const handleResume = () => {
          onSubmit={(answers) => {
   const studentId = localStorage.getItem("studentId");
 
-  console.log("User Answers:", answers);
+  // console.log("User Answers:", answers);
 
   setModalOpen(false);
 

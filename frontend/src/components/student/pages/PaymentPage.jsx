@@ -324,7 +324,7 @@ const PaymentPage = () => {
                   <div style={{ marginTop: 10 }}>
                     <Alert
                       type="success"
-                      message="Payment already uploaded successfully - awaiting admin verification"
+                      message="Payment uploaded successfully - awaiting admin verification"
                       showIcon
                     />
                   </div>

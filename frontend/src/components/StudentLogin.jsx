@@ -23,7 +23,7 @@ const StudentLogin = () => {
   const navigate = useNavigate();
 
   const onFinish = (values) => {
-    console.log("Login Values:", values);
+    // console.log("Login Values:", values);
     navigate("/student/student-profile");
   };
 

@@ -328,12 +328,9 @@ const ReportsManagement = () => {
               type="primary"
               icon={<UploadOutlined />}
               onClick={() => {
-                console.log("📤 Upload button clicked for:", record.name);
-                console.log("📋 Setting modal mode to: upload");
-                setSelectedReport(record);
+                        setSelectedReport(record);
                 setModalMode("upload"); // FIXED: Changed from "edit" to "upload"
                 setOpenViewModal(true);
-                console.log("✅ Modal opened with mode:", "upload");
               }}
             >
               Upload
@@ -380,12 +377,9 @@ const ReportsManagement = () => {
               <Button
                 icon={<EditOutlined />}
                 onClick={() => {
-                  console.log("✏️ Edit button clicked for:", record.name);
-                  console.log("📋 Setting modal mode to: edit");
-                  setSelectedReport(record);
+                      setSelectedReport(record);
                   setModalMode("edit");
                   setOpenViewModal(true);
-                  console.log("✅ Modal opened with mode:", "edit");
                 }}
               >
                 Edit

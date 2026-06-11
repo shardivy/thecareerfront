@@ -116,6 +116,10 @@ const SlotBooking = () => {
       studentName: `${item.student?.first_name || ""} ${item.student?.last_name || ""
         }`,
       email: item.student?.email || "—",
+      programId: item.program?.id || null,
+      packageId: item.package?.id || null,
+      programName: item.program?.name || "—",
+      packageName: item.package?.name || "—",
       counsellorDisplay: Array.isArray(item.counsellors)
         ? item.counsellors.map((c) => ({
           id: c.counsellor.id,   // ✅ ADD ID
@@ -267,6 +271,22 @@ const SlotBooking = () => {
         ),
       },
       {
+        title: "Program / Counselling Service",
+        width: 250,
+        render: (_, record) => (
+          <>
+            <div style={{ fontWeight: 500 }}>
+              {record.programName}
+            </div>
+
+            <div type="colorTextSecondary"
+            >
+              {record.packageName}
+            </div>
+          </>
+        ),
+      },
+      {
         title: "Counsellors",
         width: 150,
         render: (_, r) =>
@@ -381,12 +401,13 @@ const SlotBooking = () => {
                   type="primary"
                   icon={<EditOutlined />}
                   onClick={() => {
+                    // console.log("Edit Record:", record);
                     setRescheduleData(record);
                     setModalMode("edit");
                     setIsModalOpen(true);
                   }}
                 >
-                 Reschedule
+                  Reschedule
                 </Button>
 
                 <Button

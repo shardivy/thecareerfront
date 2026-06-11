@@ -98,7 +98,7 @@ const AddEventModal = ({ open, onCancel, mode = "add", data }) => {
             onCancel();
 
         } catch (err) {
-            console.log(err);
+            // console.log(err);
             message.error(err || "Failed");
         }
     };
@@ -188,6 +188,8 @@ const AddEventModal = ({ open, onCancel, mode = "add", data }) => {
             form.setFieldsValue({ mode: "offline" });
         }
     }, [eventType]);
+
+    
 
     return (
         <Modal

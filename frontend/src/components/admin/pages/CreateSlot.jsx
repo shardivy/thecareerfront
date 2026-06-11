@@ -173,7 +173,7 @@ const CreateSlot = () => {
     try {
       await dispatch(fetchSlotsForSelectedDate(formatted)).unwrap();
     } catch (error) {
-      console.error("Error fetching slots:", error);
+      // console.error("Error fetching slots:", error);
     }
   };
 
@@ -191,7 +191,7 @@ const CreateSlot = () => {
           // 🔥 Refresh selected date data
           dispatch(fetchSlotsForSelectedDate(selectedDate));
         } catch (error) {
-          console.error("Delete failed:", error);
+          // console.error("Delete failed:", error);
         }
       },
     });

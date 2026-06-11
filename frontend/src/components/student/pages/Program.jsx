@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchActivePrograms } from "../../../adminSlices/programSlice";
 import { fetchPackagesByProgram, clearPackages } from "../../../adminSlices/packageSlice";
+import { setSelection } from "../../../adminSlices/studentSelectionSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -28,29 +29,42 @@ const { token } = antdTheme;
 
 export const programIconColorMap = {
   Engineering: { icon: <ToolOutlined />, color: "#4B7CF3" },
-  "OCI/NRI/CIWG/PIO Engineering": { icon: <GlobalOutlined />, color: "#3F51B5" },
+  "OCI/NRI/CIWG/PIO Engineering": { icon: <ApartmentOutlined />, color: "#3F51B5" },
   Medical: { icon: <MedicineBoxOutlined />, color: "#F44336" },
   Law: { icon: <BankOutlined />, color: "#FFC107" },
   "Design & Architecture": { icon: <SketchOutlined />, color: "#9C27B0" },
   Commerce: { icon: <StockOutlined />, color: "#4CAF50" },
-  Arts: { icon: <ReadOutlined />, color: "#E91E63" },
-  BBA: { icon: <UsergroupAddOutlined />, color: "#FF9800" },
-  "11th Admission": { icon: <FileTextOutlined />, color: "#795548" },
-  "8-12 Aptitude Test": { icon: <CheckCircleOutlined />, color: "#00BCD4" },
-  "PG Counselling": { icon: <ApartmentOutlined />, color: "#607D8B" },
+  Arts: { icon: <HeartOutlined />, color: "#E91E63" },
+  BBA: { icon: <FileTextOutlined />, color: "#FF9800" },
+  "11th Admission": { icon: <ReadOutlined />, color: "#795548" },
+  "8-12 Aptitude Test": { icon: <UsergroupAddOutlined />, color: "#00BCD4" },
+  "PG Counselling": { icon: <GlobalOutlined />, color: "#607D8B" },
   "Abroad Counselling": { icon: <GlobalOutlined />, color: "#009688" },
   "Admission Counselling": { icon: <HeartOutlined />, color: "#E91E63" },
-  Others: { icon: <ToolOutlined />, color: "#9E9E9E" },
+  Others: { icon: <FileTextOutlined />, color: "#9E9E9E" },
 };
 
 export const defaultProgramIconColor = {
-  icon: <ToolOutlined />,
+  icon: <FileTextOutlined />,
   color: "#9E9E9E",
 };
 
 const Program = () => {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const programScrollRef = useRef(null);
+
+  const scrollLeft = () => {
+    if (programScrollRef.current) {
+      programScrollRef.current.scrollBy({ left: -250, behavior: "smooth" });
+    }
+  };
+
+  const scrollRight = () => {
+    if (programScrollRef.current) {
+      programScrollRef.current.scrollBy({ left: 250, behavior: "smooth" });
+    }
+  };
+
   const navigate = useNavigate();
   const screens = useBreakpoint();
   const dispatch = useDispatch();
@@ -59,35 +73,52 @@ const Program = () => {
   const { list: packageList, loading: packageLoading } = useSelector((state) => state.packages);
   const profile = useSelector((state) => state.profile?.profile);
 
-  // Check if user is free (student_id is null)
-  const isFreeUser = !profile?.student_id;
+  const selectedProgramRedux = useSelector((state) => state.studentSelection?.selectedProgram);
+  const selectedPackageRedux = useSelector((state) => state.studentSelection?.selectedPackage);
+  const selectedPackageIdRedux = useSelector((state) => state.studentSelection?.selectedPackageId);
 
-  // For free users, we don't require student_id, so we can still show programs
-  const finalProgram = profile?.program || selectedProgram;
+  const selectedProgramFromStorage =
+    selectedProgramRedux || localStorage.getItem("selectedProgram");
+
+  const selectedProgramIdFromStorage =
+    useSelector((state) => state.studentSelection?.selectedProgramId) ||
+    Number(localStorage.getItem("selectedProgramId"));
+
+  const selectedPackageIdFromStorage =
+    selectedPackageIdRedux || Number(localStorage.getItem("selectedPackageId"));
+
+  const selectedPackageFromStorage =
+    selectedPackageRedux || localStorage.getItem("selectedPackage");
+
+  // Check if user is free/basic
+  const isFreeUser =
+    profile?.student_id == null || profile?.role === "basic_user";
+
+  // console.log(
+  //   "Profile Data:",
+  //   isFreeUser ? "Free/Basic User" : "Logged-in Student",
+  //   profile
+  // );
+
+  const finalProgram = selectedProgram || selectedProgramFromStorage;
+  // console.log("Final Program:", finalProgram);
 
   // ================= FETCH PROGRAMS =================
   useEffect(() => {
     dispatch(fetchActivePrograms());
   }, [dispatch]);
 
-  // ================= LOAD SELECTED PROGRAM FROM PROFILE OR LOCALSTORAGE =================
+  // ================= LOAD SELECTED PROGRAM FROM LOCALSTORAGE =================
   useEffect(() => {
     const savedProgram = localStorage.getItem("selectedProgram");
-    if (programsList.length) {
-      // For free users, we still want to show the program from profile if available
-      const programFromProfile = profile?.program;
-      const programToUse = programFromProfile || savedProgram;
-
-      if (programToUse) {
-        setSelectedProgram(programToUse);
-        const selected = programsList.find((p) => p.name === programToUse);
-        if (selected?.id) {
-          // Even for free users, we fetch packages to display available services
-          dispatch(fetchPackagesByProgram(selected.id));
-        }
+    if (programsList.length && savedProgram) {
+      setSelectedProgram(savedProgram);
+      const selected = programsList.find((p) => p.name === savedProgram);
+      if (selected?.id) {
+        dispatch(fetchPackagesByProgram(selected.id));
       }
     }
-  }, [programsList, profile, dispatch]);
+  }, [programsList, dispatch]);
 
   // ================= SAVE SELECTED PROGRAM =================
   const handleProgramSelect = (programTitle) => {
@@ -98,91 +129,29 @@ const Program = () => {
     if (selected?.id) dispatch(fetchPackagesByProgram(selected.id));
   };
 
-  // ================= CENTER SELECTED PROGRAM =================
-  useEffect(() => {
-    if (selectedProgram && programScrollRef.current && programsList.length) {
-      const index = programsList.findIndex((p) => p.name === selectedProgram);
-      if (index >= 0) {
-        const cardWidth = screens.xs ? 140 : 180;
-        const gap = screens.xs ? 12 : 16;
-        const scrollLeftValue =
-          index * (cardWidth + gap) - (programScrollRef.current.offsetWidth / 2 - cardWidth / 2);
-        programScrollRef.current.scrollTo({ left: scrollLeftValue, behavior: "smooth" });
-      }
-    }
-  }, [selectedProgram, programsList, screens.xs]);
-
-  // ================= PROGRAM SCROLL =================
-  const scrollLeft = () => {
-    if (programScrollRef.current) programScrollRef.current.scrollBy({ left: -250, behavior: "smooth" });
+  const serviceRouteMap = {
+    "Engineering-Paid Whatsapp Group": "/engineering-paid-group-service",
+    "Engineering-Admission Counselling": "/admission-counselling",
+    "Engineering-OCI/NRI/CIWG/PIO Paid Whatsapp Group": "/engineering-oci-nri-paid-group-service",
+    "Engineering-CET-Engineering Admission One-on-One Guidance": "/cet-one-on-one-guidance",
+    "Engineering-JEE-Engineering Admission One-on-One Guidance": "/jee-one-on-one-guidance",
+    "Medical-Paid Whatsapp Group": "/medical-paid-group-service",
+    "Medical-End to End Medical Counselling": "/medical-end-to-end-counselling",
+    "Law-Paid Whatsapp Group": "/law-service",
+    "11th Admission-Free Whatsapp Group": "/11th-admission-free-group-service",
+    "Abroad Counselling-Expert Abroad Counselling Service": "/abroad-counselling-service",
+    "Commerce (BBA  & MBA)-Paid Whatsapp Group": "/bba-paid-group-service",
+    "Hand Holding Program-Hand Holding": "/handholding-program-service",
+    "Design & Architecture-Paid Whatsapp Group": "/design-arch-paid-group-service",
+    "Aptitude Test Counselling-Aptitude Test For 8th-9th std": "/8-9-aptitude-service",
+    "Aptitude Test Counselling-Aptitude Test Of 10th STD": "/10th-aptitude-service",
+    "Aptitude Test Counselling-Aptitude Test Of 11th-12th STD": "/11-12-aptitude-service",
+    "Aptitude Test Counselling-PG Counselling": "/pg-counselling-service",
+    "Seminar / Webinar-Seminar / Webinar": "/seminar-webinar-session",
   };
-  const scrollRight = () => {
-    if (programScrollRef.current) programScrollRef.current.scrollBy({ left: 250, behavior: "smooth" });
-  };
 
-    const serviceRouteMap = {
-    "Engineering-Paid Whatsapp Group":
-      "/engineering-paid-group-service",
-
-    "Engineering-Admission Counselling":
-      "/admission-counselling",
-
-    "Engineering-OCI/NRI/CIWG/PIO Paid Whatsapp Group":
-      "/engineering-oci-nri-paid-group-service",
-
-    // "Engineering-OCI/NRI/CIWG/PIO Engineering Admission End-to-End Guidance":
-    //   "/oci-nri-end-to-end-counselling",
-
-    "Engineering-CET-Engineering Admission One-on-One Guidance":
-      "/cet-one-on-one-guidance",
-
-    "Engineering-JEE-Engineering Admission One-on-One Guidance":
-      "/jee-one-on-one-guidance",
-
-    "Medical-Paid Whatsapp Group":
-      "/medical-paid-group-service",
-
-    "Medical-End to End Medical Counselling":
-      "/medical-end-to-end-counselling",
-
-    "Law-Paid Whatsapp Group":
-      "/law-service",
-
-    "11th Admission-Free Whatsapp Group":
-      "/11th-admission-free-group-service",
-
-    "Abroad Counselling-Expert Abroad Counselling Service":
-      "/abroad-counselling-service",
-
-    // "Admission Counselling-Expert Engineering Online Session":
-    //   "/admission-counselling-service",
-
-    "Commerce (BBA  & MBA)-Paid Whatsapp Group":
-      "/bba-paid-group-service",
-
-    "Hand Holding Program-Hand Holding":
-      "/handholding-program-service",
-
-    "Design & Architecture-Paid Whatsapp Group":
-      "/design-arch-paid-group-service",
-
-    "Aptitude Test Counselling-Aptitude Test For 8th-9th std":
-      "/8-9-aptitude-service",
-
-    "Aptitude Test Counselling-Aptitude Test Of 10th STD":
-      "/10th-aptitude-service",
-
-    "Aptitude Test Counselling-Aptitude Test Of 11th-12th STD":
-      "/11-12-aptitude-service",
-
-        "Aptitude Test Counselling-PG Counselling":
-      "/pg-counselling-service",
-
-
-    "Seminar / Webinar-Seminar / Webinar":
-      "/seminar-webinar-session",
-
-  };
+  const eleventhAdmissionWhatsappLink = "https://chat.whatsapp.com/HwiCs0qVJBe91abE42SpDz";
+  const isEleventhAdmissionProgram = finalProgram === "11th Admission";
 
   // ================= FREE CONTENT CARD =================
   const FreeContentCard = () => (
@@ -239,7 +208,7 @@ const Program = () => {
           <div style={{ marginTop: 16 }}>
             <Button
               type="default"
-              icon={<ArrowRightOutlined />}
+              icon={<ReadOutlined />}
               onClick={() => navigate("/student/content-library")}
               size={screens.xs ? "small" : "middle"}
             >
@@ -252,23 +221,22 @@ const Program = () => {
   );
 
   // ================= DISPLAY PROGRAMS =================
-  // For free users, show all programs since no student_id is required
-  // For logged-in users with profile, filter based on their program
-  const displayedPrograms = !isFreeUser && profile?.program
-    ? programsList.filter((p) => p.name === profile.program)
-    : programsList;
+  const displayedPrograms =
+    !isFreeUser && profile?.program
+      ? programsList.filter((p) => p.name === profile.program)
+      : programsList;
 
   const apiPrograms = displayedPrograms.map((p) => {
     const map = programIconColorMap[p.name] || defaultProgramIconColor;
     return { id: p.id, title: p.name, icon: map.icon, color: map.color };
   });
 
-  // Update title text based on user type
-  const titleText = !isFreeUser && profile?.program
-    ? "Your Selected Counselling Program"
-    : "Choose Your Career Path";
+  const titleText =
+    !isFreeUser && profile?.program
+      ? "Your Selected Counselling Program"
+      : "Choose Your Career Path";
 
-  // Show free user message if applicable
+  // ================= FREE / BASIC USER SECTION =================
   if (isFreeUser) {
     return (
       <div
@@ -280,12 +248,14 @@ const Program = () => {
         }}
       >
         {loading ? (
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "80vh" }}>
-            <Spin size="large" tip="Loading Programs..." />
+          <div
+            style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "80vh" }}
+          >
+            <Spin size="large" />
           </div>
         ) : (
           <>
-            {/* Welcome message for free users */}
+            {/* Welcome Banner */}
             <Card
               style={{
                 marginBottom: 30,
@@ -307,15 +277,12 @@ const Program = () => {
             {/* Title */}
             <Title
               level={screens.xs ? 3 : 2}
-              style={{
-                textAlign: "center",
-                marginBottom: screens.xs ? 20 : 30,
-              }}
+              style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30 }}
             >
               {titleText}
             </Title>
 
-            {/* Program Slider - Show all programs for free users */}
+            {/* Program Slider */}
             <div
               style={{
                 position: "relative",
@@ -354,7 +321,8 @@ const Program = () => {
                 }}
               >
                 {programsList.map((program) => {
-                  const { icon, color } = programIconColorMap[program.name] || defaultProgramIconColor;
+                  const { icon, color } =
+                    programIconColorMap[program.name] || defaultProgramIconColor;
                   return (
                     <Card
                       key={program.id}
@@ -363,18 +331,17 @@ const Program = () => {
                       style={{
                         minWidth: screens.xs ? 140 : 180,
                         borderRadius: 12,
-                        border: selectedProgram === program.name ? `2px solid ${color}` : "1px solid #f0f0f0",
+                        border:
+                          finalProgram === program.name
+                            ? `2px solid ${color}`
+                            : "1px solid #f0f0f0",
                         transition: "all 0.3s ease",
                       }}
                       bodyStyle={{ padding: screens.xs ? 12 : 16 }}
                     >
                       <div style={{ textAlign: "center" }}>
                         <div
-                          style={{
-                            fontSize: screens.xs ? 24 : 32,
-                            color: color,
-                            marginBottom: 8,
-                          }}
+                          style={{ fontSize: screens.xs ? 24 : 32, color: color, marginBottom: 8 }}
                         >
                           {icon}
                         </div>
@@ -405,13 +372,15 @@ const Program = () => {
               </div>
             </div>
 
-            {/* Show packages if program selected, otherwise show free content */}
-            {!selectedProgram && <FreeContentCard />}
+            {!finalProgram && <FreeContentCard />}
 
-            {selectedProgram && (
+            {finalProgram && (
               <div>
-                <Title level={screens.xs ? 4 : 3} style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30 }}>
-                  {selectedProgram} - Available Services
+                <Title
+                  level={screens.xs ? 4 : 3}
+                  style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30 }}
+                >
+                  {finalProgram} - Available Services
                 </Title>
 
                 <Row gutter={[screens.xs ? 16 : 24, screens.xs ? 16 : 24]} justify="center">
@@ -428,7 +397,9 @@ const Program = () => {
                             position: "relative",
                             height: "100%",
                             boxShadow: token.boxShadow,
-                            border: pkg.is_popular ? `2px solid ${token.colorPrimary}` : "1px solid #f0f0f0",
+                            border: pkg.is_popular
+                              ? `2px solid ${token.colorPrimary}`
+                              : "1px solid #f0f0f0",
                           }}
                           bodyStyle={{ padding: screens.xs ? 16 : 24 }}
                         >
@@ -454,19 +425,31 @@ const Program = () => {
                           <Title level={2} style={{ color: token.colorPrimary }}>
                             ₹{pkg.price}
                           </Title>
-                          <Text type="colorTextSecondary">{pkg.description || "No description available"}</Text>
+                          <Text type="colorTextSecondary">
+                            {pkg.description || "No description available"}
+                          </Text>
 
                           <div style={{ marginTop: 20 }}>
                             {pkg.features?.map((feature, i) => (
                               <div key={i} style={{ display: "flex", marginBottom: 10 }}>
                                 <CheckCircleOutlined
-                                  style={{ color: token.colorSuccess, marginRight: 8, marginTop: 2 }}
+                                  style={{
+                                    color: token.colorSuccess,
+                                    marginRight: 8,
+                                    marginTop: 2,
+                                  }}
                                 />
                                 <Text>{feature.description}</Text>
                               </div>
                             ))}
                           </div>
 
+                          {/*
+                           * ── FREE / BASIC USER BUTTONS ──
+                           * Always show "Learn More"
+                           * 11th Admission → "Join Now" (WhatsApp)
+                           * All other programs → "Register Now" (payment page)
+                           */}
                           <div
                             style={{
                               marginTop: 20,
@@ -475,63 +458,87 @@ const Program = () => {
                               flexDirection: screens.xs ? "column" : "row",
                             }}
                           >
-                         <Button
-  block
-  onClick={() => {
-    const routeKey = `${selectedProgram}-${pkg.name}`;
-
-    const targetRoute =
-      serviceRouteMap[routeKey] || "/default";
-
-    navigate(targetRoute, {
-      state: {
-        fromProgramPage: true,
-        programId: pkg.program?.id,
-        programName: selectedProgram,
-        packageId: pkg.id,
-        packageName: pkg.name,
-        isAptitude: pkg.aptitude_test,
-      },
-    });
-  }}
->
-  Learn More
-</Button>
-
+                            {/* Learn More — always shown for free users */}
                             <Button
-                              type="primary"
                               block
                               onClick={() => {
-                                navigate("/student/payment-page", {
+                                const routeKey = `${finalProgram}-${pkg.name}`;
+                                navigate(serviceRouteMap[routeKey] || "/default", {
                                   state: {
+                                    fromProgramPage: true,
+                                    programId: pkg.program?.id,
+                                    programName: finalProgram,
                                     packageId: pkg.id,
                                     packageName: pkg.name,
-                                    packagePrice: pkg.price,
-                                    programId: pkg.program.id,
-                                    programName: selectedProgram,
-                                    isFreeUser: true
-                                  }
+                                    isAptitude: pkg.aptitude_test,
+                                  },
                                 });
                               }}
                             >
-                              {/* Select Service */}
-                              Register Now
+                              Learn More
                             </Button>
+
+                            {/* Second button: Join Now for 11th Admission, else Register Now */}
+                            {isEleventhAdmissionProgram ? (
+                              <Button
+                                type="primary"
+                                block
+                                onClick={() =>
+                                  window.open(
+                                    eleventhAdmissionWhatsappLink,
+                                    "_blank",
+                                    "noopener,noreferrer"
+                                  )
+                                }
+                              >
+                                Join Now
+                              </Button>
+                            ) : (
+                              <Button
+                                type="primary"
+                                block
+                                onClick={() => {
+                                  navigate("/student/payment-page", {
+                                    state: {
+                                      packageId: pkg.id,
+                                      packageName: pkg.name,
+                                      packagePrice: pkg.price,
+                                      programId: pkg.program.id,
+                                      programName: finalProgram,
+                                      isFreeUser: true,
+                                    },
+                                  });
+                                }}
+                              >
+                                Register Now
+                              </Button>
+                            )}
                           </div>
                         </Card>
                       </Col>
                     ))
                   ) : (
-                    <Col span={24} style={{ textAlign: "center", marginTop: screens.xs ? 30 : 50 }}>
+                    <Col
+                      span={24}
+                      style={{ textAlign: "center", marginTop: screens.xs ? 30 : 50 }}
+                    >
                       <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
-                          <Text style={{ fontSize: screens.xs ? 16 : 18, color: token.colorTextSecondary }}>
+                          <Text
+                            style={{
+                              fontSize: screens.xs ? 16 : 18,
+                              color: token.colorTextSecondary,
+                            }}
+                          >
                             No packages available for this program yet.
                           </Text>
                         }
                       >
-                        <Button type="primary" onClick={() => navigate("/student/freecontent")}>
+                        <Button
+                          type="primary"
+                          onClick={() => navigate("/student/freecontent")}
+                        >
                           Browse Free Content
                         </Button>
                       </Empty>
@@ -550,7 +557,7 @@ const Program = () => {
     );
   }
 
-  // Original return for logged-in users
+  // ================= PAID / LOGGED-IN USER SECTION =================
   return (
     <div
       style={{
@@ -561,18 +568,17 @@ const Program = () => {
       }}
     >
       {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "80vh" }}>
-          <Spin size="large" tip="Loading Programs..." />
+        <div
+          style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "80vh" }}
+        >
+          <Spin size="large" />
         </div>
       ) : (
         <>
-          {/* ================= TITLE ================= */}
+          {/* Title */}
           <Title
             level={screens.xs ? 3 : 2}
-            style={{
-              textAlign: "center",
-              marginBottom: screens.xs ? 20 : 30,
-            }}
+            style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30 }}
           >
             {titleText}
             {finalProgram && (
@@ -589,7 +595,7 @@ const Program = () => {
             )}
           </Title>
 
-          {/* ================= PROGRAM SLIDER (ONLY IF NOT SELECTED) ================= */}
+          {/* Program Slider (only if no program selected yet) */}
           {!finalProgram && (
             <div
               style={{
@@ -630,10 +636,7 @@ const Program = () => {
                     key={program.id}
                     hoverable
                     onClick={() => handleProgramSelect(program.name)}
-                    style={{
-                      minWidth: screens.xs ? 140 : 180,
-                      borderRadius: 8,
-                    }}
+                    style={{ minWidth: screens.xs ? 140 : 180, borderRadius: 8 }}
                   >
                     <Text strong>{program.name}</Text>
                   </Card>
@@ -659,11 +662,14 @@ const Program = () => {
             </div>
           )}
 
-          {!selectedProgram && <FreeContentCard />}
+          {!finalProgram && <FreeContentCard />}
 
-          {selectedProgram && (
+          {finalProgram && (
             <div>
-              <Title level={screens.xs ? 4 : 3} style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30 }}>
+              <Title
+                level={screens.xs ? 4 : 3}
+                style={{ textAlign: "center", marginBottom: screens.xs ? 20 : 30 }}
+              >
                 Selected Counselling Services
               </Title>
 
@@ -674,7 +680,11 @@ const Program = () => {
                   </div>
                 ) : packageList.length > 0 ? (
                   packageList
-                    .filter((pkg) => !profile?.package_id || pkg.id === profile.package_id)
+                    .filter(
+                      (pkg) =>
+                        !selectedPackageIdFromStorage ||
+                        pkg.id === selectedPackageIdFromStorage
+                    )
                     .map((pkg) => (
                       <Col xs={24} sm={12} md={8} key={pkg.id}>
                         <Card
@@ -684,7 +694,9 @@ const Program = () => {
                             height: "100%",
                             boxShadow: token.boxShadow,
                             border:
-                              profile?.package_id === pkg.id ? `2px solid ${token.colorPrimary}` : "1px solid #f0f0f0",
+                              selectedPackageIdFromStorage === pkg.id
+                                ? `2px solid ${token.colorPrimary}`
+                                : "1px solid #f0f0f0",
                           }}
                           bodyStyle={{ padding: screens.xs ? 16 : 24 }}
                         >
@@ -710,19 +722,30 @@ const Program = () => {
                           <Title level={2} style={{ color: token.colorPrimary }}>
                             ₹{pkg.price}
                           </Title>
-                          <Text type="colorTextSecondary">{pkg.description || "No description available"}</Text>
+                          <Text type="colorTextSecondary">
+                            {pkg.description || "No description available"}
+                          </Text>
 
                           <div style={{ marginTop: 20 }}>
                             {pkg.features?.map((feature, i) => (
                               <div key={i} style={{ display: "flex", marginBottom: 10 }}>
                                 <CheckCircleOutlined
-                                  style={{ color: token.colorSuccess, marginRight: 8, marginTop: 2 }}
+                                  style={{
+                                    color: token.colorSuccess,
+                                    marginRight: 8,
+                                    marginTop: 2,
+                                  }}
                                 />
                                 <Text>{feature.description}</Text>
                               </div>
                             ))}
                           </div>
 
+                          {/*
+                           * ── PAID USER BUTTONS ──
+                           * 11th Admission  → "Learn More" + "Selected" (disabled green)
+                           * All other programs → "Learn More" + "Select Service" / "Selected"
+                           */}
                           <div
                             style={{
                               marginTop: 20,
@@ -731,91 +754,133 @@ const Program = () => {
                               flexDirection: screens.xs ? "column" : "row",
                             }}
                           >
-                            {/* Learn More Button */}
-                            {/* <Button
-    block
-    onClick={() => {
-      if (pkg.link_url) {
-        window.open(pkg.link_url, "_blank", "noopener,noreferrer");
-      } else {
-        window.location.href = "https://abhinavcareerscope.com/";
-      }
-    }}
-  >
-    Learn More
-  </Button> */}
+                            {(() => {
+                              const isSelected =
+                                Number(selectedPackageIdFromStorage) === Number(pkg.id);
 
-<Button
-  block
-  onClick={() => {
-    const routeKey = `${selectedProgram}-${pkg.name}`;
+                              const handleSelectClick = () => {
+                                const programName = finalProgram || pkg.program?.name;
+                                const programId =
+                                  pkg.program?.id || selectedProgramIdFromStorage || null;
 
-    const targetRoute =
-      serviceRouteMap[routeKey] || "/default";
+                                localStorage.setItem("selectedProgram", programName || "");
+                                localStorage.setItem("selectedProgramId", programId || "");
+                                localStorage.setItem("selectedPackageId", pkg.id);
+                                localStorage.setItem("selectedPackage", pkg.name);
 
-    navigate(targetRoute, {
-      state: {
-        fromProgramPage: true,
-        programId: pkg.program?.id,
-        programName: selectedProgram,
-        packageId: pkg.id,
-        packageName: pkg.name,
-        isAptitude: pkg.aptitude_test,
-      },
-    });
-  }}
->
-  Learn More
-</Button>
+                                dispatch(
+                                  setSelection({
+                                    programId,
+                                    programName,
+                                    packageId: pkg.id,
+                                    packageName: pkg.name,
+                                  })
+                                );
 
-                            {/* Select / Selected Button */}
-                            {profile?.package_id === pkg.id ? (
-                              <Button
-                                block
-                                disabled
-                                style={{
-                                  backgroundColor: token.colorSuccess,
-                                  color: "#fff",
-                                  border: "none",
-                                }}
-                              >
-                                Selected
-                              </Button>
-                            ) : (
-                              <Button
-                                type="primary"
-                                block
-                                onClick={() => {
-                                  navigate("/student/payment-page", {
-                                    state: {
-                                      packageId: pkg.id,
-                                      packageName: pkg.name,
-                                      packagePrice: pkg.price,
-                                      programId: pkg.program?.id,
-                                      programName: selectedProgram,
-                                      isFreeUser: false,
-                                    },
-                                  });
-                                }}
-                              >
-                                Select Service
-                              </Button>
-                            )}
+                                navigate("/student/payment-page", {
+                                  state: {
+                                    packageId: pkg.id,
+                                    packageName: pkg.name,
+                                    packagePrice: pkg.price,
+                                    programId,
+                                    programName,
+                                    isFreeUser: false,
+                                  },
+                                });
+                              };
+
+                              // Learn More — always shown for paid users
+                              const learnMoreBtn = (
+                                <Button
+                                  block
+                                  onClick={() => {
+                                    const routeKey = `${finalProgram}-${pkg.name}`;
+                                    navigate(serviceRouteMap[routeKey] || "/default", {
+                                      state: {
+                                        fromProgramPage: true,
+                                        programId: pkg.program?.id,
+                                        programName: finalProgram,
+                                        packageId: pkg.id,
+                                        packageName: pkg.name,
+                                        isAptitude: pkg.aptitude_test,
+                                      },
+                                    });
+                                  }}
+                                >
+                                  Learn More
+                                </Button>
+                              );
+
+                              // ── PAID USER: 11th Admission → Learn More + Selected (disabled) ──
+                              if (isEleventhAdmissionProgram) {
+                                return (
+                                  <>
+                                    {learnMoreBtn}
+                                    <Button
+                                      block
+                                      disabled
+                                      style={{
+                                        backgroundColor: token.colorSuccess,
+                                        color: "#fff",
+                                        border: "none",
+                                      }}
+                                    >
+                                      Selected
+                                    </Button>
+                                  </>
+                                );
+                              }
+
+                              // ── PAID USER: All other programs → Learn More + Select Service / Selected ──
+                              return (
+                                <>
+                                  {learnMoreBtn}
+                                  {isSelected ? (
+                                    <Button
+                                      block
+                                      disabled
+                                      style={{
+                                        backgroundColor: token.colorSuccess,
+                                        color: "#fff",
+                                        border: "none",
+                                      }}
+                                    >
+                                      Selected
+                                    </Button>
+                                  ) : (
+                                    <Button type="primary" block onClick={handleSelectClick}>
+                                      Select Service
+                                    </Button>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         </Card>
                       </Col>
                     ))
                 ) : (
-                  <Col span={24} style={{ textAlign: "center", marginTop: screens.xs ? 30 : 50 }}>
+                  <Col
+                    span={24}
+                    style={{ textAlign: "center", marginTop: screens.xs ? 30 : 50 }}
+                  >
                     <Empty
                       image={Empty.PRESENTED_IMAGE_SIMPLE}
                       description={
-                        <Text style={{ fontSize: screens.xs ? 16 : 18, color: token.colorTextSecondary }}>
+                        <Text
+                          style={{
+                            fontSize: screens.xs ? 16 : 18,
+                            color: token.colorTextSecondary,
+                          }}
+                        >
                           No packages available for this program.
                         </Text>
                       }
                     >
-                      <Button type="primary" onClick={() => navigate("/student/freecontent")}>
+                      <Button
+                        type="primary"
+                        onClick={() => navigate("/student/freecontent")}
+                      >
                         Browse Free Content
                       </Button>
                     </Empty>

@@ -55,8 +55,8 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
     historyLoading,
     historyList,
     remainingAmount,
-      verifyApproveLoading,
-  verifyRejectLoading,
+    verifyApproveLoading,
+    verifyRejectLoading,
   } = useSelector((state) => state.payment);
 
   const { details: handholdingDetails, loading: handholdingLoading } =
@@ -95,12 +95,27 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
 
     const source = rawData.originalData || rawData;
 
-    console.log("🔍 Extracting data from source:", source);
+    // console.log("🔍 Extracting data from source:", source);
+
+    const packageIds = Array.isArray(source.package_ids)
+      ? source.package_ids
+      : Array.isArray(rawData.packageIds)
+        ? rawData.packageIds
+        : source.package_id
+          ? [source.package_id]
+          : [];
+
+    const packageId = packageIds.length > 0 ? packageIds[0] : undefined;
 
     return {
       name: source.name || source.user_name || source.student_name || "Student Name",
-      package: source.package_name || source.package || source.program || "-",
-      package_id: source.package_id || source.program_id || "",
+      package_id: packageId,
+      packageIds,
+      package: source.package_name ||
+        (Array.isArray(source.packages) ? source.packages.join(", ") : "") ||
+        source.package ||
+        source.program ||
+        "-",
 
       paymentMethod: source.paymentMethod || source.method || source.payment_method || "-",
       amount: source.amount || "0",
@@ -111,8 +126,6 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
       status: source.status || source.payment_status || "-",
       // Store original data for reference
       originalSource: source,
-      // // Store user_id for student_profile
-      // user_id: source.user_id || ""
       student_id: source.student_id || "",
       participant_id: source.handholding_participant_id || "",
     };
@@ -120,7 +133,16 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
 
   // Get the extracted safe data
   const safeData = extractData(data);
-  console.log("📋 Extracted safe data:", safeData);
+  // console.log("📋 Extracted safe data:", safeData);
+
+  // Prepare package lines for edit display (each service on its own line)
+  const packageLines = safeData.package
+    ? String(safeData.package)
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .join('\n')
+    : '';
 
   // Get the original proof URL
   const originalProofUrl = safeData.proof_file_url || "";
@@ -165,7 +187,7 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
           if (safeData.participant_id) {
             dispatch(fetchHandholdingPaymentDetails(safeData.participant_id));
           } else {
-            console.error("❌ participant_id missing");
+            // console.error("❌ participant_id missing");
           }
         } else {
           dispatch(fetchStudentPaymentHistory(safeData.student_id));
@@ -188,34 +210,43 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
       // Get original data to access IDs
       const source = safeData.originalSource;
 
-      console.log("🔍 Original data source:", source);
-      console.log("📝 Form values:", values);
-      console.log("📦 Safe data package_id from extract:", safeData.package_id);
 
       // REQUIRED: student_profile (user ID)
       if (source.id) {
         payload.append("student_profile", source.student_id);
-        console.log("👤 Student profile ID:", source.student_id);
+        // console.log("👤 Student ID:", source.student_id);
       } else {
         message.error("Student profile ID is required");
         return;
       }
 
-      // REQUIRED: package (package ID)
-      const packageId = source.package_id || safeData.package_id;
+      // REQUIRED: package(s)
+      const packageIds = Array.isArray(safeData.packageIds) && safeData.packageIds.length > 0
+        ? safeData.packageIds
+        : source.package_ids && Array.isArray(source.package_ids)
+          ? source.package_ids
+          : source.package_id
+            ? [source.package_id]
+            : [];
 
-      if (packageId) {
-        const packageIdNum = parseInt(packageId);
-        if (!isNaN(packageIdNum)) {
+      if (packageIds.length > 0) {
+        let invalidPackageFound = false;
+        for (const id of packageIds) {
+          const packageIdNum = parseInt(id, 10);
+          if (isNaN(packageIdNum)) {
+            // console.error("❌ Package ID is not a number:", id);
+            message.error("Package ID must be a number");
+            invalidPackageFound = true;
+            break;
+          }
           payload.append("package", packageIdNum);
-          console.log("📦 Sending numeric Package ID:", packageIdNum);
-        } else {
-          console.error("❌ Package ID is not a number:", packageId);
-          message.error("Package ID must be a number");
+          // console.log("📦 Sending numeric Package ID:", packageIdNum);
+        }
+
+        if (invalidPackageFound) {
           return;
         }
       } else {
-        console.error("❌ No package_id found anywhere!");
         message.error("Package ID is required but not found in payment data");
         return;
       }
@@ -226,7 +257,7 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
         const amountValue = amountStr.replace(/[^\d.]/g, '');
         const amountNumber = parseFloat(amountValue) || 0;
         payload.append("amount", amountNumber);
-        console.log("💰 Amount:", amountNumber);
+
       } else {
         message.error("Amount is required");
         return;
@@ -238,12 +269,10 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
         paymentType = "offline";
       }
       payload.append("payment_type", paymentType);
-      console.log("💳 Payment type:", paymentType);
 
       // REQUIRED: method (upi/cash)
       if (values.paymentMethod) {
         payload.append("method", values.paymentMethod.toLowerCase());
-        console.log("🏦 Method:", values.paymentMethod.toLowerCase());
       } else {
         message.error("Payment method is required");
         return;
@@ -252,13 +281,11 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
       // Transaction ID (OPTIONAL - for both UPI & Cash)
       if (values.txn && values.txn !== "-") {
         payload.append("transaction_id", values.txn);
-        console.log("🆔 Transaction ID:", values.txn);
       }
 
       // REQUIRED: payment_date
       if (values.paymentDate) {
         payload.append("payment_date", values.paymentDate.format("YYYY-MM-DD"));
-        console.log("📅 Payment date:", values.paymentDate.format("YYYY-MM-DD"));
       } else {
         message.error("Payment date is required");
         return;
@@ -268,42 +295,37 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
       if (file) {
         // New file selected
         payload.append("proof_file", file);
-        console.log("📎 New file attached:", file.name);
       } else {
-        console.log("📎 No new file selected - keeping existing proof file");
+        // console.log("📎 No new file selected - keeping existing proof file");
         // Do NOT append proof_file
       }
 
 
       // Log FormData contents for debugging
-      console.log("📤 FormData contents to be sent:");
-      for (let [key, value] of payload.entries()) {
-        if (key === 'proof_file' && value instanceof File) {
-          console.log(`${key}: File - ${value.name} (${value.type}, ${value.size} bytes)`);
-        } else if (key === 'proof_file' && value === "") {
-          console.log(`${key}: (empty string)`);
-        } else {
-          console.log(`${key}:`, value);
-        }
-      }
+
+      // for (let [key, value] of payload.entries()) {
+      //   if (key === 'proof_file' && value instanceof File) {
+      //     console.log(`${key}: File - ${value.name} (${value.type}, ${value.size} bytes)`);
+      //   } else if (key === 'proof_file' && value === "") {
+      //     console.log(`${key}: (empty string)`);
+      //   } else {
+      //     console.log(`${key}:`, value);
+      //   }
+      // }
 
       // Also log what fields are actually being sent
       const formDataEntries = [];
       for (let [key, value] of payload.entries()) {
         formDataEntries.push({ key, value: value instanceof File ? `File: ${value.name}` : value });
       }
-      console.log("📋 FormData entries array:", formDataEntries);
-
       dispatch(updatePayment({ id: safeData.key, payload }))
         .unwrap()
         .then((res) => {
-          console.log("✅ Update response:", res);
           message.success(res.message || "Payment updated successfully");
           onSuccess?.();
           onClose();
         })
         .catch((err) => {
-          console.error("❌ Update error details:", err);
           // Check if error mentions proof_file
           if (err.message && err.message.includes("proof_file")) {
             message.error("Proof file error: " + err.message);
@@ -358,7 +380,7 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
 
   const handleRemoveFile = () => {
     setFile(null);
-    setPreviewUrl(originalProofUrl); // Revert to original URL
+    setPreviewUrl(originalProofUrl);
 
     if (originalProofUrl) {
       setIsImage(isImageUrl(originalProofUrl));
@@ -463,7 +485,8 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
       open={open}
       centered
       destroyOnClose
-      width={isMobile ? "95%" : 760}
+      width={isMobile ? "95%" : "85%"}
+      style={{ maxWidth: 900 }}
       onCancel={onClose}
       title={<Title level={4}>Payment Details</Title>}
       footer={
@@ -485,7 +508,7 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
                   <Button
                     danger
                     onClick={handleRejectConfirm}
-                  loading={verifyRejectLoading}
+                    loading={verifyRejectLoading}
                   >
                     Reject
                   </Button>
@@ -530,13 +553,28 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
             <Row gutter={16}>
               <Col xs={24} md={12}>
                 <Form.Item label="Student Name" name="name">
-                  <Input />
+                  <Input disabled={isEdit} />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item label="Counselling Service" name="package">
-                  <Input />
-                </Form.Item>
+                <Text style={labelStyle}>Counselling Service</Text>
+                <div style={valueBoxStyle} >
+                  {safeData.package && safeData.package !== "-" ? (
+                    <div>
+                      {String(safeData.package)
+                        .split(',')
+                        .map((p) => p.trim())
+                        .filter(Boolean)
+                        .map((p, i, arr) => (
+                          <div key={i} style={{ marginBottom: i < arr.length - 1 ? 8 : 0 }}>
+                            <Text>{p.charAt(0).toUpperCase() + p.slice(1)}</Text>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    "-"
+                  )}
+                </div>
               </Col>
             </Row>
 
@@ -558,21 +596,41 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
             </Row>
 
             {/* Txn + Date */}
-            <Row gutter={16}>
-              <Col xs={24} md={12}>
-                <Form.Item label="Transaction ID" name="txn">
-                  <Input />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <Form.Item label="Payment Date" name="paymentDate">
-                  <DatePicker
-                    style={{ width: "100%", height: 36 }}
-                    format="YYYY-MM-DD"
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+            {/* Txn + Date */}
+            <Form.Item shouldUpdate={(prev, curr) => prev.paymentMethod !== curr.paymentMethod} noStyle>
+              {({ getFieldValue }) => {
+                const method = getFieldValue("paymentMethod");
+                return (
+                  <Row gutter={16}>
+                    {method !== "cash" && (
+                      <Col xs={24} md={12}>
+                        <Form.Item
+                          label="Transaction ID"
+                          name="txn"
+                          rules={[
+                            {
+                              required: method === "upi",
+                              message: "Transaction ID is required for UPI payments",
+                            },
+                          ]}
+                        >
+                          <Input placeholder="Enter UPI Transaction ID" />
+                        </Form.Item>
+                      </Col>
+                    )}
+                    <Col xs={24} md={method !== "cash" ? 12 : 24}>
+                      <Form.Item
+                        label="Payment Date"
+                        name="paymentDate"
+                        rules={[{ required: true, message: "Payment date is required" }]}
+                      >
+                        <DatePicker style={{ width: "100%", height: 36 }} format="YYYY-MM-DD" />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                );
+              }}
+            </Form.Item>
           </Form>
         ) : (
           <>
@@ -585,11 +643,35 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
 
               <Col xs={24} md={12}>
                 <Text style={labelStyle}>Counselling Service</Text>
-                <div style={valueBoxStyle}>
-                  {safeData.package && safeData.package !== "-"
-                    ? safeData.package.charAt(0).toUpperCase() +
-                    safeData.package.slice(1)
-                    : "-"}
+                <div
+                  style={{
+                    ...valueBoxStyle,
+                    maxHeight: 50,
+                    overflowY: "auto",
+                    paddingRight: 6,
+                  }}
+                  className="custom-scroll"
+                >
+                  {safeData.package && safeData.package !== "-" ? (
+                    String(safeData.package)
+                      .split(",")
+                      .map((p) => p.trim())
+                      .filter(Boolean)
+                      .map((p, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: "4px 0",
+                          }}
+                        >
+                          <Text>
+                            {i + 1}. {p.charAt(0).toUpperCase() + p.slice(1)}
+                          </Text>
+                        </div>
+                      ))
+                  ) : (
+                    "-"
+                  )}
                 </div>
               </Col>
             </Row>
@@ -634,7 +716,6 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
                           border: "1px solid #eee",
                         }}
                         onError={(e) => {
-                          console.error("Image load error:", previewUrl, e);
                           message.error("Failed to load receipt image");
                         }}
                       />
@@ -801,7 +882,7 @@ const PaymentProofModal = ({ open, onClose, data, onSuccess }) => {
                 <Button
                   type="primary"
                   onClick={() => handleVerify("approve")}
-               loading={verifyApproveLoading}
+                  loading={verifyApproveLoading}
                 >
                   Approve
                 </Button>

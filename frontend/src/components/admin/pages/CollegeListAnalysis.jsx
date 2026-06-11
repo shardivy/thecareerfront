@@ -245,7 +245,7 @@ const CollegeListAnalysis = () => {
     };
 
     const handleUploadReport = (record) => {
-        console.log("Upload clicked:", record);
+        // console.log("Upload clicked:", record);
 
         setSelectedReport(record);
 

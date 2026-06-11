@@ -13,6 +13,7 @@ import {
   Modal,
   message,
   Space,
+  Divider,
 } from "antd";
 import {
   EyeOutlined,
@@ -71,12 +72,22 @@ const UserList = () => {
   const filteredData = users.filter((user) => {
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
-    const program = typeof user.program === "string"
-      ? user.program
-      : user.program?.name || "";
-    const packageName = typeof user.package === "string"
-      ? user.package
-      : user.package?.name || "";
+    const program = Array.isArray(user.programs) && user.programs.length > 0
+      ? user.programs
+          .map((item) => item.program_name || item.program?.name)
+          .filter(Boolean)
+          .join(", ")
+      : typeof user.program === "string"
+        ? user.program
+        : user.program?.name || "";
+    const packageName = Array.isArray(user.programs) && user.programs.length > 0
+      ? user.programs
+          .map((item) => item.package?.name || item.package_name)
+          .filter(Boolean)
+          .join(", ")
+      : typeof user.package === "string"
+        ? user.package
+        : user.package?.name || "";
     const email = user.email || "";
 
     const fullName = `${firstName} ${lastName}`.toLowerCase();
@@ -189,18 +200,39 @@ const UserList = () => {
       ),
     },
 
-    {
-      title: "Program / Counselling Service ",
-      width: 180,
-      key: "program",
-      render: (_, record) => (
-        <div>
-          <Text strong>{record.program}</Text>
+   {
+  title: "Program / Counselling Service",
+  width: 240,
+  key: "program",
+  render: (_, record) => (
+    <div>
+      {Array.isArray(record.programs) && record.programs.length > 0 ? (
+        record.programs.map((item, idx) => (
+          <div key={idx}>
+            <div style={{ marginBottom: 10 }}>
+              <Text strong>
+                {`${idx + 1}. ${item.program_name || item.program?.name || "-"}`}
+              </Text>
+              <br />
+              <Text type="colorTextSecondary">
+                {item.package?.name || item.package_name || "-"}
+              </Text>
+            </div>
+{idx !== record.programs.length - 1 && (
+  <Divider style={{ margin: "10px 0" }} />
+)}
+          </div>
+        ))
+      ) : (
+        <>
+          <Text strong>{record.program || "N/A"}</Text>
           <br />
-          <Text type="colorTextSecondary">{record.package}</Text>
-        </div>
-      ),
-    },
+          <Text type="colorTextSecondary">{record.package || "N/A"}</Text>
+        </>
+      )}
+    </div>
+  ),
+},
     {
       title: "Preferred Counselling Mode",
       dataIndex: "preferred_counselling_mode",
@@ -340,7 +372,7 @@ const UserList = () => {
   dataIndex: "analysis_status",
   key: "analysis_status",
   render: (status, record) => {
-    console.log("analysis_status:", record.analysis_status);
+    // console.log("analysis_status:", record.analysis_status);
 
     const normalized = status?.toLowerCase()?.trim();
 

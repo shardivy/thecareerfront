@@ -604,7 +604,7 @@ const finalFilteredData = filteredData.filter((i) =>
             items={[
               { key: "programs", label: "Programs" },
               { key: "packages", label: "Counselling Services" },
-              { key: "landing", label: "Landing Pages" },
+              // { key: "landing", label: "Landing Pages" },
             ]}
           />
         </Col>

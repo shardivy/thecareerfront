@@ -20,7 +20,7 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchProgramContent , fetchContentList ,incrementDownloadCount } from "../../../adminSlices/contentSlice";
+import { fetchProgramContent, fetchContentList, incrementDownloadCount } from "../../../adminSlices/contentSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -49,94 +49,111 @@ const ContentLibrary = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 6;
 
-  
+  const selectedProgramId = Number(localStorage.getItem("selectedProgramId"));
+  const studentPackage = Number(localStorage.getItem("selectedPackageId"));
+
+  const isFreeUser = !selectedProgramId || !studentPackage;
+
   // ================= FETCH DATA =================
-useEffect(() => {
-  const programId = localStorage.getItem("program_id");
-  const studentPackage = localStorage.getItem("selectedPackage");
+  useEffect(() => {
 
-  const isFreeUser = !programId || !studentPackage;
 
-  if (isFreeUser) {
-    // FREE USER → get all content
-    dispatch(fetchContentList());
-  } else {
-    // PAID USER → get program specific content
-    dispatch(fetchProgramContent(programId));
-  }
-}, [dispatch]);
+    if (isFreeUser) {
+      // FREE USER → get all content
+      dispatch(fetchContentList());
+    } else {
+      // PAID USER → get program specific content
+      dispatch(fetchProgramContent(selectedProgramId));
+    }
+  }, [dispatch]);
 
   // ================= TRANSFORM API DATA =================
-const studentPackage = Number(localStorage.getItem("selectedPackage"));
-const isFreeUser = !studentPackage;
 
-// const storedPackage = localStorage.getItem("selectedPackage");
-// const studentPackage = storedPackage ? Number(storedPackage) : null;
 
-// const isFreeUser = !studentPackage;
+  // const storedPackage = localStorage.getItem("selectedPackage");
+  // const studentPackage = storedPackage ? Number(storedPackage) : null;
 
-// const transformedData =
-//   contentList
-//     ?.filter((item) => {
-//   if (item.is_draft) return false;
+  // const isFreeUser = !studentPackage;
 
-//   // FREE USER → allow all
-//   if (isFreeUser) return true;
+  // const transformedData =
+  //   contentList
+  //     ?.filter((item) => {
+  //   if (item.is_draft) return false;
 
-//   // PACKAGE RESTRICTED CONTENT
-//   if (item.package_details?.length > 0) {
-//     return item.package_details.some(
-//       (pkg) => pkg.id === studentPackage
-//     );
-//   }
+  //   // FREE USER → allow all
+  //   if (isFreeUser) return true;
 
-//   return true;
-// })
+  //   // PACKAGE RESTRICTED CONTENT
+  //   if (item.package_details?.length > 0) {
+  //     return item.package_details.some(
+  //       (pkg) => pkg.id === studentPackage
+  //     );
+  //   }
 
-const transformedData =
-  contentList
-    ?.filter((item) => {
-      if (item.is_draft) return false;
+  //   return true;
+  // })
 
-      // ✅ FREE USER → show all content
-      if (isFreeUser) return true;
+  const transformedData =
+    contentList
+      ?.filter((item) => {
+        if (item.is_draft) return false;
 
-      // ✅ PAID USER
-      if (item.free_content) return true;
+        if (isFreeUser) {
+          // FREE USER → show free_content + premium (locked)
+          return item.free_content === true || item.payment_required === true;
+        }
 
-      if (item.package_details?.length > 0) {
-        return item.package_details.some(
-          (pkg) => pkg.id === studentPackage
-        );
-      }
+        // PAID USER LOGIC:
 
-      return true;
-    })
+        // Always show premium content (will be locked/unlocked based on payment)
+        if (item.payment_required === true) {
+          if (item.package_details?.length > 0) {
+            return item.package_details.some(
+              (pkg) => Number(pkg.id) === studentPackage
+            );
+          }
+          if (item.program_details?.length > 0) {
+            return item.program_details.some(
+              (prog) => Number(prog.id) === selectedProgramId
+            );
+          }
+          return false;
+        }
 
-    ?.map((item) => {
-      let accessType = "Free";
+        // FREE CONTENT → package match first, fallback to program
+        if (item.package_details?.length > 0) {
+          return item.package_details.some(
+            (pkg) => Number(pkg.id) === studentPackage
+          );
+        }
 
-      if (item.payment_required) {
-        accessType = "Premium";
-      }
+        if (item.program_details?.length > 0) {
+          return item.program_details.some(
+            (prog) => Number(prog.id) === selectedProgramId
+          );
+        }
 
-      let contentType = "Article";
-      if (item.type === "video") contentType = "Video";
-      if (item.type === "pdf") contentType = "Article";
+        return false;
+      })
+      ?.map((item) => {
+        const accessType = item.payment_required ? "Premium" : "Free";
+        const contentType = item.type === "video" ? "Video" : "Article";
 
-      return {
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        type: contentType,
-        accessType: accessType,
-        programs: item.program_details?.map((p) => p.name) || [],
-        viewUrl: item.video_link || item.file_url,
-        image: item.image,
-        fileName: getFileNameFromUrl(item.file_url || ""),
-      };
-    }) || [];
-    
+        return {
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          type: contentType,
+          accessType,
+          programs: item.program_details?.map((p) => p.name) || [],
+          viewUrl: item.video_link || item.file_url,
+          image: item.image,
+          fileName: item.file_name || getFileNameFromUrl(item.file_url || ""),
+        };
+      }) || [];
+
+  // console.log("selectedPackage", studentPackage);
+
   // ================= FILTERING =================
   const filteredData = transformedData.filter((item) => {
     return (
@@ -154,14 +171,34 @@ const transformedData =
   );
 
   // ================= VIEW HANDLER =================
-  const handleView = (item) => {
-    if (item.accessType === "Premium" && !paymentCompleted) return;
+  // const handleView = (item) => {
+  //   if (item.accessType === "Premium" && !paymentCompleted) return;
 
-    if (item.viewUrl) {
-      window.open(item.viewUrl, "_blank");
-    }
-  };
+  //   if (item.viewUrl) {
+  //     window.open(item.viewUrl, "_blank");
+  //   }
+  // };
 
+ const handleView = (item) => {
+  if (item.accessType === "Premium" && !paymentCompleted) return;
+  if (!item.viewUrl) return;
+
+  const ext = getFileExtension(item.fileName, "pdf");
+
+  // Videos → open directly
+  if (item.type === "Video") {
+    window.open(item.viewUrl, "_blank");
+    return;
+  }
+
+  // PDF → open directly
+  if (ext === "pdf") {
+    window.open(item.viewUrl, "_blank");
+    return;
+  }
+
+  // All other file types → do nothing (button is disabled anyway)
+};
 
   const paymentCompleted =
     localStorage.getItem("paymentCompleted") === "true";
@@ -188,7 +225,7 @@ const transformedData =
       // Clean up URL object
       window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
-      console.error("Download error:", err);
+      // console.error("Download error:", err);
     }
   };
 
@@ -206,6 +243,7 @@ const transformedData =
       item.fileName || `${safeTitle}.${extension}`
     );
   };
+
 
   return (
     <div style={{ padding: "20px 0px" }}>
@@ -412,20 +450,25 @@ const transformedData =
                       }}
                     >
                       {/* Left side: View Content Button */}
-                      <Button
-                        type="link"
-                        disabled={item.accessType === "Premium" && !paymentCompleted}
-                        style={{
-                          padding: 0,
-                          fontWeight: 600,
-                        }}
-                        onClick={() => handleView(item)}
-                      >
-                        {item.accessType === "Premium" && !paymentCompleted
-                          ? "Complete Payment to Unlock →"
-                          : "View Content →"}
-                      </Button>
-
+                     {/* Left side: View Content Button */}
+<Button
+  type="link"
+  disabled={
+    (item.accessType === "Premium" && !paymentCompleted) ||
+    (item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf")
+  }
+  style={{
+    padding: 0,
+    fontWeight: 600,
+  }}
+  onClick={() => handleView(item)}
+>
+  {item.accessType === "Premium" && !paymentCompleted
+    ? "Complete Payment to Unlock →"
+    : item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf"
+    ? "View Not Available →"
+    : "View Content →"}
+</Button>
                       {/* Right side: Download Button - icon + text, only when content is unlocked and not a video */}
                       {!(item.accessType === "Premium" && !paymentCompleted) &&
                         item.viewUrl &&

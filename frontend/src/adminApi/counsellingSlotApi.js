@@ -6,9 +6,8 @@ export const getSlotsByDateApi = async (date, counsellorId) => {
   const response = await axiosInstance.get(
     `/counselling_slot/slots/${date}/${counsellorId}/`
   );
-  return response.data; // should be array
+  return response.data; 
 };
-
 
 // ✅ GET slots counsellor-wise (TABLE VIEW)
 export const getSlotsCounsellorWiseApi = async () => {
@@ -37,14 +36,7 @@ export const createSlotsApi = async (date, counsellorId, payload) => {
 
 // ✅ UPDATE COUNSELLOR STATUS
 export const updateCounsellorStatusApi = async (payload) => {
-  /**
-   * payload = {
-   *   counsellor_id,
-   *   date,
-   *   counsellor_is_active
-   * }
-   */
-  const response = await axiosInstance.put(
+   const response = await axiosInstance.put(
     "/counselling_slot/slots/counsellor-wise/",
     payload
   );
@@ -57,18 +49,12 @@ export const getSlotsForSelectedDateApi = async (date) => {
   const response = await axiosInstance.get(
     `/counselling_slot/counsellor-slots/${date}/`
   );
-  return response.data; // ✅ MUST BE THIS
+  return response.data; 
 };
 
 
-//
 // ✅ UPDATE SLOT AVAILABILITY
 export const updateSlotAvailabilityApi = async (slotId, payload) => {
-  /**
-   * payload = {
-   *   is_available: true/false
-   * }
-   */
   const response = await axiosInstance.put(
     `/counselling_slot/slots/${slotId}/availability/`,
     payload

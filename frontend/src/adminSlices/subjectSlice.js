@@ -34,7 +34,7 @@ const subjectSlice = createSlice({
   .addCase(fetchSubjects.fulfilled, (state, action) => {
   state.loading = false;
 
-  console.log("Subjects API Response:", action.payload);
+  // console.log("Subjects API Response:", action.payload); 
 
 state.subjectList = Array.isArray(action.payload)
   ? action.payload

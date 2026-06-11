@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button, Row, Col, Typography, Modal } from 'antd';
 import { PlayCircleOutlined, RocketOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const { Title } = Typography;
 import { Grid } from 'antd';
@@ -10,16 +10,23 @@ const Welcome = () => {
   const { useBreakpoint } = Grid;
   const screens = useBreakpoint();
   const navigate = useNavigate();
-  // const videoRef = useRef(null);
-  // const [isModalOpen, setIsModalOpen] = useState(false);
+  const location = useLocation();
+  const videoRef = useRef(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // const handleClose = () => {
-  //   setIsModalOpen(false);
-  //   if (videoRef.current) {
-  //     videoRef.current.pause();       // ⏸ stop video
-  //     videoRef.current.currentTime = 0; // ⏮ reset to start
-  //   }
-  // };
+  useEffect(() => {
+    if (location.state?.openVideo) {
+      setIsModalOpen(true);
+    }
+  }, [location.state]);
+
+  const handleClose = () => {
+    setIsModalOpen(false);
+    if (videoRef.current) {
+      videoRef.current.pause();       // ⏸ stop video
+      videoRef.current.currentTime = 0; // ⏮ reset to start
+    }
+  };
 
 
   return (
@@ -74,54 +81,64 @@ const Welcome = () => {
       <Row
         justify="center"
         align="middle"
-        gutter={[16, 16]}
-        style={{ marginTop: '20px' }}
+         gutter={[16, 16]} 
+        style={{ marginTop: '20px' , gap: '0px' }}
       >
-        {/* Text + Link */}
-        {/* <Col xs={24} md={7}>
-          <div
+        <Col
+          xs={24}
+          sm={10}
+          md={5}
+          style={{
+            display: 'flex',
+            justifyContent: 'center'
+          }}
+        >
+          <Button
+            size="large"
+            icon={<PlayCircleOutlined />}
+            onClick={() => setIsModalOpen(true)}
             style={{
-              fontSize: screens.xs ? '16px' : '20px',  // ✅ smaller on mobile
+              background: '#ffffff',
+              border: '1px solid #1E40AF',
+              color: '#1E40AF',
+              borderRadius: '30px',
+              padding: screens.xs ? '0 20px' : '0 25px',
+              height: '44px',
               fontWeight: '600',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
-              flexWrap: 'wrap',
-              textAlign: 'center'
+              width: screens.xs ? '100%' : 'auto',
+              margin: screens.xs ? '0' : '0 auto',
+              boxShadow: '0 6px 15px rgba(30, 64, 175, 0.18)',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 10px 25px rgba(30, 64, 175, 0.28)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 6px 15px rgba(30, 64, 175, 0.18)';
             }}
           >
-            <PlayCircleOutlined
-              style={{ fontSize: screens.xs ? '20px' : '28px' }} // ✅ responsive icon
-            />
+            Watch Video
+          </Button>
+        </Col>
 
-            Want to know more?{" "}
-
-            <span
-              onClick={() => setIsModalOpen(true)}
-              style={{
-                color: '#1677ff',
-                textDecoration: 'underline',
-                cursor: 'pointer'
-              }}
-            >
-              Watch Video
-            </span>
-          </div>
-        </Col> */}
-
-  {/* Button */}
-  <Col
-    xs={24}
-    md={5}
-    style={{
-      display: 'flex',
-      justifyContent: 'center'
-    }}
-  >
-    <Button
-      size="large"
-      icon={<RocketOutlined />}
+        <Col
+          xs={24}
+          sm={10}
+          md={5}
+          style={{
+            display: 'flex',
+            justifyContent: 'center'
+          }}
+        >
+          <Button
+            size="large"
+            icon={<RocketOutlined />}
             onClick={() =>
               navigate("/welcome-enquiry", { state: { from: "enquiry" } })
             }
@@ -133,24 +150,22 @@ const Welcome = () => {
               padding: screens.xs ? '0 20px' : '0 25px',
               height: '44px',
               fontWeight: '600',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        width: screens.xs ? '100%' : 'auto',
-        margin: screens.xs ? '0' : '0 auto',
-        boxShadow: '0 6px 15px rgba(22,119,255,0.35)',
-        transition: 'all 0.3s ease'
-      }}
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              width: screens.xs ? '100%' : 'auto',
+              margin: screens.xs ? '0' : '0 auto',
+              boxShadow: '0 6px 15px rgba(22,119,255,0.35)',
+              transition: 'all 0.3s ease'
+            }}
             onMouseOver={(e) => {
               e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow =
-                '0 10px 25px rgba(22,119,255,0.5)';
+              e.currentTarget.style.boxShadow = '0 10px 25px rgba(22,119,255,0.5)';
             }}
             onMouseOut={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow =
-                '0 6px 15px rgba(22,119,255,0.35)';
+              e.currentTarget.style.boxShadow = '0 6px 15px rgba(22,119,255,0.35)';
             }}
           >
             Enquiry Now
@@ -159,7 +174,7 @@ const Welcome = () => {
       </Row>
 
 
-      {/* <Modal
+       <Modal
         open={isModalOpen}
         onCancel={handleClose}
         footer={null}
@@ -182,7 +197,7 @@ const Welcome = () => {
             Your browser does not support the video tag.
           </video>
         </div>
-      </Modal> */}
+      </Modal> 
     </div>
   );
 };

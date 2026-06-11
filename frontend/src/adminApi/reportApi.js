@@ -16,8 +16,6 @@ export const getCompletedExamReportsByStudentApi = async (studentId) => {
   return response.data;
 };
 
-
-
 export const uploadReportApi = async (reportId, payload) => {
   const response = await axiosInstance.post(
     `/report/upload/${reportId}/`,

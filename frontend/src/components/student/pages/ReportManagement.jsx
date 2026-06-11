@@ -288,7 +288,7 @@ const ReportManagement = () => {
       a.remove();
       window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
-      console.error("Download error:", err);
+      // console.error("Download error:", err);
     }
   };
 
@@ -318,6 +318,21 @@ const ReportManagement = () => {
     if (!url) return;
     window.open(url, "_blank");
   };
+
+  const selectedProgram = localStorage.getItem("selectedProgram");
+  const selectedPackage = localStorage.getItem("selectedPackage");
+  const selectedProgramId = localStorage.getItem("selectedProgramId");
+  const selectedPackageId = localStorage.getItem("selectedPackageId");
+  const selectedProgramIdNum = selectedProgramId ? Number(selectedProgramId) : null;
+  const selectedPackageIdNum = selectedPackageId ? Number(selectedPackageId) : null;
+
+  const filteredReports = reports?.filter((report) => {
+    if (!selectedProgramIdNum || !selectedPackageIdNum) return true;
+    return (
+      Number(report.program_id) === selectedProgramIdNum &&
+      Number(report.package_id) === selectedPackageIdNum
+    );
+  });
 
   const handleReviewRedirect = (reportId) => {
     navigate(`/student/write-review`);
@@ -543,9 +558,9 @@ const ReportManagement = () => {
         </div>
       ) : (
         <Row gutter={[24, 24]} justify="center">
-          {reports?.length > 0 ? (
-            reports.map((report) => {
-              if (report.report_status === "not_received") {
+          {filteredReports?.length > 0 ? (
+            filteredReports.map((report) => {
+                if (report.report_status === "not_received" || !report.file_path) {
                 return (
                   <Col xs={24} md={10} key={report.id}>
                     <PendingUploadCard />
@@ -569,12 +584,6 @@ const ReportManagement = () => {
                   <ReportCard
                     report={report}
                     title="Aptitude Test Report"
-                    //  locked={report.report_status !== "received_unlocked"}
-                    //   reason={
-                    //     report.payment_status !== "fully_paid"
-                    //       ? "payment"
-                    //       : "review"
-                    //   }
                     locked={!isUnlocked}
                     reason={reason}
                   />
@@ -582,7 +591,7 @@ const ReportManagement = () => {
               );
             })
           ) : (
-            <Col xs={24} md={12}>
+            <Col xs={24} md={10}>
               <PendingUploadCard />
             </Col>
           )}

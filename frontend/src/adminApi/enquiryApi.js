@@ -54,3 +54,9 @@ export const getStreamsApi = async () => {
   );
   return response.data;
 };
+
+// delete enquiry
+export const deleteEnquiryApi = async (id) => {
+  const response = await axiosInstance.delete(`/lead-registeration/leads/${id}/`);
+  return response.data;
+};

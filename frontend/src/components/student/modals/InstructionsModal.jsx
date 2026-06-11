@@ -14,6 +14,7 @@ import {
   CheckCircleOutlined,
   GlobalOutlined,
   PictureOutlined,
+  CheckSquareOutlined,
 } from "@ant-design/icons";
 
 const { Title, Text, Link } = Typography;
@@ -48,11 +49,11 @@ const InstructionsModal = ({
       onCancel={onClose}
       width={850}
       centered
-        bodyStyle={{
-    maxHeight: "75vh",
-    overflowY: "auto",
-    paddingRight: 8,
-  }}
+      bodyStyle={{
+        maxHeight: "75vh",
+        overflowY: "auto",
+        paddingRight: 8,
+      }}
       footer={[
         <Button key="close" onClick={onClose}>
           Close
@@ -211,6 +212,9 @@ const InstructionsModal = ({
 
           <List
             dataSource={[
+              "Select 8th / 9th / 10th / 12th Completed or Appearing option as applicable",
+              "Entering marks is compulsory",
+              "If marks are not available, enter approximate/tentative marks",
               "8th Class → Select '9th appeared'",
               "9th Class → Select '10th appeared'",
               "10th Class → Select '10th appeared' or '10th completed'",
@@ -225,6 +229,74 @@ const InstructionsModal = ({
                     style={{ color: token.colorSuccess }}
                   />
                 </div>
+              </List.Item>
+            )}
+          />
+        </Card>
+
+        <Card
+          bodyStyle={{ padding: "12px 16px" }}
+          style={{
+            borderRadius: 16,
+            marginBottom: 16,
+            background: "#f6ffed",
+            border: "1px solid #b7eb8f",
+          }}
+        >
+          <Title level={5} style={{ marginBottom: 6 }}>
+            <CheckSquareOutlined
+              style={{ color: "#52c41a", marginRight: 8 }}
+            />
+            Mandatory Sections to Complete
+          </Title>
+
+          <List
+            dataSource={[
+              "Aptitude Test",
+              "Study Habit",
+              "Interest Test",
+              "Aspired Career",
+              "Personality Test (Only for 11th & 12th Standard Students)",
+            ]}
+            renderItem={(item) => (
+              <List.Item style={{ padding: "4px 0" }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <Text style={{ marginRight: 6 }}>{item}</Text>
+                  <CheckCircleOutlined style={{ color: token.colorSuccess }} />
+                </div>
+              </List.Item>
+            )}
+          />
+        </Card>
+
+        <Card
+          bodyStyle={{ padding: "12px 16px" }}
+          style={{
+            borderRadius: 16,
+            marginBottom: 16,
+            background: "#fffbe6",
+            border: "1px solid #ffe58f",
+          }}
+        >
+          <Title level={5} style={{ marginBottom: 6 }}>
+            ⚠️ Important Notes
+          </Title>
+
+          <List
+            dataSource={[
+              "Complete the test only between 11:00 AM and 6:00 PM",
+              "Do not leave any section incomplete",
+              "Ensure all sections show a green tick before exiting",
+              "Do not make any payment on the website",
+              "Stable internet connection is recommended",
+              "Please dedicate approximately 2 hours for this assessment",
+              "Weekend slots may not always be available, so students may be requested to complete the assessment on weekdays as well",
+              "Your cooperation will help ensure timely career guidance and assessment completion",
+
+            ]}
+            renderItem={(item) => (
+              <List.Item style={{ padding: "4px 0" }}>
+                <Text>{item}</Text>
               </List.Item>
             )}
           />
@@ -254,10 +326,13 @@ const InstructionsModal = ({
                   Click here to watch
                 </Link>
               </>,
+              "For technical help call Mr. Shah Sir: 9503140404",
 
-              "For technical help, WhatsApp Mr. Ketan at 8087466154.",
+              "WhatsApp Mr. Ketan Sir: 8087466154",
 
-              "After completing all sections, WhatsApp to confirm submission.",
+              "After completing all sections, call or WhatsApp to confirm your test submission",
+
+              "For any difficulty, WhatsApp Abhinav Career Scope: 9922695424",
             ]}
             renderItem={(item, index) => (
               <List.Item key={index} style={{ padding: "4px 0" }}>
@@ -272,6 +347,7 @@ const InstructionsModal = ({
             )}
           />
         </Card>
+
 
         {/* ABOUT */}
         <Card

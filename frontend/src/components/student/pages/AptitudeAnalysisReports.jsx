@@ -58,7 +58,7 @@ const AptitudeAnalysisReports = () => {
       a.remove();
       window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
-      console.error("Download error:", err);
+      // console.error("Download error:", err);
     }
   };
 
@@ -104,6 +104,20 @@ const AptitudeAnalysisReports = () => {
     });
   };
 
+  const selectedProgram = localStorage.getItem("selectedProgram");
+  const selectedPackage = localStorage.getItem("selectedPackage");
+  const selectedProgramId = localStorage.getItem("selectedProgramId");
+  const selectedPackageId = localStorage.getItem("selectedPackageId");
+  const selectedProgramIdNum = selectedProgramId ? Number(selectedProgramId) : null;
+  const selectedPackageIdNum = selectedPackageId ? Number(selectedPackageId) : null;
+
+  const filteredReports = reports?.filter((report) => {
+    if (!selectedProgramIdNum || !selectedPackageIdNum) return false;
+    return (
+      Number(report.program_id) === selectedProgramIdNum &&
+      Number(report.package_id) === selectedPackageIdNum
+    );
+  });
 
   useEffect(() => {
     if (reports && reports.length > 0) {
@@ -320,9 +334,10 @@ const AptitudeAnalysisReports = () => {
         </div>
       ) : (
         <Row gutter={[24, 24]} justify="center">
-          {reports?.length > 0 ? (
-            reports.map((report) => {
-              if (report.report_status === "not_received") {
+          {filteredReports?.length > 0 ? (
+            filteredReports.map((report) => {
+              // Treat missing file_path or explicit not_received as pending upload
+              if (report.report_status === "not_received" || !report.file_path) {
                 return (
                   <Col xs={24} md={10} key={report.id}>
                     <PendingUploadCard />
@@ -332,7 +347,7 @@ const AptitudeAnalysisReports = () => {
 
               return (
                 <Col xs={24} md={10} key={report.id}>
-                  {/* <ReportCard
+                  <ReportCard
                     report={report}
                     title="College Preference Excel Sheet"
                     locked={report.report_status !== "received_unlocked"}
@@ -340,20 +355,15 @@ const AptitudeAnalysisReports = () => {
                       report.payment_status !== "fully_paid"
                         ? "payment"
                         : report.booking_status !== "completed"
-                          ? "counselling"
-                          : "review"
+                        ? "counselling"
+                        : "review"
                     }
-                  /> */}
-                  <ReportCard
-  report={report}
-  title="College Preference Excel Sheet"
-  locked={false}
-/>
+                  />
                 </Col>
               );
             })
           ) : (
-            <Col xs={24} md={12}>
+            <Col xs={24} md={10}>
               <PendingUploadCard />
             </Col>
           )}

@@ -41,3 +41,12 @@ export const getActiveProgramsApi = async () => {
   );
   return response.data;
 };
+
+// Get Programs Excluding Handholding API
+export const getProgramsExcludeHandholdingApi = async () => {
+  const response = await axiosInstance.get(
+    "/program-package/programs/exclude-handholding/"
+  );
+  return response.data;
+};
+

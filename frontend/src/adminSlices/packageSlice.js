@@ -26,7 +26,7 @@ export const fetchPackagesByProgram = createAsyncThunk(
   async (programId, { rejectWithValue }) => {
     try {
       const response = await getPackagesByProgramApi(programId);
-            console.log("API response:", response);
+            // console.log("API response:", response);
       return response.data.packages; // ✅ FIX
     } catch {
       return rejectWithValue("Failed to fetch packages");

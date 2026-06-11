@@ -92,24 +92,14 @@ const HhPayments = () => {
 
   const formattedHistory = historyList.map((item, index) => {
     const rawDate = item.payment_date || item.created_at;
-    const savedProgram = localStorage.getItem("selectedProgram");
-    const savedPackage = localStorage.getItem("selectedPackageName");
+  const programInfo = item.programs?.[0];
     return {
       key: item.id || index,
       srNo: index + 1,
       // program: item.program_name || item.program || "N/A",
       // package: item.package_name || item.package || "-",
-      program:
-        item.program_name ||
-        item.program ||
-        savedProgram ||
-        "N/A",
-
-      package:
-        item.package_name ||
-        item.package ||
-        savedPackage ||
-        "-",
+     program: programInfo?.program_name || "-",
+    package: programInfo?.package?.name || "-",
       paidAmount: item.amount || 0,
       packagePrice: item.package_price || 0,
       status:

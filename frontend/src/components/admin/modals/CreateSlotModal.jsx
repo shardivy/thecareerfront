@@ -17,7 +17,7 @@ import { CloseOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchLeadCounsellors } from "../../../adminSlices/counsellorSlice";
+import { fetchAllCounsellors } from "../../../adminSlices/counsellorSlice";
 import {
   fetchSlotsByDate,
   deleteSlot,
@@ -54,7 +54,7 @@ const { modalSlots: fetchedSlots } = useSelector(
 
   /* ---------- FETCH COUNSELLORS ---------- */
   useEffect(() => {
-    if (open) dispatch(fetchLeadCounsellors());
+    if (open) dispatch(fetchAllCounsellors());
   }, [open, dispatch]);
 
   /* ---------- FETCH SLOTS ---------- */
@@ -195,8 +195,8 @@ const handleDeleteSlot = (slotId, index) => {
       date: date,
       slots: formattedSlots,
     };
-    console.log("Sending slots:", formattedSlots);
-    console.log("Payload:", payload);
+    // console.log("Sending slots:", formattedSlots);
+    // console.log("Payload:", payload);
     dispatch(createSlots({ date, counsellorId, payload })).then((res) => {
       if (!res.error) {
         form.resetFields();

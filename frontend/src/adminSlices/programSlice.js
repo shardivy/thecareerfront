@@ -3,8 +3,9 @@ import {
   getProgramsApi,
   addProgramApi,
   updateProgramApi,
-  getProgramStatsApi, 
+  getProgramStatsApi,
   getActiveProgramsApi,
+  getProgramsExcludeHandholdingApi,
 } from "../adminApi/programApi";
 
 // ------------------- FETCH PROGRAMS -------------------
@@ -74,12 +75,29 @@ export const fetchProgramStats = createAsyncThunk(
   }
 );
 
+// ------------------- FETCH PROGRAMS EXCLUDING HANDHOLDING -------------------
+export const fetchProgramsExcludeHandholding = createAsyncThunk(
+  "programs/fetchExcludeHandholding",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await getProgramsExcludeHandholdingApi();
+      return res;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+        "Failed to load programs excluding handholding"
+      );
+    }
+  }
+);
+
 // ------------------- SLICE -------------------
 const programSlice = createSlice({
   name: "programs",
   initialState: {
     list: [],
-    activeList: [], 
+    activeList: [],
+    excludeHandholdingList: [],
     loading: false,
     error: null,
     stats: { total_programs: 0, total_packages: 0, total_enrolled: 0, revenue: 0 },
@@ -135,6 +153,31 @@ const programSlice = createSlice({
         state.error = action.payload;
       })
 
+
+      // FETCH PROGRAMS EXCLUDING HANDHOLDING
+      .addCase(fetchProgramsExcludeHandholding.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchProgramsExcludeHandholding.fulfilled, (state, action) => {
+        state.loading = false;
+
+        const programs = Array.isArray(action.payload?.data)
+          ? action.payload.data
+          : [];
+
+        programs.sort((a, b) =>
+          a.name?.localeCompare(b.name, undefined, {
+            sensitivity: "base",
+          })
+        );
+
+        state.excludeHandholdingList = programs;
+      })
+      .addCase(fetchProgramsExcludeHandholding.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
       // ADD PROGRAM
       .addCase(addProgram.pending, (state) => { state.loading = true; })
       .addCase(addProgram.fulfilled, (state, action) => {
@@ -161,7 +204,12 @@ const programSlice = createSlice({
         state.stats = action.payload; // assign dashboard stats
       })
       .addCase(fetchProgramStats.rejected, (state, action) => { state.loading = false; state.error = action.payload; });
+
   },
-});
+})
+
+
+
+
 
 export default programSlice.reducer;

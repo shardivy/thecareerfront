@@ -1,6 +1,7 @@
 // updateEnquirySlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../axiosInstance";
+import { deleteEnquiryApi } from "../adminApi/enquiryApi";
 
 // ✅ Update enquiry API
 export const updateEnquiryApi = async (payload) => {
@@ -70,9 +71,41 @@ const updateEnquirySlice = createSlice({
       .addCase(updateEnquiry.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(deleteEnquiry.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteEnquiry.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
+        state.message = action.payload.message || "Enquiry deleted";
+      })
+      .addCase(deleteEnquiry.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
+
+// ---------------- DELETE THUNK ----------------
+export const deleteEnquiry = createAsyncThunk(
+  "enquiry/delete",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await deleteEnquiryApi(id);
+      return { id, ...response };
+    } catch (error) {
+      const generalError =
+        error.response?.data?.message ||
+        error.response?.data?.detail ||
+        "Failed to delete enquiry";
+      return rejectWithValue(generalError);
+    }
+  }
+);
+
+// (delete lifecycle handled above in extraReducers)
 
 export const { clearUpdateState } = updateEnquirySlice.actions;
 export default updateEnquirySlice.reducer;
