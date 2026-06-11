@@ -33,7 +33,7 @@ Please make sure to join the session on time.
 If you need to reschedule, please contact support.
 
 Best Regards  
-Support Team
+Abhinav Career Scope
 """
 
     send_mail(
@@ -77,7 +77,7 @@ Please review the updated session schedule.
 If you have any questions, feel free to contact our support team.
 
 Best Regards  
-Support Team
+Abhinav Career Scope
 """
 
     send_mail(

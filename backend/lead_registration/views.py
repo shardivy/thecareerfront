@@ -1988,6 +1988,587 @@ class AdminUserFullUpdateAPIView(APIView):
 #                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
 #             )
 
+# class ConvertLeadAPIView(APIView):
+#     parser_classes = [MultiPartParser, FormParser]
+#     """
+#     Convert Lead → User → StudentProfile → Program → Package → Payment
+#     """
+
+#     def post(self, request, lead_id):
+
+#         lead = get_object_or_404(Lead, id=lead_id)
+
+#         if lead.status == "converted":
+#             return Response(
+#                 {"message": "Lead already converted"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         if not lead.email:
+#             return Response(
+#                 {"message": "Email is required to convert lead"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         payload = request.data.dict()  # Make it mutable
+#         # payload._mutable = True
+#         payload["first_name"] = lead.first_name
+#         # payload["last_name"] = lead.last_name
+#         payload["last_name"] = request.data.get("last_name", lead.last_name)
+#         payload["email"] = lead.email
+
+#         # ✅ Normalize phone
+#         phone = request.data.get("phone") or lead.phone
+#         if phone:
+#             phone = phone.strip().replace(" ", "")
+#         payload["phone"] = phone
+
+#         # 🔹 Check existing user
+#         existing_user = User.objects.filter(email=lead.email).first()
+
+#         # ==========================
+#         # Handle multiple programs/packages
+#         # ==========================
+#         payload = request.data.copy()
+
+#         payload["first_name"] = lead.first_name
+#         payload["last_name"] = request.data.get("last_name", lead.last_name)
+#         payload["email"] = lead.email
+#         payload["phone"] = phone
+
+#         payload.setlist(
+#             "program",
+#             request.data.getlist("program")
+#         )
+
+#         payload.setlist(
+#             "package",
+#             request.data.getlist("package")
+#         )
+
+#         serializer = AddUserSerializer(
+#             data=payload,
+#             context={
+#                 "user_id": existing_user.id if existing_user else None
+#             }
+#         )
+
+#         if not serializer.is_valid():
+#             return Response(
+#                 {
+#                     "message": "Validation error",
+#                     "errors": serializer.errors
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         try:
+#             with transaction.atomic():
+
+#                 # student_role = Role.objects.get(name="student")
+#                 # Decide role based on package
+#                 # =================================
+#                 # 🔹 PROGRAM & PACKAGE
+#                 # =================================
+#                 programs = serializer.validated_data.get("program", [])
+#                 packages = serializer.validated_data.get("package", [])
+
+#                 # First package used for role detection
+#                 first_package = packages[0] if packages else None
+
+#                 is_handholding = any(
+#                     pkg.is_handholding for pkg in packages
+#                 )
+                                
+#                 if is_handholding:
+#                     user_role = Role.objects.get(name="handholding")
+#                 else:
+#                     user_role = Role.objects.get(name="student")
+                
+
+#                 user = existing_user
+#                 password = None
+
+#                 # ---------------------------------
+#                 # USER CREATE / UPDATE
+#                 # ---------------------------------
+#                 if not user:
+
+#                     # ✅ FIRST PRIORITY:
+#                     # Use password already submitted during registration
+#                     password = serializer.validated_data.get("password")
+
+#                     # ✅ SECOND:
+#                     # fallback to request password
+#                     if not password:
+#                         password = request.data.get("password")
+
+#                     # ✅ ONLY if absolutely missing
+#                     if not password:
+#                         password = generate_password()
+
+#                     # program = serializer.validated_data["program"]
+#                     # prefix = PROGRAM_PREFIX_MAP.get(program.name)
+
+#                     # first_name = serializer.validated_data["first_name"]
+
+#                     # if prefix and not first_name.startswith(prefix):
+#                     #     first_name = f"{prefix} - {first_name}"
+                    
+#                     # =====================================
+#                     # ✅ MULTIPLE PROGRAM PREFIX LOGIC
+#                     # =====================================
+
+#                     prefixes = []
+
+#                     for program in programs:
+#                         normalized_name = program.name.strip().lower()
+
+#                         prefix = PROGRAM_PREFIX_MAP.get(normalized_name)
+
+#                         if prefix and prefix not in prefixes:
+#                             prefixes.append(prefix)
+
+#                     # Example:
+#                     # ["EG", "CA"]
+
+#                     prefix_text = " | ".join(prefixes)
+
+#                     first_name = serializer.validated_data["first_name"].strip()
+
+#                     # Remove old prefix if already exists
+#                     if " - " in first_name:
+#                         first_name = first_name.split(" - ", 1)[1].strip()
+
+#                     # Final format
+#                     # EG - Anshika
+#                     # EG | CA - Anshika
+#                     if prefix_text:
+#                         first_name = f"{prefix_text} - {first_name}"
+
+#                     print("Programs:", [p.name for p in programs])
+#                     print("Prefixes:", prefixes)
+#                     print("Final Name:", first_name)
+
+#                     user = User.objects.create(
+#                         first_name=first_name,
+#                         last_name=serializer.validated_data["last_name"],
+#                         email=lead.email,
+#                         phone=serializer.validated_data.get("phone"),
+#                         role=user_role,
+#                         is_active=True
+#                     )
+
+#                     # ✅ Save exact original password
+#                     user.set_password(password)
+#                     user.save()
+                    
+#                     print("User created with ID:", user.id)
+                    
+
+#                 else:
+#                     # ✅ EXISTING USER
+#                     entered_password = serializer.validated_data.get("password") or request.data.get("password")
+
+#                     # ✅ Update only if admin provided new password
+#                     if entered_password:
+#                         password = entered_password
+#                         user.set_password(password)
+#                         user.save(update_fields=["password"])
+#                     else:
+#                         # ✅ IMPORTANT:
+#                         # Keep original password untouched
+#                         password = None
+                        
+
+#                     user.first_name = serializer.validated_data.get(
+#                         "first_name",
+#                         user.first_name
+#                     )
+#                     user.last_name = serializer.validated_data.get(
+#                         "last_name",
+#                         user.last_name
+#                     )
+#                     user.phone = serializer.validated_data.get(
+#                         "phone",
+#                         user.phone
+#                     )
+
+#                     if user.role != user_role:
+#                         user.role = user_role
+
+#                     user.save()
+
+                
+
+#                 # =================================
+#                 # 🔹 HAND HOLDING LOGIC
+#                 # =================================
+#                 if is_handholding:
+#                     resume_file = serializer.validated_data.get("resume_file")
+#                     photo = serializer.validated_data.get("photo")
+                    
+#                     full_address = request.data.get("full_address", "")
+#                     city = request.data.get("city")
+                    
+#                     print(f"Resume file received: {resume_file}")
+#                     print(f"Resume file name: {resume_file.name if resume_file else 'None'}")
+#                     print(f"Photo received: {photo}")
+
+#                     participant = HandHoldingParticipant.objects.filter(
+#                         email=lead.email
+#                     ).first()
+
+#                     if participant:
+#                         participant.user = user
+#                         participant.mobile = user.phone
+#                         participant.email = user.email
+                        
+#                         participant.full_address = full_address
+#                         participant.city = city
+
+#                         # ✅ FIX: Assign file fields properly
+#                         if resume_file:
+#                             participant.resume_file = resume_file  # This should work if field is FileField
+                            
+#                         if photo:
+#                             participant.photo = photo
+                            
+#                         participant.show_profile = serializer.validated_data.get("show_profile", participant.show_profile)
+
+#                         participant.save()
+
+#                     else:
+#                         # ✅ FIX: Create with file fields
+#                         participant = HandHoldingParticipant.objects.create(
+#                             user=user,
+#                             email=user.email,
+#                             mobile=user.phone,
+#                             # full_address=serializer.validated_data.get("full_address", ""),
+#                             full_address=full_address,
+#                             # city=serializer.validated_data.get("city"),
+#                             city=city,
+#                             preferred_counselling_mode=serializer.validated_data.get("preferred_counselling_mode"),
+#                             resume_file=resume_file,  # This should work
+#                             photo=photo,  # This should work
+#                             show_profile=serializer.validated_data.get("show_profile")
+#                         )
+
+#                     # =================================
+#                     # 🔹 ADD THIS PART (SESSION CREATION)
+#                     # =================================
+#                     # total_sessions = int(request.data.get("total_sessions", 10))
+
+#                     # # Get all master sessions (based on ordering)
+#                     # sessions = HandHoldingSession.objects.all().order_by("ordering")[:total_sessions]
+                    
+                    
+#                     sessions = HandHoldingSession.objects.all().order_by("ordering")
+
+#                     # Existing session numbers
+#                     existing_sessions = set(
+#                         HandHoldingParticipantSession.objects.filter(
+#                             handholding_participant=participant
+#                         ).values_list("session_no", flat=True)
+#                     )
+
+#                     new_sessions = []
+
+#                     for i, session in enumerate(sessions, start=1):
+#                         if i not in existing_sessions:
+#                             new_sessions.append(
+#                                 HandHoldingParticipantSession(
+#                                     handholding_participant=participant,
+#                                     handholding_session=session,
+#                                     session_no=i,
+#                                     session_date=timezone.now(),
+#                                     status="not_booked",
+#                                     notes="",
+#                                     conducted_by=request.user if request.user.is_authenticated else None
+#                                 )
+#                             )
+
+#                     HandHoldingParticipantSession.objects.bulk_create(new_sessions)
+                    
+#                 # =================================
+#                 # 🔹 CERTIFICATE CREATION (HANDHOLDING)
+#                 # =================================
+#                 Certificate.objects.get_or_create(
+#                     user=user,
+#                     program_type="handholding",
+#                     defaults={
+#                         "certificate_status": "pending"
+#                     }
+#                 )
+
+#                 # =================================
+#                 # 🔹 STUDENT PROFILE (SKIP FOR HANDHOLDING)
+#                 # =================================
+#                 student_profile = None
+
+#                 if not is_handholding:
+#                     student_profile = StudentProfile.objects.create(
+#                         user=user,
+#                         study_class=serializer.validated_data.get("study_class"),
+#                         current_academic_stage=serializer.validated_data.get("current_academic_stage"),
+#                         current_academic_year=serializer.validated_data.get("current_academic_year"),
+#                         school_college=serializer.validated_data.get("school_college"),
+#                         city=serializer.validated_data.get("city"),
+#                         preferred_counselling_mode=serializer.validated_data.get(
+#                             "preferred_counselling_mode"
+#                         ),
+#                         dob=lead.dob if lead.dob else None,
+#                         specialization=lead.specialization if lead.specialization else None,
+#                         stream=lead.stream if lead.stream else None,
+#                     )
+#                 else:
+#                     student_profile = None  # ✅ explicitly ensure
+#                 # =================================
+#                 # 🔹 PROGRAM PACKAGE (SKIP FOR HANDHOLDING)
+#                 # =================================
+#                 upp = None
+
+#                 # if package:
+#                 #     upp = UserProgramPackage.objects.create(
+#                 #         user=user,
+#                 #         program=program,
+#                 #         package=package,
+#                 #         assigned_by="lead-conversion"
+#                 #     )
+#                 # ✅ Ensure package exists for handholding
+#                 if is_handholding and not packages:
+#                     packages = [
+#                         Package.objects.filter(program=p).first()
+#                         for p in programs
+#                     ]
+
+#                 # ✅ Create UPP
+#                 upp_list = []
+
+#                 for program, package in zip(programs, packages):
+#                     upp = UserProgramPackage.objects.create(
+#                         user=user,
+#                         program=program,
+#                         package=package,
+#                         assigned_by="lead-conversion"
+#                     )
+#                     upp_list.append(upp)
+                    
+#                 # # =================================
+#                 # # 🔹 EXAM / BOOKING
+#                 # # =================================
+#                 # if not is_handholding:
+#                 #     if package and package.aptitude_test:
+#                 #         UserExam.objects.create(
+#                 #             user=user,
+#                 #             status="not_started"
+#                 #         )
+#                 #     else:
+#                 #         Booking.objects.create(
+#                 #             student=student_profile,
+#                 #             status="not_booked"
+#                 #         )
+                
+#                 # =================================
+#                 # 🔹 EXAM / BOOKING / ENGINEERING ANALYSIS
+#                 # =================================
+#                 if not is_handholding:
+
+#                     for program, package in zip(programs, packages):
+
+#                         # Aptitude Test
+#                         if package.aptitude_test:
+#                             UserExam.objects.get_or_create(
+#                                 user=user,
+#                                 defaults={"status": "not_started"}
+#                             )
+
+#                         # Engineering Test Analysis
+#                         elif package.engineering_test_analysis:
+#                             CollegeListAnalysis.objects.create(
+#                                 user=user,
+#                                 program=program,
+#                                 package=package,
+#                                 status="not_started"
+#                             )
+
+#                             Booking.objects.create(
+#                                 student=student_profile,
+#                                 program=program,
+#                                 package=package,
+#                                 status="not_booked"
+#                             )
+
+#                         # Normal Package
+#                         else:
+#                             Booking.objects.create(
+#                                 student=student_profile,
+#                                 program=program,
+#                                 package=package,
+#                                 status="not_booked"
+#                             )
+
+#                 # =================================
+#                 # 🔹 PAYMENT (SINGLE PAYMENT)
+#                 # =================================
+
+#                 payments = []
+
+#                 if packages:
+
+#                     amount = serializer.validated_data.get("amount", 0)
+
+#                     total_package_price = sum(
+#                         package.price for package in packages
+#                     )
+
+#                     if amount == 0:
+#                         payment_status = "not_paid"
+#                     elif amount < total_package_price:
+#                         payment_status = "partial_paid"
+#                     else:
+#                         payment_status = "fully_paid"
+
+#                     payment = Payment.objects.create(
+#                         user=user,
+#                         amount=amount,
+#                         payment_type=serializer.validated_data.get("payment_type"),
+#                         method=serializer.validated_data.get("method"),
+#                         transaction_id=serializer.validated_data.get("transaction_id"),
+#                         proof_file=serializer.validated_data.get("proof_file"),
+#                         status=payment_status
+#                     )
+
+#                     # save all packages
+#                     payment.package.set(packages)
+
+#                     payments.append(payment)
+
+#                 # =================================
+#                 # 🔹 UPDATE LEAD
+#                 # =================================
+#                 lead.status = "converted"
+#                 lead.save(update_fields=["status"])
+                
+#                 # ✅ Mark user as converted lead
+#                 user.is_converted_lead = True
+#                 user.save(update_fields=["is_converted_lead"])
+
+#                 # =================================
+#                 # 🔹 SEND EMAIL (HANDLE EXISTING USER PASSWORD)
+#                 # =================================
+#                 try:
+#                     # ✅ NEW PASSWORD if entered by admin
+#                     password_to_send = (
+#                         serializer.validated_data.get("password")
+#                         or request.data.get("password")
+#                     )
+
+#                     # ==========================================
+#                     # EXISTING USER + NO NEW PASSWORD PROVIDED
+#                     # ==========================================
+#                     if existing_user and not password_to_send:
+
+#                         # ❌ Do NOT generate/reset password
+#                         # ✅ Inform user to use previous password
+#                         password_to_send = "Please use your previous password"
+
+#                     # ==========================================
+#                     # NEW USER + NO PASSWORD
+#                     # ==========================================
+#                     elif not password_to_send:
+#                         password_to_send = generate_password()
+
+#                         user.set_password(password_to_send)
+#                         user.save(update_fields=["password"])
+
+#                     # ==========================================
+#                     # DEBUG LOGS
+#                     # ==========================================
+#                     program_names = ", ".join([p.name for p in programs])
+
+#                     package_names = ", ".join([
+#                         p.name for p in packages
+#                     ])
+                                        
+#                     print("========== EMAIL DEBUG ==========")
+#                     print("User Email:", user.email)
+#                     print("Password Sent:", password_to_send)
+#                     print("Program:", program.name)
+#                     print("Package:", package.name if package else "Hand Holding")
+#                     print("================================")
+
+#                     # ==========================================
+#                     # SEND EMAIL
+#                     # ==========================================
+#                     print("BEFORE EMAIL FUNCTION CALL")
+#                     send_credentials_email(
+#                         email=user.email,
+#                         password=password_to_send,
+#                         program_name=program_names,
+#                         package_name=package_names,
+#                         preferred_counselling_mode=serializer.validated_data.get(
+#                             "preferred_counselling_mode",
+#                             "online"
+#                         )
+#                     )
+#                     print("AFTER EMAIL FUNCTION CALL")
+
+#                     logger.info(
+#                         f"Credentials email sent successfully to {user.email}"
+#                     )
+
+#                 except Exception as e:
+#                     import traceback
+
+#                     print("========== EMAIL ERROR ==========")
+#                     print("User Email:", user.email)
+#                     print("Error:", str(e))
+#                     traceback.print_exc()
+#                     print("=================================")
+
+#                     logger.error(
+#                         f"Email sending failed for {user.email}: {str(e)}"
+#                     )
+                
+#                 # =================================
+#                 # 🔹 RESPONSE
+#                 # =================================
+#                 return Response(
+#                     {
+#                         "message": "Lead converted successfully",
+#                         "data": {
+#                             "user": UserDetailSerializer(user).data,
+#                             "student_profile": (
+#                                 StudentProfileDetailSerializer(student_profile).data
+#                                 if student_profile else None
+#                             ),
+#                             "program_package": UserProgramPackageDetailSerializer(
+#                                 upp_list,
+#                                 many=True
+#                             ).data,
+#                             "payment": PaymentDetailSerializer(
+#                                 payments,
+#                                 many=True,
+#                                 context={
+#                                     "request": request,
+#                                     "upps": upp_list,
+#                                 }
+#                             ).data
+#                         }
+#                     },
+#                     status=status.HTTP_201_CREATED
+#                 )
+
+#         except Exception as e:
+#             return Response(
+#                 {
+#                     "message": "Lead conversion failed",
+#                     "error": str(e)
+#                 },
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
 class ConvertLeadAPIView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     """
@@ -2162,21 +2743,14 @@ class ConvertLeadAPIView(APIView):
                     # ✅ Save exact original password
                     user.set_password(password)
                     user.save()
+                    
+                    print("User created with ID:", user.id)
+                    
 
                 else:
-                    # ✅ EXISTING USER
-                    entered_password = serializer.validated_data.get("password") or request.data.get("password")
-
-                    # ✅ Update only if admin provided new password
-                    if entered_password:
-                        password = entered_password
-                        user.set_password(password)
-                        user.save(update_fields=["password"])
-                    else:
-                        # ✅ IMPORTANT:
-                        # Keep original password untouched
-                        password = None
-
+                    # ✅ EXISTING USER - NO PASSWORD CHANGE WHATSOEVER
+                    # Completely commented out any password update logic
+                    
                     user.first_name = serializer.validated_data.get(
                         "first_name",
                         user.first_name
@@ -2194,6 +2768,10 @@ class ConvertLeadAPIView(APIView):
                         user.role = user_role
 
                     user.save()
+                    
+                    # ✅ IMPORTANT: Ensure password is not set or changed
+                    # password remains None
+                    print(f"Existing user updated - password UNCHANGED for user: {user.email}")
 
                 
 
@@ -2468,6 +3046,7 @@ class ConvertLeadAPIView(APIView):
                         # ❌ Do NOT generate/reset password
                         # ✅ Inform user to use previous password
                         password_to_send = "Please use your previous password"
+                        print(f"Existing user - sending message: {password_to_send}")
 
                     # ==========================================
                     # NEW USER + NO PASSWORD
@@ -2477,6 +3056,7 @@ class ConvertLeadAPIView(APIView):
 
                         user.set_password(password_to_send)
                         user.save(update_fields=["password"])
+                        print(f"New user - generated password: {password_to_send}")
 
                     # ==========================================
                     # DEBUG LOGS
@@ -2490,8 +3070,9 @@ class ConvertLeadAPIView(APIView):
                     print("========== EMAIL DEBUG ==========")
                     print("User Email:", user.email)
                     print("Password Sent:", password_to_send)
-                    print("Program:", program.name)
-                    print("Package:", package.name if package else "Hand Holding")
+                    print("Is Existing User:", existing_user)
+                    print("Programs:", program_names)
+                    print("Packages:", package_names)
                     print("================================")
 
                     # ==========================================
@@ -2530,6 +3111,13 @@ class ConvertLeadAPIView(APIView):
                 # =================================
                 # 🔹 RESPONSE
                 # =================================
+                print("========== FINAL PASSWORD TEST ==========")
+                print("User Email:", user.email)
+                print(
+                    "Check Registered Password:",
+                    user.check_password("Bhim@123")
+                )
+                print("========================================")
                 return Response(
                     {
                         "message": "Lead converted successfully",
@@ -2564,7 +3152,6 @@ class ConvertLeadAPIView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 
 class StudentAcademicHistoryAPIView(APIView):

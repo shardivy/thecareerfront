@@ -287,6 +287,14 @@ class PaymentCreateAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
     
+    def get_first_error(errors):
+        if isinstance(errors, dict):
+            for value in errors.values():
+                if isinstance(value, list):
+                    return value[0]
+                return value
+        return str(errors)
+    
     def unlock_report_if_paid(self, payment):
         """
         Unlock report ONLY if:
@@ -402,7 +410,7 @@ class PaymentCreateAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "errors": serializer.errors
+                    "errors": get_first_error(serializer.errors)
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -475,7 +483,7 @@ class PaymentCreateAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "errors": serializer.errors
+                    "errors": get_first_error(serializer.errors)
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -3272,7 +3280,14 @@ class GenerateReceiptByHandHoldingParticipantAPIView(APIView):
             as_attachment=True,
             filename=f"handholding_receipt_{participant_id}.pdf"
         )
-        
+
+def get_first_error(errors):
+    if isinstance(errors, dict):
+        for value in errors.values():
+            if isinstance(value, list):
+                return value[0]
+            return value
+    return str(errors)          
         
 class PaymentCreateByStudentAPIView(APIView):
     """
@@ -3434,7 +3449,7 @@ class PaymentCreateByStudentAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "errors": serializer.errors
+                    "errors": get_first_error(serializer.errors)
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -3557,7 +3572,7 @@ class PaymentCreateByStudentAPIView(APIView):
             return Response(
                 {
                     "success": False,
-                    "errors": serializer.errors
+                    "errors": get_first_error(serializer.errors)
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )

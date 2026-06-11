@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 from django.db.models import Sum
 
@@ -269,6 +271,8 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
 
         student_profile = attrs.get("student_profile")
         handholding_participant = attrs.get("handholding_participant")
+        payment_type = attrs.get("payment_type")
+        transaction_id = attrs.get("transaction_id")
         # package = attrs.get("package")
 
         # if isinstance(package, list):
@@ -410,6 +414,53 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
 
         # ✅ IMPORTANT
         attrs["user"] = user
+        
+        # ========================================= 
+        # ✅ ONLINE PAYMENT VALIDATION
+        # =========================================
+        if payment_type and payment_type.lower() == "online":
+
+            # Transaction ID required
+            if not transaction_id:
+                raise serializers.ValidationError({
+                    "transaction_id": "Transaction ID is required for online payments."
+                })
+
+            transaction_id = str(transaction_id).strip()
+
+            # Common payment reference formats:
+            # UPI Ref No: 12 digits
+            # UTR No: 12-22 chars
+            # Bank Txn ID: alphanumeric
+            pattern = r"^[A-Za-z0-9\-_]{6,30}$"
+
+            if not re.match(pattern, transaction_id):
+                raise serializers.ValidationError({
+                    "transaction_id": (
+                        "Invalid transaction ID format. "
+                        "Only letters, numbers, '-' and '_' are allowed "
+                        "(6 to 30 characters)."
+                    )
+                })
+
+            # Duplicate transaction ID check
+            qs = Payment.objects.filter(
+                transaction_id__iexact=transaction_id
+            )
+
+            if self.instance:
+                qs = qs.exclude(id=self.instance.id)
+
+            if qs.exists():
+                raise serializers.ValidationError({
+                    "transaction_id": "Transaction ID already exists."
+                })
+
+        # =========================================
+        # ✅ OFFLINE PAYMENT VALIDATION
+        # =========================================
+        else:
+            attrs["transaction_id"] = None
 
         return attrs
 
@@ -774,7 +825,7 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
 
     transaction_id = serializers.CharField(
         required=False,
-        allow_blank=False,
+        allow_blank=True,
         allow_null=True
     )
 
@@ -927,6 +978,55 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
 
         # ✅ IMPORTANT
         attrs["user"] = user
+        
+        # =========================================
+        # ✅ ONLINE PAYMENT TRANSACTION VALIDATION
+        # =========================================
+
+        payment_type = attrs.get("payment_type")
+        transaction_id = attrs.get("transaction_id")
+
+        if payment_type and str(payment_type).lower() == "online":
+
+            # Transaction ID required
+            if not transaction_id:
+                raise serializers.ValidationError({
+                    "transaction_id": "Transaction ID is required for online payments."
+                })
+
+            transaction_id = transaction_id.strip()
+
+            # Common UPI / UTR / Bank Transaction formats
+            pattern = r"^[A-Za-z0-9\-_]{6,30}$"
+
+            if not re.match(pattern, transaction_id):
+                raise serializers.ValidationError({
+                    "transaction_id": (
+                        "Invalid transaction ID format. "
+                        "Only letters, numbers, '-' and '_' are allowed "
+                        "(6-30 characters)."
+                    )
+                })
+
+            # Duplicate transaction id check
+            qs = Payment.objects.filter(
+                transaction_id__iexact=transaction_id
+            )
+
+            # exclude current record while update
+            if self.instance:
+                qs = qs.exclude(id=self.instance.id)
+
+            if qs.exists():
+                raise serializers.ValidationError({
+                    "transaction_id": "Transaction ID already exists."
+                })
+
+        # =========================================
+        # ✅ OFFLINE PAYMENT
+        # =========================================
+        else:
+            attrs["transaction_id"] = None
 
         return attrs
 

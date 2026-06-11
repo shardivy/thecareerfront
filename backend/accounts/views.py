@@ -790,6 +790,10 @@ class LoginAPIView(APIView):
         # 2️⃣ Find user
         # ==========================
         user = User.objects.filter(email=email).first()
+        if user:
+            print("User ID:", user.id)
+            print("User Email:", user.email)
+            print("User Active:", user.is_active)
 
         if not user:
             print(f"User not found with email: {email}")
@@ -809,6 +813,23 @@ class LoginAPIView(APIView):
         # 3️⃣ Password check with detailed debugging
         # ==========================
         password_valid = False
+
+        print("================================")
+        print("LOGIN DEBUG")
+        print("Email:", email)
+        print("Password Received:", repr(password))
+        print("Password Length:", len(password))
+        print("Stored Hash:", user.password)
+
+        try:
+            print(
+                "Direct Check Password Result:",
+                user.check_password(password)
+            )
+        except Exception as e:
+            print("Check Password Error:", str(e))
+
+        print("================================")
 
         # ✅ FIRST check handholding approval BEFORE password validation
         if user.role and user.role.name.lower() == "handholding":
@@ -850,11 +871,12 @@ class LoginAPIView(APIView):
         #     user.set_password(password)
         #     user.save(update_fields=["password"])
         #     password_valid = True
-        if not user.check_password(password):
-            return Response(
-                {"error": "Incorrect password"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # if not user.check_password(password):
+        #     return Response(
+        #         {"error": "Incorrect password"},
+        #         status=status.HTTP_400_BAD_REQUEST
+        #     )
+
 
         # ==========================
         # Method 3: Emergency Fix for improperly stored passwords

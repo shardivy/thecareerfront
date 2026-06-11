@@ -1,5 +1,6 @@
 from decimal import Decimal
 import json
+import re
 from urllib import request
 
 from rest_framework import serializers
@@ -506,6 +507,9 @@ class AddUserSerializer(serializers.Serializer):
     def validate(self, attrs):
         programs = attrs.get("program", [])
         packages = attrs.get("package", [])
+        amount = attrs.get("amount")
+        payment_type = attrs.get("payment_type")
+        transaction_id = attrs.get("transaction_id")
 
         if len(programs) != len(packages):
             raise serializers.ValidationError(
@@ -550,6 +554,34 @@ class AddUserSerializer(serializers.Serializer):
                             f"does not belong to program '{program.name}'."
                         )
                     })
+        # ================================
+        # ✅ ONLINE PAYMENT VALIDATION
+        # ================================
+        if payment_type == "online":
+
+            if not transaction_id:
+                raise serializers.ValidationError({
+                    "transaction_id": "Transaction ID is required for online payments."
+                })
+
+            transaction_id = transaction_id.strip()
+
+            # Generic transaction/reference number validation
+            # Allows:
+            # 123456789012
+            # T240610123456789
+            # pay_QxY12AbCd34
+            # TXN123456789
+            # RRN123456789012
+            # UTR1234567890123456
+
+            if not re.match(r"^[A-Za-z0-9\-_]{6,50}$", transaction_id):
+                raise serializers.ValidationError({
+                    "transaction_id": (
+                        "Enter a valid transaction ID. "
+                        "Only letters, numbers, hyphen (-) and underscore (_) are allowed."
+                    )
+                })
 
         # ================================
         # ✅ PAYMENT VALIDATION

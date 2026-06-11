@@ -178,6 +178,12 @@ class HandHoldingRegisterAPIView(APIView):
             # =========================
             password = data.get("password")
             confirm_password = data.get("confirm_password")
+            
+            print("================================")
+            print("REGISTER DEBUG")
+            print("Password Received:", repr(password))
+            print("Confirm Password:", repr(confirm_password))
+            print("================================")
 
             if password or confirm_password:
                 if password != confirm_password:
@@ -199,16 +205,28 @@ class HandHoldingRegisterAPIView(APIView):
                     "is_active": True
                 }
             )
+            print("User Created =", created)
+            print("User ID =", user.id)
 
             if created:
-                user_password = password or generate_password()
+                user_password = password 
+                print("Password Before Hash:", repr(user_password))
                 user.set_password(user_password)
                 user.save()
+                user.refresh_from_db()
+                print(
+                    "Password Check After Save:",
+                    user.check_password(user_password)
+                )   
             else:
                 user.first_name = data.get("first_name")
                 user.last_name = data.get("last_name", "")
                 user.phone = data.get("mobile")
                 user.role = role
+                
+                if password:
+                    user.set_password(password)
+                    print("Password set for existing user")
                 user.save()
 
             # =========================
