@@ -432,13 +432,13 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
             # UPI Ref No: 12 digits
             # UTR No: 12-22 chars
             # Bank Txn ID: alphanumeric
-            pattern = r"^[A-Za-z0-9\-_]{6,30}$"
+            pattern = r"^[A-Za-z0-9@\-_]{6,30}$"
 
             if not re.match(pattern, transaction_id):
                 raise serializers.ValidationError({
                     "transaction_id": (
                         "Invalid transaction ID format. "
-                        "Only letters, numbers, '-' and '_' are allowed "
+                        "Only letters, numbers, @, '-' and '_' are allowed "
                         "(6 to 30 characters)."
                     )
                 })
@@ -997,13 +997,13 @@ class PaymentCreateStudentSerializer(serializers.ModelSerializer):
             transaction_id = transaction_id.strip()
 
             # Common UPI / UTR / Bank Transaction formats
-            pattern = r"^[A-Za-z0-9\-_]{6,30}$"
+            pattern = r"^[A-Za-z0-9@\-_]{6,30}$"
 
             if not re.match(pattern, transaction_id):
                 raise serializers.ValidationError({
                     "transaction_id": (
                         "Invalid transaction ID format. "
-                        "Only letters, numbers, '-' and '_' are allowed "
+                        "Only letters, numbers, @, '-' and '_' are allowed "
                         "(6-30 characters)."
                     )
                 })

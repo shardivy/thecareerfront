@@ -575,11 +575,11 @@ class AddUserSerializer(serializers.Serializer):
             # RRN123456789012
             # UTR1234567890123456
 
-            if not re.match(r"^[A-Za-z0-9\-_]{6,50}$", transaction_id):
+            if not re.match(r"^[A-Za-z0-9@\-_]{6,30}$", transaction_id):
                 raise serializers.ValidationError({
                     "transaction_id": (
                         "Enter a valid transaction ID. "
-                        "Only letters, numbers, hyphen (-) and underscore (_) are allowed."
+                        "Only letters, numbers, @, hyphen (-) and underscore (_) are allowed."
                     )
                 })
 

@@ -3141,38 +3141,44 @@ class GenerateReceiptByStudentAPIView(APIView):
         #     return Response({"message": "No booking found"}, status=404)
 
         # =========================
-        # PACKAGE PRICE (FINAL FIX)
+        # TOTAL PACKAGE PRICE
         # =========================
-        user_package = (
+        user_packages = (
             UserProgramPackage.objects
             .filter(user=user)
             .select_related("package")
-            .order_by("-id")   # ✅ latest assigned package
-            .first()
         )
 
-        # ❌ If no package found
-        if not user_package or not user_package.package:
-            
-            # fallback: use payment package
+        if user_packages.exists():
+
+            package_price = sum(
+                (upp.package.price or Decimal("0"))
+                for upp in user_packages
+                if upp.package
+            )
+
+        else:
+            # fallback: use payment packages
             latest_payment = (
                 Payment.objects
                 .filter(user=user)
-                .select_related("package")
+                .prefetch_related("package")
                 .order_by("-id")
                 .first()
             )
 
-            if latest_payment and latest_payment.package:
-                package_price = latest_payment.package.price
+            if latest_payment and latest_payment.package.exists():
+
+                package_price = sum(
+                    (pkg.price or Decimal("0"))
+                    for pkg in latest_payment.package.all()
+                )
+
             else:
                 return Response(
                     {"message": "Package not assigned or payment not found"},
                     status=404
                 )
-
-        else:
-            package_price = user_package.package.price
         # =========================
         # SERVICE NAME
         # =========================
