@@ -292,27 +292,15 @@ const ReportManagement = () => {
     }
   };
 
-  const getFileType = (url = "") => {
-    try {
-      const cleanUrl = url.split("?")[0].toLowerCase();
+const getFileType = (fileName = "") => {
+  const ext = fileName.split(".").pop()?.toLowerCase();
 
-      // ✅ CASE 1: API endpoint contains pdf
-      if (cleanUrl.includes("/pdf/") || cleanUrl.endsWith("/pdf")) {
-        return "pdf";
-      }
+  if (ext === "pdf") return "pdf";
+  if (["xls", "xlsx"].includes(ext)) return "excel";
+  if (["doc", "docx"].includes(ext)) return "word";
 
-      // ✅ CASE 2: normal file extensions
-      const ext = cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1);
-
-      if (ext === "pdf") return "pdf";
-      if (["xls", "xlsx"].includes(ext)) return "excel";
-      if (["doc", "docx"].includes(ext)) return "word";
-
-      return "other";
-    } catch {
-      return "other";
-    }
-  };
+  return "other";
+};
 
   const handleView = (url) => {
     if (!url) return;
@@ -350,7 +338,7 @@ const ReportManagement = () => {
   /* ---------------- REPORT CARD ---------------- */
 
   const ReportCard = ({ title, locked, reason, report }) => {
-    const type = getFileType(report?.file_path);
+    const type = getFileType(report?.file_name);
     const isPdf = type === "pdf";
 
     return (

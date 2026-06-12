@@ -467,6 +467,15 @@ export default function StudentLayout() {
 
       ...(showSlotBookingForOtherPrograms ? [slotBookingItem] : []),
 
+
+      // WRITE REVIEW FOR REMAINING PROGRAMS
+      ...(
+        !isBasicUser &&
+          !showExamAndReport &&
+          !showEngineering
+          ? [writeReviewItem]
+          : []
+      ),
       // ================= PAYMENTS =================
       ...(!isBasicUser
         ? [
@@ -796,7 +805,7 @@ export default function StudentLayout() {
               header: {
                 background: token.colorPrimary,
                 borderBottom: "none",
-                direction: "rtl", 
+                direction: "rtl",
               },
               body: {
                 background: token.colorPrimary,

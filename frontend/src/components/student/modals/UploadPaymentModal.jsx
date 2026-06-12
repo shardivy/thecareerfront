@@ -129,12 +129,12 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, historyList, remainingAm
     }
 
     if (submitError) {
-      message.error(
-        typeof submitError === "string"
-          ? submitError
-          : JSON.stringify(submitError)
-      );
-    }
+  message.error(
+    submitError?.errors ||
+    submitError?.message ||
+    "Something went wrong"
+  );
+}
   }, [submitSuccess, submitError]);
 
   return (

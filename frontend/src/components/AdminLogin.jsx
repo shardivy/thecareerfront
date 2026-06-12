@@ -86,11 +86,11 @@ const AdminLogin = () => {
   }, [success, successMessage, user, navigate]);
 
   /* ========= ERROR ========= */
-  // useEffect(() => {
-  //   if (error) {
-  //     message.error(error);
-  //   }
-  // }, [error]);
+  useEffect(() => {
+    if (error) {
+      message.error(error);
+    }
+  }, [error]);
 
   /* ========= SUBMIT ========= */
   const onFinish = (values, event) => {
