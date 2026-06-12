@@ -4580,6 +4580,46 @@ class UserJourneyAPIView(APIView):
                     "details": "Exam not applicable for this package"
                 })
 
+            # # ================================
+            # # REPORT (UPDATED LOGIC)
+            # # ================================
+            # if not aptitude_test_status and not engineering_analysis_status:
+            #     report_status = "not_applicable"
+
+            #     history.append({
+            #         "step": "Report",
+            #         "status": "not_applicable",
+            #         "date": None,
+            #         "details": "Report not applicable for this package"
+            #     })
+
+            # else:
+            #     report = (
+            #         Report.objects
+            #         .filter(user=student.user, program=program, package=package)
+            #         .order_by("-uploaded_at")
+            #         .first()
+            #     )
+
+            #     if report:
+            #         report_status = report.report_status
+
+            #         history.append({
+            #             "step": "Report",
+            #             "status": report_status,
+            #             "date": report.uploaded_at,
+            #             "details": f"Report status: {report_status}"
+            #         })
+            #     else:
+            #         report_status = "not_received"
+
+            #         history.append({
+            #             "step": "Report",
+            #             "status": "not_received",
+            #             "date": None,
+            #             "details": "Report not uploaded"
+            #         })
+            
             # ================================
             # REPORT (UPDATED LOGIC)
             # ================================
@@ -4596,21 +4636,72 @@ class UserJourneyAPIView(APIView):
             else:
                 report = (
                     Report.objects
-                    .filter(user=student.user, program=program, package=package)
+                    .filter(
+                        user=student.user,
+                        program=program,
+                        package=package
+                    )
                     .order_by("-uploaded_at")
                     .first()
                 )
 
                 if report:
-                    report_status = report.report_status
 
-                    history.append({
-                        "step": "Report",
-                        "status": report_status,
-                        "date": report.uploaded_at,
-                        "details": f"Report status: {report_status}"
-                    })
+                    # =====================================
+                    # ENGINEERING TEST ANALYSIS REPORT FLOW
+                    # =====================================
+                    if engineering_analysis_status:
+
+                        all_reports_unlocked = (
+                            report.report_status == "received_unlocked"
+                            and report.report_status_v1 == "v1_received_unlocked"
+                            and report.report_status_v2 == "v2_received_unlocked"
+                        )
+
+                        no_report_uploaded = (
+                            not report.file_path
+                            and not report.file_path1
+                            and not report.file_path2
+                        )
+
+                        if all_reports_unlocked:
+                            report_status = "received_unlocked"
+
+                        elif no_report_uploaded:
+                            report_status = "not_received"
+
+                        else:
+                            report_status = "in_progress"
+
+                        history.append({
+                            "step": "Report",
+                            "status": report_status,
+                            "date": report.uploaded_at,
+                            "details": {
+                                "main_report_status": report.report_status,
+                                "v1_report_status": report.report_status_v1,
+                                "v2_report_status": report.report_status_v2,
+                                "main_report_uploaded": bool(report.file_path),
+                                "v1_report_uploaded": bool(report.file_path1),
+                                "v2_report_uploaded": bool(report.file_path2),
+                            }
+                        })
+
+                    # =====================================
+                    # EXISTING APTITUDE TEST LOGIC
+                    # =====================================
+                    else:
+                        report_status = report.report_status
+
+                        history.append({
+                            "step": "Report",
+                            "status": report_status,
+                            "date": report.uploaded_at,
+                            "details": f"Report status: {report_status}"
+                        })
+
                 else:
+
                     report_status = "not_received"
 
                     history.append({

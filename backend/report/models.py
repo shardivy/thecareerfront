@@ -9,6 +9,12 @@ class Report(models.Model):
         ('not_received', 'Not Received'),
         ('received_locked', 'Received Locked'),
         ('received_unlocked', 'Received Unlocked'),
+        ('v1_received_locked', 'V1 Received Locked'),
+        ('v1_received_unlocked', 'V1 Received Unlocked'),
+        ('v2_received_locked', 'V2 Received Locked'),
+        ('v2_received_unlocked', 'V2 Received Unlocked'),
+        # ('v3_received_locked', 'V3 Received Locked'),
+        # ('v3_received_unlocked', 'V3 Received Unlocked'),
         # ('pending_uploaded', 'Pending Uploaded'),
     )
     
@@ -34,7 +40,11 @@ class Report(models.Model):
     )
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
     file_path = models.FileField(upload_to='reports/', blank=True, null=True)
+    file_path1 = models.FileField(upload_to='reports/', blank=True, null=True)
+    file_path2 = models.FileField(upload_to='reports/', blank=True, null=True)
     report_status = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES)
+    report_status_v1 = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES, default='not_received')
+    report_status_v2 = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES, default='not_received')
     review_required = models.BooleanField(default=False)
 
     uploaded_by = models.ForeignKey(
