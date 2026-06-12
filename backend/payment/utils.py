@@ -371,7 +371,7 @@ def generate_receipt_pdf(name, service_name, amount, date=None):
     pdf.drawString(
         x + prefix_width + name_width,
         y,
-        f" the sum of Rupees {amount_text} only,"
+        f" the sum of Rupees {amount_text}"
     )
 
     # Line 2
@@ -379,7 +379,7 @@ def generate_receipt_pdf(name, service_name, amount, date=None):
     pdf.drawString(
         x,
         y,
-        f"on {date}, towards counseling services provided for {service_name},"
+        f"only on {date}, towards counseling services provided for {service_name},"
     )
 
     # Line 3
@@ -440,7 +440,7 @@ def generate_receipt_pdf(name, service_name, amount, date=None):
     # ============================================================
 
     # Border bottom position below signature
-    bottom_y = y - 60
+    bottom_y = y - 80
 
     # Border thickness
     pdf.setLineWidth(1)
@@ -468,3 +468,13 @@ def generate_receipt_pdf(name, service_name, amount, date=None):
 
     # Return generated PDF
     return buffer
+
+
+
+
+
+
+
+
+
+
