@@ -10,6 +10,8 @@ urlpatterns = [
     path('upload/<int:report_id>/', UploadReportAPIView.as_view()),
     path('reports/status-count/', ReportStatusCountAPIView.as_view()),
     path("report/pdf/<int:report_id>/", ReportPDFView.as_view(), name="report-pdf"),
+    path("report/v1/pdf/<int:report_id>/", ReportPDFView.as_view(), name="report-v1-pdf"),
+    path("report/v2/pdf/<int:report_id>/", ReportPDFView.as_view(), name="report-v2-pdf"),
 
     path("export/excel/", CompletedExamReportExportExcelAPIView.as_view()),
     path("export/pdf/", CompletedExamReportExportPDFAPIView.as_view()),

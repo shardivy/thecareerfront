@@ -15,6 +15,7 @@ class ContentAdmin(admin.ModelAdmin):
         "category",
         # "get_programs",
         "free_content",
+        "is_student_visible",
         "payment_required",
         "is_active",
         "created_by",
@@ -48,6 +49,6 @@ class ContentAdmin(admin.ModelAdmin):
 @admin.register(ContentPackage)
 class ContentPackageAdmin(admin.ModelAdmin):
 
-    list_display = ("id", "content", "program", "package")
-    search_fields = ("content__title", "program__name", "package__name")
-    autocomplete_fields = ["content", "program", "package"]
+    list_display = ("id", "content", "program", "package", "stream")
+    search_fields = ("content__title", "program__name", "package__name", "stream__name")
+    autocomplete_fields = ["content", "program", "package", "stream"]

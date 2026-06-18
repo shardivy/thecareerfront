@@ -8,7 +8,7 @@ from payment.views import PaymentCreateAPIView
 from report.models import Report
 from counselling_slot.utils import generate_counselling_reminder, send_booking_created_email, send_booking_updated_email
 from lead_registration.models import StudentProfile
-from counselling_slot.tasks import create_system_notification, send_booking_cancel_notification
+from counselling_slot.tasks import create_system_notification, send_booking_cancel_notification, send_booking_created_email_task, send_booking_updated_email_task
 from django.db.transaction import on_commit
 from counselling_slot.services import get_counsellor_slots_by_date
 from rest_framework.views import APIView
@@ -1266,6 +1266,7 @@ class BookingCreateAPIView(APIView):
         counsellors = serializer.validated_data["counsellors_data"]
 
         created_bookings = []
+        booking_ids = []
 
         with transaction.atomic():
 
@@ -1280,6 +1281,7 @@ class BookingCreateAPIView(APIView):
                         date=date,
                         status="booked"
                     )
+                    booking_ids.append(booking.id)
 
                     BookingCounsellor.objects.create(
                         booking=booking,
@@ -1301,7 +1303,16 @@ class BookingCreateAPIView(APIView):
                     })
 
             # send email once
-            send_booking_created_email(student.user, slots, date)
+            # send_booking_created_email(student.user, slots, date)
+            # send_booking_created_email(
+            #     user=student.user,
+            #     booking=booking,
+            #     booking_slots=slots,
+            #     booking_date=date
+            # )
+            transaction.on_commit(
+                lambda: send_booking_created_email_task.delay(booking_ids)
+            )
 
             student_name = f"{student.user.first_name} {student.user.last_name}"
 
@@ -1471,6 +1482,7 @@ class BookingCreateAPIView(APIView):
             )
 
         created_bookings = []
+        updated_booking_ids = []
 
         with transaction.atomic():
 
@@ -1494,6 +1506,7 @@ class BookingCreateAPIView(APIView):
                         counsellor=item["counsellor_id"],
                         role=item["role"]
                     )
+                    
 
                 created_bookings.append({
                     "booking_id": base_booking.id,
@@ -1506,11 +1519,22 @@ class BookingCreateAPIView(APIView):
                         "mode": slot.mode,
                     }
                 })
+                updated_booking_ids.append(base_booking.id)
 
-                send_booking_updated_email(
-                    student.user,
-                    slots,
-                    date
+                # send_booking_updated_email(
+                #     student.user,
+                #     slots,
+                #     date
+                # )
+                # send_booking_updated_email(
+                #     user=student.user,
+                #     booking_slots=slots,
+                #     booking_date=date
+                # )
+                
+
+                transaction.on_commit(
+                    lambda: send_booking_updated_email_task.delay(updated_booking_ids)
                 )
 
                 return Response(
@@ -1571,6 +1595,7 @@ class BookingCreateAPIView(APIView):
                         "mode": slot.mode,
                     }
                 })
+                updated_booking_ids.append(base_booking.id)
 
             # =====================================
             # BOOKED/COMPLETED → CANCEL + NEW ENTRY
@@ -1608,6 +1633,7 @@ class BookingCreateAPIView(APIView):
                         "mode": slot.mode,
                     }
                 })
+                updated_booking_ids.append(new_booking.id)
                 
             else:
                 # Only counsellor changed → keep same booking
@@ -1637,10 +1663,8 @@ class BookingCreateAPIView(APIView):
                     }
                 })
 
-            send_booking_updated_email(
-                student.user,
-                slots,
-                date
+            transaction.on_commit(
+                lambda: send_booking_updated_email_task.delay(updated_booking_ids)
             )
 
         return Response(
@@ -3103,6 +3127,28 @@ class CounsellingNoteCreateView(APIView):
             )
 
         return Response(serializer.errors, status=400)
+    
+class StudentCounsellingNoteAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+
+        student = get_object_or_404(StudentProfile, id=student_id)
+
+        notes = (
+            CounsellingNote.objects
+            .filter(booking__student=student)
+            .select_related("booking", "counsellor", "program", "package")
+            .order_by("-created_at")
+        )
+
+        serializer = CounsellingNoteSerializer(
+            notes,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 @method_decorator(xframe_options_exempt, name="dispatch")
 class CounsellingNoteFileView(APIView):

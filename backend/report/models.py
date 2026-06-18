@@ -9,12 +9,12 @@ class Report(models.Model):
         ('not_received', 'Not Received'),
         ('received_locked', 'Received Locked'),
         ('received_unlocked', 'Received Unlocked'),
-        ('v1_received_locked', 'V1 Received Locked'),
-        ('v1_received_unlocked', 'V1 Received Unlocked'),
-        ('v2_received_locked', 'V2 Received Locked'),
-        ('v2_received_unlocked', 'V2 Received Unlocked'),
-        # ('v3_received_locked', 'V3 Received Locked'),
-        # ('v3_received_unlocked', 'V3 Received Unlocked'),
+        ('v1_not_received', 'Not Received'),
+        ('v2_not_received', 'Not Received'),
+        ('v3_not_received', 'Not Received'),    
+        ('v1_received', 'V1 Received'),
+        ('v2_received', 'V2 Received'),
+        ('v3_received', 'V3 Received'),
         # ('pending_uploaded', 'Pending Uploaded'),
     )
     
@@ -42,9 +42,12 @@ class Report(models.Model):
     file_path = models.FileField(upload_to='reports/', blank=True, null=True)
     file_path1 = models.FileField(upload_to='reports/', blank=True, null=True)
     file_path2 = models.FileField(upload_to='reports/', blank=True, null=True)
+    file_path_count = models.PositiveIntegerField(default=0)
+    file_path1_count = models.PositiveIntegerField(default=0)
+    file_path2_count = models.PositiveIntegerField(default=0)
     report_status = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES)
-    report_status_v1 = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES, default='not_received')
-    report_status_v2 = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES, default='not_received')
+    report_status_v2 = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES, default='v2_not_received')
+    report_status_v3 = models.CharField(max_length=50, blank=True, null=True, choices=STATUSCHOICES, default='v3_not_received')
     review_required = models.BooleanField(default=False)
 
     uploaded_by = models.ForeignKey(

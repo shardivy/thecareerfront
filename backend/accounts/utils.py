@@ -218,7 +218,7 @@ ________________________________________
 Dashboard Access
 
 Login Link:
-https://staging.abhinavcareerscope.com/
+https://cms.abhinavcareerscope.com/
 
 Login Credentials:
 

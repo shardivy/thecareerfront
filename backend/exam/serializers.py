@@ -206,95 +206,54 @@ class UserExamListSerializer(serializers.ModelSerializer):
             "approved_by",
             "approved_by_role",
         )
-        
-    # def get_program_id(self, obj):
-    #     package_exam = (
-    #         obj.exam.exam_packages
-    #         .select_related("package__program")
-    #         .first()
-    #     )
-    #     if package_exam:
-    #         return package_exam.package.program.id
-    #     return None
-
-    # def get_program(self, obj):
-    #     package_exam = (
-    #         obj.exam.exam_packages
-    #         .select_related("package__program")
-    #         .first()
-    #     )
-    #     if package_exam:
-    #         return package_exam.package.program.name
-    #     return None
-    
-    # def get_package_id(self, obj):
-    #     package_exam = (
-    #         obj.exam.exam_packages
-    #         .select_related("package")
-    #         .first()
-    #     )
-    #     if package_exam:
-    #         return package_exam.package.id
-    #     return None
-    
-    # def get_package(self, obj):
-    #     package_exam = (
-    #         obj.exam.exam_packages
-    #         .select_related("package")
-    #         .first()
-    #     )
-    #     if package_exam:
-    #         return package_exam.package.name
-    #     return None
     
     # def get_user_program_package(self, obj):
     #     return UserProgramPackage.objects.filter(user=obj.user).select_related(
     #         "program", "package"
     #     ).first()
-    def get_user_program_package(self, obj):
-        if not hasattr(obj, "_upp_cache"):
-            obj._upp_cache = (
-                UserProgramPackage.objects
-                .filter(
-                    user=obj.user,
-                    package__aptitude_test=True
-                )
-                .select_related("program", "package")
-                .first()
-            )
+    # def get_user_program_package(self, obj):
+    #     if not hasattr(obj, "_upp_cache"):
+    #         obj._upp_cache = (
+    #             UserProgramPackage.objects
+    #             .filter(
+    #                 user=obj.user,
+    #                 package__aptitude_test=True
+    #             )
+    #             .select_related("program", "package")
+    #             .first()
+    #         )
 
-        return obj._upp_cache
+    #     return obj._upp_cache
 
     # def get_program_id(self, obj):
     #     upp = self.get_user_program_package(obj)
-    #     return upp.program.id if upp else None
+    #     return upp.program.id if upp and upp.program else None
 
     # def get_program(self, obj):
     #     upp = self.get_user_program_package(obj)
-    #     return upp.program.name if upp else None
+    #     return upp.program.name if upp and upp.program else None
 
     # def get_package_id(self, obj):
     #     upp = self.get_user_program_package(obj)
-    #     return upp.package.id if upp else None
+    #     return upp.package.id if upp and upp.package else None
 
     # def get_package(self, obj):
     #     upp = self.get_user_program_package(obj)
-    #     return upp.package.name if upp else None
+    #     return upp.package.name if upp and upp.package else None
+    
     def get_program_id(self, obj):
-        upp = self.get_user_program_package(obj)
-        return upp.program.id if upp and upp.program else None
-
+        return obj.program.id if obj.program else None
+   
     def get_program(self, obj):
-        upp = self.get_user_program_package(obj)
-        return upp.program.name if upp and upp.program else None
-
+        return obj.program.name if obj.program else None
+   
     def get_package_id(self, obj):
-        upp = self.get_user_program_package(obj)
-        return upp.package.id if upp and upp.package else None
-
+        return obj.package.id if obj.package else None
+   
     def get_package(self, obj):
-        upp = self.get_user_program_package(obj)
-        return upp.package.name if upp and upp.package else None
+        return obj.package.name if obj.package else None 
+    
+    
     
 
     def get_approved_by(self, obj):

@@ -136,6 +136,8 @@ class AnswerAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "student",
+        "program",
+        "package",
         "question",
         "answer_text",
         "created_at",

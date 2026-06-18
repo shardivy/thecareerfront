@@ -480,12 +480,13 @@ class StudentListSerializer(serializers.ModelSerializer):
     total_paid_amount = serializers.SerializerMethodField()
     proof_file = serializers.SerializerMethodField()
     # is_report_locked = serializers.SerializerMethodField()
-    report_status = serializers.SerializerMethodField()
-    exam_status = serializers.SerializerMethodField()
-    analysis_status = serializers.SerializerMethodField()
-    slot_status = serializers.SerializerMethodField()
-    full_access = serializers.SerializerMethodField()
-    aptitude_test = serializers.SerializerMethodField()
+    # report_status = serializers.SerializerMethodField()
+    # exam_status = serializers.SerializerMethodField()
+    # analysis_status = serializers.SerializerMethodField()
+    # slot_status = serializers.SerializerMethodField()
+    # full_access = serializers.SerializerMethodField()
+    # aptitude_test = serializers.SerializerMethodField()
+    # program_statuses = serializers.SerializerMethodField()
 
     class Meta:
         model = StudentProfile
@@ -506,7 +507,7 @@ class StudentListSerializer(serializers.ModelSerializer):
             # "package_id",
             # "package_name",
             "price",
-            "aptitude_test", 
+            # "aptitude_test", 
             "payment_status",
             "payment_type",
             # "created_at",
@@ -516,47 +517,326 @@ class StudentListSerializer(serializers.ModelSerializer):
             "total_paid_amount", 
             "proof_file",
             # "is_report_locked",
-            "report_status",
-            "exam_status",
-            "analysis_status",
-            "slot_status",
-            "full_access",
+            # "report_status",
+            # "exam_status",
+            # "analysis_status",
+            # "slot_status",
+            # "full_access",
+            # "program_statuses"
         ]
+        
+    # def get_program_statuses(self, obj):
+
+    #     result = []
+
+    #     payments = (
+    #         Payment.objects
+    #         .filter(user=obj.user)
+    #         .prefetch_related("package__program")
+    #         .order_by("-created_at")
+    #     )
+
+    #     latest_payment = payments.first()
+
+    #     if not latest_payment:
+    #         return []
+
+    #     for package in latest_payment.package.all():
+
+    #         program = package.program
+
+    #         item = {
+    #             "program_id": program.id if program else None,
+    #             "program_name": program.name if program else None,
+    #             "package_id": package.id,
+    #             "package_name": package.name,
+    #             "aptitude_test": package.aptitude_test,
+    #             "engineering_test_analysis": package.engineering_test_analysis,
+    #         }
+
+    #         # Report Status
+    #         if package.aptitude_test or package.engineering_test_analysis:
+
+    #             report = (
+    #                 Report.objects
+    #                 .filter(
+    #                     user=obj.user,
+    #                     program=program   # if report has program FK
+    #                 )
+    #                 .order_by("-uploaded_at")
+    #                 .first()
+    #             )
+
+    #             item["report_status"] = (
+    #                 report.report_status
+    #                 if report else "not_received"
+    #             )
+    #         else:
+    #             item["report_status"] = "not_applicable"
+
+    #         # Exam Status
+    #         if package.aptitude_test:
+
+    #             exams = UserExam.objects.filter(
+    #                 user=obj.user,
+    #                 program=program   # if exam has program FK
+    #             )
+
+    #             item["exam_status"] = {
+    #                 "completed": exams.filter(status="completed").count(),
+    #                 "in_progress": exams.filter(status="in_progress").count(),
+    #                 "pending_approval": exams.filter(status="pending_approval").count(),
+    #                 "not_started": exams.filter(status="not_started").count(),
+    #             }
+
+    #         else:
+    #             item["exam_status"] = "not_applicable"
+
+    #         # Analysis Status
+    #         if package.engineering_test_analysis:
+
+    #             analysis = (
+    #                 CollegeListAnalysis.objects
+    #                 .filter(
+    #                     user=obj.user,
+    #                     program=program   # if analysis has program FK
+    #                 )
+    #                 .order_by("-created_at")
+    #                 .first()
+    #             )
+
+    #             item["analysis_status"] = (
+    #                 analysis.status
+    #                 if analysis else "not_started"
+    #             )
+
+    #         else:
+    #             item["analysis_status"] = "not_applicable"
+
+    #         result.append(item)
+
+    #     return result
         
     def get_programs(self, obj):
         data = []
 
-        payments = (
+        payment = (
             Payment.objects
             .filter(user=obj.user)
             .prefetch_related("package__program")
             .order_by("-created_at")
+            .first()
         )
 
-        latest_payment = payments.first()
-
-        if not latest_payment:
+        if not payment:
             return []
 
-        for package in latest_payment.package.all():
-            data.append({
-                "program_id": (
-                    package.program.id
-                    if package.program else None
-                ),
-                "program_name": (
-                    package.program.name
-                    if package.program else None
-                ),
+        for package in payment.package.all():
+
+            program = package.program
+
+            item = {
+                "program_id": program.id,
+                "program_name": program.name,
                 "package": {
                     "id": package.id,
                     "name": package.name,
                     "price": str(package.price)
+                },
+                "statuses": {}
+            }
+
+            # Report Status
+            if package.aptitude_test or package.engineering_test_analysis:
+
+                report = (
+                    Report.objects
+                    .filter(
+                        user=obj.user,
+                        program=program,
+                        package=package
+                    )
+                    .order_by("-uploaded_at")
+                    .first()
+                )
+
+                # Engineering Program
+                if package.engineering_test_analysis:
+
+                    if report:
+
+                        all_reports_received = (
+                            report.report_status == "v1_received"
+                            and report.report_status_v2 == "v2_received"
+                            and report.report_status_v3 == "v3_received"
+                        )
+
+                        no_report_uploaded = (
+                            not report.file_path
+                            and not report.file_path1
+                            and not report.file_path2
+                        )
+
+                        if all_reports_received:
+                            item["statuses"]["report_status"] = "all_received"
+                        elif no_report_uploaded:
+                            item["statuses"]["report_status"] = "not_received"
+                        else:
+                            item["statuses"]["report_status"] = "in_progress"
+
+                        item["statuses"]["report_versions"] = {
+                            "v1": report.report_status,
+                            "v2": report.report_status_v2,
+                            "v3": report.report_status_v3,
+                        }
+
+                    else:
+
+                        item["statuses"]["report_status"] = "not_received"
+
+                        item["statuses"]["report_versions"] = {
+                            "v1": "v1_not_received",
+                            "v2": "v2_not_received",
+                            "v3": "v3_not_received",
+                        }
+
+                # Aptitude Program
+                elif package.aptitude_test:
+
+                    item["statuses"]["report_status"] = (
+                        report.report_status
+                        if report
+                        else "not_received"
+                    )
+
+            else:
+                item["statuses"]["report_status"] = "not_applicable"
+
+            # Exam Status
+            if package.aptitude_test:
+
+                exams = UserExam.objects.filter(user=obj.user, program=program, package=package)
+
+                item["statuses"]["exam_status"] = {
+                    "completed": exams.filter(status="completed").count(),
+                    "in_progress": exams.filter(status="in_progress").count(),
+                    "pending_approval": exams.filter(status="pending_approval").count(),
+                    "not_started": exams.filter(status="not_started").count(),
                 }
-            })
+            else:
+                item["statuses"]["exam_status"] = "not_applicable"
+
+            # Analysis Status
+            if package.engineering_test_analysis:
+
+                analysis = (
+                    CollegeListAnalysis.objects
+                    .filter(user=obj.user, program=program, package=package)
+                    .order_by("-created_at")
+                    .first()
+                )
+
+                item["statuses"]["analysis_status"] = (
+                    analysis.status if analysis else "not_started"
+                )
+            else:
+                item["statuses"]["analysis_status"] = "not_applicable"
+            
+            # Slot Status    
+            booking = (
+                Booking.objects
+                .filter(
+                    student=obj,
+                    program=program ,  # if Booking has program FK
+                    package=package
+                )
+                .order_by("-created_at")
+                .first()
+            )
+
+            item["statuses"]["slot_status"] = (
+                booking.status if booking else "not_booked"
+            )
+            
+            # Full Access Program Wise
+            if booking:
+                item["statuses"]["full_access"] = "Counselling Slot Booking"
+
+            elif package.engineering_test_analysis:
+
+                report = (
+                    Report.objects.filter(
+                        user=obj.user,
+                        program=program,
+                        package=package
+                    )
+                    .order_by("-uploaded_at")
+                    .first()
+                )
+
+                if report:
+
+                    all_reports_received = (
+                        report.report_status == "v1_received"
+                        and report.report_status_v2 == "v2_received"
+                        and report.report_status_v3 == "v3_received"
+                    )
+
+                    if all_reports_received:
+                        item["statuses"]["full_access"] = "Report"
+                    else:
+                        item["statuses"]["full_access"] = "Analysis"
+
+                else:
+
+                    analysis = (
+                        CollegeListAnalysis.objects
+                        .filter(user=obj.user, program=program, package=package)
+                        .order_by("-created_at")
+                        .first()
+                    )
+
+                    if analysis:
+                        item["statuses"]["full_access"] = "Analysis"
+                    else:
+                        item["statuses"]["full_access"] = "Payment"
+
+            elif package.aptitude_test:
+
+                report = (
+                    Report.objects.filter(
+                        user=obj.user,
+                        program=program,
+                        package=package
+                    )
+                    .order_by("-uploaded_at")
+                    .first()
+                )
+
+                if report:
+                    item["statuses"]["full_access"] = "Report"
+
+                else:
+                    exam_exists = UserExam.objects.filter(
+                        user=obj.user,
+                        program=program,
+                        package=package
+                    ).exists()
+
+                    if exam_exists:
+                        item["statuses"]["full_access"] = "Exam"
+                    else:
+                        item["statuses"]["full_access"] = "Payment"
+
+            else:
+                item["statuses"]["full_access"] = "Payment"
+
+            data.append(item)
 
         return data
-        
+
+
+  
     def get_aptitude_test(self, obj):
         upp = (
             UserProgramPackage.objects
