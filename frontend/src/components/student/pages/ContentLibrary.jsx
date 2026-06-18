@@ -20,7 +20,12 @@ import {
   DownloadOutlined,
 } from "@ant-design/icons";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchProgramContent, fetchContentList, incrementDownloadCount } from "../../../adminSlices/contentSlice";
+import {
+  fetchProgramContent,
+  fetchStudentCounsellingNotes,
+  fetchContentList,
+  incrementDownloadCount,
+} from "../../../adminSlices/contentSlice";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -42,15 +47,18 @@ const ContentLibrary = () => {
   const dispatch = useDispatch();
   const { contentList, loading } = useSelector((state) => state.content);
 
+  const { studentCounsellingNotes, studentCounsellingNotesLoading } = useSelector((state) => state.content);
+
   const [search, setSearch] = useState("");
   const [type, setType] = useState("All");
   const [accessLevel, setAccessLevel] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 6;
+ const [pageSize, setPageSize] = useState(6);
 
   const selectedProgramId = Number(localStorage.getItem("selectedProgramId"));
   const studentPackage = Number(localStorage.getItem("selectedPackageId"));
+  const studentId = localStorage.getItem("studentId");
 
   const isFreeUser = !selectedProgramId || !studentPackage;
 
@@ -66,6 +74,23 @@ const ContentLibrary = () => {
       dispatch(fetchProgramContent(selectedProgramId));
     }
   }, [dispatch]);
+
+  useEffect(() => {
+    if (studentId && selectedProgramId && studentPackage) {
+      dispatch(
+        fetchStudentCounsellingNotes({
+          studentId,
+          programId: selectedProgramId,
+          packageId: studentPackage,
+        })
+      );
+    }
+  }, [
+    dispatch,
+    studentId,
+    selectedProgramId,
+    studentPackage,
+  ]);
 
   // ================= TRANSFORM API DATA =================
 
@@ -152,10 +177,76 @@ const ContentLibrary = () => {
         };
       }) || [];
 
-  // console.log("selectedPackage", studentPackage);
+  const getFilePreviewImage = (fileName = "") => {
+    const ext = getFileExtension(fileName);
+
+    switch (ext) {
+      case "pdf":
+        return "https://cdn-icons-png.flaticon.com/512/337/337946.png";
+
+      case "xlsx":
+      case "xls":
+        return "https://cdn-icons-png.flaticon.com/512/732/732220.png";
+
+      case "doc":
+      case "docx":
+        return "https://cdn-icons-png.flaticon.com/512/281/281760.png";
+
+      default:
+        return "https://cdn-icons-png.flaticon.com/512/2991/2991108.png";
+    }
+  };
+
+  // console.log("selectedProgramId", selectedProgramId);
+  // console.log("studentPackage", studentPackage);
+  // console.log("studentCounsellingNotes", studentCounsellingNotes);
+
+  const counsellingNoteCards =
+    studentCounsellingNotes
+      ?.filter(
+        (note) =>
+          Number(note.program) === selectedProgramId &&
+          Number(note.package) === studentPackage
+      )
+
+      ?.flatMap((note) => {
+        const files = [
+          note.file1,
+          note.file2,
+          note.file3,
+          note.file4,
+          note.file5,
+        ].filter(Boolean);
+
+        // console.log("note", note);
+
+
+        return files.map((fileUrl, index) => {
+          const fileName = getFileNameFromUrl(fileUrl);
+          const extension = getFileExtension(fileName).toUpperCase();
+
+          return {
+            id: `note-${note.id}-${index}`,
+            title: "Counselling Notes",
+            description: `${extension} Document`,
+            type: "Article",
+            accessType: "Free",
+            programs: [],
+            viewUrl: fileUrl,
+            image: getFilePreviewImage(fileName),
+            fileName,
+            isCounsellingNote: true,
+          };
+        });
+      }) || [];
+
+  const allContent = [
+    ...counsellingNoteCards,
+    ...transformedData,
+  ];
 
   // ================= FILTERING =================
-  const filteredData = transformedData.filter((item) => {
+  const filteredData = allContent.filter((item) => {
     return (
       item.title?.toLowerCase().includes(search.toLowerCase()) &&
       (type === "All" || item.type === type) &&
@@ -179,26 +270,26 @@ const ContentLibrary = () => {
   //   }
   // };
 
- const handleView = (item) => {
-  if (item.accessType === "Premium" && !paymentCompleted) return;
-  if (!item.viewUrl) return;
+  const handleView = (item) => {
+    if (item.accessType === "Premium" && !paymentCompleted) return;
+    if (!item.viewUrl) return;
 
-  const ext = getFileExtension(item.fileName, "pdf");
+    const ext = getFileExtension(item.fileName, "pdf");
 
-  // Videos → open directly
-  if (item.type === "Video") {
-    window.open(item.viewUrl, "_blank");
-    return;
-  }
+    // Videos → open directly
+    if (item.type === "Video") {
+      window.open(item.viewUrl, "_blank");
+      return;
+    }
 
-  // PDF → open directly
-  if (ext === "pdf") {
-    window.open(item.viewUrl, "_blank");
-    return;
-  }
+    // PDF → open directly
+    if (ext === "pdf") {
+      window.open(item.viewUrl, "_blank");
+      return;
+    }
 
-  // All other file types → do nothing (button is disabled anyway)
-};
+    // All other file types → do nothing (button is disabled anyway)
+  };
 
   const paymentCompleted =
     localStorage.getItem("paymentCompleted") === "true";
@@ -243,6 +334,8 @@ const ContentLibrary = () => {
       item.fileName || `${safeTitle}.${extension}`
     );
   };
+
+
 
 
   return (
@@ -357,6 +450,20 @@ const ContentLibrary = () => {
                       }}
                     />
 
+                    {item.isCounsellingNote && (
+                      <Tag
+                        color="cyan"
+                        style={{
+                          position: "absolute",
+                          top: 10,
+                          left: 10,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Counselling Note
+                      </Tag>
+                    )}
+
                     <Tag
                       color={item.accessType === "Free" ? "green" : "gold"}
                       style={{
@@ -450,25 +557,25 @@ const ContentLibrary = () => {
                       }}
                     >
                       {/* Left side: View Content Button */}
-                     {/* Left side: View Content Button */}
-<Button
-  type="link"
-  disabled={
-    (item.accessType === "Premium" && !paymentCompleted) ||
-    (item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf")
-  }
-  style={{
-    padding: 0,
-    fontWeight: 600,
-  }}
-  onClick={() => handleView(item)}
->
-  {item.accessType === "Premium" && !paymentCompleted
-    ? "Complete Payment to Unlock →"
-    : item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf"
-    ? "View Not Available →"
-    : "View Content →"}
-</Button>
+                      {/* Left side: View Content Button */}
+                      <Button
+                        type="link"
+                        disabled={
+                          (item.accessType === "Premium" && !paymentCompleted) ||
+                          (item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf")
+                        }
+                        style={{
+                          padding: 0,
+                          fontWeight: 600,
+                        }}
+                        onClick={() => handleView(item)}
+                      >
+                        {item.accessType === "Premium" && !paymentCompleted
+                          ? "Complete Payment to Unlock →"
+                          : item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf"
+                            ? "View Not Available →"
+                            : "View Content →"}
+                      </Button>
                       {/* Right side: Download Button - icon + text, only when content is unlocked and not a video */}
                       {!(item.accessType === "Premium" && !paymentCompleted) &&
                         item.viewUrl &&
@@ -507,16 +614,21 @@ const ContentLibrary = () => {
           </Row>
 
           {/* PAGINATION */}
-          {filteredData.length > pageSize && (
-            <div style={{ textAlign: "center", marginTop: 40 }}>
-              <Pagination
-                current={currentPage}
-                pageSize={pageSize}
-                total={filteredData.length}
-                onChange={(page) => setCurrentPage(page)}
-                showSizeChanger={false}
-              />
-            </div>
+  {filteredData.length > pageSize && (
+  <Row justify="end" style={{ marginTop: 40 }}>
+    <Pagination
+      current={currentPage}
+      pageSize={pageSize}
+      total={filteredData.length}
+      showSizeChanger
+      pageSizeOptions={[5, 10, 20, 50]}
+      showLessItems={false}
+      onChange={(page, size) => {
+        setCurrentPage(page);
+        setPageSize(size);
+      }}
+    />
+  </Row>
           )}
         </>
       )}

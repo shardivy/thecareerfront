@@ -104,7 +104,7 @@ export const fetchCounsellingNoteApi = async (bookingId) => {
   const response = await axiosInstance.get(
     `/counselling_slot/counselling-note/create/${bookingId}/`
   );
-  return response.data; // expected { notes: string, uploadedFiles: [{name, url, type}] }
+  return response.data; 
 };
 
 

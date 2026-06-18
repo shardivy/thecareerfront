@@ -847,9 +847,29 @@ const ProgramCard = ({
               disabled={isView || isEdit}
               allowClear
             >
-              {pkgs.map((p) => (
+              {/* {pkgs.map((p) => (
                 <Option key={p.id} value={p.id}>{p.name}</Option>
-              ))}
+              ))} */}
+              {pkgs.map((p) => {
+                const selectedPackages = (watchedPrograms || [])
+                  .map((item) => item?.package)
+                  .filter(Boolean);
+
+                const isSelectedElsewhere =
+                  selectedPackages.includes(p.id) &&
+                  rowData?.package !== p.id;
+
+                return (
+                  <Option
+                    key={p.id}
+                    value={p.id}
+                    disabled={isSelectedElsewhere}
+                  >
+                    {p.name}
+                    {isSelectedElsewhere ? " " : ""}
+                  </Option>
+                );
+              })}
             </Select>
           </Form.Item>
         </Col>
@@ -1247,15 +1267,68 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                           { required: true, message: "Please enter the amount paid" },
                           {
                             validator: (_, value) => {
-                              const num = Number(value);
-                              if (value === undefined || value === null || value === "") return Promise.resolve();
-                              if (isNaN(num)) return Promise.reject("Amount must be a valid number");
-                              if (num < 0) return Promise.reject("Amount cannot be negative");
-                              if (num !== 0 && num % 100 !== 0)
+                              const numericValue = Number(value);
+
+                              if (
+                                value === undefined ||
+                                value === null ||
+                                value === ""
+                              ) {
+                                return Promise.resolve();
+                              }
+
+                              if (isNaN(numericValue)) {
+                                return Promise.reject("Amount must be a valid number");
+                              }
+
+                              if (numericValue < 0) {
+                                return Promise.reject("Amount cannot be negative");
+                              }
+
+                              if (numericValue !== 0 && numericValue % 100 !== 0) {
                                 return Promise.reject("Amount must be ₹0 or multiples of ₹100");
+                              }
+
+                              // Calculate total package amount
+                              const totalPackageAmount = watchedPrograms.reduce((sum, prog, idx) => {
+                                const pkgs = programPackages[idx] || [];
+                                const price =
+                                  pkgs.find((p) => p.id === prog?.package)?.price || 0;
+
+                                return sum + Number(price);
+                              }, 0);
+
+                              // Check if Engineering program exists
+                              const isEngineeringProgram = watchedPrograms.some((prog) => {
+                                const programName = programs.find(
+                                  (p) => p.id === prog?.program
+                                )?.name;
+
+                                return (
+                                  programName?.toLowerCase() === "engineering"
+                                );
+                              });
+
+                              // Engineering condition
+                              if (isEngineeringProgram) {
+                                if (numericValue !== totalPackageAmount) {
+                                  return Promise.reject(
+                                    `For Engineering program, Fees Paid must be exactly ₹${totalPackageAmount}`
+                                  );
+                                }
+                                return Promise.resolve();
+                              }
+
+                              // Other programs condition
+                              if (numericValue > totalPackageAmount) {
+                                return Promise.reject(
+                                  `Fees Paid cannot exceed total package price of ₹${totalPackageAmount}`
+                                );
+                              }
+
                               return Promise.resolve();
                             },
-                          },
+                          }
                         ]
                     }
                   >

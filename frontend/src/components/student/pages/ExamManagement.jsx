@@ -42,12 +42,42 @@ const ExamManagement = () => {
   const { tracker } = useSelector((state) => state.exam);
   const dispatch = useDispatch();
   const studentId = localStorage.getItem("studentId");
+  const reduxProgramId = useSelector(
+    (state) => state.student?.selectedProgramId
+  );
+
+  const reduxPackageId = useSelector(
+    (state) => state.student?.selectedPackageId
+  );
+
+  // Fallback to localStorage
+  const selectedProgramId =
+    reduxProgramId || localStorage.getItem("selectedProgramId");
+
+  const selectedPackageId =
+    reduxPackageId || localStorage.getItem("selectedPackageId");
+
 
   useEffect(() => {
-    if (studentId) {
-      dispatch(fetchExamStatus(studentId));
+    if (studentId && selectedProgramId && selectedPackageId) {
+      dispatch(
+        fetchExamStatus({
+          studentId,
+          programId: selectedProgramId,
+          packageId: selectedPackageId,
+        })
+      );
     }
-  }, [dispatch, studentId]);
+  }, [
+    dispatch,
+    studentId,
+    selectedProgramId,
+    selectedPackageId,
+  ]);
+
+  console.log("studentId:", studentId);
+  console.log("programId:", selectedProgramId);
+  console.log("packageId:", selectedPackageId);
 
   useEffect(() => {
     if (tracker?.status) {
@@ -69,7 +99,13 @@ const ExamManagement = () => {
         );
 
         // 👇 immediately refetch status
-        dispatch(fetchExamStatus(studentId));
+        dispatch(
+          fetchExamStatus({
+            studentId,
+            programId: selectedProgramId,
+            packageId: selectedPackageId,
+          })
+        );
         message.success("Exam started successfully!");
 
       } catch (error) {

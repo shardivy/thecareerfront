@@ -64,10 +64,21 @@ export const sendExamForApprovalApi = async (studentId) => {
 };
 
 // GET EXAM TRACK STATUS (Student)
-export const getExamTrackerApi = async (studentId) => {
+export const getExamTrackerApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
   const response = await axiosInstance.get(
-    `/exam/exam-tracker/student/${studentId}/`
+    `/exam/exam-tracker/student/${studentId}/`,
+    {
+      params: {
+        program_id: programId,
+        package_id: packageId,
+      },
+    }
   );
+
   return response.data;
 };
 
@@ -80,9 +91,15 @@ export const startExamApi = async (studentId) => {
 };
 
 // GET EXAM STATUS (Student)
-export const getExamStatusApi = async (studentId) => {
+export const getExamStatusApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
+
   const response = await axiosInstance.get(
-    `/exam/exam-status/${studentId}/`
+    `/exam/exam-status/${studentId}/?program_id=${programId}&package_id=${packageId}`
   );
+
   return response.data;
 };

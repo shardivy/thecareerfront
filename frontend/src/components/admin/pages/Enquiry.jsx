@@ -17,7 +17,7 @@ import {
 } from "antd";
 import dayjs from "dayjs";
 import adminTheme from "../../../theme/adminTheme";
-import { EditOutlined, PlusOutlined, SearchOutlined, DeleteOutlined } from "@ant-design/icons";
+import { EditOutlined, PlusOutlined, SearchOutlined, DeleteOutlined, DownOutlined } from "@ant-design/icons";
 import { deleteEnquiry } from "../../../adminSlices/updateEnquirySlice";
 import AddEnquiryModal from "../modals/AddEnquiryModal";
 import { fetchEnquiries } from "../../../adminSlices/enquiryListSlice";
@@ -386,6 +386,7 @@ render: (_, record) => {
         <Col>
           <Space>
             <Button
+               icon={<DownOutlined />}
               onClick={handleExport}
               style={{
                 borderRadius: adminTheme.token.borderRadius,

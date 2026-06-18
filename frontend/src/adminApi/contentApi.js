@@ -72,3 +72,22 @@ export const getProgramContentApi = async (programId) => {
 
   return response.data;
 };
+
+// FETCH STUDENT COUNSELLING NOTES
+export const getStudentCounsellingNotesApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
+  const response = await axiosInstance.get(
+    `/counselling_slot/student-counselling-notes/${studentId}/`,
+    {
+      params: {
+        program_id: programId,
+        package_id: packageId,
+      },
+    }
+  );
+
+  return response.data;
+};

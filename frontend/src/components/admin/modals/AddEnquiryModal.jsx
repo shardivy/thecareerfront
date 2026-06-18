@@ -43,15 +43,19 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
   const dispatch = useDispatch();
 
   const liveValues = Form.useWatch([], form);
+  const programRows = liveValues?.programs || [];
   const paymentType = Form.useWatch("payment_type", form);
   const paymentMethod = Form.useWatch("method", form);
   const amount = Form.useWatch("amount", form);
 
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [packagesByProgramId, setPackagesByProgramId] = useState({}); // Keyed by program ID
-  const [programPkgLoading, setProgramPkgLoading] = useState({}); // Still keyed by index for UI loading state
+  const [packagesByProgramId, setPackagesByProgramId] = useState({}); 
+  const [programPkgLoading, setProgramPkgLoading] = useState({}); 
 const selectedPrograms = Form.useWatch("program", form);
+const selectedPackages = (liveValues?.programs || [])
+  .map((p) => p?.package)
+  .filter(Boolean);
 
   const { activeList: programs = [], loading: programsLoading } = useSelector(
     (state) => state.programs
@@ -664,7 +668,7 @@ const isHandHoldingSelected =
                                       label="Counselling Service"
                                       rules={[{ required: true, message: "Please select service" }]}
                                     >
-                                      <Select
+                                      {/* <Select
                                         placeholder="Select counselling service"
                                         loading={programPkgLoading[index]}
                                         // disabled={!isWebsiteSource}
@@ -675,7 +679,24 @@ const isHandHoldingSelected =
                                             {p.name}
                                           </Option>
                                         ))}
-                                      </Select>
+                                      </Select> */}
+                                      
+
+                                      <Select
+  placeholder="Select counselling service"
+  loading={programPkgLoading[index]}
+  allowClear
+>
+{(packagesByProgramId[liveValues?.programs?.[index]?.program] || []).map((p) => {
+  const isDisabled = selectedPackages.includes(p.id);
+
+  return (
+    <Option key={p.id} value={p.id} disabled={isDisabled}>
+      {p.name}
+    </Option>
+  );
+})}
+</Select>
                                     </Form.Item>
                                   </Col>
                                 </Row>

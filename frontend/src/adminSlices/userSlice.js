@@ -30,7 +30,7 @@ export const fetchStudents = createAsyncThunk(
     try {
       const data = await fetchStudentsApi();
       // console.log("📦 API Response from fetchStudents:", data);
-      return data.data || data; 
+      return data.data || data;
     } catch (error) {
       // console.error("❌ Error fetching students:", error);
       return rejectWithValue("Failed to fetch students");
@@ -164,7 +164,7 @@ const userSlice = createSlice({
             first_name: u.first_name || "",
             last_name: u.last_name || "",
             student_name: u.student_name || "",
-             aptitude_test: Boolean(u.aptitude_test),
+            aptitude_test: Boolean(u.aptitude_test),
             email: u.email || "",
             phone: u.phone || "",
             study_class: u.study_class || "",
@@ -175,11 +175,19 @@ const userSlice = createSlice({
             programs: (() => {
               if (Array.isArray(u.programs) && u.programs.length > 0) {
                 return u.programs.map((item) => ({
-                  program_id: item.program_id || item.program?.id || null,
-                  program_name: item.program_name || item.program?.name || "",
-                  package: item.package ? { id: item.package.id, name: item.package.name, price: item.package.price } : (item.package_name ? { id: item.package_id || null, name: item.package_name, price: item.package_price || "" } : null),
+                  program_id: item.program_id || null,
+                  program_name: item.program_name || "",
+                  package: item.package || null,
+
+                  report_status: item.statuses?.report_status,
+                  exam_status: item.statuses?.exam_status,
+                  analysis_status: item.statuses?.analysis_status,
+                  slot_status: item.statuses?.slot_status,
+                  journey_status: item.statuses?.full_access,
                 }));
               }
+
+
 
               if (Array.isArray(u.program_package) && u.program_package.length > 0) {
                 return u.program_package.map((item) => ({
@@ -275,30 +283,30 @@ const userSlice = createSlice({
             })(),
 
             // ✅ FIXED REPORT STATUS
-  reportStatus: u.report_status || "received_locked",
+            reportStatus: u.report_status || "received_locked",
 
 
             sessions: u.exam_status
               ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
               : "0",
 
-              slotStatus: u.slot_status
-  ? u.slot_status
-      .split("_")
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  : "Not Booked",
+            slotStatus: u.slot_status
+              ? u.slot_status
+                .split("_")
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ")
+              : "Not Booked",
 
-journeyStatus: u.full_access
-  ? u.full_access
-      .split("_")
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  : "Payment",
+            journeyStatus: u.full_access
+              ? u.full_access
+                .split("_")
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(" ")
+              : "Payment",
 
 
- analysis_status: u.analysis_status,
- created_at: u.created_at,
+            analysis_status: u.analysis_status,
+            created_at: u.created_at,
 
             // Include all payment fields in profile for easy access
             profile: {
@@ -415,21 +423,21 @@ journeyStatus: u.full_access
             ? Object.values(u.exam_status).reduce((sum, val) => sum + val, 0)
             : "0",
 
-            // SLOT STATUS
-slotStatus: u.slot_status
-  ? u.slot_status
-      .split("_")
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  : "Not Booked",
+          // SLOT STATUS
+          slotStatus: u.slot_status
+            ? u.slot_status
+              .split("_")
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ")
+            : "Not Booked",
 
-// JOURNEY STATUS
-journeyStatus: u.full_access
-  ? u.full_access
-      .split("_")
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ")
-  : "Payment",
+          // JOURNEY STATUS
+          journeyStatus: u.full_access
+            ? u.full_access
+              .split("_")
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ")
+            : "Payment",
 
 
           profile: {

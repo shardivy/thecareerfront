@@ -28,7 +28,7 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { token } = theme.useToken();
-  
+
   // Initialize selectedProgramId from localStorage and listen for changes
   const [selectedProgramId, setSelectedProgramId] = useState(() => {
     const storedProgramId = localStorage.getItem("selectedProgramId");
@@ -359,7 +359,7 @@ const StudentDashboard = () => {
 
     if (
       engineeringTestAnalysis &&
-      progressData.report !== "received_unlocked"
+      progressData.report !== "all_received"
     ) {
       return {
         label: "View Analysis Report →",

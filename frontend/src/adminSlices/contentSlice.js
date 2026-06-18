@@ -1,5 +1,13 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { uploadContentApi, updateContentApi, getContentListApi, getContentCountApi, deleteContentApi ,incrementDownloadCountApi, getProgramContentApi} from "../adminApi/contentApi";
+import { uploadContentApi, 
+  updateContentApi, 
+  getContentListApi, 
+  getContentCountApi, 
+  deleteContentApi ,
+  incrementDownloadCountApi, 
+  getProgramContentApi,
+getStudentCounsellingNotesApi
+} from "../adminApi/contentApi";
 
 // ================= THUNK =================
 export const uploadContent = createAsyncThunk(
@@ -106,6 +114,27 @@ export const fetchProgramContent = createAsyncThunk(
   }
 );
 
+export const fetchStudentCounsellingNotes = createAsyncThunk(
+  "counsellors/fetchStudentCounsellingNotes",
+  async (
+    { studentId, programId, packageId },
+    { rejectWithValue }
+  ) => {
+    try {
+      return await getStudentCounsellingNotesApi(
+        studentId,
+        programId,
+        packageId
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          "Failed to fetch counselling notes"
+      );
+    }
+  }
+);
+
 // ================= SLICE =================
 const contentSlice = createSlice({
   name: "content",
@@ -115,6 +144,9 @@ const contentSlice = createSlice({
     error: null,
     contentList: [],
     contentStats: null,
+    studentCounsellingNotes: [],
+  studentCounsellingNotesLoading: false,
+
   },
   reducers: {
     resetContentState: (state) => {
@@ -233,7 +265,28 @@ const contentSlice = createSlice({
 .addCase(fetchProgramContent.rejected, (state, action) => {
   state.loading = false;
   state.error = action.payload;
-});
+})
+
+
+/* FETCH STUDENT COUNSELLING NOTES */
+.addCase(fetchStudentCounsellingNotes.pending, (state) => {
+  state.studentCounsellingNotesLoading = true;
+  state.error = null;
+})
+
+.addCase(fetchStudentCounsellingNotes.fulfilled, (state, action) => {
+  state.studentCounsellingNotesLoading = false;
+
+  state.studentCounsellingNotes =
+    action.payload?.data ||
+    action.payload ||
+    [];
+})
+
+.addCase(fetchStudentCounsellingNotes.rejected, (state, action) => {
+  state.studentCounsellingNotesLoading = false;
+  state.error = action.payload;
+})
   },
 });
 

@@ -21,7 +21,7 @@ const JourneySteps = ({
 }) => {
   const navigate = useNavigate();
   const { token } = useToken();
-  
+
   // Derive isFreeUser from role
   const isFreeUser = String(role || "").toLowerCase() === "basic_user";
 
@@ -101,10 +101,10 @@ const JourneySteps = ({
       case "Report":
         return progressData.report === "received_unlocked";
       case "Questionnaire":
-        return progressData.analysis === "completed" || progressData.analysis === "in_progress";
+        return progressData.analysis === "completed";
 
       case "Analysis Report":
-        return progressData.report === "received_unlocked";
+        return progressData.report === "all_received";
 
       case "Counselling Slot Booking":
         return (
@@ -142,7 +142,11 @@ const JourneySteps = ({
         return progressData.analysis === "in_progress";
 
       case "Analysis Report":
-        return progressData.analysis === "received_locked";
+        return (
+          progressData.report === "received_locked" ||
+          progressData.report === "v1_received" ||
+          progressData.report === "v2_received"
+        );
 
       case "Review":
         return progressData.review === "in_process";
@@ -241,11 +245,17 @@ const JourneySteps = ({
     if (label === "Questionnaire" && progressData.analysis === "in_progress")
       return `${label} - In Progress`;
 
-    if (label === "Analysis Report" && progressData.report === "received_unlocked")
+    if (
+      label === "Analysis Report" &&
+      (
+        progressData.report === "received_unlocked" ||
+        progressData.report === "all_received"
+      )
+    )
       return `${label} - Completed`;
 
-    if (label === "Analysis Report" && progressData.report === "received_locked")
-      return `${label} - Locked`;
+    if (label === "Analysis Report")
+      return `${label} - In Progress`;
 
     if (label === "Review") {
       if (progressData.review === "in_process")
@@ -383,7 +393,7 @@ const JourneySteps = ({
         Your Journey Progress
       </Title>
 
-     
+
 
       {journeyLoading ? (
         <div style={{ textAlign: "center", padding: "40px" }}>
@@ -495,10 +505,10 @@ const JourneySteps = ({
             </div>
           </div>
 
-       
-    </>
-  )}
-</Card>
+
+        </>
+      )}
+    </Card>
   );
 };
 

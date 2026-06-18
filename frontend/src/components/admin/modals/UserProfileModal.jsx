@@ -96,10 +96,10 @@ const UserProfileModal = ({ open, onClose, user }) => {
       ? journey.journeys
       : journey && (journey.progress || journey.history || journey.payment_summary)
         ? [{
-            ...journey,
-            program_name: journey.program_name || journey.program?.name || user?.program,
-            package: journey.package || journey.package_name || user?.package,
-          }]
+          ...journey,
+          program_name: journey.program_name || journey.program?.name || user?.program,
+          package: journey.package || journey.package_name || user?.package,
+        }]
         : [];
 
   const programs = programJourneys.length > 0
@@ -187,7 +187,7 @@ const UserProfileModal = ({ open, onClose, user }) => {
                       <div key={idx} style={{ marginBottom: 10 }}>
                         <Text strong>{`Program ${idx + 1}: `}</Text>
                         <Text strong >
-                        {item.program_name || item.program?.name || user.program || "-"}
+                          {item.program_name || item.program?.name || user.program || "-"}
                         </Text>
                         <br />
                         <Text type="colorTextSecondary">
@@ -368,10 +368,11 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   (label === "Exam" && progressData.exam === "completed") ||
                   (label === "Report" && progressData.report === "received_unlocked") ||
                   (label === "Questionnaire" &&
-                    (progressData.analysis === "completed" || progressData.analysis === "in_progress")) ||
+                    (progressData.analysis === "completed")) ||
 
                   (label === "Analysis Report" &&
-                    progressData.analysis === "completed") ||
+                    (progressData.report === "completed" || progressData.report === "all_received")) ||
+
 
                   (label === "Counselling Slot Booking" &&
                     ["booked", "rescheduled", "completed"].includes(
@@ -564,7 +565,8 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   status === "received_unlocked" ||
                   status === "rescheduled" ||
                   status == "booked" ||
-                  status === "submitted";
+                  status === "submitted" ||
+                  status === "all_received";
 
                 const isPartial =
                   status === "partial_paid" ||

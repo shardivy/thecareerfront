@@ -186,7 +186,7 @@ const SlotBookingList = () => {
 
   const shouldBlockBookingUntilReportUnlock =
     isNotBooked &&
-    (aptitudeTestCompleted || engineeringTestAnalysisEnabled) &&
+    (aptitudeTestCompleted) &&
     !isReportAvailable;
 
   const formatStatus = (status) => {

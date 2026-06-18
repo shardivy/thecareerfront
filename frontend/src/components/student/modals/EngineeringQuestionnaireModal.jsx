@@ -11,7 +11,7 @@ import {
   Col,
 } from "antd";
 import { useDispatch } from "react-redux";
-import { submitAnswers, fetchCollegeAnalysis } from "../../../adminSlices/collegeAnalysisSlice";
+import { submitAnswers, fetchCollegeAnalysis, fetchCollegeAnalysisStatus } from "../../../adminSlices/collegeAnalysisSlice";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -58,31 +58,47 @@ const EngineeringQuestionnaireModal = ({
 
     const payload = {
       student_id: localStorage.getItem("studentId"),
+      program_id: localStorage.getItem("selectedProgramId"),
+      package_id: localStorage.getItem("selectedPackageId"),
       answers: formattedAnswers,
       is_final_submit: true,
     };
 
-    dispatch(submitAnswers(payload))
-      .unwrap()
-      .then(() => {
-        // message.success("Submitted successfully!");
+   dispatch(submitAnswers(payload))
+  .unwrap()
+  .then(() => {
 
-        // ✅ CALL HERE
-        dispatch(fetchCollegeAnalysis());
-
-        onSubmit && onSubmit(answers);
-        onClose();
-
-        setPage(0);
-        setAnswers({});
+    dispatch(
+      fetchCollegeAnalysisStatus({
+        studentId: payload.student_id,
+        programId: payload.program_id,
+        packageId: payload.package_id,
       })
-      .catch(() => {
-        message.error("Submission failed");
-      });
+    );
+
+  dispatch(
+  fetchCollegeAnalysis({
+    studentId: payload.student_id,
+    programId: payload.program_id,
+    packageId: payload.package_id,
+  })
+);
+
+    onSubmit && onSubmit(answers);
+    onClose();
+
+    setPage(0);
+    setAnswers({});
+  })
+  .catch(() => {
+    message.error("Submission failed");
+  });
   };
 
   const handleClose = () => {
     const studentId = localStorage.getItem("studentId");
+    const programId = localStorage.getItem("selectedProgramId");
+    const packageId = localStorage.getItem("selectedPackageId");
 
     const formattedAnswers = questions.map((q) => ({
       question_id: q.id,
@@ -91,25 +107,40 @@ const EngineeringQuestionnaireModal = ({
 
     const payload = {
       student_id: studentId,
+      program_id: programId,
+      package_id: packageId,
       answers: formattedAnswers,
       is_final_submit: false,
     };
 
     // ✅ CALL SAME API AS SUBMIT
-    dispatch(submitAnswers(payload))
-      .unwrap()
-      .then(() => {
-        // message.success("Progress saved");
+  dispatch(submitAnswers(payload))
+  .unwrap()
+  .then(() => {
 
-        // optional: refresh list
-        dispatch(fetchCollegeAnalysis());
-
-        onClose();
+    dispatch(
+      fetchCollegeAnalysisStatus({
+        studentId,
+        programId,
+        packageId,
       })
-      .catch(() => {
-        message.error("Failed to save progress");
-        onClose(); // still close modal
-      });
+    );
+
+  dispatch(
+  fetchCollegeAnalysis({
+    tab: "draft",
+    studentId,
+    programId,
+    packageId,
+  })
+);
+
+    onClose();
+  })
+  .catch(() => {
+    message.error("Failed to save progress");
+    onClose();
+  });
   };
 
 

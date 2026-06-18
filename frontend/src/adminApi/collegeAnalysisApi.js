@@ -1,11 +1,23 @@
 import axiosInstance from "../axiosInstance";
 
 // 📥 Get College List Analysis (User Requests)
-export const getCollegeListAnalysisApi = async ({ studentId, tab } = {}) => {
+export const getCollegeListAnalysisApi = async ({
+  studentId,
+  tab,
+  programId,
+  packageId,
+} = {}) => {
   let url = "/program-package/college-list-analysis/";
-  if (tab === "draft" && studentId) {
-    url += `?tab=draft&student_id=${studentId}`;
+
+  if (
+    tab === "draft" &&
+    studentId &&
+    programId &&
+    packageId
+  ) {
+    url += `?tab=draft&student_id=${studentId}&program_id=${programId}&package_id=${packageId}`;
   }
+
   const response = await axiosInstance.get(url);
   return response.data;
 };
@@ -20,13 +32,17 @@ export const submitAnswersApi = async (payload) => {
 };
 
 // 🚀 Start Questionnaire update API
-export const startCollegeAnalysisApi = async (studentId) => {
+export const startCollegeAnalysisApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
   const response = await axiosInstance.put(
-    `/program-package/college-analysis/start/${studentId}/`
+    `/program-package/college-analysis/start/${studentId}/?program_id=${programId}&package_id=${packageId}`
   );
+
   return response.data;
 };
-
 
 // ✏️ UPDATE ANSWERS API
 export const updateAnswersApi = async ({ studentId, answers }) => {
@@ -40,19 +56,27 @@ export const updateAnswersApi = async ({ studentId, answers }) => {
 };
 
 // 📊 GET STATUS API
-export const getCollegeAnalysisStatusApi = async (studentId) => {
+export const getCollegeAnalysisStatusApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
   const response = await axiosInstance.get(
-    `/program-package/college-analysis/status/${studentId}/`
+    `/program-package/college-analysis/status/${studentId}/`,
+    {
+      params: {
+        program_id: programId,
+        package_id: packageId,
+      },
+    }
   );
+
   return response.data;
 };
 
 
 // 📤 UPLOAD REPORT API
-export const uploadAnalysisReportApi = async (id, file) => {
-  const formData = new FormData();
-   formData.append("file_path", file);
-
+export const uploadAnalysisReportApi = async (id, formData) => {
   const response = await axiosInstance.post(
     `/report/engineering/upload/${id}/`,
     formData,
@@ -75,36 +99,13 @@ export const getCompletedReportsApi = async () => {
 };
 
 // ✏️ UPDATE REPORT API (PUT)
-export const updateAnalysisReportApi = async (id, file, isExisting) => {
-  let payload;
-
-  if (isExisting) {
-    payload = {
-      file_path: file, 
-    };
-
+export const updateAnalysisReportApi = async (id, formData) => {
     const response = await axiosInstance.put(
-      `/report/engineering/upload/${id}/`,
-      payload
+        `/report/engineering/upload/${id}/`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
     );
-
     return response.data;
-  } else {
-    const formData = new FormData();
-    formData.append("file_path", file);
-
-    const response = await axiosInstance.put(
-      `/report/engineering/upload/${id}/`,
-      formData,
-      {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
-
-    return response.data;
-  }
 };
 
 
@@ -113,5 +114,20 @@ export const getAnalysisDashboardApi = async () => {
   const response = await axiosInstance.get(
     "/program-package/engineering-analysis/dashboard/"
   );
+  return response.data;
+};
+
+
+export const uploadEngineeringV3ReportApi = async (reportId, payload) => {
+  const response = await axiosInstance.post(
+    `/report/engineering-v2/upload/${reportId}/`,
+    payload,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
   return response.data;
 };

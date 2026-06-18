@@ -53,3 +53,18 @@ export const getDashboardStatsApi = async (participantId) => {
   );
   return response.data;
 };
+
+// CREATE HH USER
+export const createHandholdingParticipantApi = async (payload) => {
+  const response = await axiosInstance.post(
+    "/event/add-handholding/",
+    payload,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
+};
