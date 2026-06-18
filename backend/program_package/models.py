@@ -108,12 +108,16 @@ class CollegeListAnalysis(models.Model):
 
     program = models.ForeignKey(
         Program,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
     )
 
     package = models.ForeignKey(
         Package,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
     )
 
     status = models.CharField(
@@ -138,6 +142,8 @@ class CollegeListAnalysis(models.Model):
 class Answer(models.Model):
     student = models.ForeignKey("lead_registration.StudentProfile", on_delete=models.CASCADE, related_name='answers')
     question = models.ForeignKey(QuestionAnswer, on_delete=models.CASCADE, related_name='answers')
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
+    package = models. ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
     answer_text = models.TextField(null=True, blank=True)
     is_draft = models.BooleanField(default=True) 
     created_at = models.DateTimeField(auto_now_add=True)

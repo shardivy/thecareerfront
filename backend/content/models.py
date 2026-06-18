@@ -27,6 +27,7 @@ class Content(models.Model):
     image = models.ImageField(upload_to='content_images/', null=True, blank=True)
     is_draft = models.BooleanField(default=True)
     download_count = models.PositiveIntegerField(default=0)
+    is_student_visible = models.BooleanField(default=True)
     
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -45,6 +46,7 @@ class ContentPackage(models.Model):
     content = models.ForeignKey(Content, on_delete=models.CASCADE, null=True, blank=True)
     program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
     package = models.ForeignKey(Package, on_delete=models.CASCADE, null=True, blank=True)
+    stream = models.ForeignKey('lead_registration.Stream', on_delete=models.CASCADE, null=True, blank=True)
     
     def __str__(self):
         return f"{self.content} - {self.program} - {self.package}"

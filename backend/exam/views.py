@@ -409,23 +409,16 @@ class ApproveUserExamAPIView(APIView):
         #         "review_required": False,
         #     }
         # )
-        # Get user's program/package
-        user_program = UserProgramPackage.objects.filter(
+        # Create report using actual UserExam program/package
+        report, created = Report.objects.get_or_create(
             user=user_exam.user,
-            package__aptitude_test=True
-        ).select_related(
-            "program",
-            "package"
-        ).order_by("-id").first()
-
-        # Create report
-        report, _ = Report.objects.get_or_create(
-            user=user_exam.user,
-            program=user_program.program if user_program else None,
-            package=user_program.package if user_program else None,
             exam=user_exam.exam,
-            report_status="not_received",
-            review_required=False,
+            program=user_exam.program,
+            package=user_exam.package,
+            defaults={
+                "report_status": "not_received",
+                "review_required": False,
+            }
         )
 
         serializer = UserExamApproveResponseSerializer(user_exam)
@@ -687,36 +680,75 @@ class FetchStudentExamStatusAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    # def get(self, request, student_id):
+
+    #     # 🔹 Get student profile
+    #     student = get_object_or_404(StudentProfile, id=student_id)
+    #     user = student.user
+
+    #     # 🔹 Get latest exam
+    #     user_exam = UserExam.objects.filter(
+    #         user=user
+    #     ).order_by("-created_at").first()
+
+    #     if not user_exam:
+    #         return Response(
+    #             {"message": "No exam found for this student"},
+    #             status=status.HTTP_404_NOT_FOUND
+    #         )
+
+    #     return Response(
+    #         {
+    #             "student_id": student.id,
+    #             "exam_id": user_exam.id,
+    #             "status": user_exam.status,
+    #             "description": user_exam.description,
+    #             # "completed_at": user_exam.completed_at,
+    #             "created_at": user_exam.created_at
+    #         },
+    #         status=status.HTTP_200_OK
+    #     )
+    
     def get(self, request, student_id):
 
-        # 🔹 Get student profile
         student = get_object_or_404(StudentProfile, id=student_id)
         user = student.user
 
-        # 🔹 Get latest exam
-        user_exam = UserExam.objects.filter(
-            user=user
-        ).order_by("-created_at").first()
+        program_id = request.query_params.get("program_id")
+        package_id = request.query_params.get("package_id")
+
+        if not program_id or not package_id:
+            return Response(
+                {"message": "program_id and package_id are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user_exam = (
+            UserExam.objects.filter(
+                user=user,
+                program_id=program_id,
+                package_id=package_id
+            )
+            .order_by("-created_at")
+            .first()
+        )
 
         if not user_exam:
             return Response(
-                {"message": "No exam found for this student"},
+                {"message": "No exam found for this program/package"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        return Response(
-            {
-                "student_id": student.id,
-                "exam_id": user_exam.id,
-                "status": user_exam.status,
-                "description": user_exam.description,
-                # "completed_at": user_exam.completed_at,
-                "created_at": user_exam.created_at
-            },
-            status=status.HTTP_200_OK
-        )
-
-        
+        return Response({
+            "student_id": student.id,
+            "exam_id": user_exam.id,
+            "program_id": user_exam.program_id,
+            "package_id": user_exam.package_id,
+            "status": user_exam.status,
+            "description": user_exam.description,
+            "created_at": user_exam.created_at
+        }, status=status.HTTP_200_OK)
+            
 class ExamTrackerAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -730,7 +762,7 @@ class ExamTrackerAPIView(APIView):
 
         return localtime(dt).strftime("%Y-%m-%d %H:%M")
 
-    def get(self, request, student_id):
+    # def get(self, request, student_id):
 
         student = get_object_or_404(StudentProfile, id=student_id)
         user = student.user
@@ -781,6 +813,97 @@ class ExamTrackerAPIView(APIView):
             "exam_submitted": {
                 "status": exam_submitted_status,
                 "date": format_datetime(user_exam.completed_at) if exam_submitted_status and user_exam.completed_at else None
+            },
+            "awaiting_approval": {
+                "status": awaiting_approval_status
+            },
+            "report_generation": {
+                "status": report_generation_status,
+                "report_status": report_status_value
+            }
+        })
+        
+    def get(self, request, student_id):
+
+        student = get_object_or_404(StudentProfile, id=student_id)
+        user = student.user
+
+        # 🔥 REQUIRED INPUTS
+        program_id = request.query_params.get("program_id")
+        package_id = request.query_params.get("package_id")
+
+        if not program_id or not package_id:
+            return Response(
+                {"message": "program_id and package_id are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # =========================
+        # 1. USER EXAM (STRICT FILTER)
+        # =========================
+        user_exam = (
+            UserExam.objects
+            .filter(
+                user=user,
+                program_id=program_id,
+                package_id=package_id
+            )
+            .order_by("-created_at")   # still safe for multiple attempts
+            .first()
+        )
+
+        if not user_exam:
+            return Response(
+                {"message": "No exam found for this program/package"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # =========================
+        # 2. REPORT (STRICT FILTER)
+        # =========================
+        report = (
+            Report.objects
+            .filter(
+                user=user,
+                program_id=program_id,
+                package_id=package_id
+            )
+            .order_by("-uploaded_at")
+            .first()
+        )
+
+        status_value = user_exam.status
+
+        exam_started_status = status_value in [
+            "in_progress", "pending_approval", "received_unlocked", "completed"
+        ]
+
+        exam_submitted_status = status_value in [
+            "pending_approval", "received_unlocked", "completed"
+        ]
+
+        awaiting_approval_status = status_value in [
+            "received_unlocked", "completed"
+        ]
+
+        report_status_value = report.report_status if report else None
+
+        report_generation_status = report_status_value in [
+            "received_locked", "received_unlocked", "not_received"
+        ]
+
+        return Response({
+            "student_id": student_id,
+            "program_id": program_id,
+            "package_id": package_id,
+
+            "exam_started": {
+                "status": exam_started_status,
+                "date": format_datetime(user_exam.created_at)
+            },
+            "exam_submitted": {
+                "status": exam_submitted_status,
+                "date": format_datetime(user_exam.completed_at) if user_exam.completed_at else None
             },
             "awaiting_approval": {
                 "status": awaiting_approval_status

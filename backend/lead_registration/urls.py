@@ -44,6 +44,7 @@ urlpatterns = [
     
     # ==================== Stream URLs ====================
     path("streams/", StreamAPIView.as_view()),
+    path("streams/<int:stream_id>/", StreamAPIView.as_view()),
     path("students/<int:student_id>/streams/", StudentStreamAPIView.as_view()),
     path("students/<int:student_id>/streams/<int:stream_id>/", StudentStreamDetailAPIView.as_view()),
 

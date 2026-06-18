@@ -629,7 +629,7 @@ class StudentAcademicHistorySerializer(serializers.ModelSerializer):
 class StreamSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stream
-        fields = ("id", "name")
+        fields = ("id", "name", "program", "is_active", "created_at", "updated_at")
 
 class StudentStreamSerializer(serializers.ModelSerializer):
     stream_detail = StreamSerializer(source="stream", read_only=True)
@@ -927,6 +927,12 @@ class StudentRegistrationSerializer(serializers.Serializer):
         if User.objects.filter(email__iexact=attrs.get("student_email")).exists():
             raise serializers.ValidationError({
                 "message": "Student email already exists"
+            })
+            
+        # Check Lead table
+        if Lead.objects.filter(email__iexact=attrs.get("student_email")).exists():
+            raise serializers.ValidationError({
+                "message": "An enquiry with this email already exists"
             })
 
         # if User.objects.filter(phone=attrs["student_mobile"]).exists():

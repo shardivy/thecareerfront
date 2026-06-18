@@ -259,7 +259,11 @@ class CollegeListAnalysisSerializer(serializers.ModelSerializer):
 
         answers = (
             Answer.objects
-            .filter(student=student)
+            .filter(
+                student=student,
+                program_id=obj.program_id,
+                package_id=obj.package_id
+            )
             .select_related("question")
             .order_by("created_at")
         )

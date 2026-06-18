@@ -24,6 +24,19 @@ class UserExam(models.Model):
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    program = models.ForeignKey(
+        "program_package.Program",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
+    package = models.ForeignKey(
+        "program_package.Package",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
     status = models.CharField(max_length=200, choices=STATUS_CHOICES, default='not_started')
     description = models.TextField(blank=True, null=True)
@@ -32,4 +45,12 @@ class UserExam(models.Model):
         User, on_delete=models.SET_NULL, null=True, related_name='approved_exams'
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "program", "package"],
+                name="unique_user_program_package_exam"
+            )
+        ]
 

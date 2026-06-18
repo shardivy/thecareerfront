@@ -1,25 +1,71 @@
 from django.core.mail import send_mail
 from django.conf import settings
 
+from counselling_slot.models import BookingCounsellor
 
-def send_booking_created_email(user, booking_slots, booking_date):
-    """
-    Email when booking is created
-    """
+
+# def send_booking_created_email(user, booking_slots, booking_date):
+#     """
+#     Email when booking is created
+#     """
+
+#     subject = "Your Counselling Session Has Been Booked"
+
+#     slot_details = ""
+#     for slot in booking_slots:
+#         slot_details += f"""
+# Slot Date: {slot.date}
+# Start Time: {slot.start_time}
+# End Time: {slot.end_time}
+# Mode: {slot.mode}
+# """
+
+#     message = f"""
+# Dear {user.first_name},
+
+# Your counselling session has been successfully booked.
+
+# Booking Date: {booking_date}
+
+# Session Details:
+# {slot_details}
+
+# Please make sure to join the session on time.
+
+# If you need to reschedule, please contact support.
+
+# Best Regards  
+# Abhinav Career Scope
+# """
+
+#     send_mail(
+#         subject,
+#         message,
+#         settings.DEFAULT_FROM_EMAIL,
+#         [user.email],
+#         fail_silently=True
+#     )
+
+def send_booking_created_email(user, booking, booking_slots, booking_date, send_email_func):
 
     subject = "Your Counselling Session Has Been Booked"
 
-    slot_details = ""
-    for slot in booking_slots:
-        slot_details += f"""
+    slot_details = "\n".join([
+        f"""
 Slot Date: {slot.date}
 Start Time: {slot.start_time}
 End Time: {slot.end_time}
 Mode: {slot.mode}
 """
+        for slot in booking_slots
+    ])
 
-    message = f"""
-Dear {user.first_name},
+    # =========================
+    # STUDENT EMAIL
+    # =========================
+    send_email_func(
+        subject,
+        f"""Dear {user.first_name},
 
 Your counselling session has been successfully booked.
 
@@ -28,67 +74,152 @@ Booking Date: {booking_date}
 Session Details:
 {slot_details}
 
-Please make sure to join the session on time.
-
-If you need to reschedule, please contact support.
-
-Best Regards  
+Best Regards
 Abhinav Career Scope
-"""
-
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        fail_silently=True
+""",
+        user.email
     )
 
+    # =========================
+    # COUNSELLOR EMAILS
+    # =========================
+    booking_counsellors = BookingCounsellor.objects.filter(
+        booking=booking
+    ).select_related("counsellor__user")
 
-def send_booking_updated_email(user, booking_slots, booking_date):
-    """
-    Email when booking is updated
-    """
+    for bc in booking_counsellors:
+
+        email = bc.counsellor.user.email if bc.counsellor else None
+        if not email:
+            continue
+
+        send_email_func(
+            subject,
+            f"""Dear {bc.counsellor.user.first_name},
+
+A counselling session has been booked and assigned to you.
+
+Student: {user.first_name} {user.last_name}
+Role: {bc.role}
+
+Booking Date: {booking_date}
+
+Session Details:
+{slot_details}
+
+Best Regards
+Abhinav Career Scope
+""",
+            email
+        )
+
+# def send_booking_updated_email(user, booking_slots, booking_date):
+#     """
+#     Email when booking is updated
+#     """
+
+#     subject = "Your Counselling Session Has Been Updated"
+
+#     slot_details = ""
+#     for slot in booking_slots:
+#         slot_details += f"""
+# Slot Date: {slot.date}
+# Start Time: {slot.start_time}
+# End Time: {slot.end_time}
+# Mode: {slot.mode}
+# """
+
+#     message = f"""
+# Dear {user.first_name},
+
+# Your counselling session booking has been updated.
+
+# Updated Session Details:
+
+# Booking Date: {booking_date}
+
+# {slot_details}
+
+# Please review the updated session schedule.
+
+# If you have any questions, feel free to contact our support team.
+
+# Best Regards  
+# Abhinav Career Scope
+# """
+
+#     send_mail(
+#         subject,
+#         message,
+#         settings.DEFAULT_FROM_EMAIL,
+#         [user.email],
+#         fail_silently=True
+#     )
+
+def send_booking_updated_email(user, booking, booking_slots, booking_date, send_email_func):
 
     subject = "Your Counselling Session Has Been Updated"
 
-    slot_details = ""
-    for slot in booking_slots:
-        slot_details += f"""
+    slot_details = "\n".join([
+        f"""
 Slot Date: {slot.date}
 Start Time: {slot.start_time}
 End Time: {slot.end_time}
 Mode: {slot.mode}
 """
+        for slot in booking_slots
+    ])
 
-    message = f"""
-Dear {user.first_name},
+    send_email_func(
+        subject,
+        f"""Dear {user.first_name},
 
 Your counselling session booking has been updated.
 
-Updated Session Details:
+Booking Date: {booking_date}
+
+Session Details:
+{slot_details}
+
+Best Regards
+Abhinav Career Scope
+""",
+        user.email
+    )
+
+    booking_counsellors = BookingCounsellor.objects.filter(
+        booking=booking
+    ).select_related("counsellor__user")
+
+    for bc in booking_counsellors:
+
+        email = bc.counsellor.user.email if bc.counsellor else None
+        if not email:
+            continue
+
+        send_email_func(
+            subject,
+            f"""Dear {bc.counsellor.user.first_name},
+
+The counselling session has been updated.
+
+Student: {user.first_name} {user.last_name}
+Role: {bc.role}
 
 Booking Date: {booking_date}
 
+Updated Session Details:
 {slot_details}
 
-Please review the updated session schedule.
-
-If you have any questions, feel free to contact our support team.
-
-Best Regards  
+Best Regards
 Abhinav Career Scope
-"""
-
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        fail_silently=True
-    )
-    
-    
+""",
+            email
+        )
+        
+        
+        
+               
 def generate_counselling_reminder(slot, student_profile, booking_status):
     """
     Generate counselling reminder subject + message

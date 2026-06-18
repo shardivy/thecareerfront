@@ -417,6 +417,8 @@ class CollegeListAnalysisListAPIView(APIView):
 
         tab = request.GET.get("tab")
         student_id = request.GET.get("student_id")
+        program_id = request.GET.get("program_id")
+        package_id = request.GET.get("package_id")
 
         analyses = CollegeListAnalysis.objects.select_related(
             "user", "program", "package"
@@ -430,6 +432,12 @@ class CollegeListAnalysisListAPIView(APIView):
         if student_id:
             student = get_object_or_404(StudentProfile, id=student_id)
             analyses = analyses.filter(user=student.user)
+            
+        if program_id:
+            analyses = analyses.filter(program_id=program_id)
+            
+        if package_id:
+             analyses = analyses.filter(package_id=package_id)
 
         serializer = CollegeListAnalysisSerializer(analyses, many=True)
 
@@ -440,11 +448,16 @@ class CollegeListAnalysisListAPIView(APIView):
         }
 
         # Draft question + answers
-        if tab == "draft" and student_id:
+        if tab == "draft" and student_id and program_id and package_id:
 
             questions = QuestionAnswer.objects.all()
 
-            answers = Answer.objects.filter(student=student, is_draft=True)
+            answers = Answer.objects.filter(
+                student=student,
+                program_id=program_id,
+                package_id=package_id,
+                is_draft=True
+            )
 
             answer_map = {
                 ans.question_id: ans.answer_text
@@ -559,6 +572,17 @@ class StartQuestionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, student_id):
+        
+        program_id = request.GET.get("program_id")
+        package_id = request.GET.get("package_id")
+
+        if not program_id or not package_id:
+            return Response(
+                {
+                    "message": "program_id and package_id are required"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Get student profile
         student = get_object_or_404(StudentProfile, id=student_id)
@@ -566,7 +590,11 @@ class StartQuestionAPIView(APIView):
         # Get latest college analysis for that student
         analysis = (
             CollegeListAnalysis.objects
-            .filter(user=student.user)
+            .filter(
+                user=student.user,
+                program_id=program_id,
+                package_id=package_id
+            )
             .order_by("-created_at")
             .first()
         )
@@ -587,6 +615,8 @@ class StartQuestionAPIView(APIView):
                     "message": "Status updated successfully",
                     "data": {
                         "student_id": student_id,
+                        "program_id": program_id,
+                        "package_id": package_id,
                         "analysis_id": analysis.id,
                         "status": analysis.status
                     }
@@ -681,6 +711,8 @@ class SubmitMultipleAnswersAPIView(APIView):
 
         student_id = request.data.get("student_id")
         answers_data = request.data.get("answers", [])
+        program_id = request.data.get("program_id")
+        package_id = request.data.get("package_id")
         is_final_submit = request.data.get("is_final_submit", False)  # ✅ NEW
 
         student = get_object_or_404(StudentProfile, id=student_id)
@@ -693,6 +725,8 @@ class SubmitMultipleAnswersAPIView(APIView):
 
             answer = Answer.objects.update_or_create(
                 student=student,
+                program_id=program_id,
+                package_id=package_id,
                 question_id=item.get("question_id"),
                 defaults={
                     "answer_text": item.get("answer_text"),
@@ -707,7 +741,12 @@ class SubmitMultipleAnswersAPIView(APIView):
                 "is_draft": answer.is_draft
             })
 
-        analysis = CollegeListAnalysis.objects.filter(user=student.user).first()
+        # analysis = CollegeListAnalysis.objects.filter(user=student.user).first()
+        analysis = CollegeListAnalysis.objects.filter(
+            user=student.user,
+            program_id=program_id,
+            package_id=package_id
+        ).first()
 
         report_created = False
         report = None
@@ -725,7 +764,9 @@ class SubmitMultipleAnswersAPIView(APIView):
         if is_final_submit:
             print("Student id:", student.user.id)
             user_program = CollegeListAnalysis.objects.filter(
-                user=student.user
+                user=student.user,
+                program_id=program_id,
+                package_id=package_id
             ).select_related(
                 "program",
                 "package"
@@ -736,19 +777,21 @@ class SubmitMultipleAnswersAPIView(APIView):
                 print("Program:", analysis.program)
                 print("Package:", analysis.package)
 
-            report = Report.objects.create(
+            report, report_created = Report.objects.get_or_create(
                 user=student.user,
                 program=user_program.program if analysis else None,
                 package=user_program.package if analysis else None,
-                exam=None,  # Engineering Analysis
-                report_status="not_received",
-                review_required=False
+                exam=None,
+                defaults={
+                    "report_status": "v1_not_received",
+                    "review_required": False
+                }
             )
 
             report_created = True
 
             if not report_created:
-                report.report_status = "not_received"
+                report.report_status = "v1_not_received"
                 report.save(update_fields=["report_status"])
 
         return Response({
@@ -804,19 +847,68 @@ class UpdateMultipleAnswersAPIView(APIView):
         )
 
         
+# class CollegeListAnalysisStatusAPIView(APIView):
+
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, student_id):
+
+#         # Get student profile
+#         student = get_object_or_404(StudentProfile, id=student_id)
+
+#         # Get college analysis
+#         analysis = (
+#             CollegeListAnalysis.objects
+#             .filter(user=student.user)
+#             .order_by("-created_at")
+#             .first()
+#         )
+
+#         if not analysis:
+#             return Response(
+#                 {
+#                     "student_id": student_id,
+#                     "analysis_status": None,
+#                     "message": "College list analysis not found"
+#                 },
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         return Response(
+#             {
+#                 "student_id": student_id,
+#                 # "college_analysis_id": analysis.id,
+#                 "analysis_status": analysis.status
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
 class CollegeListAnalysisStatusAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, student_id):
 
-        # Get student profile
         student = get_object_or_404(StudentProfile, id=student_id)
 
-        # Get college analysis
+        program_id = request.query_params.get("program_id")
+        package_id = request.query_params.get("package_id")
+
+        if not program_id or not package_id:
+            return Response(
+                {
+                    "message": "program_id and package_id are required"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         analysis = (
             CollegeListAnalysis.objects
-            .filter(user=student.user)
+            .filter(
+                user=student.user,
+                program_id=program_id,
+                package_id=package_id
+            )
             .order_by("-created_at")
             .first()
         )
@@ -825,6 +917,8 @@ class CollegeListAnalysisStatusAPIView(APIView):
             return Response(
                 {
                     "student_id": student_id,
+                    "program_id": program_id,
+                    "package_id": package_id,
                     "analysis_status": None,
                     "message": "College list analysis not found"
                 },
@@ -834,12 +928,12 @@ class CollegeListAnalysisStatusAPIView(APIView):
         return Response(
             {
                 "student_id": student_id,
-                # "college_analysis_id": analysis.id,
+                "program_id": program_id,
+                "package_id": package_id,
                 "analysis_status": analysis.status
             },
             status=status.HTTP_200_OK
         )
-
 
 class EngineeringAnalysisDashboardAPIView(APIView):
 

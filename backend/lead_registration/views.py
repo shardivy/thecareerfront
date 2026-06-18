@@ -436,6 +436,15 @@ class AddEnquiryAPIView(APIView):
                 f"Enquiry validation failed | Errors: {serializer.errors}"
             )
 
+            if "email" in serializer.errors:
+                return Response(
+                    {
+                        "message": "Enquiry with this email already exists."
+                        # "errors": serializer.errors
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
             return Response(
                 {
                     "message": "Validation error",
@@ -1069,6 +1078,8 @@ class AddUserAPIView(APIView):
 
                         UserExam.objects.get_or_create(
                             user=user,
+                            program=program,
+                            package=package,
                             defaults={"status": "not_started"}
                         )
 
@@ -3272,6 +3283,21 @@ class StreamAPIView(APIView):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    def put(self, request, stream_id):
+        try:
+            stream = Stream.objects.get(id=stream_id)
+        except Stream.DoesNotExist:
+            return Response({"message": "Stream not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = StreamSerializer(stream, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {"message": "Stream updated", "data": serializer.data},
+                status=status.HTTP_200_OK
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 class StudentStreamAPIView(APIView):
     """
         GET /students/{student_id}/streams
@@ -4542,7 +4568,7 @@ class UserJourneyAPIView(APIView):
 
                 exam_attempt = (
                     UserExam.objects
-                    .filter(user=student.user, status="completed")
+                    .filter(user=student.user, program=program, package=package)
                     .order_by("-created_at")
                     .first()
                 )
@@ -4580,6 +4606,46 @@ class UserJourneyAPIView(APIView):
                     "details": "Exam not applicable for this package"
                 })
 
+            # # ================================
+            # # REPORT (UPDATED LOGIC)
+            # # ================================
+            # if not aptitude_test_status and not engineering_analysis_status:
+            #     report_status = "not_applicable"
+
+            #     history.append({
+            #         "step": "Report",
+            #         "status": "not_applicable",
+            #         "date": None,
+            #         "details": "Report not applicable for this package"
+            #     })
+
+            # else:
+            #     report = (
+            #         Report.objects
+            #         .filter(user=student.user, program=program, package=package)
+            #         .order_by("-uploaded_at")
+            #         .first()
+            #     )
+
+            #     if report:
+            #         report_status = report.report_status
+
+            #         history.append({
+            #             "step": "Report",
+            #             "status": report_status,
+            #             "date": report.uploaded_at,
+            #             "details": f"Report status: {report_status}"
+            #         })
+            #     else:
+            #         report_status = "not_received"
+
+            #         history.append({
+            #             "step": "Report",
+            #             "status": "not_received",
+            #             "date": None,
+            #             "details": "Report not uploaded"
+            #         })
+            
             # ================================
             # REPORT (UPDATED LOGIC)
             # ================================
@@ -4596,21 +4662,72 @@ class UserJourneyAPIView(APIView):
             else:
                 report = (
                     Report.objects
-                    .filter(user=student.user, program=program, package=package)
+                    .filter(
+                        user=student.user,
+                        program=program,
+                        package=package
+                    )
                     .order_by("-uploaded_at")
                     .first()
                 )
 
                 if report:
-                    report_status = report.report_status
 
-                    history.append({
-                        "step": "Report",
-                        "status": report_status,
-                        "date": report.uploaded_at,
-                        "details": f"Report status: {report_status}"
-                    })
+                    # =====================================
+                    # ENGINEERING TEST ANALYSIS REPORT FLOW
+                    # =====================================
+                    if engineering_analysis_status:
+
+                        all_reports_unlocked = (
+                            report.report_status == "v1_received"
+                            and report.report_status_v2 == "v2_received"
+                            and report.report_status_v3 == "v3_received"
+                        )
+
+                        no_report_uploaded = (
+                            not report.file_path
+                            and not report.file_path1
+                            and not report.file_path2
+                        )
+
+                        if all_reports_unlocked:
+                            report_status = "all_received"
+
+                        elif no_report_uploaded:
+                            report_status = "not_received"
+
+                        else:
+                            report_status = "in_progress"
+
+                        history.append({
+                            "step": "Report",
+                            "status": report_status,
+                            "date": report.uploaded_at,
+                            "details": {
+                                "main_report_status": report.report_status,
+                                "v2_report_status": report.report_status_v2,
+                                "v3_report_status": report.report_status_v3,
+                                "main_report_uploaded": bool(report.file_path),
+                                "v1_report_uploaded": bool(report.file_path1),
+                                "v2_report_uploaded": bool(report.file_path2)
+                            }
+                        })
+
+                    # =====================================
+                    # EXISTING APTITUDE TEST LOGIC
+                    # =====================================
+                    else:
+                        report_status = report.report_status
+
+                        history.append({
+                            "step": "Report",
+                            "status": report_status,
+                            "date": report.uploaded_at,
+                            "details": f"Report status: {report_status}"
+                        })
+
                 else:
+
                     report_status = "not_received"
 
                     history.append({
