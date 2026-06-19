@@ -976,6 +976,7 @@ class UploadReportAPIView(APIView):
        - Payment is fully_paid
        - Review entry exists for user
        - Review status = submitted
+       - Booking is completed 
 
     ❌ Else:
        - received_locked
@@ -1073,7 +1074,11 @@ class UploadReportAPIView(APIView):
         if student_profile:
             latest_booking = (
                 Booking.objects
-                .filter(student=student_profile)
+                .filter(
+                    student=student_profile,
+                    program=report.program,
+                    package=report.package
+                )
                 .order_by("-id")
                 .first()
             )
