@@ -1677,9 +1677,15 @@ class BookingCreateAPIView(APIView):
                     }
                 })
 
-            transaction.on_commit(
-                lambda: send_booking_updated_email_task.delay(updated_booking_ids)
-            )
+            updated_booking_ids_copy = updated_booking_ids.copy()
+
+            def send_update_email():
+                try:
+                    send_booking_updated_email_task.delay(updated_booking_ids_copy)
+                except Exception as e:
+                    print("Queue Error:", str(e))
+
+            transaction.on_commit(send_update_email)
 
         return Response(
             {
