@@ -646,10 +646,21 @@ class StartExamAPIView(APIView):
         # 🔹 Get student profile
         student = get_object_or_404(StudentProfile, id=student_id)
         user = student.user
+        
+        program_id = request.query_params.get("program_id")
+        package_id = request.query_params.get("package_id")
+
+        if not program_id or not package_id:
+            return Response(
+                {"message": "program_id and package_id are required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # 🔹 Get latest exam with allowed statuses
         user_exam = UserExam.objects.filter(
             user=user,
+            program_id=program_id,
+            package_id=package_id,
             status__in=["not_started"]
         ).order_by("-created_at").first()
 

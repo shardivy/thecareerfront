@@ -1310,9 +1310,16 @@ class BookingCreateAPIView(APIView):
             #     booking_slots=slots,
             #     booking_date=date
             # )
-            transaction.on_commit(
-                lambda: send_booking_created_email_task.delay(booking_ids)
-            )
+            booking_ids_copy = booking_ids.copy()
+
+            def send_email():
+                try:
+                    send_booking_created_email_task.delay(booking_ids_copy)
+                    print("✅ Booking created email task queued successfully")
+                except Exception as e:
+                    print(f"❌ Error while queueing booking created email task: {str(e)}")
+
+            transaction.on_commit(send_email)
 
             student_name = f"{student.user.first_name} {student.user.last_name}"
 
@@ -1533,9 +1540,16 @@ class BookingCreateAPIView(APIView):
                 # )
                 
 
-                transaction.on_commit(
-                    lambda: send_booking_updated_email_task.delay(updated_booking_ids)
-                )
+                updated_booking_ids_copy = updated_booking_ids.copy()
+
+                def send_update_email():
+                    try:
+                        send_booking_updated_email_task.delay(updated_booking_ids_copy)
+                        print("✅ Booking update email task queued successfully")
+                    except Exception as e:
+                        print("❌ Error while sending booking update email:", str(e))
+
+                transaction.on_commit(send_update_email)
 
                 return Response(
                     {
