@@ -91,7 +91,13 @@ const ExamManagement = () => {
 
     setOnInstructionsConfirm(() => async () => {
       try {
-        await dispatch(startExam(studentId)).unwrap();
+        await dispatch(
+          startExam({
+            studentId,
+            programId: selectedProgramId,
+            packageId: selectedPackageId,
+          })
+        ).unwrap();
 
         window.open(
           "https://www.careerfutura.com/ba/business-associate#",

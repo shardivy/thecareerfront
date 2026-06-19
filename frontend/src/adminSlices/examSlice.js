@@ -79,9 +79,16 @@ export const fetchExamTracker = createAsyncThunk(
 
 export const startExam = createAsyncThunk(
   "exam/startExam",
-  async (studentId, { rejectWithValue }) => {
+  async (
+    { studentId, programId, packageId },
+    { rejectWithValue }
+  ) => {
     try {
-      return await startExamApi(studentId);
+      return await startExamApi(
+        studentId,
+        programId,
+        packageId
+      );
     } catch (err) {
       return rejectWithValue(
         err.response?.data || "Start exam failed"

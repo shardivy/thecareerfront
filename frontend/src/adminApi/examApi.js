@@ -82,11 +82,16 @@ export const getExamTrackerApi = async (
   return response.data;
 };
 
-// START EXAM (using studentId)
-export const startExamApi = async (studentId) => {
+// START EXAM
+export const startExamApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
   const response = await axiosInstance.post(
-    `/exam/start-exam/${studentId}/`
+    `/exam/start-exam/${studentId}/?program_id=${programId}&package_id=${packageId}`
   );
+
   return response.data;
 };
 
