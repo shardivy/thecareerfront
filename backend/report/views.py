@@ -1566,7 +1566,11 @@ class EngineeringTestAnalysisReportAPIView(APIView):
             # ==========================================
             analysis = (
                 CollegeListAnalysis.objects
-                .filter(user=user)
+                .filter(
+                    user=user,
+                    program=report.program,
+                    package=report.package
+                )
                 .first()
             )
 
