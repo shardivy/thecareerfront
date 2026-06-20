@@ -673,8 +673,8 @@ class StudentListSerializer(serializers.ModelSerializer):
 
                         no_report_uploaded = (
                             not report.file_path
-                            and not report.file_path1
-                            and not report.file_path2
+                            # and not report.file_path1
+                            # and not report.file_path2
                         )
 
                         if all_reports_received:
