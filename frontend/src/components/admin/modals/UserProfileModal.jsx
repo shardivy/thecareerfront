@@ -318,11 +318,13 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   <Select
                     value={selectedProgramIdx}
                     onChange={setSelectedProgramIdx}
-                    style={{ width: "100%" }}
+                    style={{ width: window.innerWidth < 768 ? "100%" : "150%" }}
                   >
                     {programs.map((prog, idx) => (
                       <Select.Option key={idx} value={idx}>
-                        {`Program ${idx + 1}: ${prog.program_name || prog.program?.name || "—"}`}
+                        {`Program ${idx + 1}: ${prog.program_name || prog.program?.name || "—"
+                          } | Package: ${prog.package?.name || prog.package_name || "—"
+                          }`}
                       </Select.Option>
                     ))}
                   </Select>

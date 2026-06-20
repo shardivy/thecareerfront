@@ -50,6 +50,9 @@ const EngineeringQuestionaries = () => {
   const programId = localStorage.getItem("selectedProgramId");
   const packageId = localStorage.getItem("selectedPackageId");
 
+  const draftKey =`${studentId}_${programId}_${packageId}`;
+ const currentDraft = draftAnswers?.[draftKey] || {};
+
   useEffect(() => {
     dispatch(fetchQuestions());
 
@@ -301,7 +304,8 @@ const EngineeringQuestionaries = () => {
           onClose={() => setModalOpen(false)}
           questions={questions}
           loading={loading}
-          draftAnswers={draftAnswers}
+          // draftAnswers={draftAnswers}
+            draftAnswers={currentDraft}
 
           onSubmit={(answers) => {
             const studentId = localStorage.getItem("studentId");

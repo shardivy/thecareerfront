@@ -69,7 +69,7 @@ const selectedPackages = (liveValues?.programs || [])
     (state) => state.convertEnquiry
   );
 
-  const { loading: addLoading, success: addSuccess, message: addMessage } =
+  const { loading: addLoading, success: addSuccess, error: addError, message: addMessage } =
     useSelector((state) => state.addEnquiry);
 
   const { loading: convertLoading, success: convertSuccess, message: convertMessage } =
@@ -423,6 +423,14 @@ const isHandHoldingSelected =
   Array.isArray(selectedPrograms) &&
   handHoldingProgram &&
   selectedPrograms.includes(handHoldingProgram.id);
+
+  useEffect(() => {
+  if (addError) {
+    message.error(
+      addError?.message || addError || "Failed to add enquiry"
+    );
+  }
+}, [addError]);
    
   return (
     <Modal

@@ -19,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import adminTheme from "../../../theme/adminTheme";
 import { useDispatch } from "react-redux";
 import { setSelection } from "../../../adminSlices/studentSelectionSlice";
+import { clearCollegeAnalysisDraft } from "../../../adminSlices/collegeAnalysisSlice";
 
 const { Title, Text } = Typography;
 
@@ -111,6 +112,8 @@ const ProgramSelection = () => {
   }, [dispatch, navigate, programs]);
 
   const handleSelectProgram = (item) => {
+    // Clear old program-specific Redux data
+    dispatch(clearCollegeAnalysisDraft());
     // Redux
     dispatch(
       setSelection({
@@ -121,25 +124,25 @@ const ProgramSelection = () => {
       })
     );
 
-  // LocalStorage
-  localStorage.setItem("selectedProgramId", item.program_id);
-  localStorage.setItem("selectedProgram", item.program_name);
+    // LocalStorage
+    localStorage.setItem("selectedProgramId", item.program_id);
+    localStorage.setItem("selectedProgram", item.program_name);
 
-  localStorage.setItem("selectedPackageId", item.package_id);
-  localStorage.setItem("selectedPackage", item.package_name);
+    localStorage.setItem("selectedPackageId", item.package_id);
+    localStorage.setItem("selectedPackage", item.package_name);
 
-  navigate("/student/dashboard");
-};
+    navigate("/student/dashboard");
+  };
 
-//   const handleSelectProgram = (item) => {
-//     localStorage.setItem("selectedProgramId", item.program_id);
-//     localStorage.setItem("selectedProgram", item.program_name);
+  //   const handleSelectProgram = (item) => {
+  //     localStorage.setItem("selectedProgramId", item.program_id);
+  //     localStorage.setItem("selectedProgram", item.program_name);
 
-//     localStorage.setItem("selectedPackageId", item.package_id);
-//     localStorage.setItem("selectedPackage", item.package_name);
-// console.log("Selected Item:", item);
-//     navigate("/student/student-profile");
-//   };
+  //     localStorage.setItem("selectedPackageId", item.package_id);
+  //     localStorage.setItem("selectedPackage", item.package_name);
+  // console.log("Selected Item:", item);
+  //     navigate("/student/student-profile");
+  //   };
 
   return (
     <div

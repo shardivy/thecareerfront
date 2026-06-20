@@ -101,7 +101,7 @@ const JourneySteps = ({
       case "Report":
         return progressData.report === "received_unlocked";
       case "Questionnaire":
-        return progressData.analysis === "completed";
+        return progressData.analysis === "completed" ;
 
       case "Analysis Report":
         return progressData.report === "all_received";
@@ -145,7 +145,7 @@ const JourneySteps = ({
         return (
           progressData.report === "received_locked" ||
           progressData.report === "v1_received" ||
-          progressData.report === "v2_received"
+          progressData.report === "in_progress"
         );
 
       case "Review":

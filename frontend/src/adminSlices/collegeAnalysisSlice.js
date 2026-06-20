@@ -165,6 +165,12 @@ const collegeAnalysisSlice = createSlice({
     dashboardStats: null,
     draftAnswers: {},
   },
+   reducers: {
+    clearCollegeAnalysisDraft: (state) => {
+      state.draftAnswers = {};
+      state.status = "not_started";
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchCollegeAnalysis.pending, (state) => {
@@ -174,10 +180,18 @@ const collegeAnalysisSlice = createSlice({
         state.loading = false;
 
         const data = action.payload.data || [];
-
         state.requests = [...data].reverse();
 
-        state.draftAnswers = {}; // clear old draft first
+        const { studentId, programId, packageId } =
+          action.meta.arg || {};
+
+        const key = `${studentId}_${programId}_${packageId}`;
+
+        if (!state.draftAnswers) {
+          state.draftAnswers = {};
+        }
+
+        state.draftAnswers[key] = {};
 
         if (data.length > 0 && data[0].answers) {
           const formatted = {};
@@ -186,9 +200,28 @@ const collegeAnalysisSlice = createSlice({
             formatted[ans.question_id] = ans.answer_text;
           });
 
-          state.draftAnswers = formatted;
+          state.draftAnswers[key] = formatted;
         }
       })
+      // .addCase(fetchCollegeAnalysis.fulfilled, (state, action) => {
+      //   state.loading = false;
+
+      //   const data = action.payload.data || [];
+
+      //   state.requests = [...data].reverse();
+
+      //   state.draftAnswers = {}; // clear old draft first
+
+      //   if (data.length > 0 && data[0].answers) {
+      //     const formatted = {};
+
+      //     data[0].answers.forEach((ans) => {
+      //       formatted[ans.question_id] = ans.answer_text;
+      //     });
+
+      //     state.draftAnswers = formatted;
+      //   }
+      // })
       .addCase(fetchCollegeAnalysis.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -345,4 +378,5 @@ const collegeAnalysisSlice = createSlice({
   },
 });
 
+export const { clearCollegeAnalysisDraft } = collegeAnalysisSlice.actions;
 export default collegeAnalysisSlice.reducer;

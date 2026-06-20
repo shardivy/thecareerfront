@@ -41,6 +41,7 @@ import { logout } from "../adminSlices/authSlice";
 import { ConfigProvider } from "antd";
 import adminTheme from "../theme/adminTheme";
 import { setSelection } from "../adminSlices/studentSelectionSlice";
+import {clearCollegeAnalysisDraft} from "../adminSlices/collegeAnalysisSlice";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -576,6 +577,9 @@ export default function StudentLayout() {
     );
 
     if (!selectedItem) return;
+
+     // Clear old program-specific data
+      dispatch(clearCollegeAnalysisDraft());
 
     // Reset program-specific flags
     localStorage.removeItem("paymentCompleted");

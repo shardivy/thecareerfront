@@ -88,6 +88,7 @@ import CetEngineeringGuidance from "./components/landing-pages/CetEngineeringGui
 import SeminarWebinarSession from "./components/landing-pages/SeminarWebinarSession";
 import OCIEndToEnd from "./components/landing-pages/OCIEndToEnd";
 import Default from "./components/landing-pages/Default";
+import NotFound from "./NotFound";
 
 
 
@@ -218,6 +219,7 @@ const App = () => {
           <Route path="payment-page" element={<HhPaymentPage />} />
         </Route>
 
+         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

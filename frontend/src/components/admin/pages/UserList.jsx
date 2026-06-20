@@ -441,7 +441,25 @@ const UserList = () => {
                 color = "success";
                 icon = <UnlockOutlined />;
                 label = "All Received";
-              } else if (normalizedStatus === "v1_not_received") {
+              }  else if (normalizedStatus === "v1_received") {
+  color = "success";
+  icon = <CheckCircleOutlined />;
+  label = "V1 Received";
+} else if (normalizedStatus === "v2_received") {
+  color = "success";
+  icon = <CheckCircleOutlined />;
+  label = "V2 Received";
+} else if (normalizedStatus === "v3_received") {
+  color = "success";
+  icon = <CheckCircleOutlined />;
+  label = "V3 Received";
+} else if (normalizedStatus === "in_progress") {
+  color = "processing";
+  icon = <ClockCircleOutlined />;
+  label = "In Progress";
+} 
+              
+              else if (normalizedStatus === "v1_not_received") {
                 color = "error";
                 icon = <CloseCircleOutlined />;
                 label = "V1 Not Received";
