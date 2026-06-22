@@ -1819,9 +1819,7 @@ class PaymentStatsAPIView(APIView):
 
         total_users = user_packages.count()
 
-        total_expected = Payment.objects.values(
-            'user_id', 'package__id'
-        ).distinct().aggregate(
+        total_expected = UserProgramPackage.objects.aggregate(
             total=Sum('package__price')
         )['total'] or 0
 
@@ -2991,8 +2989,15 @@ class PaymentReminderAPI(APIView):
         count = 0
 
         for payment in payments:
-            send_payment_reminder_email(payment.user, payment)
-            count += 1
+            try:
+                send_payment_reminder_email(payment.user, payment)
+                count += 1
+            except Exception as e:
+                print("ERROR:", str(e))
+                return Response(
+                    {"error": str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
 
         return Response(
             {

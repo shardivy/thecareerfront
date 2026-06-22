@@ -357,9 +357,17 @@ class ApproveUserExamAPIView(APIView):
     def post(self, request, pk):
 
         user_exam = get_object_or_404(
-            UserExam.objects.select_related("user", "exam"),
+            UserExam.objects.select_related("user", "exam", "program", "package"),
             id=pk
         )
+        print("Before save:")
+        for exam in UserExam.objects.filter(user=user_exam.user):
+            print(
+                exam.id,
+                exam.program,
+                exam.package,
+                exam.status
+            )
 
         # 🔴 Already completed
         if user_exam.status == "completed":
@@ -389,6 +397,15 @@ class ApproveUserExamAPIView(APIView):
         user_exam.approved_by = request.user
         user_exam.completed_at = timezone.now()
         user_exam.save()
+        
+        print("After save:")
+        for exam in UserExam.objects.filter(user=user_exam.user):
+            print(
+                exam.id,
+                exam.program,
+                exam.package,
+                exam.status
+            )
 
         # ✅ Send email notification
         send_exam_approved_email(
