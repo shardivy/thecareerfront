@@ -2260,6 +2260,25 @@ class CancelBookingAPIView(APIView):
                         counsellor=counsellor.counsellor,
                         role=counsellor.role
                     )
+                    
+                # =========================
+                # 🔹 DELETE COUNSELLING NOTES & FILES
+                # =========================
+                notes = CounsellingNote.objects.filter(booking=booking)
+
+                for note in notes:
+                    if note.file1:
+                        note.file1.delete(save=False)
+                    if note.file2:
+                        note.file2.delete(save=False)
+                    if note.file3:
+                        note.file3.delete(save=False)
+                    if note.file4:
+                        note.file4.delete(save=False)
+                    if note.file5:
+                        note.file5.delete(save=False)
+
+                notes.delete()
 
                 # =========================
                 # 🔹 FREE SLOT

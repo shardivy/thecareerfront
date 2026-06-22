@@ -4486,12 +4486,18 @@ class UserJourneyAPIView(APIView):
 
             package_price = package.price if package else 0
 
-            if total_paid == 0:
-                payment_status = "pending"
-            elif total_paid < package_price:
-                payment_status = "partial_paid"
+            # Fetch actual status from DB
+            if last_payment:
+                if last_payment.status == "verification_pending":
+                    payment_status = "verification_pending"
+                elif total_paid == 0:
+                    payment_status = "pending"
+                elif total_paid < package_price:
+                    payment_status = "partial_paid"
+                else:
+                    payment_status = "fully_paid"
             else:
-                payment_status = "fully_paid"
+                payment_status = "pending"
 
             if payments.exists():
                 for payment in payments:

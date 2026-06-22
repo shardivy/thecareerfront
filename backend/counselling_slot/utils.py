@@ -164,7 +164,6 @@ def send_booking_updated_email(user, booking, booking_slots, booking_date, send_
         f"""
 Slot Date: {slot.date}
 Start Time: {slot.start_time}
-End Time: {slot.end_time}
 Mode: {slot.mode}
 """
         for slot in booking_slots

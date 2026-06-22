@@ -200,8 +200,8 @@ def send_payment_reminder_email(user, payment):
     # =====================================
     payments = Payment.objects.filter(
         user=payment.user,
-        package=payment.package
-    )
+         package__in=payment.package.all()
+    ).distinct()
 
     # =====================================
     # TOTAL PAID
@@ -213,7 +213,9 @@ def send_payment_reminder_email(user, payment):
     # =====================================
     # PACKAGE PRICE
     # =====================================
-    package_price = payment.package.price if payment.package else 0
+    package_price = payment.package.aggregate(
+        total=Sum("price")
+    )["total"] or 0
 
     # =====================================
     # REMAINING AMOUNT
@@ -225,10 +227,13 @@ def send_payment_reminder_email(user, payment):
     # =====================================
     # MESSAGE
     # =====================================
+    package_names = ", ".join(
+        payment.package.values_list("name", flat=True)
+    )
     message = f"""
-Hello {user.first_name},
+Dear {user.first_name},
 
-This is a reminder that your payment for the package "{payment.package}" is still pending.
+This is a reminder that your payment for the package "{package_names}" is still pending.
 
 Total Package Amount: ₹{package_price}
 Amount Paid: ₹{total_paid}

@@ -2978,7 +2978,7 @@ class PaymentReminderAPI(APIView):
         payments = Payment.objects.filter(
             user=student.user,
             status__in=["not_paid", "partial_paid"]
-        ).select_related("package")
+        ).prefetch_related("package")
 
         if not payments.exists():
             return Response(
