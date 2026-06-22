@@ -2,8 +2,8 @@
 
 const axiosInstance = axios.create({
   // baseURL: "http://192.168.1.2:8000/api/",
-  // baseURL: "http://192.168.181.38:8000/api",
-  // baseURL: "http://10.36.51.38:8000/api",
+  // baseURL: "http://192.168.235.38:8000/api",
+  // baseURL: "http://10.121.160.38:8000/api",
   // baseURL: "https://fighter-remembered-joseph-banana.trycloudflare.com/api",
 
   baseURL: "https://staging.abhinavcareerscope.com/api",

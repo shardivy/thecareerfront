@@ -1299,23 +1299,21 @@ const AddUserModal = ({ open, onClose, user, mode }) => {
                               }, 0);
 
                               // Check if Engineering program exists
-                              const isEngineeringProgram = watchedPrograms.some((prog) => {
-                                const programName = programs.find(
-                                  (p) => p.id === prog?.program
-                                )?.name;
+                              const firstProgram = watchedPrograms?.[0];
 
-                                return (
-                                  programName?.toLowerCase() === "engineering"
-                                );
-                              });
+                              const isFirstProgramEngineering =
+                                programs.find(
+                                  (p) => p.id === firstProgram?.program
+                                )?.name === "Engineering";
 
                               // Engineering condition
-                              if (isEngineeringProgram) {
+                              if (isFirstProgramEngineering) {
                                 if (numericValue !== totalPackageAmount) {
                                   return Promise.reject(
                                     `For Engineering program, Fees Paid must be exactly ₹${totalPackageAmount}`
                                   );
                                 }
+
                                 return Promise.resolve();
                               }
 

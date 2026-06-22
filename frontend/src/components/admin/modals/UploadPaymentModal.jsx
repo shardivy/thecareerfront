@@ -243,13 +243,16 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, paymentData }) => {
       handleClose();
     }
 
-    if (submitError) {
-      message.error(
-        typeof submitError === "string"
-          ? submitError
-          : JSON.stringify(submitError)
-      );
-    }
+   if (submitError) {
+  console.log("submitError =>", submitError);
+
+  message.error(
+    submitError?.errors ||
+    submitError?.message ||
+    submitError?.error ||
+    "An error occurred"
+  );
+}
   }, [submitSuccess, submitError, dispatch, form, onClose, onSuccess]);
 
   /* ================= HANDLE STUDENT SELECT ================= */
