@@ -361,13 +361,30 @@ class CollegeListAnalysisSerializer(serializers.ModelSerializer):
     # ---------------------------
     # REPORT STATUS
     # ---------------------------
+    # def get_report_status(self, obj):
+
+    #     report = (
+    #         Report.objects
+    #         .filter(
+    #             user=obj.user,
+    #             package__engineering_test_analysis=True
+    #         )
+    #         .order_by("-id")
+    #         .first()
+    #     )
+
+    #     if not report:
+    #         return "not_received"
+
+    #     return report.report_status or "not_received" 
     def get_report_status(self, obj):
 
         report = (
             Report.objects
             .filter(
                 user=obj.user,
-                package__engineering_test_analysis=True
+                program=obj.program,
+                package=obj.package
             )
             .order_by("-id")
             .first()
@@ -376,7 +393,17 @@ class CollegeListAnalysisSerializer(serializers.ModelSerializer):
         if not report:
             return "not_received"
 
-        return report.report_status or "not_received" 
+        # Return the latest available report status
+        if report.report_status_v3 and report.report_status_v3 != "v3_not_received":
+            return report.report_status_v3
+
+        if report.report_status_v2 and report.report_status_v2 != "v2_not_received":
+            return report.report_status_v2
+
+        if report.report_status and report.report_status != "not_received":
+            return report.report_status
+
+        return "not_received"
     
 class QuestionAnswerSerializer(serializers.ModelSerializer):
 

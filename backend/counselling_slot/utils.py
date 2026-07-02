@@ -218,7 +218,7 @@ Abhinav Career Scope
         
         
                
-def generate_counselling_reminder(slot, student_profile, booking_status):
+def generate_counselling_reminder(slot, student_profile, booking_status, program=None, package=None):
     """
     Generate counselling reminder subject + message
     based on:
@@ -230,6 +230,9 @@ def generate_counselling_reminder(slot, student_profile, booking_status):
     preferred_mode = (
         student_profile.preferred_counselling_mode or "online"
     ).lower()
+    
+    program_name = program.name if program else "N/A"
+    package_name = package.name if package else "N/A"
 
     # ==========================================
     # 🔹 NOT BOOKED
@@ -267,6 +270,9 @@ Abhinav Career Scope.
         message = f"""
 Greetings from Abhinav Career Scope.
 
+Program : {program_name}
+Package : {package_name}
+
 {session_label} is scheduled on {slot.date} at {slot.start_time}.
 Please join 15 minutes before the scheduled time.
 
@@ -292,6 +298,9 @@ Abhinav Career Scope.
 
         message = f"""
 Greetings from Abhinav Career Scope.
+
+Program : {program_name}
+Package : {package_name}
 
 {session_label} is scheduled on {slot.date} at {slot.start_time}.
 Please reach half an hour before the scheduled time.
