@@ -658,7 +658,7 @@ const CounsellorDashboard = () => {
                 programName: record.programName,
                 packageId: record.packageId,
                 packageName: record.packageName,
-                // stream: record.stream
+       
               });
               setNotesModal(true);
             });
