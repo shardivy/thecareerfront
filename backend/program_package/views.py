@@ -10,7 +10,7 @@ from accounts.permissions import IsAdmin, IsSuperAdmin
 from report.models import Report
 from lead_registration.models import StudentProfile
 from program_package.models import Answer, CollegeListAnalysis, LandingPage, Package, PackageFeature, Program, QuestionAnswer, UserProgramPackage
-from program_package.serializers import CollegeListAnalysisSerializer, LandingPageSerializer, PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer, ProgramWithPackagesSerializer, QuestionAnswerSerializer
+from program_package.serializers import CollegeListAnalysisSerializer, LandingPageSerializer, MultipleProgramsWithPackagesSerializer, PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer, ProgramWithPackagesSerializer, QuestionAnswerSerializer
 from django.db.models import Count, Sum
 
 
@@ -346,6 +346,33 @@ class ProgramPackagesAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+        
+class MultipleProgramPackagesAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+
+        program_ids = request.data.get("program_ids", [])
+
+        programs = Program.objects.filter(
+            id__in=program_ids,
+            is_active=True
+        )
+
+        serializer = MultipleProgramsWithPackagesSerializer(
+            programs,
+            many=True
+        )
+
+        return Response(
+            {
+                "message": "Programs fetched successfully",
+                "count": programs.count(),
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
 
 class ProgramPackageDetailAPIView(APIView):
     """

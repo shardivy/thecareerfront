@@ -1271,6 +1271,24 @@ class BookingCreateAPIView(APIView):
         with transaction.atomic():
 
             for slot in slots:
+# =========================================================================================================
+                # Lock slot row
+                locked_slot = Slot.objects.select_for_update().get(id=slot.id)
+
+                # Check whether slot already booked/rescheduled
+                already_booked = Booking.objects.filter(
+                    slot=locked_slot,
+                    status__in=["booked", "rescheduled"]
+                ).exists()
+
+                if already_booked:
+                    return Response(
+                        {
+                            "message": f"Slot {locked_slot.date} {locked_slot.start_time} is already booked."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+# ================================================================================================================================
                 for item in counsellors:
 
                     booking = Booking.objects.create(
@@ -1619,7 +1637,24 @@ class BookingCreateAPIView(APIView):
                 # old booking cancelled
                 base_booking.status = "cancelled"
                 base_booking.save(update_fields=["status"])
+# =========================================================================================================
+                locked_slot = Slot.objects.select_for_update().get(id=slot.id)
 
+                already_booked = Booking.objects.filter(
+                    slot=locked_slot,
+                    status__in=["booked", "rescheduled"]
+                ).exclude(
+                    id=booking_id
+                ).exists()
+
+                if already_booked:
+                    return Response(
+                        {
+                            "message": "This slot is already booked by another student."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+# ==========================================================================================================
                 # new rescheduled booking
                 new_booking = Booking.objects.create(
                     student=student,
@@ -2805,53 +2840,6 @@ class StudentBookingListAPIView(APIView):
 
 class CounsellorStudentBookingListAPIView(APIView):
     permission_classes = [IsAuthenticated]
-
-    # def auto_complete_bookings(self):
-    #     now = timezone.now()
-
-    #     bookings = Booking.objects.filter(
-    #         status="booked",
-    #         slot__isnull=False
-    #     ).select_related("slot")
-
-    #     for booking in bookings:
-
-    #         end_time = booking.slot.end_time
-
-    #         # convert string → time safely
-    #         if isinstance(end_time, str):
-    #             try:
-    #                 end_time = datetime.strptime(
-    #                     end_time,
-    #                     "%I:%M %p"
-    #                 ).time()
-    #             except ValueError:
-    #                 end_time = datetime.strptime(
-    #                     end_time,
-    #                     "%H:%M:%S"
-    #                 ).time()
-
-    #         # combine date + time
-    #         end_datetime = datetime.combine(
-    #             booking.date,
-    #             end_time
-    #         )
-
-    #         # timezone safe
-    #         end_datetime = timezone.make_aware(
-    #             end_datetime,
-    #             timezone.get_current_timezone()
-    #         )
-
-    #         if timezone.is_naive(now):
-    #             now = timezone.make_aware(
-    #                 now,
-    #                 timezone.get_current_timezone()
-    #             )
-
-    #         if now >= (end_datetime - timedelta(minutes=30)):
-    #             booking.status = "completed"
-    #             booking.save(update_fields=["status"])
 
     def auto_complete_bookings(self):
         now = timezone.now()

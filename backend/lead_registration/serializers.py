@@ -627,10 +627,59 @@ class StudentAcademicHistorySerializer(serializers.ModelSerializer):
         )
         
 class StreamSerializer(serializers.ModelSerializer):
+
+    # For create/update
+    programs = serializers.PrimaryKeyRelatedField(
+        queryset=Program.objects.all(),
+        many=True,
+        required=False,
+        write_only=True
+    )
+
+    # For GET response
+    program_details = serializers.SerializerMethodField()
+
     class Meta:
         model = Stream
-        fields = ("id", "name", "program", "is_active", "created_at", "updated_at")
+        fields = (
+            "id",
+            "name",
+            "programs",
+            "program_details",
+            "is_active",
+            "created_at",
+            "updated_at"
+        )
 
+    def get_program_details(self, obj):
+        return [
+            {
+                "id": program.id,
+                "name": program.name
+            }
+            for program in obj.programs.all()
+        ]
+
+    def create(self, validated_data):
+        programs = validated_data.pop("programs", [])
+        stream = Stream.objects.create(**validated_data)
+        stream.programs.set(programs)
+        return stream
+
+    def update(self, instance, validated_data):
+        programs = validated_data.pop("programs", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        if programs is not None:
+            instance.programs.set(programs)
+
+        return instance
+    
+    
 class StudentStreamSerializer(serializers.ModelSerializer):
     stream_detail = StreamSerializer(source="stream", read_only=True)
 

@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from payment.models import Payment
 from report.models import Report
-from lead_registration.models import StudentProfile
+from lead_registration.models import Stream, StudentProfile
 from program_package.models import Answer, CollegeListAnalysis, LandingPage, Package, PackageFeature, Program, QuestionAnswer, UserProgramPackage
 
 
@@ -206,6 +206,56 @@ class ProgramWithPackagesSerializer(serializers.ModelSerializer):
             is_active=True
         )
         return PackageWithFeaturesSerializer(packages, many=True).data
+    
+class StreamListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Stream
+        fields = (
+            "id",
+            "name",
+            "is_active"
+        )
+    
+class MultipleProgramsWithPackagesSerializer(serializers.ModelSerializer):
+    packages = serializers.SerializerMethodField()
+    streams = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Program
+        fields = (
+            "id",
+            "name",
+            "description",
+            "duration",
+            "session",
+            "is_active",
+            "packages",
+            "streams"
+        )
+
+    def get_packages(self, obj):
+        packages = Package.objects.filter(
+            program=obj,
+            is_active=True
+        )
+
+        return PackageWithFeaturesSerializer(
+            packages,
+            many=True
+        ).data
+    
+    def get_streams(self, obj):
+        streams = Stream.objects.filter(
+            programs=obj,
+            is_active=True
+        )
+        print("Program:", obj.id)
+        print("Streams:", streams)
+
+        return StreamListSerializer(
+            streams,
+            many=True
+        ).data
     
 # ====================== College List Analysis Serializer =====================
     

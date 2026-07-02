@@ -211,19 +211,19 @@ class UserExamListSerializer(serializers.ModelSerializer):
     #     return UserProgramPackage.objects.filter(user=obj.user).select_related(
     #         "program", "package"
     #     ).first()
-    # def get_user_program_package(self, obj):
-    #     if not hasattr(obj, "_upp_cache"):
-    #         obj._upp_cache = (
-    #             UserProgramPackage.objects
-    #             .filter(
-    #                 user=obj.user,
-    #                 package__aptitude_test=True
-    #             )
-    #             .select_related("program", "package")
-    #             .first()
-    #         )
+    def get_user_program_package(self, obj):
+        if not hasattr(obj, "_upp_cache"):
+            obj._upp_cache = (
+                UserProgramPackage.objects
+                .filter(
+                    user=obj.user,
+                    package__aptitude_test=True
+                )
+                .select_related("program", "package")
+                .first()
+            )
 
-    #     return obj._upp_cache
+        return obj._upp_cache
 
     # def get_program_id(self, obj):
     #     upp = self.get_user_program_package(obj)
@@ -301,3 +301,41 @@ class UserExamApproveResponseSerializer(serializers.ModelSerializer):
         if obj.approved_by and obj.approved_by.role:
             return obj.approved_by.role.name
         return None
+    
+class SaveCareerFuturaDetailsSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True
+    )
+
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=15)
+
+    password = serializers.CharField(
+        write_only=True,
+        min_length=6
+    )
+
+    confirm_password = serializers.CharField(
+        write_only=True,
+        min_length=6
+    )
+
+    study_class = serializers.CharField(max_length=20)
+    qualification_status = serializers.CharField(max_length=100)
+    type = serializers.CharField(max_length=100)
+
+    def validate(self, attrs):
+
+        if attrs["password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError(
+                {
+                    "confirm_password":
+                    "Password and Confirm Password do not match."
+                }
+            )
+
+        return attrs
+    

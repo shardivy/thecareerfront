@@ -30,7 +30,7 @@ from django.db.models.functions import ExtractYear
 
 from accounts.permissions import IsAdmin, IsSuperAdmin
 from accounts.serializers import HandholdingUsersListSerializer, PermissionSerializer, RolePermissionSerializer, RoleSerializer, StudentListSerializer, UserSerializer
-from lead_registration.models import Hobby, Lead, ParentProfile, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
+from lead_registration.models import Hobby, Lead, ParentProfile, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from program_package.models import Package, UserProgramPackage
 from counselling_slot.models import Booking, Counsellor
 
@@ -2322,6 +2322,7 @@ class ProfileUpdateAPIView(APIView):
                 "improvement_areas": student_profile.improvement_areas,
                 "preferred_counselling_mode": student_profile.preferred_counselling_mode,
                 "dob": student_profile.dob,
+                "suggested_stream": student_profile.suggested_stream,
                 "complete_profile": student_profile.is_profile_complete
             })
             
@@ -2369,15 +2370,15 @@ class ProfileUpdateAPIView(APIView):
             # ==========================
             # 🔹 Stream
             # ==========================
-            # stream = StudentStream.objects.filter(
-            #     student_profile=student_profile
-            # ).select_related("stream").first()
+            stream = StudentStream.objects.filter(
+                student_profile=student_profile
+            ).select_related("stream").first()
 
-            # response_data["stream"] = {
-            #     "stream_id": stream.stream.id,
-            #     "stream_name": stream.stream.name
-            # } if stream else None
-            response_data["stream"] = student_profile.stream
+            response_data["stream"] = {
+                "stream_id": stream.stream.id,
+                "stream_name": stream.stream.name
+            } if stream else None
+            # response_data["stream"] = student_profile.stream
 
             # ==========================
             # 🔹 Subject Preferences
@@ -2486,430 +2487,6 @@ class ProfileUpdateAPIView(APIView):
         ]
 
         return Response(response_data)
-    
-    
-    # @transaction.atomic
-    # def put(self, request):
-    #     print(">>> PUT request received at view <<<")
-    #     print(f"Request path: {request.path}")
-    #     print(f"Request method: {request.method}")
-        
-    #     user = request.user
-    #     data = request.data
-
-    #     if 'email' in data:
-    #         return Response({"error": "Email cannot be updated"}, status=400)
-
-    #     if 'role' in data:
-    #         return Response({"error": "Role cannot be updated"}, status=400)
-        
-    #     # ==========================
-    #     # 🔹 Validate Preferences & Hobbies (Only for students)
-    #     # ==========================
-    #     # Only validate if user is a student (handholding users don't need these)
-    #     if user.role and user.role.name.lower() == "student":
-    #         liked_subject_ids = data.get("liked_subject_ids")
-    #         disliked_subject_ids = data.get("disliked_subject_ids")
-    #         hobby_ids = data.get("hobby_ids")
-
-    #         errors = {}
-
-    #         if liked_subject_ids is not None and len(liked_subject_ids) == 0:
-    #             errors["liked_subjects"] = "Liked subjects are compulsory to complete the profile"
-
-    #         if disliked_subject_ids is not None and len(disliked_subject_ids) == 0:
-    #             errors["disliked_subjects"] = "Disliked subjects are compulsory to complete the profile"
-
-    #         if hobby_ids is not None and len(hobby_ids) == 0:
-    #             errors["hobbies"] = "Hobbies are compulsory to complete the profile"
-
-    #         if errors:
-    #             return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-
-    #     # ==========================
-    #     # 🔹 Update User (Common for all roles)
-    #     # ==========================
-    #     user.first_name = data.get("first_name", user.first_name)
-    #     user.last_name = data.get("last_name", user.last_name)
-    #     user.phone = data.get("phone", user.phone)
-    #     user.save()
-        
-    #     # ==========================
-    #     # 🔹 HANDHOLDING UPDATE
-    #     # ==========================
-    #     if user.role and user.role.name.lower() == "handholding":
-    #         print("✅ Entering handholding block")
-    #         participant, created = HandHoldingParticipant.objects.get_or_create(user=user)
-
-    #         print("CREATED:", created)
-    #         print("ID:", participant.id)
-    #         print("REQUEST FILES:", request.FILES)
-    #         print("REQUEST DATA:", data)
-
-    #         # ==========================
-    #         # TEXT FIELDS for HandHoldingParticipant
-    #         # ==========================
-    #         if "mobile" in data:
-    #             participant.mobile = data.get("mobile")
-            
-    #         if "email" in data:
-    #             participant.email = data.get("email")
-                
-    #         if "show_profile" in data:
-    #             participant.show_profile = data.get("show_profile")
-            
-    #         if "full_address" in data:
-    #             participant.full_address = data.get("full_address")
-    #             print(f"Updating full_address to: {participant.full_address}")
-                
-    #         if "city" in data:
-    #             participant.city = data.get("city")
-    #             print(f"Updating city to: {participant.city}")
-                
-    #         if "state" in data:
-    #             participant.state = data.get("state")
-                
-    #         if "pincode" in data:
-    #             participant.pincode = data.get("pincode")
-                
-    #         if "preferred_counselling_mode" in data:
-    #             participant.preferred_counselling_mode = data.get("preferred_counselling_mode")
-                
-    #         if "total_sessions" in data:
-    #             participant.total_sessions = data.get("total_sessions")
-
-    #         # ==========================
-    #         # FILE FIELDS for HandHoldingParticipant
-    #         # ==========================
-    #         photo = request.FILES.get("photo")
-    #         if photo:
-    #             print(f"Photo received: {photo.name}, size: {photo.size}")
-    #             participant.photo = photo
-
-    #         resume_file = request.FILES.get("resume_file")
-    #         if resume_file:
-    #             print(f"Resume received: {resume_file.name}, size: {resume_file.size}")
-    #             participant.resume_file = resume_file
-
-    #         # ==========================
-    #         # SAVE HandHoldingParticipant
-    #         # ==========================
-    #         participant.save()
-            
-    #         # ==========================
-    #         # HANDLE PROOF FILE IN PAYMENT MODEL
-    #         # ==========================
-    #         proof_file = request.FILES.get("proof_file")
-    #         if proof_file:
-    #             print(f"Proof received: {proof_file.name}, size: {proof_file.size}")
-                
-    #             # Get or create a payment record for this user
-    #             # You might want to filter by specific package or status
-    #             payment, payment_created = Payment.objects.get_or_create(
-    #                 user=user,
-    #                 status='verification_pending',  # or whatever status makes sense
-    #                 defaults={
-    #                     'proof_file': proof_file,
-    #                     'payment_type': 'offline',  # default value, adjust as needed
-    #                     'method': 'cash',  # default value, adjust as needed
-    #                 }
-    #             )
-                
-    #             # If payment already exists, update the proof_file
-    #             if not payment_created:
-    #                 payment.proof_file = proof_file
-    #                 payment.save()
-    #                 print(f"Updated proof_file for existing payment ID: {payment.id}")
-    #             else:
-    #                 print(f"Created new payment record with proof_file ID: {payment.id}")
-            
-    #         # Refresh from database to get proper file URLs
-    #         participant.refresh_from_db()
-            
-    #         # Print values after save to verify
-    #         print("=" * 50)
-    #         print("AFTER SAVE - HandHoldingParticipant:")
-    #         print(f"  full_address: {participant.full_address}")
-    #         print(f"  city: {participant.city}")
-    #         print(f"  state: {participant.state}")
-    #         print(f"  pincode: {participant.pincode}")
-            
-    #         # Safely print file URLs
-    #         if participant.resume_file:
-    #             try:
-    #                 print(f"  resume_file: {participant.resume_file.url}")
-    #             except (ValueError, AttributeError):
-    #                 print("  resume_file: File saved but URL not available yet")
-    #         else:
-    #             print("  resume_file: None")
-                
-    #         if participant.photo:
-    #             try:
-    #                 print(f"  photo: {participant.photo.url}")
-    #             except (ValueError, AttributeError):
-    #                 print("  photo: File saved but URL not available yet")
-    #         else:
-    #             print("  photo: None")
-            
-    #         # Print payment proof file info
-    #         if proof_file:
-    #             try:
-    #                 payment.refresh_from_db()
-    #                 if payment.proof_file:
-    #                     print(f"\nPAYMENT - proof_file: {payment.proof_file.url}")
-    #                 else:
-    #                     print("\nPAYMENT - proof_file: Saved but URL not available yet")
-    #             except Exception as e:
-    #                 print(f"\nPAYMENT - Error getting proof_file URL: {e}")
-    #         print("=" * 50)
-
-    #         # Prepare response data
-    #         response_data = {
-    #             "full_address": participant.full_address,
-    #             "city": participant.city,
-    #             "state": participant.state,
-    #             "pincode": participant.pincode,
-    #             "mobile": participant.mobile,
-    #             "email": participant.email,
-    #             "show_profile": participant.show_profile,
-    #             "preferred_counselling_mode": participant.preferred_counselling_mode,
-    #             "total_sessions": participant.total_sessions,
-    #         }
-            
-    #         # Add file URLs only if they exist
-    #         if participant.photo:
-    #             try:
-    #                 response_data["photo"] = participant.photo.url
-    #             except (ValueError, AttributeError):
-    #                 response_data["photo"] = None
-    #         else:
-    #             response_data["photo"] = None
-                
-    #         if participant.resume_file:
-    #             try:
-    #                 response_data["resume_file"] = participant.resume_file.url
-    #             except (ValueError, AttributeError):
-    #                 response_data["resume_file"] = None
-    #         else:
-    #             response_data["resume_file"] = None
-            
-    #         # Add payment proof file URL to response if it exists
-    #         if proof_file:
-    #             try:
-    #                 payment.refresh_from_db()
-    #                 if payment.proof_file:
-    #                     response_data["proof_file"] = payment.proof_file.url
-    #                 else:
-    #                     response_data["proof_file"] = None
-    #             except Exception:
-    #                 response_data["proof_file"] = None
-    #         else:
-    #             response_data["proof_file"] = None
-
-    #         return Response({
-    #             "message": "Handholding profile updated successfully",
-    #             "data": response_data
-    #         }, status=status.HTTP_200_OK)
-        
-    #     # ==========================
-    #     # 🔹 STUDENT UPDATE
-    #     # ==========================
-    #     if not (user.role and user.role.name.lower() == "student"):
-    #         return Response({"message": "Profile updated"}, status=200)
-
-    #     print("✅ Entering student block")
-    #     student_profile, created = StudentProfile.objects.get_or_create(user=user)
-        
-    #     # ==========================
-    #     # 🔹 Update Student Basic Info
-    #     # ==========================
-    #     student_profile.study_class = data.get("study_class", student_profile.study_class)
-    #     student_profile.current_academic_year = data.get(
-    #         "current_academic_year",
-    #         student_profile.current_academic_year
-    #     )
-    #     dob = data.get("dob")
-    #     if dob not in ["", None]:
-    #         student_profile.dob = dob
-    #     student_profile.school_college = data.get(
-    #         "school_college",
-    #         student_profile.school_college
-    #     )
-    #     student_profile.city = data.get("city", student_profile.city)
-    #     student_profile.specialization = data.get(
-    #         "specialization",
-    #         student_profile.specialization
-    #     )
-        
-    #     previous_percentage = data.get("previous_class_percentage")
-    #     if previous_percentage not in ["", None]:
-    #         student_profile.previous_class_percentage = previous_percentage
-
-    #     student_profile.board_exam_year = data.get(
-    #         "board_exam_year",
-    #         student_profile.board_exam_year
-    #     )
-
-    #     student_profile.improvement_areas = data.get(
-    #         "improvement_areas",
-    #         student_profile.improvement_areas
-    #     )
-    #     student_profile.save()
-        
-    #     # ==========================
-    #     # 🔹 Parent Profile Update
-    #     # ==========================
-    #     parent_data = data.get("parent", {})
-
-    #     if parent_data:
-    #         parent_profile = student_profile.parent
-
-    #         # If parent profile does not exist OR parent user is same as student
-    #         if not parent_profile or parent_profile.user == user:
-    #             parent_user = User.objects.create(
-    #                 first_name="Parent",
-    #                 last_name="",
-    #                 email=f"parent_{user.id}_{timezone.now().timestamp()}@temp.com",
-    #                 role=None
-    #             )
-    #             parent_profile = ParentProfile.objects.create(
-    #                 user=parent_user
-    #             )
-
-    #         parent_name = parent_data.get("parent_name")
-    #         if parent_name:
-    #             name_parts = parent_name.split(" ", 1)
-    #             parent_profile.user.first_name = name_parts[0]
-    #             parent_profile.user.last_name = name_parts[1] if len(name_parts) > 1 else ""
-    #             parent_profile.user.save()
-
-    #         parent_profile.profession = parent_data.get(
-    #             "profession", parent_profile.profession
-    #         )
-    #         parent_profile.organization_name = parent_data.get(
-    #             "organization_name", parent_profile.organization_name
-    #         )
-    #         parent_profile.education_level = parent_data.get(
-    #             "education_level", parent_profile.education_level
-    #         )
-    #         parent_profile.father_background = parent_data.get(
-    #             "father_background",
-    #             parent_profile.father_background
-    #         )
-    #         parent_profile.mother_background = parent_data.get(
-    #             "mother_background",
-    #             parent_profile.mother_background
-    #         )
-    #         parent_profile.location = parent_data.get(
-    #             "location",
-    #             parent_profile.location
-    #         )
-    #         parent_profile.annual_income_range = parent_data.get(
-    #             "annual_income_range", parent_profile.annual_income_range
-    #         )
-    #         parent_profile.expectations_from_student = parent_data.get(
-    #             "expectations_from_student", parent_profile.expectations_from_student
-    #         )
-    #         parent_profile.save()
-    #         student_profile.parent = parent_profile
-    #         student_profile.save()
-
-    #     # ==========================
-    #     # 🔹 Academic History
-    #     # ==========================
-    #     academic_history = data.get("academic_history", [])
-    #     if academic_history:
-    #         StudentAcademicHistory.objects.filter(
-    #             student_profile=student_profile
-    #         ).delete()
-
-    #         for record in academic_history:
-    #             current_percentage = record.get("current_class_percentage")
-    #             StudentAcademicHistory.objects.create(
-    #                 student_profile=student_profile,
-    #                 academic_stage=record.get("academic_stage"),
-    #                 start_year=record.get("start_year"),
-    #                 end_year=record.get("end_year"),
-    #                 board_name=record.get("board_name"),
-    #                 coaching_entrance=record.get("coaching_entrance"),
-    #                 current_class_percentage=current_percentage if current_percentage not in ["", None] else None,
-    #                 special_notes=record.get("special_notes"),
-    #                 is_current=record.get("is_current", False),
-    #             )
-
-    #     # ==========================
-    #     # 🔹 Stream (One)
-    #     # ==========================
-    #     stream_id = data.get("stream_id")
-    #     if stream_id:
-    #         StudentStream.objects.filter(student_profile=student_profile).delete()
-    #         StudentStream.objects.create(
-    #             student_profile=student_profile,
-    #             stream_id=stream_id
-    #         )
-
-    #     # ==========================
-    #     # 🔹 Subject Preferences
-    #     # ==========================
-    #     liked_subject_ids = data.get("liked_subject_ids")
-    #     disliked_subject_ids = data.get("disliked_subject_ids")
-    #     moderate_subject_ids = data.get("moderate_subject_ids")
-
-    #     if liked_subject_ids is not None or disliked_subject_ids is not None:
-    #         # Delete existing preferences
-    #         StudentSubjectPreference.objects.filter(
-    #             student_profile=student_profile
-    #         ).delete()
-
-    #         if liked_subject_ids:
-    #             for subject_id in liked_subject_ids:
-    #                 StudentSubjectPreference.objects.create(
-    #                     student_profile=student_profile,
-    #                     subject_id=subject_id,
-    #                     preference_type="like"
-    #                 )
-            
-    #         if disliked_subject_ids:
-    #             for subject_id in disliked_subject_ids:
-    #                 StudentSubjectPreference.objects.create(
-    #                     student_profile=student_profile,
-    #                     subject_id=subject_id,
-    #                     preference_type="dislike"
-    #                 )
-                    
-    #         if moderate_subject_ids:
-    #             for subject_id in moderate_subject_ids:
-    #                 StudentSubjectPreference.objects.create(
-    #                     student_profile=student_profile,
-    #                     subject_id=subject_id,
-    #                     preference_type="moderate"
-    #                 )
-
-    #     # ==========================
-    #     # 🔹 Hobbies
-    #     # ==========================
-    #     hobby_ids = data.get("hobby_ids")
-    #     if hobby_ids is not None:
-    #         # Delete old hobbies
-    #         StudentHobby.objects.filter(
-    #             student_profile=student_profile
-    #         ).delete()
-
-    #         # Create new hobbies
-    #         for hobby_id in hobby_ids:
-    #             StudentHobby.objects.create(
-    #                 student_profile=student_profile,
-    #                 hobby_id=hobby_id
-    #             )
-                
-    #     # ==========================
-    #     # 🔹 Update Profile Completion
-    #     # ==========================
-    #     student_profile.update_profile_completion()
-
-    #     return Response({
-    #         "message": "Profile updated! Redirecting to dashboard..."
-    #     }, status=status.HTTP_200_OK)
     
     @transaction.atomic
     def put(self, request):
@@ -3264,16 +2841,53 @@ class ProfileUpdateAPIView(APIView):
                     is_current=record.get("is_current", False),
                 )
 
+        # # ==========================
+        # # 🔹 Stream (One)
+        # # ==========================
+        # stream_id = data.get("stream_id")
+        # if stream_id:
+        #     StudentStream.objects.filter(student_profile=student_profile).delete()
+        #     StudentStream.objects.create(
+        #         student_profile=student_profile,
+        #         stream_id=stream_id
+        #     )
+        
         # ==========================
         # 🔹 Stream (One)
         # ==========================
-        stream_id = data.get("stream_id")
-        if stream_id:
-            StudentStream.objects.filter(student_profile=student_profile).delete()
+        stream_value = data.get("stream_id")
+
+        if stream_value:
+
+            # Existing Stream ID
+            if str(stream_value).isdigit():
+
+                stream = get_object_or_404(
+                    Stream,
+                    id=int(stream_value)
+                )
+
+            # New Stream Name
+            else:
+
+                stream, _ = Stream.objects.get_or_create(
+                    name=stream_value.strip()
+                )
+
+            # Remove old mapping
+            StudentStream.objects.filter(
+                student_profile=student_profile
+            ).delete()
+
+            # Create new mapping
             StudentStream.objects.create(
                 student_profile=student_profile,
-                stream_id=stream_id
+                stream=stream
             )
+
+            # Save STREAM NAME in StudentProfile
+            student_profile.stream = stream.name
+            student_profile.save(update_fields=["stream"])
 
         # ==========================
         # 🔹 Subject Preferences
@@ -3348,10 +2962,6 @@ class ProfileUpdateAPIView(APIView):
         }, status=status.HTTP_200_OK)
     
 
-
-
-
-
 def build_student_profile_response(request, user, student_profile=None):
 
         response_data = {
@@ -3378,6 +2988,7 @@ def build_student_profile_response(request, user, student_profile=None):
                 "board_exam_year": student_profile.board_exam_year,
                 "improvement_areas": student_profile.improvement_areas,
                 "preferred_counselling_mode": student_profile.preferred_counselling_mode,
+                "suggested_stream": student_profile.suggested_stream,
                 "dob": student_profile.dob.strftime("%Y-%m-%d") if student_profile.dob else None,
                 "complete_profile": student_profile.is_profile_complete
             })
@@ -3717,6 +3328,11 @@ class StudentProfileByIdAPIView(APIView):
             "specialization",
             student_profile.specialization
         )
+        
+        student_profile.suggested_stream = data.get(
+            "suggested_stream",
+            student_profile.suggested_stream
+        )
 
         # student_profile.previous_class_percentage = data.get(
         #     "previous_class_percentage",
@@ -3860,21 +3476,58 @@ class StudentProfileByIdAPIView(APIView):
                     is_current=record.get("is_current", False)
                 )
 
+        # # ==========================
+        # # 🔹 Stream
+        # # ==========================
+        # stream_id = data.get("stream_id")
+
+        # if stream_id:
+
+        #     StudentStream.objects.filter(
+        #         student_profile=student_profile
+        #     ).delete()
+
+        #     StudentStream.objects.create(
+        #         student_profile=student_profile,
+        #         stream_id=stream_id
+        #     )
+        
         # ==========================
         # 🔹 Stream
         # ==========================
-        stream_id = data.get("stream_id")
+        stream_value = data.get("stream_id")
 
-        if stream_id:
+        if stream_value:
 
+            # Existing Stream ID
+            if str(stream_value).isdigit():
+
+                stream = get_object_or_404(
+                    Stream,
+                    id=int(stream_value)
+                )
+
+            # New Stream Name
+            else:
+
+                stream, _ = Stream.objects.get_or_create(
+                    name=stream_value.strip()
+                )
+
+            # Remove old stream mapping
             StudentStream.objects.filter(
                 student_profile=student_profile
             ).delete()
 
+            # Create new mapping
             StudentStream.objects.create(
                 student_profile=student_profile,
-                stream_id=stream_id
+                stream=stream
             )
+
+            # Update StudentProfile stream field
+            student_profile.stream = stream.name
+            student_profile.save(update_fields=["stream"])
 
         # ==========================
         # 🔹 Subject Preferences

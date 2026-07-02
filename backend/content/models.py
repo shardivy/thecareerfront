@@ -2,6 +2,7 @@ from django.db import models
 
 from accounts.models import User
 from backend import settings
+from lead_registration.models import StudentProfile
 from program_package.models import Package, Program
 
 class Content(models.Model):
@@ -53,4 +54,29 @@ class ContentPackage(models.Model):
 
     # class Meta:
     #     unique_together = ('content', 'program', 'package')
+    
+# models.py
+
+class StudentContent(models.Model):
+    student_profile = models.ForeignKey(
+        StudentProfile,
+        on_delete=models.CASCADE,
+        related_name="student_contents"
+    )
+
+    content = models.ForeignKey(
+        Content,
+        on_delete=models.CASCADE,
+        related_name="student_contents"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("student_profile", "content")
+
+    def __str__(self):
+        return f"{self.student_profile.user.email} - {self.content.title}"    
+    
+    
 
