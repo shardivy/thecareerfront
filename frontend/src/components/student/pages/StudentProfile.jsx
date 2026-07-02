@@ -242,7 +242,7 @@ const StudentProfile = () => {
         package: storedProfile.package || "",
         payments: storedProfile.payments || [],
 
-
+        suggested_stream: storedProfile.suggested_stream || "",
         complete_profile: storedProfile.complete_profile || false,
       };
 
@@ -801,7 +801,7 @@ const StudentProfile = () => {
           </Col>
 
           <Col xs={24} sm={24} md={12}>
-            <Text>Stream</Text>
+            <Text>Current Stream</Text>
 
             <Select
               value={profile.stream}
@@ -815,6 +815,16 @@ const StudentProfile = () => {
               ))}
             </Select>
           </Col>
+
+          <Col xs={24} sm={24} md={12}>
+  <Text>Suggested Stream by Counsellor</Text>
+
+  <Input
+    value={profile.suggested_stream}
+    disabled
+    placeholder="Suggested by counsellor"
+  />
+</Col>
 
           <Col xs={24}>
             <Text>Special Notes by counsellor</Text>

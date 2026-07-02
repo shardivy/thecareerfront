@@ -19,6 +19,7 @@ import {
   MailOutlined,
   LockOutlined,
   PhoneOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../theme/adminTheme";
 import { useDispatch, useSelector } from "react-redux";
@@ -41,7 +42,7 @@ const StudentRegister = () => {
   const [form] = Form.useForm();
 
   // State
-  const [parentMode, setParentMode] = useState("compact");
+  // const [parentMode, setParentMode] = useState("compact");
   const [parentExists, setParentExists] = useState(null);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -102,8 +103,14 @@ const StudentRegister = () => {
   }, [dispatch]);
 
   // Helper
+  // const canSendOtp =
+  //   parentMobileValue.length === 10 && parentEmailValue && !otpVerified && !otpSent;
+  const studentEmail = Form.useWatch("email", form);
+
   const canSendOtp =
-    parentMobileValue.length === 10 && parentEmailValue && !otpVerified && !otpSent;
+    studentEmail &&
+    !otpVerified &&
+    !otpSent;
 
   // Handlers
   const handleParentCheck = () => {
@@ -119,7 +126,7 @@ const StudentRegister = () => {
       return;
     }
 
-    dispatch(sendOtp({ parent_mobile: mobile, parent_email: email }))
+    dispatch(sendOtp({ student_email: form.getFieldValue("email"), }))
       .unwrap()
       .then((res) => {
         setOtpSent(true);
@@ -135,19 +142,18 @@ const StudentRegister = () => {
   };
 
   const handleSendOtp = () => {
-    const mobile = parentMobileValue;
-    const email = parentEmailValue;
+    const studentEmail = form.getFieldValue("email");
 
-    if (!mobile || mobile.length !== 10) {
-      message.error("Please enter a valid 10 digit mobile number");
-      return;
-    }
-    if (!email) {
-      message.error("Please enter parent email");
+    if (!studentEmail) {
+      message.error("Please enter student email");
       return;
     }
 
-    dispatch(sendOtp({ parent_mobile: mobile, parent_email: email }))
+    dispatch(
+      sendOtp({
+        student_email: studentEmail,
+      })
+    )
       .unwrap()
       .then((res) => {
         setOtpSent(true);
@@ -157,38 +163,55 @@ const StudentRegister = () => {
   };
 
   const handleVerifyOtp = () => {
-    if (!parentEmailValue) {
-      message.error("Enter a valid parent email");
-      return;
-    }
-    if (!otpValue || otpValue.trim().length < 4) {
-      message.error("Enter a valid OTP");
+    const studentEmail = form.getFieldValue("email");
+    const parentEmail = form.getFieldValue("parentEmail");
+
+    if (!studentEmail) {
+      message.error("Enter student email");
       return;
     }
 
-    dispatch(verifyOtpRegister({ parent_email: parentEmailValue, otp: otpValue }))
+    if (!parentEmail) {
+      message.error("Enter parent email");
+      return;
+    }
+
+    if (!otpValue) {
+      message.error("Enter OTP");
+      return;
+    }
+
+    dispatch(
+      verifyOtpRegister({
+        student_email: studentEmail,
+        parent_email: parentEmail,
+        otp: otpValue,
+      })
+    )
       .unwrap()
       .then((res) => {
         setOtpVerified(true);
-        message.success(res.message || "OTP verified successfully");
 
+        // save parent existence
+        setParentExists(res.parent_exists);
+
+        // Existing Parent
         if (res.parent_exists === true) {
-          setParentExists(true);
-          setParentMode("full");
           setParentNameFromApi(res.parent_name || "");
 
-          // Set value inside form
           form.setFieldsValue({
             parentName: res.parent_name || "",
           });
-        } else {
-          setParentExists(false);
-          setParentMode("full");
+        }
 
+        // New Parent
+        if (res.parent_exists === false) {
           form.setFieldsValue({
             parentName: "",
           });
         }
+
+        message.success(res.message || "OTP verified successfully");
       })
       .catch((err) => message.error(err));
   };
@@ -562,7 +585,7 @@ const StudentRegister = () => {
 
                   {!hideParentSection && (
                     <Col md={12}>
-                      <Form.Item label="Stream" name="stream">
+                      <Form.Item label="Current Stream" name="stream">
                         <Select
                           size="large"
                           placeholder={streamsLoading ? "Loading streams..." : "Select Stream"}
@@ -640,15 +663,25 @@ const StudentRegister = () => {
                     </Row>
 
                     {/* Full Parent Mode */}
-                    {parentMode === "full" && otpVerified && (
+                    {otpVerified && (
                       <Form.Item
                         label="Parent Name"
                         name="parentName"
-                        rules={[{ required: true }]}
+                        rules={[
+                          {
+                            required: true,
+                            message: "Please enter parent name",
+                          },
+                        ]}
                       >
                         <Input
                           size="large"
                           prefix={<UserOutlined />}
+                          placeholder={
+                            parentExists
+                              ? "Parent name"
+                              : "Enter parent name"
+                          }
                           disabled={parentExists === true}
                         />
                       </Form.Item>
@@ -659,7 +692,7 @@ const StudentRegister = () => {
                       <Button
                         type="primary"
                         loading={sendOtpLoading}
-                        onClick={parentMode === "full" ? handleSendOtp : handleParentCheck}
+                        onClick={handleSendOtp}
                       >
                         Send OTP
                       </Button>
@@ -667,22 +700,85 @@ const StudentRegister = () => {
 
                     {/* OTP Verification */}
                     {otpSent && !otpVerified && (
-                      <Row gutter={16} align="middle" style={{ marginTop: 16 }}>
-                        <Col md={8}>
-                          <Input placeholder="Enter OTP" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} />
-                        </Col>
-                        <Col>
-                          <Button type="primary" onClick={handleVerifyOtp} loading={verifyOtpLoading}>
-                            Verify OTP
-                          </Button>
-                        </Col>
-                      </Row>
+                      <>
+                        <div
+                          style={{
+                            marginTop: 12,
+                            marginBottom: 16,
+                            padding: "12px 16px",
+                            borderRadius: 8,
+                            background: "#f6ffed",
+                            border: "1px solid #b7eb8f",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <MailOutlined
+                            style={{
+                              color: "#52c41a",
+                              fontSize: 18,
+                            }}
+                          />
+
+                          <Text style={{ color: "#389e0d" }}>
+                            OTP has been sent to your student email:
+                            <strong> {form.getFieldValue("email")}</strong>
+                          </Text>
+                        </div>
+
+                        <Row gutter={16} align="middle">
+                          <Col md={8}>
+                            <Input
+                              placeholder="Enter OTP"
+                              value={otpValue}
+                              onChange={(e) => setOtpValue(e.target.value)}
+                            />
+                          </Col>
+
+                          <Col>
+                            <Button
+                              type="primary"
+                              onClick={handleVerifyOtp}
+                              loading={verifyOtpLoading}
+                            >
+                              Verify OTP
+                            </Button>
+                          </Col>
+                        </Row>
+                      </>
                     )}
 
-                    {otpVerified && (
+                    {/* {otpVerified && (
                       <Text type="success" style={{ display: "block", marginTop: 12 }}>
-                        Parent Email verified ✓
+                        Student Email verified ✓
                       </Text>
+                    )} */}
+
+                    {otpVerified && (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          padding: "12px 16px",
+                          borderRadius: 8,
+                          background: "#f6ffed",
+                          border: "1px solid #b7eb8f",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <CheckCircleOutlined
+                          style={{
+                            color: "#52c41a",
+                            fontSize: 18,
+                          }}
+                        />
+
+                        <Text style={{ color: "#389e0d" }}>
+                          Student email verified successfully
+                        </Text>
+                      </div>
                     )}
                   </>
                 )}

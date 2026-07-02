@@ -89,6 +89,7 @@ import SeminarWebinarSession from "./components/landing-pages/SeminarWebinarSess
 import OCIEndToEnd from "./components/landing-pages/OCIEndToEnd";
 import Default from "./components/landing-pages/Default";
 import NotFound from "./NotFound";
+import ExamRegister from "./components/student/pages/ExamRegister";
 
 
 
@@ -167,6 +168,7 @@ const App = () => {
           <Route path="engineering-questionnaires" element={<EngineeringQuestionaries />} />
           <Route path="analysis-report" element={<AptitudeAnalysisReports />} />
           <Route path="write-review" element={<WriteReview />} />
+          <Route path="Exam-Register" element={<ExamRegister />} />
         </Route>
 
 

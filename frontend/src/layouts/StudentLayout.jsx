@@ -127,6 +127,24 @@ export default function StudentLayout() {
     }
   }, [profile?.program_packages]);
 
+  useEffect(() => {
+  if (profile?.stream) {
+    localStorage.setItem(
+      "selectedStreamId",
+      String(profile.stream.stream_id)
+    );
+
+    localStorage.setItem(
+      "selectedStream",
+      profile.stream.stream_name
+    );
+  } else {
+    // Optional: remove if stream is null
+    localStorage.removeItem("selectedStreamId");
+    localStorage.removeItem("selectedStream");
+  }
+}, [profile]);
+
   // Check if modal should be shown on component mount
   useEffect(() => {
     const modalTriggered = localStorage.getItem("showConversionModal");

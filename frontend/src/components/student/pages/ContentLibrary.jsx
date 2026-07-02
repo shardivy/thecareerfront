@@ -25,6 +25,7 @@ import {
   fetchStudentCounsellingNotes,
   fetchContentList,
   incrementDownloadCount,
+  fetchStudentContent
 } from "../../../adminSlices/contentSlice";
 
 const { Title, Text } = Typography;
@@ -45,7 +46,7 @@ const getFileExtension = (source = "", fallback = "pdf") => {
 
 const ContentLibrary = () => {
   const dispatch = useDispatch();
-  const { contentList, loading } = useSelector((state) => state.content);
+  const { contentList,studentContent, loading } = useSelector((state) => state.content);
 
   const { studentCounsellingNotes, studentCounsellingNotesLoading } = useSelector((state) => state.content);
 
@@ -58,6 +59,7 @@ const ContentLibrary = () => {
 
   const selectedProgramId = Number(localStorage.getItem("selectedProgramId"));
   const studentPackage = Number(localStorage.getItem("selectedPackageId"));
+  const studentStream = Number(localStorage.getItem("selectedStreamId"));
   const studentId = localStorage.getItem("studentId");
 
   const isFreeUser = !selectedProgramId || !studentPackage;
@@ -71,7 +73,8 @@ const ContentLibrary = () => {
       dispatch(fetchContentList());
     } else {
       // PAID USER → get program specific content
-      dispatch(fetchProgramContent(selectedProgramId));
+       dispatch(fetchProgramContent(selectedProgramId));
+       dispatch(fetchStudentContent(studentId));
     }
   }, [dispatch]);
 
@@ -92,90 +95,233 @@ const ContentLibrary = () => {
     studentPackage,
   ]);
 
-  // ================= TRANSFORM API DATA =================
 
 
-  // const storedPackage = localStorage.getItem("selectedPackage");
-  // const studentPackage = storedPackage ? Number(storedPackage) : null;
+// ================= PROGRAM CONTENT =================
+// const programContent =
+//   (contentList || [])
+//     .filter((item) => {
+//       if (item.is_draft) return false;
 
-  // const isFreeUser = !studentPackage;
+//       // Apply ONLY for Program Content API
+//       if (!item.is_student_visible) return false;
+
+//       if (isFreeUser) {
+//         return item.free_content || item.payment_required;
+//       }
+
+//       // Premium Content
+//       if (item.payment_required) {
+//         if (item.package_details?.length > 0) {
+//           return item.package_details.some(
+//             (pkg) => Number(pkg.id) === Number(studentPackage)
+//           );
+//         }
+
+//         if (item.program_details?.length > 0) {
+//           return item.program_details.some(
+//             (prog) => Number(prog.id) === Number(selectedProgramId)
+//           );
+//         }
+
+//         return false;
+//       }
+
+//       // Free Content
+//       if (item.package_details?.length > 0) {
+//         return item.package_details.some(
+//           (pkg) => Number(pkg.id) === Number(studentPackage)
+//         );
+//       }
+
+//       if (item.program_details?.length > 0) {
+//         return item.program_details.some(
+//           (prog) => Number(prog.id) === Number(selectedProgramId)
+//         );
+//       }
+
+//       return false;
+//     })
+//     .map((item) => ({
+//       id: item.id,
+//       title: item.title,
+//       description: item.description,
+//       type: item.type === "video" ? "Video" : "Article",
+//       accessType: item.payment_required ? "Premium" : "Free",
+//       programs: item.program_details?.map((p) => p.name) || [],
+//       viewUrl: item.video_link || item.file_url,
+//       image: item.image,
+//       fileName:
+//         item.file_name || getFileNameFromUrl(item.file_url || ""),
+//     }));
+
+const programContent = (contentList || [])
+  .filter((item) => {
+    if (item.is_draft) return false;
+    if (!item.is_student_visible) return false;
+
+    // FREE USER
+    if (isFreeUser) {
+      return item.free_content || item.payment_required;
+    }
+
+  const hasPrograms = item.program_details?.length > 0;
+const hasPackages = item.package_details?.length > 0;
+const hasStreams = item.stream_details?.length > 0;
+
+const programMatch =
+  !hasPrograms ||
+  item.program_details.some(
+    (p) => Number(p.id) === selectedProgramId
+  );
+
+const packageMatch =
+  !hasPackages ||
+  item.package_details.some(
+    (p) => Number(p.id) === studentPackage
+  );
+
+const streamMatch =
+  !hasStreams ||
+  item.stream_details.some(
+    (s) => Number(s.id) === studentStream
+  );
+
+// Program only
+if (hasPrograms && !hasPackages && !hasStreams) {
+  return programMatch;
+}
+
+// Program + Package
+if (hasPrograms && hasPackages && !hasStreams) {
+  return programMatch && packageMatch;
+}
+
+// Program + Package + Stream
+if (hasPrograms && hasPackages && hasStreams) {
+  return programMatch && packageMatch && streamMatch;
+}
+
+// Program + Stream
+if (hasPrograms && !hasPackages && hasStreams) {
+  return programMatch && streamMatch;
+}
+
+// Package only
+if (!hasPrograms && hasPackages && !hasStreams) {
+  return packageMatch;
+}
+
+// Stream only
+if (!hasPrograms && !hasPackages && hasStreams) {
+  return streamMatch;
+}
+
+// Package + Stream
+if (!hasPrograms && hasPackages && hasStreams) {
+  return packageMatch && streamMatch;
+}
+
+// Program + Package empty + Stream empty
+// Hide content that has no mapping at all
+return false;
+  })
+  .map((item) => ({
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    type: item.type === "video" ? "Video" : "Article",
+    accessType: item.payment_required ? "Premium" : "Free",
+    programs: item.program_details?.map((p) => p.name) || [],
+    viewUrl: item.video_link || item.file_url,
+    image: item.image,
+    fileName:
+      item.file_name || getFileNameFromUrl(item.file_url || ""),
+  }));
+
+// ================= STUDENT CONTENT =================
+const studentContents =
+  (studentContent || []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    type: item.type === "video" ? "Video" : "Article",
+    accessType: item.payment_required ? "Premium" : "Free",
+    programs: item.program_details?.map((p) => p.name) || [],
+    viewUrl: item.video_link || item.file_url,
+    image: item.image,
+    fileName:
+      item.file_name || getFileNameFromUrl(item.file_url || ""),
+  }));
+
+// ================= MERGE BOTH =================
+const transformedData = [
+  ...programContent,
+  ...studentContents,
+];
 
   // const transformedData =
   //   contentList
   //     ?.filter((item) => {
-  //   if (item.is_draft) return false;
+  //         // Hide draft content
+  //     if (item.is_draft) return false;
 
-  //   // FREE USER → allow all
-  //   if (isFreeUser) return true;
+  //     // Only show content visible to students
+  //     if (!item.is_student_visible) return false;
 
-  //   // PACKAGE RESTRICTED CONTENT
-  //   if (item.package_details?.length > 0) {
-  //     return item.package_details.some(
-  //       (pkg) => pkg.id === studentPackage
-  //     );
-  //   }
+  //       if (isFreeUser) {
+  //         // FREE USER → show free_content + premium (locked)
+  //         return item.free_content === true || item.payment_required === true;
+  //       }
 
-  //   return true;
-  // })
+  //       // PAID USER LOGIC:
 
-  const transformedData =
-    contentList
-      ?.filter((item) => {
-        if (item.is_draft) return false;
+  //       // Always show premium content (will be locked/unlocked based on payment)
+  //       if (item.payment_required === true) {
+  //         if (item.package_details?.length > 0) {
+  //           return item.package_details.some(
+  //             (pkg) => Number(pkg.id) === studentPackage
+  //           );
+  //         }
+  //         if (item.program_details?.length > 0) {
+  //           return item.program_details.some(
+  //             (prog) => Number(prog.id) === selectedProgramId
+  //           );
+  //         }
+  //         return false;
+  //       }
 
-        if (isFreeUser) {
-          // FREE USER → show free_content + premium (locked)
-          return item.free_content === true || item.payment_required === true;
-        }
+  //       // FREE CONTENT → package match first, fallback to program
+  //       if (item.package_details?.length > 0) {
+  //         return item.package_details.some(
+  //           (pkg) => Number(pkg.id) === studentPackage
+  //         );
+  //       }
 
-        // PAID USER LOGIC:
+  //       if (item.program_details?.length > 0) {
+  //         return item.program_details.some(
+  //           (prog) => Number(prog.id) === selectedProgramId
+  //         );
+  //       }
 
-        // Always show premium content (will be locked/unlocked based on payment)
-        if (item.payment_required === true) {
-          if (item.package_details?.length > 0) {
-            return item.package_details.some(
-              (pkg) => Number(pkg.id) === studentPackage
-            );
-          }
-          if (item.program_details?.length > 0) {
-            return item.program_details.some(
-              (prog) => Number(prog.id) === selectedProgramId
-            );
-          }
-          return false;
-        }
+  //       return false;
+  //     })
+  //     ?.map((item) => {
+  //       const accessType = item.payment_required ? "Premium" : "Free";
+  //       const contentType = item.type === "video" ? "Video" : "Article";
 
-        // FREE CONTENT → package match first, fallback to program
-        if (item.package_details?.length > 0) {
-          return item.package_details.some(
-            (pkg) => Number(pkg.id) === studentPackage
-          );
-        }
-
-        if (item.program_details?.length > 0) {
-          return item.program_details.some(
-            (prog) => Number(prog.id) === selectedProgramId
-          );
-        }
-
-        return false;
-      })
-      ?.map((item) => {
-        const accessType = item.payment_required ? "Premium" : "Free";
-        const contentType = item.type === "video" ? "Video" : "Article";
-
-        return {
-          id: item.id,
-          title: item.title,
-          description: item.description,
-          type: contentType,
-          accessType,
-          programs: item.program_details?.map((p) => p.name) || [],
-          viewUrl: item.video_link || item.file_url,
-          image: item.image,
-          fileName: item.file_name || getFileNameFromUrl(item.file_url || ""),
-        };
-      }) || [];
+  //       return {
+  //         id: item.id,
+  //         title: item.title,
+  //         description: item.description,
+  //         type: contentType,
+  //         accessType,
+  //         programs: item.program_details?.map((p) => p.name) || [],
+  //         viewUrl: item.video_link || item.file_url,
+  //         image: item.image,
+  //         fileName: item.file_name || getFileNameFromUrl(item.file_url || ""),
+  //       };
+  //     }) || [];
 
   const getFilePreviewImage = (fileName = "") => {
     const ext = getFileExtension(fileName);

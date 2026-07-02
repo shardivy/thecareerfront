@@ -17,6 +17,18 @@ export const getPackagesByProgramApi = async (programId) => {
 };
 
 
+/* GET PACKAGES BY MULTIPLE PROGRAMS */
+export const getPackagesByMultipleProgramsApi = async (programIds) => {
+  const response = await axiosInstance.post(
+    "/program-package/multiple-program-packages/",
+    {
+      program_ids: programIds,
+    }
+  );
+
+  return response.data;
+};
+
 // Create a new package
 export const createPackageApi = async (payload) => {
   const response = await axiosInstance.post(
@@ -42,3 +54,5 @@ export const getProgramPackageDetailsApi = async (programId, packageId) => {
   );
   return response.data;
 };
+
+

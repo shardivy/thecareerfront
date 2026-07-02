@@ -16,6 +16,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { updateStudentProfile } from "../../../adminSlices/profileSlice";
 import { fetchSubjects } from "../../../adminSlices/subjectSlice";
 import { fetchHobbies } from "../../../adminSlices/hobbySlice";
+import { fetchPackagesByMultiplePrograms } from "../../../adminSlices/packageSlice";
 
 
 const { Title, Text } = Typography;
@@ -28,6 +29,7 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
   const [specializationOptions, setSpecializationOptions] = useState([]);
   const { subjectList } = useSelector((state) => state.subjects);
   const { hobbyList } = useSelector((state) => state.hobbies);
+  const { programsData } = useSelector((state) => state.packages);
 
 
   useEffect(() => {
@@ -36,6 +38,18 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
       dispatch(fetchHobbies());
     }
   }, [dispatch, open]);
+
+  useEffect(() => {
+    if (open && student?.program_packages?.length) {
+      const programIds = [
+        ...new Set(
+          student.program_packages.map((item) => item.program_id)
+        ),
+      ];
+
+      dispatch(fetchPackagesByMultiplePrograms(programIds));
+    }
+  }, [open, student, dispatch]);
 
   /* ================= SET DATA ================= */
   useEffect(() => {
@@ -63,6 +77,7 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
         school_college: student?.school_college || "",
         city: student?.city || "",
         stream: student?.stream?.stream_name || "",
+        suggested_stream: student?.suggested_stream,
 
         coaching_entrance: academic?.coaching_entrance || "",
         current_class_percentage: academic?.current_class_percentage || "",
@@ -106,6 +121,7 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
         school_college: formData.school_college,
         city: formData.city,
         stream: formData.stream,
+        suggested_stream: formData.suggested_stream,
 
         academic_history: [
           {
@@ -355,7 +371,7 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
                 style={{ width: "100%" }}
                 onChange={(value) => {
                   handleChange("study_class", value);
-                  handleChange("specialization", undefined); // reset specialization
+                  handleChange("specialization", undefined); 
                 }}
               >
                 {classOptions.map((cls) => (
@@ -465,13 +481,39 @@ const StudentProfileModal = ({ open, onClose, student, loading }) => {
             </Col>
 
             <Col span={12} style={{ marginTop: 15 }}>
+              <Text strong>Current Stream </Text>
+              <Input
+                value={isEdit ? formData.stream : student?.stream?.stream_name || "-"}
+                disabled
+                onChange={(e) => handleChange("stream", e.target.value)}
+              />
+            </Col>
+
+            <Col span={12} style={{ marginTop: 15 }}>
+              <Text strong>Subject / Stream (if any)</Text>
+
+              <Input
+                value={
+                  isEdit
+                    ? formData.suggested_stream
+                    : student?.suggested_stream || "-"
+                }
+                disabled={!isEdit}
+                onChange={(e) =>
+                  handleChange("suggested_stream", e.target.value)
+                }
+                placeholder="Enter suggested subjects/stream"
+              />
+            </Col>
+
+            {/* <Col span={12} style={{ marginTop: 15 }}>
               <Text strong>Subject / Stream (if any)</Text>
               <Input
                 value={isEdit ? formData.stream : student?.stream?.stream_name || "-"}
                 disabled={!isEdit}
                 onChange={(e) => handleChange("stream", e.target.value)}
               />
-            </Col>
+            </Col> */}
 
             <Col span={24} style={{ marginTop: 15 }}>
               <Text strong>Special Notes by counsellor</Text>

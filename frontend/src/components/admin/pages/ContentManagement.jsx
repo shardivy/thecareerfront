@@ -228,28 +228,48 @@ const ContentManagement = () => {
     // message.success("Draft saved successfully");
   };
 
+  const getProgramDisplay = (program_details) => {
+  if (!program_details || program_details.length === 0) {
+    return <Tag color="default">-</Tag>;
+  }
+
+  // Single Program
+  if (program_details.length === 1) {
+    return <Tag color="blue">{program_details[0].name}</Tag>;
+  }
+
+  // Multiple Selected Programs
+  return (
+    <Tooltip title={program_details.map((p) => p.name).join(", ")}>
+      <Tag color="green">
+        {program_details.length} Programs Selected
+      </Tag>
+    </Tooltip>
+  );
+};
+
 
   // Helper function to get program display
-  const getProgramDisplay = (program_details) => {
-    if (!program_details) {
-      return <Tag color="default">-</Tag>;
-    }
+  // const getProgramDisplay = (program_details) => {
+  //   if (!program_details) {
+  //     return <Tag color="default">-</Tag>;
+  //   }
 
-    if (program_details.length === 0) {
-      return <Tag color="default">-</Tag>;
-    }
+  //   if (program_details.length === 0) {
+  //     return <Tag color="default">-</Tag>;
+  //   }
 
-    if (program_details.length === 1) {
-      return <Tag color="blue">{program_details[0].name}</Tag>;
-    }
+  //   if (program_details.length === 1) {
+  //     return <Tag color="blue">{program_details[0].name}</Tag>;
+  //   }
 
 
-    return (
-      <Tooltip title={program_details.map(p => p.name).join(", ")}>
-        <Tag color="green">All Programs</Tag>
-      </Tooltip>
-    );
-  };
+  //   return (
+  //     <Tooltip title={program_details.map(p => p.name).join(", ")}>
+  //       <Tag color="green">All Programs</Tag>
+  //     </Tooltip>
+  //   );
+  // };
 
 
   const columns = [
@@ -419,7 +439,7 @@ const ContentManagement = () => {
           { key: "study", label: "Study Material" },
           { key: "tutorial", label: "Tutorial" },
           { key: "guides", label: "Guides" },
-          { key: "drafts", label: `Drafts (${draftData.length})` }// NEW
+          { key: "drafts", label: `Drafts (${draftData.length})` }
         ]}
       />
 

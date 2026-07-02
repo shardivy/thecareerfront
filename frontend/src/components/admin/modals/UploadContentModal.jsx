@@ -26,9 +26,8 @@ import {
 import { useDispatch, useSelector } from "react-redux";
 import adminTheme from "../../../theme/adminTheme";
 import { fetchActivePrograms } from "../../../adminSlices/programSlice";
-import { fetchStreams } from "../../../adminSlices/streamSlice";
 import {
-  fetchPackagesByProgram,
+  fetchPackagesByMultiplePrograms,
   clearPackages,
 } from "../../../adminSlices/packageSlice";
 import { uploadContent, updateContent, resetContentState, fetchContentList } from "../../../adminSlices/contentSlice";
@@ -76,13 +75,7 @@ const UploadContentModal = ({
     (state) => state.programs
   );
 
-  const { list: packages, loading: packageLoading } = useSelector(
-    (state) => state.packages
-  );
-
-  const { streamList, loading: streamsLoading } = useSelector(
-    (state) => state.streams
-  );
+  const { list: packages, programsData, loading: packageLoading, } = useSelector((state) => state.packages);
 
   const { loading } = useSelector((state) => state.content);
 
@@ -100,8 +93,18 @@ const UploadContentModal = ({
 
   const isEditMode = !!initialValues;
   const isFree = Form.useWatch("is_free", form);
-  // const showAccessControls = Form.useWatch("show_access_controls", form);
-  // const shouldShowAccessControls = showAccessControls !== undefined ? showAccessControls : true;
+  const showAccessControls = Form.useWatch("show_access_controls", form);
+  const shouldShowAccessControls = showAccessControls !== undefined ? showAccessControls : false;
+
+  const availableStreams = programsData
+    .filter((program) =>
+      selectedPrograms.includes(program.id)
+    )
+    .flatMap((program) => program.streams || [])
+    .filter(
+      (stream, index, self) =>
+        index === self.findIndex((s) => s.id === stream.id)
+    );
 
   /* ---------------- LOG MODE WHEN MODAL OPENS ---------------- */
   // useEffect(() => {
@@ -116,7 +119,6 @@ const UploadContentModal = ({
   useEffect(() => {
     if (open) {
       dispatch(fetchActivePrograms());
-      dispatch(fetchStreams());
     }
   }, [open, dispatch]);
 
@@ -152,11 +154,17 @@ const UploadContentModal = ({
       }
 
       // Get package ID from package_details if exists
-      let packageValue = null;
-      if (initialValues.package_details && initialValues.package_details.length > 0) {
-        packageValue = initialValues.package_details[0].id;
-        // console.log("📦 Package found, setting to package ID:", packageValue);
+      let packageValue = [];
+
+      if (
+        initialValues.package_details &&
+        initialValues.package_details.length > 0
+      ) {
+        packageValue = initialValues.package_details.map(
+          (pkg) => pkg.id
+        );
       }
+
 
       form.setFieldsValue({
         title: initialValues.title,
@@ -166,15 +174,12 @@ const UploadContentModal = ({
         program: programValues,
         package: packageValue, // Use the package ID
         stream:
-          initialValues.stream?.stream_name ||
-          initialValues.stream ||
-          initialValues.stream_name ||
-          null,
-        show_access_controls:
-          initialValues.show_access_controls !== undefined
-            ? initialValues.show_access_controls
-            : true,
+          initialValues.stream_details?.length > 0
+            ? initialValues.stream_details.map((s) => s.id)
+            : [],
+
         video_link: initialValues.video_link,
+        show_access_controls: Boolean(initialValues.is_student_visible),
         full_payment: initialValues.payment_required,
         is_free: initialValues.free_content,
       });
@@ -229,8 +234,10 @@ const UploadContentModal = ({
         ]);
       }
       // Only fetch packages if a single program is selected
-      if (programValues.length === 1) {
-        dispatch(fetchPackagesByProgram(programValues[0]));
+      if (programValues.length > 0) {
+        dispatch(
+          fetchPackagesByMultiplePrograms(programValues)
+        );
       } else {
         // Clear packages for multiple selections or no selection
         dispatch(clearPackages());
@@ -239,7 +246,11 @@ const UploadContentModal = ({
 
     if (open && !initialValues) {
       form.resetFields();
-      form.setFieldsValue({ show_access_controls: true });
+      form.setFieldsValue({
+        show_access_controls: false,
+        full_payment: false,
+        is_free: false,
+      });
       setFileType(null);
       setPreviewUrl(null);
       setIsPdfFile(false);
@@ -255,6 +266,7 @@ const UploadContentModal = ({
       setThumbnailFileList([]);
     }
   }, [open, initialValues, dispatch, form]);
+
 
   useEffect(() => {
     let objectUrl = null;
@@ -284,7 +296,7 @@ const UploadContentModal = ({
         setIframePreviewUrl(objectUrl);
         setPreviewLoadError(false);
       } catch (error) {
-        console.error("Preview fetch failed:", error);
+        // console.error("Preview fetch failed:", error);
         setIframePreviewUrl(null);
         setPreviewLoadError(true);
       }
@@ -306,7 +318,7 @@ const UploadContentModal = ({
 
   /* ---------------- FILE HANDLING ---------------- */
   const handleFileSelect = (file) => {
-    console.log("📁 File selected:", file.name);
+    // console.log("📁 File selected:", file.name);
 
     const isPdf =
       file.type === "application/pdf" ||
@@ -322,7 +334,7 @@ const UploadContentModal = ({
   };
 
   const handleRemove = () => {
-    console.log("🗑️ File removed");
+    // console.log("🗑️ File removed");
     setUploadedFile(null);
 
     // If in edit mode and there's an existing file, restore the preview
@@ -373,9 +385,9 @@ const UploadContentModal = ({
 
   /* ---------------- DOWNLOAD ---------------- */
   const handleDownload = async () => {
-    console.log("⬇️ Download initiated");
+    // console.log("⬇️ Download initiated");
     if (!previewUrl) {
-      console.log("❌ No file to download");
+      // console.log("❌ No file to download");
       return;
     }
 
@@ -397,10 +409,10 @@ const UploadContentModal = ({
 
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      console.log("✅ Download successful");
-      message.success("File downloaded successfully");
+      // console.log("✅ Download successful");
+       message.success("File downloaded successfully");
     } catch (error) {
-      console.error("❌ Download failed:", error);
+      // console.error("❌ Download failed:", error);
       message.error("Failed to download file");
     }
   };
@@ -467,6 +479,15 @@ const UploadContentModal = ({
     try {
       const formData = new FormData();
 
+      if (
+        values.type === "pdf" &&
+        !uploadedFile &&
+        !getDocumentUrl(initialValues)
+      ) {
+        message.error("Please upload a document file");
+        return;
+      }
+
       // ✅ Always required in normal upload
       if (values.title) formData.append("title", values.title);
       if (values.type) formData.append("type", values.type);
@@ -474,33 +495,25 @@ const UploadContentModal = ({
       if (values.description) formData.append("description", values.description);
 
       // ---------------- PROGRAM ----------------
-      if (values.program && values.program.length > 0) {
-        // Check if "All Programs" is selected (by checking if the array contains ALL_PROGRAM_VALUE)
-        if (values.program.includes(ALL_PROGRAM_VALUE)) {
-          // Send all program IDs
-          const allProgramIds = programs.map((program) => program.id);
-          allProgramIds.forEach((id) => {
-            formData.append("program", id);
-          });
-        } else {
-          // Send selected program IDs
-          values.program.forEach((id) => {
-            formData.append("program", id);
-          });
-        }
-      }
-      // Note: If no program is selected, we don't append anything
 
-      // ---------------- PACKAGE ----------------
-      if (values.package) {
-        formData.append("package", values.package);
-      }
+      const contentMapping = values.program.map((programId) => ({
+        program: programId,
+        package: values.package || [],
+        stream: values.stream || [],
+      }));
 
-      // ---------------- STREAM ----------------
-      if (values.stream) {
-        formData.append("stream", values.stream);
-      }
+      formData.append(
+        "content_mapping",
+        JSON.stringify(contentMapping)
+      );
 
+      // ---------------- VISIBILITY ----------------
+      if (values.show_access_controls !== undefined) {
+        formData.append(
+          "is_student_visible",
+          values.show_access_controls ? "true" : "false"
+        );
+      }
       // ---------------- PAYMENT FLAGS ----------------
       if (values.full_payment !== undefined) {
         formData.append("payment_required", values.full_payment ? "true" : "false");
@@ -531,9 +544,9 @@ const UploadContentModal = ({
       }
 
       // 🔍 Debug
-      console.log("📤 Clean FormData:");
+      // console.log("📤 Clean FormData:");
       for (let pair of formData.entries()) {
-        console.log(pair[0], pair[1]);
+        // console.log(pair[0], pair[1]);
       }
 
       if (isEditMode && initialValues?.id) {
@@ -557,7 +570,7 @@ const UploadContentModal = ({
       onCancel();
 
     } catch (error) {
-      console.log("Backend Error:", error);
+      // console.log("Backend Error:", error);
 
       if (error?.errors) {
         Object.entries(error.errors).forEach(([field, msgs]) => {
@@ -592,7 +605,7 @@ const UploadContentModal = ({
 
       onCancel();
     } catch (error) {
-      console.log("Close Error:", error);
+      // console.log("Close Error:", error);
       onCancel();
     }
   };
@@ -614,9 +627,9 @@ const UploadContentModal = ({
       }
 
       await handleFinish(values, true); // pass draft = true
-      // message.success("Draft saved successfully");
+       message.success("Draft saved successfully");
     } catch (error) {
-      console.log("Draft Save Error:", error);
+      // console.log("Draft Save Error:", error);
     }
   };
 
@@ -858,7 +871,7 @@ const UploadContentModal = ({
             <Col
               xs={24}
               sm={24}
-              md={selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) ? 12 : 24}
+              md={selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) ? 8 : 24}
             >
               <Form.Item
                 label="Assign to Program"
@@ -888,9 +901,15 @@ const UploadContentModal = ({
                         dispatch(clearPackages());
                       } else {
                         setSelectedPrograms(values);
-                        form.setFieldsValue({ package: null, stream: null });
-                        if (values.length === 1) {
-                          dispatch(fetchPackagesByProgram(values[0]));
+                        form.setFieldsValue({
+                          package: null,
+                          stream: null,
+                        });
+
+                        if (values.length > 0) {
+                          dispatch(
+                            fetchPackagesByMultiplePrograms(values)
+                          );
                         } else {
                           dispatch(clearPackages());
                         }
@@ -912,20 +931,21 @@ const UploadContentModal = ({
             </Col>
 
             {/* Package Field */}
-            {selectedPrograms.length === 1 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) && (
+            {selectedPrograms.length > 0 && !selectedPrograms.includes(ALL_PROGRAM_VALUE) && (
               <>
-                <Col xs={24} sm={24} md={12}>
+                <Col xs={24} sm={24} md={8}>
                   <Form.Item
                     label="Counselling Service"
                     name="package"
-                    // rules={[
-                    //   {
-                    //     required: true,
-                    //     message: "Please select a counselling service when a single program is selected",
-                    //   },
-                    // ]}
+                  // rules={[
+                  //   {
+                  //     required: true,
+                  //     message: "Please select a counselling service when a single program is selected",
+                  //   },
+                  // ]}
                   >
                     <Select
+                      mode="multiple"
                       placeholder="Select counselling service"
                       loading={packageLoading}
                       disabled={viewMode}
@@ -946,32 +966,63 @@ const UploadContentModal = ({
                   </Form.Item>
                 </Col>
 
-                {/* <Col xs={24} sm={24} md={8}>
+                <Col xs={24} sm={24} md={8}>
                   <Form.Item
                     label="Stream"
                     name="stream"
-                    
                   >
                     <Select
-                      placeholder={streamsLoading ? "Loading streams..." : "Select Stream"}
-                      loading={streamsLoading}
-                      disabled={viewMode}
+                      mode="tags"
+                      placeholder="Select or type Stream"
                       allowClear
+                      disabled={viewMode}
+                      onChange={(values) => {
+                        const existingStreamNames = availableStreams.map((s) =>
+                          s.name.trim().toLowerCase()
+                        );
+
+                        const filteredValues = [];
+                        let duplicateFound = false;
+
+                        values.forEach((value) => {
+                          const streamObj = availableStreams.find(
+                            (s) => String(s.id) === String(value)
+                          );
+
+                          const normalized = streamObj
+                            ? streamObj.name.trim().toLowerCase()
+                            : String(value).trim().toLowerCase();
+
+                          if (
+                            !streamObj && // typed value
+                            existingStreamNames.includes(normalized)
+                          ) {
+                            duplicateFound = true;
+                            return; // don't add it
+                          }
+
+                          if (!filteredValues.includes(value)) {
+                            filteredValues.push(value);
+                          }
+                        });
+
+                        if (duplicateFound) {
+                          message.error("This stream already exists");
+                        }
+
+                        form.setFieldsValue({
+                          stream: filteredValues,
+                        });
+                      }}
                     >
-                      {streamList.length > 0 ? (
-                        streamList.map((stream) => (
-                          <Option key={stream.id} value={stream.name}>
-                            {stream.name}
-                          </Option>
-                        ))
-                      ) : (
-                        <Option value="" disabled>
-                          No streams available
+                      {availableStreams.map((stream) => (
+                        <Option key={stream.id} value={stream.id}>
+                          {stream.name}
                         </Option>
-                      )}
+                      ))}
                     </Select>
                   </Form.Item>
-                </Col> */}
+                </Col>
               </>
             )}
           </Row>
@@ -1040,7 +1091,7 @@ const UploadContentModal = ({
             </Row>
           </div>
 
-          {/* <Form.Item
+          <Form.Item
             label="Make accessible to all users?"
             name="show_access_controls"
             valuePropName="checked"
@@ -1049,21 +1100,37 @@ const UploadContentModal = ({
               checkedChildren="Yes"
               unCheckedChildren="No"
               disabled={viewMode}
+              onChange={(checked) => {
+                if (!checked) {
+                  form.setFieldsValue({
+                    full_payment: false,
+                    is_free: false,
+                  });
+                }
+              }}
             />
-          </Form.Item> */}
+          </Form.Item>
 
-                <div style={{ display: "flex", gap: 40 }}>
-                  
+
+          {shouldShowAccessControls && (
+            <div style={{ display: "flex", gap: 40 }}>
+
               <Form.Item
                 label="Full Payment Required"
                 name="full_payment"
                 valuePropName="checked"
-                extra={<span style={{ color: 'red' }}>Only unlocked after payment</span>}
               >
                 <Switch
                   checkedChildren="On"
                   unCheckedChildren="Off"
                   disabled={viewMode || isFree}
+                  onChange={(checked) => {
+                    if (checked) {
+                      form.setFieldsValue({
+                        is_free: false,
+                      });
+                    }
+                  }}
                 />
               </Form.Item>
 
@@ -1076,10 +1143,17 @@ const UploadContentModal = ({
                   checkedChildren="On"
                   unCheckedChildren="Off"
                   disabled={viewMode}
+                  onChange={(checked) => {
+                    if (checked) {
+                      form.setFieldsValue({
+                        full_payment: false,
+                      });
+                    }
+                  }}
                 />
               </Form.Item>
             </div>
-        
+          )}
         </Form>
       </div>
     </Modal>

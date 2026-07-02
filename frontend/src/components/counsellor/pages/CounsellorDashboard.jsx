@@ -37,6 +37,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchMyStudentsNew, fetchCounsellorDashboardCount, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
 import { getStudentProfile } from "../../../adminSlices/profileSlice";
 import { markCounsellingBookingCompleted } from "../../../adminSlices/counsellingBookingSlice";
+import { stream } from "xlsx";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -101,7 +102,7 @@ const CounsellorDashboard = () => {
       report_file: item.report_file,
       aptitude_test: item.aptitude_test,
       engineering_test_analysis: item.engineering_test_analysis,
-      
+
       programId: item.program?.id || null,
       programName: item.program?.name || "-",
       packageId: item.package?.id || null,
@@ -621,12 +622,27 @@ const CounsellorDashboard = () => {
         width={screens.xs ? "95%" : 900}
       >
         <SessionNotesModal
-          
+          onClick={() => {
+            dispatch(fetchCounsellingNote(record.id)).then(() => {
+              setSelectedSession({
+                ...record,
+                student_id: record.student_id,
+                programId: record.programId,
+                programName: record.programName,
+                packageId: record.packageId,
+                packageName: record.packageName,
+                // stream: record.stream
+              });
+              setNotesModal(true);
+            });
+          }}
           session={selectedSession}
           onClose={() => setNotesModal(false)}
           isViewMode={!!notes?.[selectedSession?.id]}
         />
       </Modal>
+
+
 
       {/* PROFILE MODAL */}
       <StudentProfileModal
