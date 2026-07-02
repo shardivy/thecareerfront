@@ -16,6 +16,8 @@ import {
   Empty,
   Spin,
   Input,
+  Tabs,
+  Badge,
 } from "antd";
 import {
   TeamOutlined,
@@ -60,6 +62,7 @@ const CounsellorDashboard = () => {
   const [locationModal, setLocationModal] = useState(false);
   const [reportLoading, setReportLoading] = useState(true); // Add this state
   const [searchText, setSearchText] = useState("");
+  const [activeReportTab, setActiveReportTab] = useState("V1");
   const dispatch = useDispatch();
 
   const { students, studentsLoading, notes } = useSelector(
@@ -100,6 +103,8 @@ const CounsellorDashboard = () => {
       status: item.status,
       preferredMode: item.preferred_counselling_mode === "online" ? "Online" : "Offline",
       report_file: item.report_file,
+      file_path: item.file_path || null,
+      file_name: item.file_name || null,
       aptitude_test: item.aptitude_test,
       engineering_test_analysis: item.engineering_test_analysis,
 
@@ -143,7 +148,7 @@ const CounsellorDashboard = () => {
     setDownloading(true);
 
     try {
-      const response = await fetch(selectedReport.report_file);
+      const response = await fetch(reportUrl);
       const blob = await response.blob();
 
       const fileNameFromApi = selectedReport.file_name || "";
@@ -208,11 +213,25 @@ const CounsellorDashboard = () => {
     }
   };
 
-  const fileType = selectedReport?.report_file
-    ? getFileType(selectedReport.report_file)
+  const reportItems = Array.isArray(selectedReport?.report_file)
+    ? selectedReport.report_file
+    : null;
+
+  const reportUrl = reportItems
+    ? reportItems.find((r) => r.version === activeReportTab)?.url || reportItems[0]?.url
+    : selectedReport?.report_file || selectedReport?.file_path;
+
+  const hasReportData = Array.isArray(selectedReport?.report_file)
+    ? selectedReport.report_file.length > 0
+    : Boolean(selectedReport?.report_file || selectedReport?.file_path);
+
+  const fileType = reportUrl
+    ? getFileType(reportUrl)
     : null;
 
   const canPreview = fileType === "pdf";
+
+
 
   const columns = [
     {
@@ -329,18 +348,26 @@ const CounsellorDashboard = () => {
               <Button
                 icon={<EyeOutlined />}
                 onClick={() => {
-                  // Use report_file directly from the record
-                  if (record.report_file) {
+                  const reportEntries = Array.isArray(record.report_file) && record.report_file.length > 0
+                    ? record.report_file
+                    : null;
+                  const reportSource = reportEntries || record.file_path || null;
+
+                  if (reportSource) {
                     setSelectedReport({
-                      report_file: record.report_file,
+                      report_file: reportSource,
+                      file_path: record.file_path || null,
+                      file_name: record.file_name || null,
                       studentName: record.studentName,
                       studentEmail: record.studentEmail,
-                      studentId: record.student_id,
+                      engineering: record.engineering_test_analysis,
+                      aptitude: record.aptitude_test,
                     });
+
+                    setActiveReportTab("V1");
                     setReportModal(true);
-                    setReportLoading(true); // Reset loading state
                   } else {
-                    message.warning("No report available for this student");
+                    message.warning("No report available");
                   }
                 }}
               >
@@ -652,7 +679,9 @@ const CounsellorDashboard = () => {
         loading={profileLoading}
       />
 
-      {/* REPORT MODAL - WITHOUT PAGE CONTROLS */}
+
+
+      {/* REPORT MODAL */}
       <Modal
         title={`Report - ${selectedReport?.studentName || ""}`}
         open={reportModal}
@@ -661,80 +690,150 @@ const CounsellorDashboard = () => {
           setReportModal(false);
           setSelectedReport(null);
           setReportLoading(true);
+          setActiveReportTab("V1");
         }}
+        width={screens.xs ? "95%" : 900}
+        style={{ top: 20 }}
         footer={[
-          // Show Download ONLY when preview is NOT available
-          canPreview && (
-            <Button
-              key="download"
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={handleDownloadReport}
-              disabled={!selectedReport?.report_file || downloading}
-              loading={downloading}
-            >
-              {downloading ? "Downloading..." : "Download"}
-            </Button>
-          ),
-
+          <Button
+            key="download"
+            type="primary"
+            icon={<DownloadOutlined />}
+            loading={downloading}
+            onClick={handleDownloadReport}
+          >
+            Download
+          </Button>,
           <Button
             key="close"
             onClick={() => {
               setReportModal(false);
               setSelectedReport(null);
               setReportLoading(true);
+              setActiveReportTab("V1");
             }}
           >
             Close
           </Button>,
         ]}
-        width={screens.xs ? "95%" : 800}
-        style={{ top: 20 }}
       >
-        {selectedReport?.report_file ? (
+        {!hasReportData ? (
           <div
             style={{
-              minHeight: "500px",
+              minHeight: 300,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Empty description="No report available" />
+          </div>
+        ) : Array.isArray(selectedReport.report_file) ? (
+          // ================= ENGINEERING REPORT =================
+          <Tabs
+            activeKey={activeReportTab}
+            onChange={setActiveReportTab}
+            type="card"
+            items={selectedReport.report_file.map((report) => ({
+              key: report.version,
+              label: (
+                <span>
+                  {report.version} - Report
+                  {/* <Tag
+              color="blue"
+              style={{ marginLeft: 8 }}
+            >
+              {report.status}
+            </Tag> */}
+                </span>
+              ),
+              children: (
+                <div
+                  style={{
+                    background: "#f5f5f5",
+                    padding: 10,
+                    borderRadius: 6,
+                  }}
+                >
+                  {getFileType(report.url) === "pdf" ? (
+                    <iframe
+                      src={`${report.url}#toolbar=0`}
+                      title={report.version}
+                      width="100%"
+                      height="550px"
+                      style={{
+                        border: "none",
+                        borderRadius: 6,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        height: 500,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 16,
+                      }}
+                    >
+                      <FileTextOutlined style={{ fontSize: 55, color: "#999" }} />
+                      <Text strong>Preview is not available for this file type.</Text>
+                      <Button
+                        type="primary"
+                        icon={<DownloadOutlined />}
+                        onClick={handleDownloadReport}
+                      >
+                        Download File
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ),
+            }))}
+          />
+        ) : (
+          // ================= SINGLE REPORT =================
+          <div
+            style={{
+              minHeight: 500,
               width: "100%",
-              backgroundColor: "#f5f5f5",
-              borderRadius: 4,
+              background: "#f5f5f5",
+              borderRadius: 6,
               padding: 10,
             }}
           >
-            {/* PDF VIEW */}
-            {fileType === "pdf" && (
+            {fileType === "pdf" ? (
               <iframe
                 src={`${selectedReport.report_file}#toolbar=0`}
                 title="Report Preview"
                 width="100%"
-                height="500px"
-                style={{ border: "none" }}
+                height="550px"
+                style={{
+                  border: "none",
+                }}
                 onLoad={() => setReportLoading(false)}
               />
-            )}
-
-            {/* WORD / EXCEL VIEW (Fallback UI) */}
-            {(fileType === "word" || fileType === "excel") && (
+            ) : (
               <div
                 style={{
-                  height: "500px",
+                  height: 500,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 12,
+                  gap: 16,
                 }}
               >
-                <FileTextOutlined style={{ fontSize: 50 }} />
+                <FileTextOutlined
+                  style={{
+                    fontSize: 55,
+                    color: "#999",
+                  }}
+                />
 
                 <Text strong>
-                  {fileType === "word"
-                    ? "Word Document Preview not available"
-                    : "Excel File Preview not available"}
-                </Text>
-
-                <Text type="colorTextSecondary">
-                  Please download to view this file
+                  Preview is not available for this file type.
                 </Text>
 
                 <Button
@@ -746,15 +845,6 @@ const CounsellorDashboard = () => {
                 </Button>
               </div>
             )}
-          </div>
-        ) : (
-          <div style={{
-            minHeight: "300px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}>
-            <Empty description="No report available for this student" />
           </div>
         )}
       </Modal>

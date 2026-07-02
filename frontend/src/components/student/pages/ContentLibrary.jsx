@@ -237,6 +237,9 @@ return false;
     image: item.image,
     fileName:
       item.file_name || getFileNameFromUrl(item.file_url || ""),
+
+      isCounsellorContent: true,
+  sender: "Counsellor",
   }));
 
 // ================= STUDENT CONTENT =================
