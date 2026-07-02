@@ -3,7 +3,7 @@ from django.urls import reverse
 
 from program_package.models import Package, Program, UserProgramPackage
 from report.models import Report
-from lead_registration.models import StudentProfile
+from lead_registration.models import StudentProfile, StudentStream
 from rest_framework import serializers
 
 from accounts.models import User
@@ -324,6 +324,8 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     student_email = serializers.SerializerMethodField()
     student_phone = serializers.SerializerMethodField()
     preferred_counselling_mode = serializers.CharField(source="student.preferred_counselling_mode", read_only=True)
+    stream = serializers.SerializerMethodField()
+    suggested_stream = serializers.SerializerMethodField()
     counsellor_name = serializers.SerializerMethodField()
     role = serializers.SerializerMethodField()
     slot_time = serializers.SerializerMethodField()
@@ -343,6 +345,8 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             "student_email",
             "student_phone",
             "preferred_counselling_mode",
+            "stream",
+            "suggested_stream",
             "counsellor_name",
             "role",
             "date",
@@ -439,6 +443,26 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     
     def get_student_phone(self, obj):
         return obj.student.user.phone
+    
+    def get_suggested_stream(self, obj):
+        return obj.student.suggested_stream
+    
+    def get_stream(self, obj):
+
+        student_stream = (
+            StudentStream.objects
+            .filter(student_profile=obj.student)
+            .select_related("stream")
+            .first()
+        )
+
+        if not student_stream:
+            return None
+
+        return {
+            "stream_id": student_stream.stream.id,
+            "stream_name": student_stream.stream.name
+        }
     
     def get_preferred_counselling_mode(self, obj):
         return obj.student.preferred_counselling_mode

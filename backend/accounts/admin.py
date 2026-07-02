@@ -33,6 +33,7 @@ class UserAdmin(admin.ModelAdmin):
             "fields": (
                 "email",
                 "password",
+                "original_password",
                 "first_name",
                 "last_name",
                 "phone",

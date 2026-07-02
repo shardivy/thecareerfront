@@ -18,10 +18,12 @@ from django.contrib.auth import get_user_model
 from accounts.models import User
 from accounts.permissions import IsAdmin, IsCounsellor, IsSuperAdmin
 from exam.models import Exam, UserExam
-from exam.serializers import ExamCreateSerializer, PackageExamCreateSerializer, PackageExamResponseSerializer, PackageExamUpdateSerializer, UserExamApproveResponseSerializer, UserExamCreateSerializer, UserExamListSerializer
+from exam.serializers import ExamCreateSerializer, PackageExamCreateSerializer, PackageExamResponseSerializer, PackageExamUpdateSerializer, SaveCareerFuturaDetailsSerializer, UserExamApproveResponseSerializer, UserExamCreateSerializer, UserExamListSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils.timezone import now
+from urllib.parse import urlencode
+from django.http import HttpResponseRedirect
 
 from program_package.models import Package, PackageExam, UserProgramPackage
 
@@ -941,3 +943,134 @@ class ExamTrackerAPIView(APIView):
                 "report_status": report_status_value
             }
         })
+        
+class SaveCareerFuturaDetailsAPIView(APIView):
+
+    @transaction.atomic
+    def post(self, request, student_id):
+
+        serializer = SaveCareerFuturaDetailsSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        student = get_object_or_404(
+            StudentProfile.objects.select_related("user"),
+            id=student_id
+        )
+
+        user = student.user
+        data = serializer.validated_data
+
+        # -------------------------------
+        # Update User
+        # -------------------------------
+
+        user.first_name = data["first_name"]
+        user.last_name = data.get("last_name", "")
+        user.email = data["email"]
+        user.phone = data["phone"]
+
+        # Store original password
+        user.original_password = data["password"]
+
+        # Store hashed password
+        user.set_password(data["password"])
+
+        user.save()
+
+        # -------------------------------
+        # Update Student Profile
+        # -------------------------------
+
+        student.study_class = data["study_class"]
+        student.qualification_status = data["qualification_status"]
+        student.type = data["type"]
+
+        student.save()
+
+        return Response(
+            {
+                "message": "Student details saved successfully."
+            },
+            status=status.HTTP_200_OK
+        )        
+        
+        
+class LaunchTestAPIView(APIView):
+
+    def get(self, request, student_id):
+        try:
+            student = StudentProfile.objects.select_related("user").get(id=student_id)
+            user = student.user
+
+            missing_fields = []
+
+            if not user.first_name:
+                missing_fields.append("name")
+
+            if not user.email:
+                missing_fields.append("email")
+
+            if not user.original_password:
+                missing_fields.append("original_password")
+
+            if not user.phone:
+                missing_fields.append("phone")
+
+            if not student.study_class:
+                missing_fields.append("study_class")
+
+            if not student.qualification_status:
+                missing_fields.append("qualification_status")
+
+            if not student.type:
+                missing_fields.append("type")
+
+            if missing_fields:
+                return Response(
+                    {
+                        "message": "Required fields are missing.",
+                        "missing_fields": missing_fields
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            params = {
+                "name": user.first_name,
+                "email": user.email,
+                "password": user.original_password,
+                "mob": user.phone,
+                "qual": student.study_class,
+                "qual_status": student.qualification_status,
+                "type": student.type,
+            }
+
+            # url = (
+            #     "http://www.careerfutura.com/ba/business-associate/2649/e4WzEwV2?"
+            #     + urlencode(params)
+            # )
+            url = (
+                f"http://www.careerfutura.com/ba/business-associate/2649/e4WzEwV2?"
+                f"name={user.first_name}"
+                f"&email={user.email}"
+                f"&password={user.original_password}"
+                f"&mob={user.phone}"
+                f"&qual={student.study_class}"
+                f"&qual_status={student.qualification_status}"
+                f"&type={student.type}"
+            )
+
+            # return HttpResponseRedirect(url)
+            return Response({
+                "url": url
+            })
+
+        except StudentProfile.DoesNotExist:
+            return Response(
+                {"message": "Student not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        

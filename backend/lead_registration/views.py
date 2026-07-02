@@ -14,6 +14,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
+from datetime import timedelta
 from django.db import IntegrityError, transaction
 from django.contrib.auth.hashers import make_password
 import logging
@@ -27,7 +28,7 @@ from accounts.permissions import IsAdmin, IsSuperAdmin
 from accounts.services.whatsapp_service import send_whatsapp_message, send_whatsapp_otp
 from accounts.utils import generate_otp, generate_password, generate_role_id, send_credentials_email, send_otp_email
 from exam.models import Exam, UserExam
-from lead_registration.models import Hobby, Lead, ParentProfile, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
+from lead_registration.models import EmailOTP, Hobby, Lead, ParentProfile, Stream, StudentAcademicHistory, StudentHobby, StudentProfile, StudentStream, StudentSubjectPreference, Subject
 from lead_registration.serializers import AddUserSerializer, HobbySerializer, LeadSerializer, ParentDetailSerializer, PaymentDetailSerializer, StreamSerializer, StudentAcademicHistorySerializer, StudentHobbySerializer, StudentProfileDetailSerializer, StudentRegistrationSerializer, StudentStreamSerializer, StudentSubjectPreferenceSerializer, SubjectSerializer, UserDetailSerializer, UserProgramPackageDetailSerializer, UserProgramPackageResponseSerializer
 from payment.models import Payment, PaymentLog
 from program_package.models import CollegeListAnalysis, Package, PackageExam, Program, UserProgramPackage
@@ -1042,10 +1043,11 @@ class AddUserAPIView(APIView):
                     email=data["email"],
                     phone=data.get("phone") or None,
                     role=student_role,
-                    is_active=True
+                    is_active=True,
+                    original_password=password,
                 )
                 user.set_password(password)
-                user.save(update_fields=["password"])
+                user.save(update_fields=["password", "original_password"])
 
                 # ✅ Create student profile (reuse object later)
                 student_profile = StudentProfile.objects.create(
@@ -2750,6 +2752,9 @@ class ConvertLeadAPIView(APIView):
                         role=user_role,
                         is_active=True
                     )
+                    
+                    # Save original password
+                    user.original_password = password
 
                     # ✅ Save exact original password
                     user.set_password(password)
@@ -2892,8 +2897,27 @@ class ConvertLeadAPIView(APIView):
                 student_profile = None
 
                 if not is_handholding:
+                    # student_profile = StudentProfile.objects.create(
+                    #     user=user,
+                    #     study_class=serializer.validated_data.get("study_class"),
+                    #     current_academic_stage=serializer.validated_data.get("current_academic_stage"),
+                    #     current_academic_year=serializer.validated_data.get("current_academic_year"),
+                    #     school_college=serializer.validated_data.get("school_college"),
+                    #     city=serializer.validated_data.get("city"),
+                    #     preferred_counselling_mode=serializer.validated_data.get(
+                    #         "preferred_counselling_mode"
+                    #     ),
+                    #     dob=lead.dob if lead.dob else None,
+                    #     specialization=lead.specialization if lead.specialization else None,
+                    #     stream=lead.stream if lead.stream else None,
+                    # )
+
+                    # =================================
+                    # Create Student Profile
+                    # =================================
                     student_profile = StudentProfile.objects.create(
                         user=user,
+                        parent=lead.parent,   
                         study_class=serializer.validated_data.get("study_class"),
                         current_academic_stage=serializer.validated_data.get("current_academic_stage"),
                         current_academic_year=serializer.validated_data.get("current_academic_year"),
@@ -2906,6 +2930,22 @@ class ConvertLeadAPIView(APIView):
                         specialization=lead.specialization if lead.specialization else None,
                         stream=lead.stream if lead.stream else None,
                     )
+                    
+                    # =================================
+                    # 🔹 SAVE STREAM IN StudentStream
+                    # =================================
+                    if lead.stream:
+
+                        stream_obj = Stream.objects.filter(
+                            name__iexact=lead.stream.strip()
+                        ).first()
+
+                        if stream_obj:
+                            StudentStream.objects.get_or_create(
+                                student_profile=student_profile,
+                                stream=stream_obj
+                            )
+                    
                 else:
                     student_profile = None  # ✅ explicitly ensure
                 # =================================
@@ -2965,6 +3005,8 @@ class ConvertLeadAPIView(APIView):
                         if package.aptitude_test:
                             UserExam.objects.get_or_create(
                                 user=user,
+                                program=program,
+                                package=package,
                                 defaults={"status": "not_started"}
                             )
 
@@ -3064,9 +3106,10 @@ class ConvertLeadAPIView(APIView):
                     # ==========================================
                     elif not password_to_send:
                         password_to_send = generate_password()
-
+                        
+                        user.original_password = password_to_send
                         user.set_password(password_to_send)
-                        user.save(update_fields=["password"])
+                        user.save(update_fields=["password", "original_password"])
                         print(f"New user - generated password: {password_to_send}")
 
                     # ==========================================
@@ -3298,6 +3341,22 @@ class StreamAPIView(APIView):
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
+    def delete(self, request, stream_id):
+        try:
+            stream = Stream.objects.get(id=stream_id)
+            stream.delete()
+
+            return Response(
+                {"message": "Stream deleted successfully"},
+                status=status.HTTP_200_OK
+            )
+
+        except Stream.DoesNotExist:
+            return Response(
+                {"message": "Stream not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
 class StudentStreamAPIView(APIView):
     """
         GET /students/{student_id}/streams
@@ -3716,6 +3775,7 @@ class StudentRegistrationAPIView(APIView):
 
             if created:
                 password = data.get("password") or generate_password()
+                student_user.original_password = password 
                 student_user.set_password(password)
                 student_user.save()
             else:
@@ -3724,6 +3784,33 @@ class StudentRegistrationAPIView(APIView):
                 student_user.phone = data.get("student_mobile") or None
                 student_user.save()
 
+            # # ===============================
+            # # Parent User
+            # # ===============================
+            # parent_name = data.get("parent_name", "").strip()
+            # parent_first, *parent_last = parent_name.split(" ", 1)
+            # parent_last_name = parent_last[0] if parent_last else ""
+
+            # parent_user, parent_created = User.objects.get_or_create(
+            #     email=data["parent_email"],
+            #     defaults={
+            #         "phone": data.get("parent_mobile") or None,
+            #         "role": parent_role,
+            #         "first_name": parent_first,
+            #         "last_name": parent_last_name,
+            #         "is_active": True
+            #     }
+            # )
+
+            # if parent_created:
+            #     parent_password = generate_password()
+            #     parent_user.set_password(parent_password)
+            #     parent_user.save()
+            # else:
+            #     parent_user.first_name = parent_first
+            #     parent_user.last_name = parent_last_name
+            #     parent_user.phone = data.get("parent_mobile") or None
+            #     parent_user.save()
             # ===============================
             # Parent User
             # ===============================
@@ -3732,25 +3819,22 @@ class StudentRegistrationAPIView(APIView):
             parent_last_name = parent_last[0] if parent_last else ""
 
             parent_user, parent_created = User.objects.get_or_create(
-                email=data["parent_email"],
-                defaults={
-                    "phone": data.get("parent_mobile") or None,
-                    "role": parent_role,
-                    "first_name": parent_first,
-                    "last_name": parent_last_name,
-                    "is_active": True
-                }
+                email=data["parent_email"]
             )
+
+            # Always update with entered values
+            parent_user.email = data["parent_email"]
+            parent_user.first_name = parent_first
+            parent_user.last_name = parent_last_name
+            parent_user.phone = data.get("parent_mobile") or None
+            parent_user.role = parent_role
+            parent_user.is_active = True
 
             if parent_created:
                 parent_password = generate_password()
                 parent_user.set_password(parent_password)
-                parent_user.save()
-            else:
-                parent_user.first_name = parent_first
-                parent_user.last_name = parent_last_name
-                parent_user.phone = data.get("parent_mobile") or None
-                parent_user.save()
+
+            parent_user.save()
 
             # ===============================
             # Parent Profile (SAFE)
@@ -3758,6 +3842,12 @@ class StudentRegistrationAPIView(APIView):
             parent_profile, _ = ParentProfile.objects.get_or_create(
                 user=parent_user
             )
+            
+            # ===============================
+            # Link Parent with Lead
+            # ===============================
+            lead.parent = parent_profile
+            lead.save(update_fields=["parent"])
 
             # ===============================
             # Assign Program
@@ -3797,51 +3887,78 @@ class StudentRegistrationAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
   
 
-class SendParentOTPAPIView(APIView):
+# class SendParentOTPAPIView(APIView):
+#     permission_classes = []
+
+#     def post(self, request):
+#         email = request.data.get("parent_email")
+
+#         if not email:
+#             return Response(
+#                 {"message": "Email is required"},
+#                 status=400
+#             )
+
+#         # 🔢 Generate OTP
+#         otp = generate_otp()
+
+#         # 🔍 Check if parent exists
+#         parent_user = User.objects.filter(
+#             email=email,
+#             role__name="parent"
+#         ).first()
+
+#         if parent_user:
+#             # ✅ Save OTP in ParentProfile
+#             parent_profile = ParentProfile.objects.get(user=parent_user)
+#             parent_profile.set_otp(otp)
+
+#             parent_exists = True
+#         else:
+#             # ✅ Save OTP in session (temporary storage)
+#             request.session["parent_otp"] = otp
+#             request.session["parent_email"] = email
+
+#             parent_exists = False
+
+#         # 📧 Send OTP Email
+#         send_otp_email(email, otp)
+
+#         return Response(
+#             {
+#                 "message": "OTP sent successfully on email.",
+#                 "parent_exists": parent_exists
+#             },
+#             status=200
+#         )
+
+class SendStudentOTPAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        email = request.data.get("parent_email")
+        student_email = request.data.get("student_email")
 
-        if not email:
+        if not student_email:
             return Response(
-                {"message": "Email is required"},
+                {"message": "Student email is required"},
                 status=400
             )
 
-        # 🔢 Generate OTP
         otp = generate_otp()
 
-        # 🔍 Check if parent exists
-        parent_user = User.objects.filter(
-            email=email,
-            role__name="parent"
-        ).first()
+        EmailOTP.objects.update_or_create(
+            email=student_email,
+            defaults={"otp": otp}
+        )
 
-        if parent_user:
-            # ✅ Save OTP in ParentProfile
-            parent_profile = ParentProfile.objects.get(user=parent_user)
-            parent_profile.set_otp(otp)
-
-            parent_exists = True
-        else:
-            # ✅ Save OTP in session (temporary storage)
-            request.session["parent_otp"] = otp
-            request.session["parent_email"] = email
-
-            parent_exists = False
-
-        # 📧 Send OTP Email
-        send_otp_email(email, otp)
+        send_otp_email(student_email, otp)
 
         return Response(
-            {
-                "message": "OTP sent successfully on email.",
-                "parent_exists": parent_exists
-            },
+            {"message": "OTP sent on student email successfully"},
             status=200
         )
         
+
 # class VerifyParentOTPAPIView(APIView):
 #     permission_classes = []
 
@@ -3895,71 +4012,66 @@ class SendParentOTPAPIView(APIView):
 #         # ==========================================
 #         # ✅ CASE 2: Parent Account NOT Exists
 #         # ==========================================
-
-#         session_email = request.session.get("parent_email")
-#         session_otp = request.session.get("parent_otp")
-#         # session_otp_time = request.session.get("parent_otp_time")
-
-#         # if not session_email or not session_otp:
-#         #     return Response(
-#         #         {"message": "OTP session expired. Please request OTP again."},
-#         #         status=status.HTTP_400_BAD_REQUEST
-#         #     )
-
-#         # Check email match
-#         if str(session_email) != str(email):
-#             return Response(
-#                 {"message": "Invalid email"},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         # Check OTP match
-#         if str(session_otp) != str(otp):
-#             return Response(
-#                 {"message": "Invalid OTP"},
-#                 status=status.HTTP_400_BAD_REQUEST
-#             )
-
-#         # Optional: Check expiry (10 minutes)
-#         # if session_otp_time:
-#         #     expiry_time = session_otp_time + 600  # 10 min in seconds
-#         #     if timezone.now().timestamp() > expiry_time:
-#         #         return Response(
-#         #             {"message": "OTP expired"},
-#         #             status=status.HTTP_400_BAD_REQUEST
-#         #         )
-
+        
+#         # For new users, just return success
+#         # The OTP validation should happen in the OTP generation/sending step
+#         # Not in verification step for new users
+        
 #         return Response(
 #             {
 #                 "message": "OTP verified successfully",
 #                 "parent_exists": False
 #             },
 #             status=status.HTTP_200_OK
-#         )     
-    
-class VerifyParentOTPAPIView(APIView):
+#         )
+
+class VerifyStudentOTPAPIView(APIView):
     permission_classes = []
 
     def post(self, request):
-        email = request.data.get("parent_email")
+        student_email = request.data.get("student_email")
+        parent_email = request.data.get("parent_email")
         otp = request.data.get("otp")
 
-        # 🔎 Validate input
-        if not email or not otp:
+        if not student_email or not parent_email or not otp:
             return Response(
-                {"message": "Parent email and OTP are required"},
+                {
+                    "message": "student_email, parent_email and otp are required"
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 🔎 Try to find existing parent user
+        # Verify OTP using student email
+        otp_obj = EmailOTP.objects.filter(email=student_email).first()
+
+        if not otp_obj:
+            return Response(
+                {"message": "OTP not generated"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if timezone.now() > otp_obj.created_at + timedelta(minutes=10):
+            otp_obj.delete()
+            return Response(
+                {"message": "OTP expired"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if otp_obj.otp != otp:
+            return Response(
+                {"message": "Invalid OTP"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # OTP verified successfully
+        otp_obj.delete()
+
+        # Check parent email
         parent_user = User.objects.filter(
-            email=email,
+            email=parent_email,
             role__name="parent"
         ).first()
 
-        # ==========================================
-        # ✅ CASE 1: Parent Account Exists
-        # ==========================================
         if parent_user:
             try:
                 parent_profile = parent_user.parent_profile
@@ -3967,14 +4079,6 @@ class VerifyParentOTPAPIView(APIView):
                 return Response(
                     {"message": "Parent profile not found"},
                     status=status.HTTP_404_NOT_FOUND
-                )
-
-            is_valid, message = parent_profile.verify_otp(otp)
-
-            if not is_valid:
-                return Response(
-                    {"message": message},
-                    status=status.HTTP_400_BAD_REQUEST
                 )
 
             return Response(
@@ -3987,14 +4091,6 @@ class VerifyParentOTPAPIView(APIView):
                 status=status.HTTP_200_OK
             )
 
-        # ==========================================
-        # ✅ CASE 2: Parent Account NOT Exists
-        # ==========================================
-        
-        # For new users, just return success
-        # The OTP validation should happen in the OTP generation/sending step
-        # Not in verification step for new users
-        
         return Response(
             {
                 "message": "OTP verified successfully",
@@ -4002,7 +4098,6 @@ class VerifyParentOTPAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
-
 
 
 
@@ -4919,6 +5014,8 @@ class UserJourneyAPIView(APIView):
         print("TOTAL JOURNEYS =", len(journeys))
         
         return Response({"journeys": journeys})
+    
+
       
     
     

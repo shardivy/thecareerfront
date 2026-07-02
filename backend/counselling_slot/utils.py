@@ -54,7 +54,6 @@ def send_booking_created_email(user, booking, booking_slots, booking_date, send_
         f"""
 Slot Date: {slot.date}
 Start Time: {slot.start_time}
-End Time: {slot.end_time}
 Mode: {slot.mode}
 """
         for slot in booking_slots
@@ -235,7 +234,7 @@ def generate_counselling_reminder(slot, student_profile, booking_status):
     # ==========================================
     # 🔹 NOT BOOKED
     # ==========================================
-    if booking_status == "not_booked":
+    if booking_status in ["not_booked", "pending"]:
         return {
             "subject": "Slot Booking Reminder | Abhinav Career Scope",
             "message": f"""
