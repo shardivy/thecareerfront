@@ -3839,19 +3839,25 @@ class SendReminderAPIView(APIView):
             # ==========================================
             # GET FIRST BOOKING OF STUDENT
             # ==========================================
-            booking = (
-                Booking.objects
-                .filter(student=student_profile)
-                .select_related("slot")
-                .order_by("id")
-                .first()
-            )
+            # booking = (
+            #     Booking.objects
+            #     .filter(student=student_profile)
+            #     .select_related("slot")
+            #     .order_by("id")
+            #     .first()
+            # )
 
-            if not booking:
-                return Response(
-                    {"message": "No booking found"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            # if not booking:
+            #     return Response(
+            #         {"message": "No booking found"},
+            #         status=status.HTTP_404_NOT_FOUND
+            #     )
+            
+            booking = current_booking
+            booking_status = booking.status
+            slot = booking.slot
+            program = booking.program
+            package = booking.package
 
             booking_status = booking.status
             slot = booking.slot
@@ -3875,10 +3881,17 @@ class SendReminderAPIView(APIView):
             # ==========================================
             # GENERATE REMINDER
             # ==========================================
+            # reminder_data = generate_counselling_reminder(
+            #     slot,
+            #     student_profile,
+            #     booking_status
+            # )
             reminder_data = generate_counselling_reminder(
-                slot,
-                student_profile,
-                booking_status
+                slot=slot,
+                student_profile=student_profile,
+                booking_status=booking_status,
+                program=booking.program,
+                package=booking.package,
             )
 
             # ==========================================

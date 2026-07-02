@@ -375,62 +375,70 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
     #         return None
 
     #     try:
-    #         # Actual uploaded filename
+    #         # ✅ Actual uploaded filename
     #         file_name = os.path.basename(
     #             report.file_path.name
     #         )
 
-    #         # File extension
-    #         file_extension = os.path.splitext(
-    #             file_name
-    #         )[1].lower()
-
-    #         # ==========================================
-    #         # PDF → Preview Route
-    #         # ==========================================
-    #         if file_extension == ".pdf":
-    #             return request.build_absolute_uri(
-    #                 f"/api/report/report/pdf/{report.id}/"
-    #             )
-
-    #         # ==========================================
-    #         # Other Files → Direct Media URL
-    #         # Excel / Word / ZIP / DOC / XLSX etc.
-    #         # ==========================================
+    #         # ✅ ALL file types use same secure API
     #         return request.build_absolute_uri(
-    #             report.file_path.url
+    #             f"/api/report/report/pdf/{report.id}/"
     #         )
 
     #     except Exception:
     #         return None
+     
      
     def get_report_file(self, obj):
         request = self.context.get("request")
 
         report = (
             Report.objects
-            .filter(user=obj.student.user)
+            .filter(
+                user=obj.student.user,
+                program=obj.program,
+                package=obj.package
+            )
             .order_by("-uploaded_at")
             .first()
         )
 
-        if not report or not report.file_path:
-            return None
+        if not report:
+            return []
 
-        try:
-            # ✅ Actual uploaded filename
-            file_name = os.path.basename(
-                report.file_path.name
-            )
+        reports = []
 
-            # ✅ ALL file types use same secure API
-            return request.build_absolute_uri(
-                f"/api/report/report/pdf/{report.id}/"
-            )
+        # V1 Report
+        if report.file_path:
+            reports.append({
+                "version": "V1",
+                "status": report.report_status,
+                "url": request.build_absolute_uri(
+                    f"/api/report/report/pdf/{report.id}/"
+                )
+            })
 
-        except Exception:
-            return None
-     
+        # V2 Report
+        if report.file_path1:
+            reports.append({
+                "version": "V2",
+                "status": report.report_status_v2,
+                "url": request.build_absolute_uri(
+                    f"/api/report/report/v1/pdf/{report.id}/"
+                )
+            })
+
+        # V3 Report
+        if report.file_path2:
+            reports.append({
+                "version": "V3",
+                "status": report.report_status_v3,
+                "url": request.build_absolute_uri(
+                    f"/api/report/report/v2/pdf/{report.id}/"
+                )
+            })
+
+        return reports
         
     def get_student_id(self, obj):
         return obj.student.id
