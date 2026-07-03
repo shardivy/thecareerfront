@@ -29,7 +29,7 @@ urlpatterns = [
     ),
 
     path(
-        "launch-test/<int:student_id>/",
+        "launch-test/<int:student_id>/<int:test_id>/",
         LaunchTestAPIView.as_view(),
         name="launch-test",
     ),

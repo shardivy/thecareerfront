@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from accounts.models import User
-from exam.models import Exam, UserExam
+from exam.models import CareerFuturaTest, Exam, UserExam
 from program_package.models import Package, PackageExam, Program, UserProgramPackage
 
 
@@ -329,13 +329,23 @@ class SaveCareerFuturaDetailsSerializer(serializers.Serializer):
 
     def validate(self, attrs):
 
+        # Check password
         if attrs["password"] != attrs["confirm_password"]:
-            raise serializers.ValidationError(
-                {
-                    "confirm_password":
-                    "Password and Confirm Password do not match."
-                }
-            )
+            raise serializers.ValidationError({
+                "confirm_password": "Password and Confirm Password do not match."
+            })
+
+        # Check email uniqueness
+        if CareerFuturaTest.objects.filter(email=attrs["email"]).exists():
+            raise serializers.ValidationError({
+                "email": "This email is already registered."
+            })
+
+        # Check phone uniqueness
+        if CareerFuturaTest.objects.filter(phone=attrs["phone"]).exists():
+            raise serializers.ValidationError({
+                "phone": "This phone number is already registered."
+            })
 
         return attrs
     
