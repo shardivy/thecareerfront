@@ -278,6 +278,11 @@ class LeadSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "Enquiry with this email already exists."
             )
+            
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError(
+                "A user with this email already exists."
+            )
 
         return value
     
