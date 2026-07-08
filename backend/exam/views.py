@@ -1037,7 +1037,8 @@ class SaveCareerFuturaDetailsAPIView(APIView):
 
         return Response(
             {
-                "message": "CareerFutura details saved successfully."
+                "message": "CareerFutura details saved successfully.",
+                "test_id": CareerFuturaTest.objects.filter(student=student).latest('id').id
             },
             status=status.HTTP_201_CREATED
         ) 
