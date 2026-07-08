@@ -2258,6 +2258,7 @@ class ProfileUpdateAPIView(APIView):
             "student_id": student_profile.id if student_profile else None,
             "first_name": user.first_name,
             "last_name": user.last_name,
+            "password": user.original_password,
             "email": user.email,
             "phone": user.phone,
             "role": user.role.name if user.role else None,
