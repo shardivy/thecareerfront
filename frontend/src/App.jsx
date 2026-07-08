@@ -89,10 +89,7 @@ import SeminarWebinarSession from "./components/landing-pages/SeminarWebinarSess
 import OCIEndToEnd from "./components/landing-pages/OCIEndToEnd";
 import Default from "./components/landing-pages/Default";
 import NotFound from "./NotFound";
-import ExamRegister from "./components/student/pages/ExamRegister";
-
-
-
+import ExamRegistration from "./components/student/pages/Examregistration";
 
 
 const App = () => {
@@ -119,7 +116,7 @@ const App = () => {
         <Route path="/counselling-service" element={<AptitudeDetails />} />
         <Route path="/register-details" element={<RegisterDetails />} />
 
-        /// ===================== LANDING PAGE ROUTES =====================
+        {/* ===================== LANDING PAGE ROUTES ===================== */}
         <Route path="/law-service" element={<LawAdmission />} />
         <Route path="/pg-counselling-service" element={<PgCounselling />} />
         <Route path="/medical-end-to-end-counselling" element={<MedicalEndToEnd />} />
@@ -168,9 +165,11 @@ const App = () => {
           <Route path="engineering-questionnaires" element={<EngineeringQuestionaries />} />
           <Route path="analysis-report" element={<AptitudeAnalysisReports />} />
           <Route path="write-review" element={<WriteReview />} />
-          <Route path="Exam-Register" element={<ExamRegister />} />
+
         </Route>
 
+        {/* Renders standalone — no StudentLayout sidebar/header */}
+        <Route path="/student/exam-register" element={<ExamRegistration />} />
 
         {/* ===================== ADMIN ROUTES ===================== */}
         <Route path="/s-admin" element={<AdminLayout />}>
@@ -221,7 +220,7 @@ const App = () => {
           <Route path="payment-page" element={<HhPaymentPage />} />
         </Route>
 
-         <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>
   );

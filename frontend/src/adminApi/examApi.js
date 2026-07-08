@@ -108,3 +108,22 @@ export const getExamStatusApi = async (
 
   return response.data;
 };
+
+// SAVE CAREER FUTURA DETAILS
+export const saveExamRegisterApi = async (studentId, payload) => {
+  const response = await axiosInstance.post(
+    `/exam/save-career-futura-details/${studentId}/`,
+    payload
+  );
+
+  return response.data;
+};
+
+// LAUNCH TEST
+export const launchTestApi = async (studentId, type) => {
+  const response = await axiosInstance.get(
+    `/exam/launch-test/${studentId}/${type}/`
+  );
+
+  return response.data;
+};

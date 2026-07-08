@@ -1,5 +1,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { createExamApi, updateExamApi, getExamsApi, sendExamForApprovalApi, getExamTrackerApi, startExamApi, getExamStatusApi } from "../adminApi/examApi";
+import { createExamApi, 
+  updateExamApi,
+   getExamsApi, 
+   sendExamForApprovalApi, 
+   getExamTrackerApi, 
+   startExamApi,
+   getExamStatusApi ,
+  saveExamRegisterApi,
+  launchTestApi
+  } from "../adminApi/examApi";
 
 /* ---------- THUNKS ---------- */
 
@@ -119,6 +128,32 @@ export const fetchExamStatus = createAsyncThunk(
   }
 );
 
+export const saveExamRegister = createAsyncThunk(
+  "exam/saveExamRegister",
+  async ({ studentId, payload }, { rejectWithValue }) => {
+    try {
+      return await saveExamRegisterApi(studentId, payload);
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data || "Failed to save Career Futura details"
+      );
+    }
+  }
+);
+
+export const launchTest = createAsyncThunk(
+  "exam/launchTest",
+  async ({ studentId, type }, { rejectWithValue }) => {
+    try {
+      return await launchTestApi(studentId, type);
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data || "Launch test failed"
+      );
+    }
+  }
+);
+
 /* ---------- SLICE ---------- */
 const examSlice = createSlice({
   name: "exam",
@@ -128,6 +163,11 @@ const examSlice = createSlice({
     status: null,
     loading: false,
     trackerLoading: false,
+       saveCareerLoading: false,
+    saveCareerResponse: null,
+
+      launchLoading: false,
+    launchResponse: null,
     error: null,
   },
   reducers: {},
@@ -221,7 +261,35 @@ const examSlice = createSlice({
       .addCase(fetchExamStatus.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+
+      .addCase(saveExamRegister.pending, (state) => {
+    state.saveCareerLoading = true;
+})
+
+.addCase(saveExamRegister.fulfilled, (state, action) => {
+    state.saveCareerLoading = false;
+    state.saveCareerResponse = action.payload;
+})
+
+.addCase(saveExamRegister.rejected, (state, action) => {
+    state.saveCareerLoading = false;
+    state.error = action.payload;
+})
+
+.addCase(launchTest.pending, (state) => {
+    state.launchLoading = true;
+})
+
+.addCase(launchTest.fulfilled, (state, action) => {
+    state.launchLoading = false;
+    state.launchResponse = action.payload;
+})
+
+.addCase(launchTest.rejected, (state, action) => {
+    state.launchLoading = false;
+    state.error = action.payload;
+})
   },
 });
 

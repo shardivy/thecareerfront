@@ -20,6 +20,7 @@ import {
   QuestionCircleOutlined,
   LaptopOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import adminTheme from "../../../theme/adminTheme";
 import StatusTrackingModal from "../modals/StatusTrackingModal";
 import InstructionsModal from "../modals/InstructionsModal";
@@ -33,6 +34,7 @@ import {
 const { Title, Text } = Typography;
 
 const ExamManagement = () => {
+  const navigate = useNavigate();
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [instructionsModalVisible, setInstructionsModalVisible] = useState(false);
   const [instructionsMode, setInstructionsMode] = useState("view");
@@ -49,6 +51,8 @@ const ExamManagement = () => {
   const reduxPackageId = useSelector(
     (state) => state.student?.selectedPackageId
   );
+
+  const { profile } = useSelector((state) => state.profile);
 
   // Fallback to localStorage
   const selectedProgramId =
@@ -75,10 +79,6 @@ const ExamManagement = () => {
     selectedPackageId,
   ]);
 
-  console.log("studentId:", studentId);
-  console.log("programId:", selectedProgramId);
-  console.log("packageId:", selectedPackageId);
-
   useEffect(() => {
     if (tracker?.status) {
       setExamStatus(tracker.status);
@@ -99,10 +99,19 @@ const ExamManagement = () => {
           })
         ).unwrap();
 
-        window.open(
-          "https://www.careerfutura.com/ba/business-associate#",
-          "_blank"
-        );
+        // Send the student to the registration page, prefilled with
+        // whatever profile data we already have on file.
+        navigate("/student/exam-register", {
+          state: {
+            // first_name: profile?.first_name,
+               first_name: profile?.first_name?.split("-").pop().trim(),
+            last_name: profile?.last_name,
+            email: profile?.email,
+            phone: profile?.phone,
+            password: profile?.password,
+            qualification: profile?.study_class,
+          },
+        });
 
         // 👇 immediately refetch status
         dispatch(
@@ -112,7 +121,7 @@ const ExamManagement = () => {
             packageId: selectedPackageId,
           })
         );
-        message.success("Exam started successfully!");
+        // message.success("Exam started successfully!");
 
       } catch (error) {
         message.error("Failed to start exam");
@@ -240,18 +249,6 @@ const ExamManagement = () => {
 
               <Divider style={{ margin: "12px 0" }} />
 
-
-              {/* <Button
-                type="primary"
-                onClick={() => {
-                  setInstructionsMode("view");
-                  setInstructionsModalVisible(true);
-                }}
-              >
-                View Full Instructions
-              </Button> */}
-
-
               {isCompleted && (
                 <Text
                   type="colorTextSecondary"
@@ -303,9 +300,6 @@ const ExamManagement = () => {
               </div>
             )}
           </Col>
-
-
-
 
           {/* RIGHT SIDE CARD */}
           <Col xs={24} md={8}>
