@@ -18,7 +18,7 @@ const publicEndpoints = [
   "/reset-password/",
   "/verify-otp/",
   // "/program-package/get-programs/",
-  // "/lead-registeration/send-otp/",     
+  // "/lead-registeration/send-otp/",      
   // "/lead-registeration/verify-otp-register/",
   // "/lead-registeration/student/      register/",
 

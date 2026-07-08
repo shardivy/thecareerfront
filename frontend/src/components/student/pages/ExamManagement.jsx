@@ -27,7 +27,6 @@ import InstructionsModal from "../modals/InstructionsModal";
 import { useDispatch, useSelector } from "react-redux";
 import {
   sendExamForApproval,
-  startExam,
   fetchExamStatus
 } from "../../../adminSlices/examSlice";
 
@@ -86,46 +85,24 @@ const ExamManagement = () => {
   }, [tracker]);
 
   // START EXAM
+  // Note: the startExam API call no longer happens here. It now fires when
+  // the student clicks "Begin Test" on the registration page. Here we just
+  // route them to that page (prefilled with whatever profile data we have).
   const handleStartExam = () => {
     setInstructionsMode("start");
 
-    setOnInstructionsConfirm(() => async () => {
-      try {
-        await dispatch(
-          startExam({
-            studentId,
-            programId: selectedProgramId,
-            packageId: selectedPackageId,
-          })
-        ).unwrap();
-
-        // Send the student to the registration page, prefilled with
-        // whatever profile data we already have on file.
-        navigate("/student/exam-register", {
-          state: {
-            // first_name: profile?.first_name,
-               first_name: profile?.first_name?.split("-").pop().trim(),
-            last_name: profile?.last_name,
-            email: profile?.email,
-            phone: profile?.phone,
-            password: profile?.password,
-            qualification: profile?.study_class,
-          },
-        });
-
-        // 👇 immediately refetch status
-        dispatch(
-          fetchExamStatus({
-            studentId,
-            programId: selectedProgramId,
-            packageId: selectedPackageId,
-          })
-        );
-        // message.success("Exam started successfully!");
-
-      } catch (error) {
-        message.error("Failed to start exam");
-      }
+    setOnInstructionsConfirm(() => () => {
+      navigate("/student/exam-register", {
+        state: {
+          // first_name: profile?.first_name,
+          first_name: profile?.first_name?.split("-").pop().trim(),
+          last_name: profile?.last_name,
+          email: profile?.email,
+          phone: profile?.phone,
+          password: profile?.password,
+          qualification: profile?.study_class,
+        },
+      });
     });
 
     setInstructionsModalVisible(true);

@@ -17,18 +17,14 @@ import {
     MailOutlined,
     PhoneOutlined,
     LockOutlined,
-    CheckCircleFilled,
-    FileTextOutlined,
-    BarChartOutlined,
     TeamOutlined,
-    BankOutlined,
-    DesktopOutlined,
     PlayCircleOutlined,
+    ArrowLeftOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import { useDispatch, useSelector } from "react-redux";
 // import { registerForExam, startExam, loginForExam } from "../../../adminSlices/examSlice";
-import { saveExamRegister, launchTest } from "../../../adminSlices/examSlice";
+import { saveExamRegister, launchTest, startExam } from "../../../adminSlices/examSlice";
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -38,46 +34,6 @@ const QUALIFICATION_OPTIONS = ["8th", "9th", "10th", "11th", "12th", "Graduate",
 const QUALIFICATION_STATUS_OPTIONS = ["Appearing", "Pass"];
 const INTERESTED_IN_OPTIONS = [
     "Assessment + Report",
-];
-
-/* ---------------- Static content (mirrors the reference brief) ---------------- */
-const JOURNEY_STEPS = [
-    {
-        icon: <FileTextOutlined />,
-        title: "Career Assessment Test",
-        subtitle: "From 8th standard to Graduation",
-        items: [
-            "Aptitude Analysis",
-            "Personality Types",
-            "Career Interest Areas",
-            "Study Habits Analysis",
-            "Relation Adjustment",
-            "Multiple Intelligence & Improvements",
-        ],
-    },
-    {
-        icon: <BarChartOutlined />,
-        title: "Career Guidance Report",
-        items: [
-            "Top Recommended Careers, Courses & Colleges",
-            "Know your dominant Intelligence & right study habits",
-            "Learn your relation adjustments",
-            "Know your Career Path",
-            "Success Ratios of Recommended Careers",
-        ],
-    },
-    {
-        icon: <TeamOutlined />,
-        title: "Expert Career Counselling",
-        items: ["Personalized Counselling", "India's Best Career Experts at your doorstep..."],
-    },
-];
-
-const ASSISTANCE_ITEMS = [
-    { icon: <FileTextOutlined />, text: "Scientifically designed Career Aptitude Test" },
-    { icon: <BankOutlined />, text: "Personalized Career Guidance Report" },
-    { icon: <TeamOutlined />, text: "Counselling Session with a Career Expert" },
-    { icon: <DesktopOutlined />, text: "We guide you to choose YOUR best career" },
 ];
 
 const ExamRegistration = () => {
@@ -157,7 +113,17 @@ const ExamRegistration = () => {
                 package_id: selectedPackageId,
             };
 
-            // 1. Save Registration
+            // 1. Start Exam (fires now, on "Begin Test", instead of on the
+            // exam-management page's "Start Exam" button)
+            await dispatch(
+                startExam({
+                    studentId,
+                    programId: selectedProgramId,
+                    packageId: selectedPackageId,
+                })
+            ).unwrap();
+
+            // 2. Save Registration
             const registerResponse = await dispatch(
                 saveExamRegister({
                     studentId,
@@ -167,7 +133,7 @@ const ExamRegistration = () => {
 
             console.log("Registration Response:", registerResponse);
 
-            // 2. Get test_id from response
+            // 3. Get test_id from response
             const testId =
                 registerResponse?.test_id ||
                 registerResponse?.data?.test_id;
@@ -177,7 +143,7 @@ const ExamRegistration = () => {
                 return;
             }
 
-            // 3. Launch Test
+            // 4. Launch Test
             const launchResponse = await dispatch(
                 launchTest({
                     studentId,
@@ -250,11 +216,29 @@ const ExamRegistration = () => {
                 <div
                     style={{
                         background: `linear-gradient(120deg, ${token.colorPrimary} 0%, ${token.colorInfo} 100%)`,
-                        padding: "40px 24px",
+                        padding: "3px 24px",
                     }}
                 >
                     <Row align="middle" gutter={[24, 16]} style={{ maxWidth: 1200, margin: "0 auto" }}>
                         <Col xs={24} md={15}>
+
+
+                            <Button
+                                type="text"
+                                icon={<ArrowLeftOutlined />}
+                                onClick={() => navigate("/student/exam-management")}
+                                style={{
+                                    color: "#fff",
+                                    fontWeight: 600,
+                                    padding: 0,
+                                    marginBottom: 12,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    width: "fit-content",
+                                }}
+                            >
+                                Back
+                            </Button>
                             <Text
                                 style={{
                                     color: token.colorWarning,
@@ -309,174 +293,11 @@ const ExamRegistration = () => {
                     </Row>
                 </div>
 
-                {/* ============ JOURNEY STEPS ============ */}
-                <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px 0" }}>
-                    <Row gutter={[20, 20]} justify="center">
-                        {JOURNEY_STEPS.map((step, idx) => (
-                            <React.Fragment key={step.title}>
-                                <Col xs={24} sm={24} md={7}>
-                                    <div
-                                        style={{
-                                            background: token.colorBgContainer,
-                                            borderRadius: token.borderRadiusLG || 14,
-                                            border: `1px solid ${token.colorBorder}`,
-                                            padding: "20px 20px 18px",
-                                            height: "100%",
-                                            boxShadow: token.boxShadow,
-                                        }}
-                                    >
-                                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                                            <div
-                                                style={{
-                                                    width: 34,
-                                                    height: 34,
-                                                    borderRadius: token.borderRadius,
-                                                    background: tint(token.colorPrimary, "1A"),
-                                                    color: token.colorPrimary,
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    justifyContent: "center",
-                                                    fontSize: 16,
-                                                    flexShrink: 0,
-                                                }}
-                                            >
-                                                {step.icon}
-                                            </div>
-                                            <Title level={5} style={{ margin: 0, color: token.colorTextBase }}>
-                                                {step.title}
-                                            </Title>
-                                        </div>
-                                        {step.subtitle && (
-                                            <Text
-                                                style={{
-                                                    fontSize: 12.5,
-                                                    display: "block",
-                                                    marginBottom: 10,
-                                                    color: token.colorTextSecondary,
-                                                }}
-                                            >
-                                                {step.subtitle}
-                                            </Text>
-                                        )}
-                                        <div style={{ marginTop: step.subtitle ? 0 : 12 }}>
-                                            {step.items.map((item) => (
-                                                <div
-                                                    key={item}
-                                                    style={{ display: "flex", gap: 8, marginBottom: 7, alignItems: "flex-start" }}
-                                                >
-                                                    <CheckCircleFilled
-                                                        style={{ color: token.colorSuccess, fontSize: 13, marginTop: 3 }}
-                                                    />
-                                                    <Text style={{ fontSize: 13.5, color: token.colorTextSecondary, lineHeight: 1.5 }}>
-                                                        {item}
-                                                    </Text>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </Col>
-                                {idx < JOURNEY_STEPS.length - 1 && (
-                                    <Col xs={0} md={1} style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                        <div
-                                            style={{
-                                                width: 26,
-                                                height: 26,
-                                                borderRadius: "50%",
-                                                background: token.colorWarning,
-                                                color: "#fff",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                justifyContent: "center",
-                                                fontSize: 12,
-                                            }}
-                                        >
-                                            →
-                                        </div>
-                                    </Col>
-                                )}
-                            </React.Fragment>
-                        ))}
-                    </Row>
-                </div>
-
-                {/* ============ ASSISTANCE + FORM ============ */}
-                <div style={{ maxWidth: 1200, margin: "0 auto", padding: "36px 24px" }}>
-                    <Row gutter={[32, 32]}>
-                        {/* LEFT: assistance + testimonial */}
-                        <Col xs={24} md={11}>
-                            <Title level={5} style={{ color: token.colorPrimary, marginBottom: 16 }}>
-                                For Assistance — Contact
-                            </Title>
-
-                            {ASSISTANCE_ITEMS.map((item) => (
-                                <div
-                                    key={item.text}
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: 14,
-                                        background: token.colorBgContainer,
-                                        border: `1px solid ${token.colorBorder}`,
-                                        borderRadius: token.borderRadius,
-                                        padding: "14px 16px",
-                                        marginBottom: 12,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            width: 38,
-                                            height: 38,
-                                            borderRadius: token.borderRadius,
-                                            background: tint(token.colorInfo, "1F"),
-                                            color: token.colorInfo,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            fontSize: 17,
-                                            flexShrink: 0,
-                                        }}
-                                    >
-                                        {item.icon}
-                                    </div>
-                                    <Text style={{ color: token.colorTextBase, fontSize: 14.5 }}>{item.text}</Text>
-                                </div>
-                            ))}
-
-                            <div
-                                style={{
-                                    marginTop: 24,
-                                    background: token.colorBgContainer,
-                                    border: `1px solid ${token.colorBorder}`,
-                                    borderLeft: `4px solid ${token.colorWarning}`,
-                                    borderRadius: token.borderRadius,
-                                    padding: "18px 20px",
-                                }}
-                            >
-                                <Text
-                                    style={{
-                                        fontSize: 12.5,
-                                        letterSpacing: "0.5px",
-                                        textTransform: "uppercase",
-                                        color: token.colorTextSecondary,
-                                    }}
-                                >
-                                    Trusted by thousands of students
-                                </Text>
-                                <Paragraph
-                                    italic
-                                    style={{ color: token.colorTextBase, fontSize: 15, margin: "10px 0 6px", lineHeight: 1.6 }}
-                                >
-                                    "Thank you for the best advice. I am now feeling more confident and sure about my
-                                    career path."
-                                </Paragraph>
-                                <Text strong style={{ color: token.colorPrimary, fontSize: 13.5 }}>
-                                    — Kailash Malhotra, 12th Std, Pune
-                                </Text>
-                            </div>
-                        </Col>
-
-                        {/* RIGHT: registration card (New User only, no tabs) */}
-                        <Col xs={24} md={13}>
+                {/* ============ FORM ============ */}
+                <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 24px" }}>
+                    <Row justify="center">
+                        {/* Registration card (New User only, no tabs) */}
+                        <Col xs={24}>
                             <div
                                 style={{
                                     background: token.colorBgContainer,
@@ -486,16 +307,38 @@ const ExamRegistration = () => {
                                     overflow: "hidden",
                                 }}
                             >
-                                <div style={{ padding: "26px 26px 26px" }}>
+                                <div className="compact-exam-form" style={{ padding: "20px 26px 20px" }}>
+                                    <style>{`
+                                        .compact-exam-form .ant-form-item {
+                                            margin-bottom: 10px;
+                                        }
+                                        .compact-exam-form .ant-form-item-label {
+                                            padding-bottom: 4px;
+                                        }
+                                        .compact-exam-form .ant-form-item-label > label {
+                                            height: 10px;
+                                            font-size: 14px;
+                                        }
+                                        .compact-exam-form .ant-input,
+                                        .compact-exam-form .ant-input-affix-wrapper,
+                                        .compact-exam-form .ant-select-selector {
+                                            font-size: 14px;
+                                            min-height: 10px;
+                                        }
+                                        .compact-exam-form .ant-select-selector {
+                                            display: flex;
+                                            align-items: center;
+                                        }
+                                    `}</style>
                                     <div
                                         style={{
                                             background: tint(token.colorInfo, "12"),
                                             borderRadius: token.borderRadius,
                                             padding: "8px 14px",
-                                            marginBottom: 18,
+                                            marginBottom: 16,
                                         }}
                                     >
-                                        <Text strong style={{ color: token.colorPrimary, fontSize: 13.5 }}>
+                                        <Text strong style={{ color: token.colorPrimary, fontSize: 14 }}>
                                             New here? Please sign up
                                         </Text>
                                     </div>
@@ -654,6 +497,7 @@ const ExamRegistration = () => {
                                                 <Button
                                                     htmlType="submit"
                                                     block
+                                                    size="large"
                                                     icon={<PlayCircleOutlined />}
                                                     loading={submitting}
                                                     disabled={beginTestDisabled}
