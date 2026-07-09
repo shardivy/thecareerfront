@@ -174,6 +174,18 @@ export default function StudentLayout() {
   }, [dispatch]);
 
   useEffect(() => {
+  const disableRightClick = (e) => {
+    e.preventDefault();
+  };
+
+  document.addEventListener("contextmenu", disableRightClick);
+
+  return () => {
+    document.removeEventListener("contextmenu", disableRightClick);
+  };
+}, []);
+
+  useEffect(() => {
     if (profile?.role) {
       const oldRole = localStorage.getItem("adminRole");
 

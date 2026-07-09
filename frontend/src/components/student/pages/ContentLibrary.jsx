@@ -46,7 +46,7 @@ const getFileExtension = (source = "", fallback = "pdf") => {
 
 const ContentLibrary = () => {
   const dispatch = useDispatch();
-  const { contentList,studentContent, loading } = useSelector((state) => state.content);
+  const { contentList, studentContent, loading } = useSelector((state) => state.content);
 
   const { studentCounsellingNotes, studentCounsellingNotesLoading } = useSelector((state) => state.content);
 
@@ -55,12 +55,13 @@ const ContentLibrary = () => {
   const [accessLevel, setAccessLevel] = useState(null);
 
   const [currentPage, setCurrentPage] = useState(1);
- const [pageSize, setPageSize] = useState(6);
+  const [pageSize, setPageSize] = useState(6);
 
   const selectedProgramId = Number(localStorage.getItem("selectedProgramId"));
   const studentPackage = Number(localStorage.getItem("selectedPackageId"));
   const studentStream = Number(localStorage.getItem("selectedStreamId"));
   const studentId = localStorage.getItem("studentId");
+
 
   const isFreeUser = !selectedProgramId || !studentPackage;
 
@@ -73,8 +74,8 @@ const ContentLibrary = () => {
       dispatch(fetchContentList());
     } else {
       // PAID USER → get program specific content
-       dispatch(fetchProgramContent(selectedProgramId));
-       dispatch(fetchStudentContent(studentId));
+      dispatch(fetchProgramContent(selectedProgramId));
+      dispatch(fetchStudentContent(studentId));
     }
   }, [dispatch]);
 
@@ -97,234 +98,172 @@ const ContentLibrary = () => {
 
 
 
-// ================= PROGRAM CONTENT =================
-// const programContent =
-//   (contentList || [])
-//     .filter((item) => {
-//       if (item.is_draft) return false;
+  // ================= PROGRAM CONTENT =================
+  // const programContent =
+  //   (contentList || [])
+  //     .filter((item) => {
+  //       if (item.is_draft) return false;
 
-//       // Apply ONLY for Program Content API
-//       if (!item.is_student_visible) return false;
-
-//       if (isFreeUser) {
-//         return item.free_content || item.payment_required;
-//       }
-
-//       // Premium Content
-//       if (item.payment_required) {
-//         if (item.package_details?.length > 0) {
-//           return item.package_details.some(
-//             (pkg) => Number(pkg.id) === Number(studentPackage)
-//           );
-//         }
-
-//         if (item.program_details?.length > 0) {
-//           return item.program_details.some(
-//             (prog) => Number(prog.id) === Number(selectedProgramId)
-//           );
-//         }
-
-//         return false;
-//       }
-
-//       // Free Content
-//       if (item.package_details?.length > 0) {
-//         return item.package_details.some(
-//           (pkg) => Number(pkg.id) === Number(studentPackage)
-//         );
-//       }
-
-//       if (item.program_details?.length > 0) {
-//         return item.program_details.some(
-//           (prog) => Number(prog.id) === Number(selectedProgramId)
-//         );
-//       }
-
-//       return false;
-//     })
-//     .map((item) => ({
-//       id: item.id,
-//       title: item.title,
-//       description: item.description,
-//       type: item.type === "video" ? "Video" : "Article",
-//       accessType: item.payment_required ? "Premium" : "Free",
-//       programs: item.program_details?.map((p) => p.name) || [],
-//       viewUrl: item.video_link || item.file_url,
-//       image: item.image,
-//       fileName:
-//         item.file_name || getFileNameFromUrl(item.file_url || ""),
-//     }));
-
-const programContent = (contentList || [])
-  .filter((item) => {
-    if (item.is_draft) return false;
-    if (!item.is_student_visible) return false;
-
-    // FREE USER
-    if (isFreeUser) {
-      return item.free_content || item.payment_required;
-    }
-
-  const hasPrograms = item.program_details?.length > 0;
-const hasPackages = item.package_details?.length > 0;
-const hasStreams = item.stream_details?.length > 0;
-
-const programMatch =
-  !hasPrograms ||
-  item.program_details.some(
-    (p) => Number(p.id) === selectedProgramId
-  );
-
-const packageMatch =
-  !hasPackages ||
-  item.package_details.some(
-    (p) => Number(p.id) === studentPackage
-  );
-
-const streamMatch =
-  !hasStreams ||
-  item.stream_details.some(
-    (s) => Number(s.id) === studentStream
-  );
-
-// Program only
-if (hasPrograms && !hasPackages && !hasStreams) {
-  return programMatch;
-}
-
-// Program + Package
-if (hasPrograms && hasPackages && !hasStreams) {
-  return programMatch && packageMatch;
-}
-
-// Program + Package + Stream
-if (hasPrograms && hasPackages && hasStreams) {
-  return programMatch && packageMatch && streamMatch;
-}
-
-// Program + Stream
-if (hasPrograms && !hasPackages && hasStreams) {
-  return programMatch && streamMatch;
-}
-
-// Package only
-if (!hasPrograms && hasPackages && !hasStreams) {
-  return packageMatch;
-}
-
-// Stream only
-if (!hasPrograms && !hasPackages && hasStreams) {
-  return streamMatch;
-}
-
-// Package + Stream
-if (!hasPrograms && hasPackages && hasStreams) {
-  return packageMatch && streamMatch;
-}
-
-// Program + Package empty + Stream empty
-// Hide content that has no mapping at all
-return false;
-  })
-  .map((item) => ({
-    id: item.id,
-    title: item.title,
-    description: item.description,
-    type: item.type === "video" ? "Video" : "Article",
-    accessType: item.payment_required ? "Premium" : "Free",
-    programs: item.program_details?.map((p) => p.name) || [],
-    viewUrl: item.video_link || item.file_url,
-    image: item.image,
-    fileName:
-      item.file_name || getFileNameFromUrl(item.file_url || ""),
-
-      isCounsellorContent: true,
-  sender: "Counsellor",
-  }));
-
-// ================= STUDENT CONTENT =================
-const studentContents =
-  (studentContent || []).map((item) => ({
-    id: item.id,
-    title: item.title,
-    description: item.description,
-    type: item.type === "video" ? "Video" : "Article",
-    accessType: item.payment_required ? "Premium" : "Free",
-    programs: item.program_details?.map((p) => p.name) || [],
-    viewUrl: item.video_link || item.file_url,
-    image: item.image,
-    fileName:
-      item.file_name || getFileNameFromUrl(item.file_url || ""),
-  }));
-
-// ================= MERGE BOTH =================
-const transformedData = [
-  ...programContent,
-  ...studentContents,
-];
-
-  // const transformedData =
-  //   contentList
-  //     ?.filter((item) => {
-  //         // Hide draft content
-  //     if (item.is_draft) return false;
-
-  //     // Only show content visible to students
-  //     if (!item.is_student_visible) return false;
+  //       // Apply ONLY for Program Content API
+  //       if (!item.is_student_visible) return false;
 
   //       if (isFreeUser) {
-  //         // FREE USER → show free_content + premium (locked)
-  //         return item.free_content === true || item.payment_required === true;
+  //         return item.free_content || item.payment_required;
   //       }
 
-  //       // PAID USER LOGIC:
-
-  //       // Always show premium content (will be locked/unlocked based on payment)
-  //       if (item.payment_required === true) {
+  //       // Premium Content
+  //       if (item.payment_required) {
   //         if (item.package_details?.length > 0) {
   //           return item.package_details.some(
-  //             (pkg) => Number(pkg.id) === studentPackage
+  //             (pkg) => Number(pkg.id) === Number(studentPackage)
   //           );
   //         }
+
   //         if (item.program_details?.length > 0) {
   //           return item.program_details.some(
-  //             (prog) => Number(prog.id) === selectedProgramId
+  //             (prog) => Number(prog.id) === Number(selectedProgramId)
   //           );
   //         }
+
   //         return false;
   //       }
 
-  //       // FREE CONTENT → package match first, fallback to program
+  //       // Free Content
   //       if (item.package_details?.length > 0) {
   //         return item.package_details.some(
-  //           (pkg) => Number(pkg.id) === studentPackage
+  //           (pkg) => Number(pkg.id) === Number(studentPackage)
   //         );
   //       }
 
   //       if (item.program_details?.length > 0) {
   //         return item.program_details.some(
-  //           (prog) => Number(prog.id) === selectedProgramId
+  //           (prog) => Number(prog.id) === Number(selectedProgramId)
   //         );
   //       }
 
   //       return false;
   //     })
-  //     ?.map((item) => {
-  //       const accessType = item.payment_required ? "Premium" : "Free";
-  //       const contentType = item.type === "video" ? "Video" : "Article";
+  //     .map((item) => ({
+  //       id: item.id,
+  //       title: item.title,
+  //       description: item.description,
+  //       type: item.type === "video" ? "Video" : "Article",
+  //       accessType: item.payment_required ? "Premium" : "Free",
+  //       programs: item.program_details?.map((p) => p.name) || [],
+  //       viewUrl: item.video_link || item.file_url,
+  //       image: item.image,
+  //       fileName:
+  //         item.file_name || getFileNameFromUrl(item.file_url || ""),
+  //     }));
 
-  //       return {
-  //         id: item.id,
-  //         title: item.title,
-  //         description: item.description,
-  //         type: contentType,
-  //         accessType,
-  //         programs: item.program_details?.map((p) => p.name) || [],
-  //         viewUrl: item.video_link || item.file_url,
-  //         image: item.image,
-  //         fileName: item.file_name || getFileNameFromUrl(item.file_url || ""),
-  //       };
-  //     }) || [];
+  const programContent = (contentList || [])
+    .filter((item) => {
+      if (item.is_draft) return false;
+      if (!item.is_student_visible) return false;
+
+      // FREE USER
+      if (isFreeUser) {
+        return item.free_content || item.payment_required;
+      }
+
+      const hasPrograms = item.program_details?.length > 0;
+      const hasPackages = item.package_details?.length > 0;
+      const hasStreams = item.stream_details?.length > 0;
+
+      const programMatch =
+        !hasPrograms ||
+        item.program_details.some(
+          (p) => Number(p.id) === selectedProgramId
+        );
+
+      const packageMatch =
+        !hasPackages ||
+        item.package_details.some(
+          (p) => Number(p.id) === studentPackage
+        );
+
+      const streamMatch =
+        !hasStreams ||
+        item.stream_details.some(
+          (s) => Number(s.id) === studentStream
+        );
+
+      // Program only
+      if (hasPrograms && !hasPackages && !hasStreams) {
+        return programMatch;
+      }
+
+      // Program + Package
+      if (hasPrograms && hasPackages && !hasStreams) {
+        return programMatch && packageMatch;
+      }
+
+      // Program + Package + Stream
+      if (hasPrograms && hasPackages && hasStreams) {
+        return programMatch && packageMatch && streamMatch;
+      }
+
+      // Program + Stream
+      if (hasPrograms && !hasPackages && hasStreams) {
+        return programMatch && streamMatch;
+      }
+
+      // Package only
+      if (!hasPrograms && hasPackages && !hasStreams) {
+        return packageMatch;
+      }
+
+      // Stream only
+      if (!hasPrograms && !hasPackages && hasStreams) {
+        return streamMatch;
+      }
+
+      // Package + Stream
+      if (!hasPrograms && hasPackages && hasStreams) {
+        return packageMatch && streamMatch;
+      }
+
+      // Program + Package empty + Stream empty
+      // Hide content that has no mapping at all
+      return false;
+    })
+    .map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      type: item.type === "video" ? "Video" : "Article",
+      accessType: item.payment_required ? "Premium" : "Free",
+      programs: item.program_details?.map((p) => p.name) || [],
+      viewUrl: item.video_link || item.file_url,
+      image: item.image,
+      fileName:
+        item.file_name || getFileNameFromUrl(item.file_url || ""),
+
+      isCounsellorContent: true,
+      sender: "Counsellor",
+    }));
+
+  // ================= STUDENT CONTENT =================
+  const studentContents =
+    (studentContent || []).map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      type: item.type === "video" ? "Video" : "Article",
+      accessType: item.payment_required ? "Premium" : "Free",
+      programs: item.program_details?.map((p) => p.name) || [],
+      viewUrl: item.video_link || item.file_url,
+      image: item.image,
+      fileName:
+        item.file_name || getFileNameFromUrl(item.file_url || ""),
+    }));
+
+  // ================= MERGE BOTH =================
+  const transformedData = [
+    ...programContent,
+    ...studentContents,
+  ];
+
 
   const getFilePreviewImage = (fileName = "") => {
     const ext = getFileExtension(fileName);
@@ -554,201 +493,206 @@ const transformedData = [
       ) : (
         <>
           <Row gutter={[24, 24]}>
-            {paginatedData.map((item) => (
-              <Col xs={24} sm={12} md={8} key={item.id}>
-                <Card
-                  hoverable
-                  style={{
-                    borderRadius: 14,
-                    height: 420,
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                  styles={{
-                    body: {
+            {paginatedData.map((item) => {
+              const isPdf = getFileExtension(item.fileName || item.viewUrl, "pdf") === "pdf";
+
+              return (
+                <Col xs={24} sm={12} md={8} key={item.id}>
+                  <Card
+                    hoverable
+                    style={{
+                      borderRadius: 14,
+                      height: 420,
                       display: "flex",
                       flexDirection: "column",
-                      flex: 1,
-                    },
-                  }}
-                >
-                  {/* IMAGE */}
-                  <div
-                    style={{
-                      position: "relative",
-                      height: 160,
-                      borderRadius: 10,
-                      overflow: "hidden",
+                    }}
+                    styles={{
+                      body: {
+                        display: "flex",
+                        flexDirection: "column",
+                        flex: 1,
+                      },
                     }}
                   >
-                    <img
-                      src={
-                        item.image
-                          ? item.image
-                          : "https://via.placeholder.com/400x200?text=Content"
-                      }
-                      alt={item.title}
+                    {/* IMAGE */}
+                    <div
                       style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                        filter:
-                          item.accessType === "Premium" && !paymentCompleted
-                            ? "brightness(0.4)"
-                            : "none",
+                        position: "relative",
+                        height: 160,
+                        borderRadius: 10,
+                        overflow: "hidden",
                       }}
-                    />
+                    >
+                      <img
+                        src={
+                          item.image
+                            ? item.image
+                            : "https://via.placeholder.com/400x200?text=Content"
+                        }
+                        alt={item.title}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          filter:
+                            item.accessType === "Premium" && !paymentCompleted
+                              ? "brightness(0.4)"
+                              : "none",
+                        }}
+                      />
 
-                    {item.isCounsellingNote && (
+                      {item.isCounsellingNote && (
+                        <Tag
+                          color="cyan"
+                          style={{
+                            position: "absolute",
+                            top: 10,
+                            left: 10,
+                            fontWeight: 600,
+                          }}
+                        >
+                          Counselling Note
+                        </Tag>
+                      )}
+
                       <Tag
-                        color="cyan"
+                        color={item.accessType === "Free" ? "green" : "gold"}
                         style={{
                           position: "absolute",
                           top: 10,
-                          left: 10,
+                          right: 10,
                           fontWeight: 600,
                         }}
                       >
-                        Counselling Note
+                        {item.accessType.toUpperCase()}
                       </Tag>
-                    )}
 
-                    <Tag
-                      color={item.accessType === "Free" ? "green" : "gold"}
+                      {item.accessType === "Premium" && !paymentCompleted && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            background: "rgba(0,0,0,0.6)",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#fff",
+                          }}
+                        >
+                          <LockOutlined
+                            style={{ fontSize: 32, marginBottom: 8 }}
+                          />
+                          Premium Content
+                        </div>
+                      )}
+                    </div>
+
+                    {/* CONTENT */}
+                    <div
                       style={{
-                        position: "absolute",
-                        top: 10,
-                        right: 10,
-                        fontWeight: 600,
+                        marginTop: 16,
+                        display: "flex",
+                        flexDirection: "column",
+                        flex: 1,
                       }}
                     >
-                      {item.accessType.toUpperCase()}
-                    </Tag>
+                      <Title level={5}>{item.title}</Title>
 
-                    {item.accessType === "Premium" && !paymentCompleted && (
+                      <Text
+                        type="colorTextSecondary"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          minHeight: 40,
+                        }}
+                      >
+                        {item.description}
+                      </Text>
+
+                      {/* PROGRAM TAGS */}
                       <div
                         style={{
-                          position: "absolute",
-                          inset: 0,
-                          background: "rgba(0,0,0,0.6)",
+                          marginTop: 12,
+                          gap: 8,
                           display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#fff",
+                          flexWrap: "wrap",
                         }}
                       >
-                        <LockOutlined
-                          style={{ fontSize: 32, marginBottom: 8 }}
-                        />
-                        Premium Content
-                      </div>
-                    )}
-                  </div>
-
-                  {/* CONTENT */}
-                  <div
-                    style={{
-                      marginTop: 16,
-                      display: "flex",
-                      flexDirection: "column",
-                      flex: 1,
-                    }}
-                  >
-                    <Title level={5}>{item.title}</Title>
-
-                    <Text
-                      type="colorTextSecondary"
-                      style={{
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        minHeight: 40,
-                      }}
-                    >
-                      {item.description}
-                    </Text>
-
-                    {/* PROGRAM TAGS */}
-                    <div
-                      style={{
-                        marginTop: 12,
-                        gap: 8,
-                        display: "flex",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      {item.programs.slice(0, 2).map((prog) => (
-                        <Tag key={prog} color="blue">
-                          {prog}
-                        </Tag>
-                      ))}
-
-                      {item.programs.length > 2 && (
-                        <Tooltip title={item.programs.join(", ")}>
-                          <Tag color="default" style={{ cursor: "pointer" }}>
-                            +{item.programs.length - 2} more
+                        {item.programs.slice(0, 2).map((prog) => (
+                          <Tag key={prog} color="blue">
+                            {prog}
                           </Tag>
-                        </Tooltip>
-                      )}
+                        ))}
 
-                      <Tag color="purple">{item.type}</Tag>
-                    </div>
-
-                    {/* BUTTON */}
-                    <div
-                      style={{
-                        marginTop: "auto",
-                        display: "flex",
-                        justifyContent: "space-between", // space between left and right
-                        alignItems: "center",
-                      }}
-                    >
-                      {/* Left side: View Content Button */}
-                      {/* Left side: View Content Button */}
-                      <Button
-                        type="link"
-                        disabled={
-                          (item.accessType === "Premium" && !paymentCompleted) ||
-                          (item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf")
-                        }
-                        style={{
-                          padding: 0,
-                          fontWeight: 600,
-                        }}
-                        onClick={() => handleView(item)}
-                      >
-                        {item.accessType === "Premium" && !paymentCompleted
-                          ? "Complete Payment to Unlock →"
-                          : item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf"
-                            ? "View Not Available →"
-                            : "View Content →"}
-                      </Button>
-                      {/* Right side: Download Button - icon + text, only when content is unlocked and not a video */}
-                      {!(item.accessType === "Premium" && !paymentCompleted) &&
-                        item.viewUrl &&
-                        item.type !== "Video" && (
-                          <Button
-                            type="link"
-                            size="small"
-                            icon={<DownloadOutlined />}
-                            style={{
-                              fontWeight: 600,
-                              padding: "0 8px",
-                              display: "flex",
-                              alignItems: "center",
-                            }}
-                            onClick={(e) => handleDownloadClick(item, e)}
-                          >
-                            Download
-                          </Button>
+                        {item.programs.length > 2 && (
+                          <Tooltip title={item.programs.join(", ")}>
+                            <Tag color="default" style={{ cursor: "pointer" }}>
+                              +{item.programs.length - 2} more
+                            </Tag>
+                          </Tooltip>
                         )}
+
+                        <Tag color="purple">{item.type}</Tag>
+                      </div>
+
+                      {/* BUTTON */}
+                      <div
+                        style={{
+                          marginTop: "auto",
+                          display: "flex",
+                          justifyContent: "space-between", // space between left and right
+                          alignItems: "center",
+                        }}
+                      >
+                        {/* Left side: View Content Button */}
+                        {/* Left side: View Content Button */}
+                        <Button
+                          type="link"
+                          disabled={
+                            (item.accessType === "Premium" && !paymentCompleted) ||
+                            (item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf")
+                          }
+                          style={{
+                            padding: 0,
+                            fontWeight: 600,
+                          }}
+                          onClick={() => handleView(item)}
+                        >
+                          {item.accessType === "Premium" && !paymentCompleted
+                            ? "Complete Payment to Unlock →"
+                            : item.type !== "Video" && getFileExtension(item.fileName, "pdf") !== "pdf"
+                              ? "View Not Available →"
+                              : "View Content →"}
+                        </Button>
+                        {/* Right side: Download Button - icon + text, only when content is unlocked and not a video */}
+                        {!(item.accessType === "Premium" && !paymentCompleted) &&
+                          item.viewUrl &&
+                          item.type !== "Video" &&
+                          getFileExtension(item.fileName || item.viewUrl, "pdf") !== "pdf" && (
+                            <Button
+                              type="link"
+                              size="small"
+                              icon={<DownloadOutlined />}
+                              style={{
+                                fontWeight: 600,
+                                padding: "0 8px",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                              onClick={(e) => handleDownloadClick(item, e)}
+                            >
+                              Download
+                            </Button>
+                          )}
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              </Col>
-            ))}
+                  </Card>
+                </Col>
+              );
+            })}
 
             {/* EMPTY */}
             {filteredData.length === 0 && (
@@ -763,21 +707,21 @@ const transformedData = [
           </Row>
 
           {/* PAGINATION */}
-  {filteredData.length > pageSize && (
-  <Row justify="end" style={{ marginTop: 40 }}>
-    <Pagination
-      current={currentPage}
-      pageSize={pageSize}
-      total={filteredData.length}
-      showSizeChanger
-      pageSizeOptions={[5, 10, 20, 50]}
-      showLessItems={false}
-      onChange={(page, size) => {
-        setCurrentPage(page);
-        setPageSize(size);
-      }}
-    />
-  </Row>
+          {filteredData.length > pageSize && (
+            <Row justify="end" style={{ marginTop: 40 }}>
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={filteredData.length}
+                showSizeChanger
+                pageSizeOptions={[5, 10, 20, 50]}
+                showLessItems={false}
+                onChange={(page, size) => {
+                  setCurrentPage(page);
+                  setPageSize(size);
+                }}
+              />
+            </Row>
           )}
         </>
       )}

@@ -299,18 +299,18 @@ const CounsellorDashboard = () => {
       render: (_, record) => {
         const now = dayjs();
 
-    const sessionStart = dayjs(
-  `${record.date} ${record.startTime}`,
-  "YYYY-MM-DD hh:mm A"
-);
+        const sessionStart = dayjs(
+          `${record.date} ${record.startTime}`,
+          "YYYY-MM-DD hh:mm A"
+        );
 
-const sessionEnd = sessionStart.add(90, "minute");
+        const sessionEnd = sessionStart.add(90, "minute");
 
-const isJoinEnabled =
-  record.status !== "completed" &&
-  (now.isAfter(sessionStart.subtract(15, "minute")) ||
-    now.isSame(sessionStart.subtract(15, "minute"))) &&
-  now.isBefore(sessionEnd);
+        const isJoinEnabled =
+          record.status !== "completed" &&
+          (now.isAfter(sessionStart.subtract(15, "minute")) ||
+            now.isSame(sessionStart.subtract(15, "minute"))) &&
+          now.isBefore(sessionEnd);
 
         const showCompleteButton =
           record.status !== "completed" &&

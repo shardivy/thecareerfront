@@ -294,15 +294,15 @@ const ReportManagement = () => {
     }
   };
 
-const getFileType = (fileName = "") => {
-  const ext = fileName.split(".").pop()?.toLowerCase();
+  const getFileType = (fileName = "") => {
+    const ext = fileName.split(".").pop()?.toLowerCase();
 
-  if (ext === "pdf") return "pdf";
-  if (["xls", "xlsx"].includes(ext)) return "excel";
-  if (["doc", "docx"].includes(ext)) return "word";
+    if (ext === "pdf") return "pdf";
+    if (["xls", "xlsx"].includes(ext)) return "excel";
+    if (["doc", "docx"].includes(ext)) return "word";
 
-  return "other";
-};
+    return "other";
+  };
 
   const handleView = (url) => {
     if (!url) return;
@@ -397,24 +397,23 @@ const getFileType = (fileName = "") => {
         {/* Actions */}
         {!locked ? (
           <>
-            {isPdf && (
+            {isPdf ? (
               <Button
                 block
                 icon={<EyeOutlined />}
-                style={{ marginBottom: 10 }}
                 onClick={() => handleView(report.file_path)}
               >
                 View Report
               </Button>
+            ) : (
+              <Button
+                block
+                icon={<DownloadOutlined />}
+                onClick={() => handleDownload(report.file_path, report.file_name)}
+              >
+                Download {type.toUpperCase()}
+              </Button>
             )}
-
-            <Button
-              block
-              icon={<DownloadOutlined />}
-              onClick={() => handleDownload(report.file_path, report.file_name)}
-            >
-              Download {type.toUpperCase()}
-            </Button>
           </>
         ) : reason === "payment" ? (
           <Alert
@@ -550,7 +549,7 @@ const getFileType = (fileName = "") => {
         <Row gutter={[24, 24]} justify="center">
           {filteredReports?.length > 0 ? (
             filteredReports.map((report) => {
-                if (report.report_status === "not_received" || !report.file_path) {
+              if (report.report_status === "not_received" || !report.file_path) {
                 return (
                   <Col xs={24} md={10} key={report.id}>
                     <PendingUploadCard />
