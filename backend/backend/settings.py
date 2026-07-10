@@ -265,6 +265,8 @@ INSTALLED_APPS = [
     # 'activity',
     "activity.apps.ActivityConfig",
     'event',
+    
+    'storages',
 ]
 
 
@@ -360,9 +362,19 @@ DATABASES = {
 # MEDIA / STATIC
 # =========================
 
+STORAGES = {
+    "default": {
+        "BACKEND": "backend.storage.MediaStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
 STATIC_URL = 'static/'
 
-MEDIA_URL = '/media/'
+# MEDIA_URL = '/media/'
+MEDIA_URL = f"https://abhinavcareerscope-media-staging.s3.ap-south-1.amazonaws.com/"
 MEDIA_ROOT = BASE_DIR / 'media'
 
 

@@ -1138,14 +1138,14 @@ class LaunchTestAPIView(APIView):
             url = (
                 f"http://www.careerfutura.com/business-associate-link?"
                 f"id=1090"
-                f"&pass=Uxor2kwB"
-                f"&name={test.first_name}"
-                f"&email={test.email}"
-                f"&passw={test.password}"
-                f"&mob={test.phone}"
-                f"&qual={test.study_class}"
-                f"&qual_status={test.qualification_status}"
-                f"&type={test.type}"
+                f"&&pass=Uxor2kwB"
+                f"&&name={test.first_name}"
+                f"&&email={test.email}"
+                f"&&passw={test.password}"
+                f"&&mob={test.phone}"
+                f"&&qual={test.study_class}"
+                f"&&qual_status={test.qualification_status}"
+                f"&&type={test.type}"
             )
 
             return Response({"url": url})
