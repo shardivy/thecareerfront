@@ -1,7 +1,7 @@
 // src/adminSlices/counsellorSlice.js
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { fetchReenaCounsellorApi, fetchLeadCounsellorsApi, getMyStudentsApi, createCounsellingNoteApi, fetchCounsellingNoteApi, fetchCounsellorDashboardCountApi, updateCounsellingNoteApi, fetchCounsellorBookingsApi, deleteCounsellingFileApi, getMyStudentsNewApi } from "../adminApi/counsellorApi";
+import { fetchReenaCounsellorApi, fetchLeadCounsellorsApi, getMyStudentsApi, createCounsellingNoteApi, fetchCounsellingNoteApi, fetchCounsellorDashboardCountApi, updateCounsellingNoteApi, fetchCounsellorBookingsApi, deleteCounsellingFileApi, getMyStudentsNewApi ,fetchAllCounsellorsApi} from "../adminApi/counsellorApi";
 
 /* ================= THUNK ================= */
 
@@ -30,6 +30,23 @@ export const fetchLeadCounsellors = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch lead counsellors"
+      );
+    }
+  }
+);
+
+/* ================= FETCH ALL COUNSELLORS ================= */
+
+export const fetchAllCounsellors = createAsyncThunk(
+  "counsellors/fetchAllCounsellors",
+  async (_, { rejectWithValue }) => {
+    try {
+      const data = await fetchAllCounsellorsApi();
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          "Failed to fetch all counsellors"
       );
     }
   }
@@ -255,6 +272,33 @@ const counsellorSlice = createSlice({
         state.error = action.payload;
       })
 
+      /* -------- FETCH ALL COUNSELLORS -------- */
+
+.addCase(fetchAllCounsellors.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+})
+
+.addCase(fetchAllCounsellors.fulfilled, (state, action) => {
+  state.loading = false;
+
+  if (Array.isArray(action.payload)) {
+    state.list = action.payload.map((c) => ({
+      id: c.id || c.id,
+      first_name: c.user?.first_name || "",
+      last_name: c.user?.last_name || "",
+      email: c.user?.email || "",
+    }));
+  } else {
+    state.list = [];
+  }
+})
+
+.addCase(fetchAllCounsellors.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload;
+})
+
       .addCase(fetchMyStudentsNew.pending, (state) => {
         state.studentsLoading = true;
         state.error = null;
@@ -331,7 +375,7 @@ const counsellorSlice = createSlice({
             notes: notes || "",
             file_urls, // array of {url,key}
           };
-          console.log("Stored note with files:", state.notes[bookingId]);
+          // console.log("Stored note with files:", state.notes[bookingId]);
         }
       })
       .addCase(fetchCounsellingNote.rejected, (state, action) => {

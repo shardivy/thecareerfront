@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from accounts.models import User
-from exam.models import Exam, UserExam
+from exam.models import CareerFuturaTest, Exam, UserExam
 from program_package.models import Package, PackageExam, Program, UserProgramPackage
 
 
@@ -206,46 +206,6 @@ class UserExamListSerializer(serializers.ModelSerializer):
             "approved_by",
             "approved_by_role",
         )
-        
-    # def get_program_id(self, obj):
-    #     package_exam = (
-    #         obj.exam.exam_packages
-    #         .select_related("package__program")
-    #         .first()
-    #     )
-    #     if package_exam:
-    #         return package_exam.package.program.id
-    #     return None
-
-    # def get_program(self, obj):
-    #     package_exam = (
-    #         obj.exam.exam_packages
-    #         .select_related("package__program")
-    #         .first()
-    #     )
-    #     if package_exam:
-    #         return package_exam.package.program.name
-    #     return None
-    
-    # def get_package_id(self, obj):
-    #     package_exam = (
-    #         obj.exam.exam_packages
-    #         .select_related("package")
-    #         .first()
-    #     )
-    #     if package_exam:
-    #         return package_exam.package.id
-    #     return None
-    
-    # def get_package(self, obj):
-    #     package_exam = (
-    #         obj.exam.exam_packages
-    #         .select_related("package")
-    #         .first()
-    #     )
-    #     if package_exam:
-    #         return package_exam.package.name
-    #     return None
     
     # def get_user_program_package(self, obj):
     #     return UserProgramPackage.objects.filter(user=obj.user).select_related(
@@ -253,41 +213,47 @@ class UserExamListSerializer(serializers.ModelSerializer):
     #     ).first()
     def get_user_program_package(self, obj):
         if not hasattr(obj, "_upp_cache"):
-            obj._upp_cache = UserProgramPackage.objects.filter(
-                user=obj.user
-            ).select_related("program", "package").order_by("-id").first()
+            obj._upp_cache = (
+                UserProgramPackage.objects
+                .filter(
+                    user=obj.user,
+                    package__aptitude_test=True
+                )
+                .select_related("program", "package")
+                .first()
+            )
+
         return obj._upp_cache
 
     # def get_program_id(self, obj):
     #     upp = self.get_user_program_package(obj)
-    #     return upp.program.id if upp else None
+    #     return upp.program.id if upp and upp.program else None
 
     # def get_program(self, obj):
     #     upp = self.get_user_program_package(obj)
-    #     return upp.program.name if upp else None
+    #     return upp.program.name if upp and upp.program else None
 
     # def get_package_id(self, obj):
     #     upp = self.get_user_program_package(obj)
-    #     return upp.package.id if upp else None
+    #     return upp.package.id if upp and upp.package else None
 
     # def get_package(self, obj):
     #     upp = self.get_user_program_package(obj)
-    #     return upp.package.name if upp else None
+    #     return upp.package.name if upp and upp.package else None
+    
     def get_program_id(self, obj):
-        upp = self.get_user_program_package(obj)
-        return upp.program.id if upp and upp.program else None
-
+        return obj.program.id if obj.program else None
+   
     def get_program(self, obj):
-        upp = self.get_user_program_package(obj)
-        return upp.program.name if upp and upp.program else None
-
+        return obj.program.name if obj.program else None
+   
     def get_package_id(self, obj):
-        upp = self.get_user_program_package(obj)
-        return upp.package.id if upp and upp.package else None
-
+        return obj.package.id if obj.package else None
+   
     def get_package(self, obj):
-        upp = self.get_user_program_package(obj)
-        return upp.package.name if upp and upp.package else None
+        return obj.package.name if obj.package else None 
+    
+    
     
 
     def get_approved_by(self, obj):
@@ -335,3 +301,51 @@ class UserExamApproveResponseSerializer(serializers.ModelSerializer):
         if obj.approved_by and obj.approved_by.role:
             return obj.approved_by.role.name
         return None
+    
+class SaveCareerFuturaDetailsSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(
+        max_length=100,
+        required=False,
+        allow_blank=True
+    )
+
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=15)
+
+    password = serializers.CharField(
+        write_only=True,
+        min_length=6
+    )
+
+    confirm_password = serializers.CharField(
+        write_only=True,
+        min_length=6
+    )
+
+    study_class = serializers.CharField(max_length=20)
+    qualification_status = serializers.CharField(max_length=100)
+    type = serializers.CharField(max_length=100)
+
+    def validate(self, attrs):
+
+        # Check password
+        if attrs["password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({
+                "confirm_password": "Password and Confirm Password do not match."
+            })
+
+        # Check email uniqueness
+        if CareerFuturaTest.objects.filter(email=attrs["email"]).exists():
+            raise serializers.ValidationError({
+                "email": "This email is already registered."
+            })
+
+        # Check phone uniqueness
+        if CareerFuturaTest.objects.filter(phone=attrs["phone"]).exists():
+            raise serializers.ValidationError({
+                "phone": "This phone number is already registered."
+            })
+
+        return attrs
+    

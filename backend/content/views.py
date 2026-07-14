@@ -9,8 +9,9 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.db.models import Q
 
-from content.serializers import ContentUploadSerializer
-from .models import Content
+from lead_registration.models import Stream, StudentProfile, StudentStream
+from content.serializers import AssignStreamContentSerializer, ContentListSerializer, ContentUploadSerializer
+from .models import Content, ContentPackage, StudentContent
 from django.http import FileResponse, Http404
 from rest_framework.permissions import AllowAny
 from django.shortcuts import get_object_or_404
@@ -253,8 +254,11 @@ class ContentFileView(APIView):
         response = FileResponse(
             file,
             content_type=mime_type or "application/octet-stream",
-            as_attachment=True,   # Force download
+            # as_attachment=True,   # Force download
             filename=filename
+        )
+        response["Content-Disposition"] = (
+            f'inline; filename="{filename}"'
         )
 
         response["X-Frame-Options"] = "ALLOWALL"
@@ -426,3 +430,324 @@ class ProgramContentAPIView(APIView):
             "count": contents.count(),
             "data": serializer.data
         })
+        
+class ContentByProgramPackageStreamAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    """
+    Fetch content by Program + Package + Stream
+    """
+
+    def get(self, request):
+
+        program_id = request.GET.get("program_id")
+        package_id = request.GET.get("package_id")
+        stream_ids = request.GET.get("stream_ids")
+
+        if stream_ids:
+            stream_ids = [int(i) for i in stream_ids.split(",") if i.strip()]
+        else:
+            stream_ids = []
+
+        queryset = ContentPackage.objects.select_related(
+            "content",
+            "program",
+            "package",
+            "stream"
+        ).filter(
+            content__is_active=True
+        )
+
+        # 👇 Replace only this block
+        if program_id:
+
+            queryset = queryset.filter(program_id=program_id)
+
+            if package_id or stream_ids:
+
+                filters = Q(package__isnull=True, stream__isnull=True)
+
+                if package_id:
+                    filters |= Q(package_id=package_id)
+
+                if stream_ids:
+                    filters |= Q(stream_id__in=stream_ids)
+
+                if package_id and stream_ids:
+                    filters |= Q(
+                        package_id=package_id,
+                        stream_id__in=stream_ids
+                    )
+
+                queryset = queryset.filter(filters)
+                
+                
+        content_ids = queryset.values_list(
+            "content_id",
+            flat=True
+        ).distinct()
+
+        contents = Content.objects.filter(
+            id__in=content_ids,
+            is_active=True
+        )
+
+        serializer = ContentListSerializer(
+            contents,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(
+            {
+                "status": True,
+                "count": contents.count(),
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+        
+class AssignStreamAndContentAPIView(APIView):
+
+    def post(self, request):
+
+        serializer = AssignStreamContentSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+
+        student = get_object_or_404(
+            StudentProfile,
+            id=data["student_id"]
+        )
+
+        stream_values = data["stream_id"]
+
+        assigned_streams = []
+
+        # Remove old streams
+        StudentStream.objects.filter(
+            student_profile=student
+        ).delete()
+
+        for stream_value in stream_values:
+
+            # Existing Stream
+            if str(stream_value).isdigit():
+
+                stream = get_object_or_404(
+                    Stream,
+                    id=int(stream_value)
+                )
+
+            # New Stream
+            else:
+
+                stream, _ = Stream.objects.get_or_create(
+                    name=str(stream_value).strip()
+                )
+
+            StudentStream.objects.get_or_create(
+                student_profile=student,
+                stream=stream
+            )
+
+            assigned_streams.append({
+                "stream_id": stream.id,
+                "stream_name": stream.name
+            })
+
+        # Save all stream names in StudentProfile
+        student.stream = ", ".join(
+            [item["stream_name"] for item in assigned_streams]
+        )
+
+        student.save(update_fields=["stream"])
+
+        assigned_contents = []
+
+        # Assign contents
+
+        for content_id in data.get("content_ids", []):
+
+            content = get_object_or_404(
+                Content,
+                id=content_id,
+                is_active=True
+            )
+
+            StudentContent.objects.get_or_create(
+                student_profile=student,
+                content=content
+            )
+
+            assigned_contents.append({
+                "id": content.id,
+                "title": content.title
+            })
+
+        return Response(
+            {
+                "status": True,
+                "message": "Stream and contents assigned successfully",
+                "student_id": student.id,
+                "streams": assigned_streams,
+                "contents": assigned_contents
+            },
+            status=status.HTTP_200_OK
+        ) 
+        
+    def put(self, request):
+
+        serializer = AssignStreamContentSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        data = serializer.validated_data
+
+        student = get_object_or_404(
+            StudentProfile,
+            id=data["student_id"]
+        )
+
+        stream_values = data["stream_id"]
+
+        assigned_streams = []
+
+        # Remove old streams
+        StudentStream.objects.filter(
+            student_profile=student
+        ).delete()
+
+        for stream_value in stream_values:
+
+            # Existing Stream
+            if str(stream_value).isdigit():
+
+                stream = get_object_or_404(
+                    Stream,
+                    id=int(stream_value)
+                )
+
+            # New Stream
+            else:
+
+                stream, _ = Stream.objects.get_or_create(
+                    name=str(stream_value).strip()
+                )
+
+            StudentStream.objects.get_or_create(
+                student_profile=student,
+                stream=stream
+            )
+
+            assigned_streams.append({
+                "stream_id": stream.id,
+                "stream_name": stream.name
+            })
+
+        student.stream = ", ".join(
+            [item["stream_name"] for item in assigned_streams]
+        )
+
+        student.save(update_fields=["stream"])
+
+        # Remove old contents
+        StudentContent.objects.filter(
+            student_profile=student
+        ).delete()
+
+        assigned_contents = []
+
+        # Add new contents
+        for content_id in data.get("content_ids", []):
+
+            content = get_object_or_404(
+                Content,
+                id=content_id,
+                is_active=True
+            )
+
+            StudentContent.objects.create(
+                student_profile=student,
+                content=content
+            )
+
+            assigned_contents.append({
+                "id": content.id,
+                "title": content.title
+            })
+
+        return Response(
+            {
+                "status": True,
+                "message": "Student stream and contents updated successfully",
+                "student_id": student.id,
+                "stream": stream.name,
+                "contents": assigned_contents
+            },
+            status=status.HTTP_200_OK
+        )       
+        
+# views.py
+
+class StudentAssignedContentAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+
+        student = get_object_or_404(
+            StudentProfile,
+            id=student_id
+        )
+
+        contents = Content.objects.filter(
+            student_contents__student_profile=student,
+            is_active=True
+        ).distinct()
+        
+        student_streams = StudentStream.objects.filter(
+            student_profile=student
+        ).select_related("stream")
+
+        stream_data = [
+            {
+                "id": item.stream.id,
+                "name": item.stream.name
+            }
+            for item in student_streams
+        ]
+
+        content_data = []
+
+        for content in contents:
+
+            content_data.append({
+                "id": content.id,
+                "title": content.title,
+                "type": content.type,
+                "category": content.category,
+                "description": content.description,
+                "file_url": request.build_absolute_uri(
+                    f"/api/content-file/{content.id}/"
+                ) if content.file_url else None,
+                "file_name": (
+                    os.path.basename(content.file_url.name)
+                    if content.file_url else None
+                )
+            })
+
+        return Response({
+            "status": True,
+            "student_id": student.id,
+            "student_name": f"{student.user.first_name} {student.user.last_name}",
+            "stream": stream_data,          
+            "contents": content_data
+        })            
+            
+            
+            

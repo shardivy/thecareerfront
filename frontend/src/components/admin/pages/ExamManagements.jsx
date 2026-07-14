@@ -34,6 +34,38 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { confirm } = Modal;
 
+const ModalSuggestionField = ({ suggestions, placeholder, onChange }) => {
+  const [comment, setComment] = useState("");
+
+  useEffect(() => {
+    onChange(comment);
+  }, [comment, onChange]);
+
+  return (
+    <div>
+      <Text strong>Suggested messages</Text>
+      <Text type="secondary" style={{ display: "block", marginBottom: 10 }}>
+        Click any suggestion to add it to the comment box, then edit if needed.
+      </Text>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        {suggestions.map((item) => (
+          <Button key={item} size="small" onClick={() => setComment(item)}>
+            {item}
+          </Button>
+        ))}
+      </div>
+
+      <Input.TextArea
+        rows={3}
+        value={comment}
+        placeholder={placeholder}
+        onChange={(e) => setComment(e.target.value)}
+      />
+    </div>
+  );
+};
+
 const ExamManagements = () => {
   const dispatch = useDispatch();
 
@@ -54,29 +86,32 @@ const ExamManagements = () => {
   /* ================= APPROVE ================= */
   const handleApproveExam = (id) => {
     let description = "";
+    let selectedSuggestion = "";
+
+const approveSuggestions = [
+  "Exam reviewed and approved",
+  "Student has successfully completed the assessment",
+  "All required criteria have been met",
+  "Report access granted",
+];
 
     confirm({
       title: "Approve Exam?",
       icon: <CheckCircleOutlined style={{ color: "#52c41a" }} />,
       centered: true,
       closable: true,
+      width: 600,
+      maskClosable: true,
       okText: "Yes, Approve",
 
       content: (
-        <div>
-          <p>
-            Are you sure you want to approve this exam? The student's report will be unlocked.
-          </p>
-
-          <Input.TextArea
-            rows={3}
-            placeholder="Add comment"
-            onChange={(e) => {
-              description = e.target.value;
-            }}
-            style={{ marginTop: 10 }}
-          />
-        </div>
+        <ModalSuggestionField
+          suggestions={approveSuggestions}
+          placeholder="Add comment"
+          onChange={(value) => {
+            description = value;
+          }}
+        />
       ),
 
       async onOk() {
@@ -101,28 +136,33 @@ const ExamManagements = () => {
 
 
   const handleMarkComplete = (id) => {
-    let description = ""; // ✅ rename for clarity
+   let description = "";
+let selectedSuggestion = "";
+
+const completeSuggestions = [
+  "Exam completed successfully",
+  "Assessment submitted and reviewed",
+  "Student completed all sections",
+  "Exam status updated to completed",
+];
 
     confirm({
       title: "Mark Exam as Complete?",
       icon: <CheckCircleOutlined style={{ color: "#52c41a" }} />,
       centered: true,
       closable: true,
+      maskClosable: true,
+      width: 600,
       okText: "Yes, Complete",
 
       content: (
-        <div>
-          <p>Are you sure you want to mark this exam as completed?</p>
-
-          <Input.TextArea
-            rows={3}
-            placeholder="Add comment"
-            onChange={(e) => {
-              description = e.target.value; // ✅ store as description
-            }}
-            style={{ marginTop: 10 }}
-          />
-        </div>
+        <ModalSuggestionField
+          suggestions={completeSuggestions}
+          placeholder="Add comment"
+          onChange={(value) => {
+            description = value;
+          }}
+        />
       ),
 
       async onOk() {
@@ -130,7 +170,7 @@ const ExamManagements = () => {
           const res = await dispatch(
             approveUserExam({
               id,
-              description: description, // ✅ send correct key
+              description: description, 
             })
           ).unwrap();
 
@@ -143,61 +183,36 @@ const ExamManagements = () => {
     });
   };
 
-  // const handleMarkComplete = (id) => {
-  //   confirm({
-  //     title: "Mark Exam as Complete?",
-  //     icon: <CheckCircleOutlined style={{ color: "#52c41a" }} />,
-  //     content:
-  //       "Are you sure you want to mark this exam as completed and unlock the report?",
-  //     centered: true,
-  //     okText: "Yes, Complete",
-  //     okButtonProps: {
-  //       style: { background: "#52c41a", borderColor: "#52c41a" },
-  //     },
-  //     cancelText: "Cancel",
-  //     async onOk() {
-  //       try {
-  //         const res = await dispatch(approveUserExam(id)).unwrap();
-  //         message.success(res?.message || "Exam marked as complete");
-  //         dispatch(fetchUserExams());
-  //       } catch (err) {
-  //         message.error(
-  //           typeof err === "string"
-  //             ? err
-  //             : err?.message || "Something went wrong"
-  //         );
-  //       }
-  //     },
-  //   });
-  // };
-
   /* ================= REJECT ================= */
   const handleRejectExam = (id) => {
     let description = "";
+    let selectedSuggestion = "";
+
+    const rejectSuggestions = [
+  "Incomplete exam submission",
+  "Invalid responses detected",
+  "Required sections were not completed",
+  "Exam requires re-attempt",
+];
 
     confirm({
       title: "Reject Exam?",
       icon: <ExclamationCircleOutlined style={{ color: "#ff4d4f" }} />,
       centered: true,
       closable: true,
+      maskClosable: true,
+      width: 600,
       okText: "Yes, Reject",
       okType: "danger",
 
       content: (
-        <div>
-          <p>
-            Are you sure you want to reject this exam? This action cannot be undone.
-          </p>
-
-          <Input.TextArea
-            rows={3}
-            placeholder="Add rejection reason"
-            onChange={(e) => {
-              description = e.target.value;
-            }}
-            style={{ marginTop: 10 }}
-          />
-        </div>
+        <ModalSuggestionField
+          suggestions={rejectSuggestions}
+          placeholder="Add rejection reason"
+          onChange={(value) => {
+            description = value;
+          }}
+        />
       ),
 
       async onOk() {
@@ -205,7 +220,7 @@ const ExamManagements = () => {
           const res = await dispatch(
             rejectUserExam({
               id,
-              description, // ✅ send comment
+              description, 
             })
           ).unwrap();
 
@@ -227,6 +242,8 @@ const ExamManagements = () => {
       icon: <ExclamationCircleOutlined style={{ color: "#fa8c16" }} />,
       centered: true,
       closable: true,
+      maskClosable: true,
+      width: 600,
       okText: "Yes, Disapprove",
       okType: "danger",
       cancelText: "Cancel",

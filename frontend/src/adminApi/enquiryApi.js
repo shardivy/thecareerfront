@@ -47,10 +47,8 @@ export const updateEnquiryApi = async (payload) => {
 };
 
 
-// get streams
-export const getStreamsApi = async () => {
-  const response = await axiosInstance.get(
-    "/lead-registeration/streams/"
-  );
+// delete enquiry
+export const deleteEnquiryApi = async (id) => {
+  const response = await axiosInstance.delete(`/lead-registeration/leads/${id}/`);
   return response.data;
 };

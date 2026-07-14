@@ -1,3 +1,6 @@
+from decimal import Decimal
+import logging
+
 from django.shortcuts import get_object_or_404, render
 
 from rest_framework.views import APIView
@@ -19,17 +22,21 @@ from django.core.mail import EmailMessage
 
 
 from accounts.models import Role, User
-from accounts.utils import generate_password
+from accounts.utils import generate_password, send_credentials_email
+from lead_registration.serializers import PaymentDetailSerializer, UserDetailSerializer, UserProgramPackageDetailSerializer
 from report.models import Report
 from counselling_slot.serializers import CounsellorStudentBookingSerializer
 from event.tasks import send_event_reminder_by_id
 from event.utils import generate_handholding_reminder, get_font_path
 from counselling_slot.models import Booking, BookingCounsellor, Counsellor, Slot
 from event.serializers import AdvertisementSerializer, CertificateSerializer, CertificateTemplateSerializer, HandHoldingParticipantSerializer, HandHoldingParticipantSessionSerializer, HandHoldingSessionSerializer
-from program_package.models import Program, UserProgramPackage
+from program_package.models import Package, Program, UserProgramPackage
 from event.models import Advertisement, Certificate, CertificateTemplate, Event, HandHoldingParticipant, HandHoldingParticipantSession, HandHoldingSession
 from payment.models import Payment
 from lead_registration.models import Lead, StudentProfile
+from rest_framework.parsers import MultiPartParser, FormParser
+
+logger = logging.getLogger(__name__)
 
 # ===================== HandHolding Registration API =====================
 
@@ -178,6 +185,12 @@ class HandHoldingRegisterAPIView(APIView):
             # =========================
             password = data.get("password")
             confirm_password = data.get("confirm_password")
+            
+            print("================================")
+            print("REGISTER DEBUG")
+            print("Password Received:", repr(password))
+            print("Confirm Password:", repr(confirm_password))
+            print("================================")
 
             if password or confirm_password:
                 if password != confirm_password:
@@ -199,16 +212,28 @@ class HandHoldingRegisterAPIView(APIView):
                     "is_active": True
                 }
             )
+            print("User Created =", created)
+            print("User ID =", user.id)
 
             if created:
-                user_password = password or generate_password()
+                user_password = password 
+                print("Password Before Hash:", repr(user_password))
                 user.set_password(user_password)
                 user.save()
+                user.refresh_from_db()
+                print(
+                    "Password Check After Save:",
+                    user.check_password(user_password)
+                )   
             else:
                 user.first_name = data.get("first_name")
                 user.last_name = data.get("last_name", "")
                 user.phone = data.get("mobile")
                 user.role = role
+                
+                if password:
+                    user.set_password(password)
+                    print("Password set for existing user")
                 user.save()
 
             # =========================
@@ -222,12 +247,13 @@ class HandHoldingRegisterAPIView(APIView):
                 date=timezone.now().date(),
                 source="website",
                 status="enquiry",
-                program=program,
+                # program=program,
 
                 # OPTIONAL FIELDS FOR HAND HOLDING
                 study_class=None,
                 specialization=None
             )
+            lead.program.add(program)
 
             # =========================
             # ✅ ASSIGN PROGRAM
@@ -297,7 +323,478 @@ class HandHoldingRegisterAPIView(APIView):
                 "message": "Registration failed",
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
- 
+            
+
+
+class AddHandHoldingRegisterAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    @transaction.atomic
+    def post(self, request):
+
+        try:
+            email = request.data.get("email")
+
+            if not email:
+                return Response(
+                    {"message": "Email is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # =================================
+            # CHECK EXISTING USER
+            # =================================
+            if User.objects.filter(email=email).exists():
+                return Response(
+                    {"message": "User already exists with this email"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # =================================
+            # ROLE
+            # =================================
+            role = Role.objects.get(name="handholding")
+
+            # =================================
+            # GENERATE PASSWORD
+            # =================================
+            password = generate_password()
+
+            # =================================
+            # PROGRAM
+            # =================================
+            program = Program.objects.filter(
+                name__iexact="Hand Holding Program"
+            ).first()
+
+            if not program:
+                return Response(
+                    {"message": "Hand Holding program not found"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # =================================
+            # PACKAGE
+            # =================================
+            package_id = request.data.get("package")
+
+            package = get_object_or_404(
+                Package,
+                id=package_id,
+                program=program
+            )
+
+            # =================================
+            # CREATE USER
+            # =================================
+            user = User.objects.create(
+                first_name=request.data.get("first_name"),
+                last_name=request.data.get("last_name"),
+                email=email,
+                phone=request.data.get("phone"),
+                role=role,
+                is_active=True,
+                is_converted_lead=True
+            )
+
+            user.set_password(password)
+            user.save()
+
+            # =================================
+            # HANDHOLDING PARTICIPANT
+            # =================================
+            participant = HandHoldingParticipant.objects.create(
+                user=user,
+                email=email,
+                mobile=request.data.get("phone"),
+                full_address=request.data.get("full_address"),
+                city=request.data.get("city"),
+                preferred_counselling_mode=request.data.get(
+                    "preferred_counselling_mode"
+                ),
+                resume_file=request.FILES.get("resume_file"),
+                photo=request.FILES.get("photo"),
+                show_profile=request.data.get(
+                    "show_profile",
+                    False
+                )
+            )
+
+            # =================================
+            # USER PROGRAM PACKAGE
+            # =================================
+            upp = UserProgramPackage.objects.create(
+                user=user,
+                program=program,
+                package=package,
+                assigned_by="handholding-registration"
+            )
+
+            # =================================
+            # HANDHOLDING SESSIONS
+            # =================================
+            sessions = HandHoldingSession.objects.all().order_by(
+                "ordering"
+            )
+
+            session_objects = []
+
+            for i, session in enumerate(sessions, start=1):
+
+                session_objects.append(
+                    HandHoldingParticipantSession(
+                        handholding_participant=participant,
+                        handholding_session=session,
+                        session_no=i,
+                        session_date=timezone.now(),
+                        status="not_booked",
+                        notes="",
+                        conducted_by=(
+                            request.user
+                            if request.user.is_authenticated
+                            else None
+                        )
+                    )
+                )
+
+            HandHoldingParticipantSession.objects.bulk_create(
+                session_objects
+            )
+
+            # =================================
+            # CERTIFICATE
+            # =================================
+            Certificate.objects.get_or_create(
+                user=user,
+                program_type="handholding",
+                defaults={
+                    "certificate_status": "pending"
+                }
+            )
+
+            # # =================================
+            # # PAYMENT
+            # # =================================
+            # amount = Decimal(
+            #     request.data.get(
+            #         "amount",
+            #         package.price
+            #     )
+            # )
+
+            # if amount == 0:
+            #     payment_status = "not_paid"
+            # elif amount < package.price:
+            #     payment_status = "partial_paid"
+            # else:
+            #     payment_status = "fully_paid"
+
+            # payment = Payment.objects.create(
+            #     user=user,
+            #     amount=amount,
+            #     payment_type=request.data.get(
+            #         "payment_type"
+            #     ),
+            #     method=request.data.get("method"),
+            #     transaction_id=request.data.get(
+            #         "transaction_id"
+            #     ),
+            #     proof_file=request.FILES.get(
+            #         "proof_file"
+            #     ),
+            #     status=payment_status
+            # )
+
+            # payment.package.set([package])
+            
+            # =================================
+            # PAYMENT (OPTIONAL)
+            # =================================
+
+            amount = request.data.get("amount")
+
+            if amount:
+                amount = Decimal(str(amount))
+            else:
+                amount = Decimal("0")
+
+            if amount == 0:
+                payment_status = "not_paid"
+            elif amount < package.price:
+                payment_status = "partial_paid"
+            else:
+                payment_status = "fully_paid"
+
+            payment = Payment.objects.create(
+                user=user,
+                amount=amount,
+                payment_type=request.data.get("payment_type") or None,
+                method=request.data.get("method") or None,
+                transaction_id=request.data.get("transaction_id") or None,
+                proof_file=request.FILES.get("proof_file"),
+                status=payment_status
+            )
+
+            payment.package.set([package])
+
+            # =================================
+            # SEND EMAIL
+            # =================================
+            try:
+                send_credentials_email(
+                    email=user.email,
+                    password=password,
+                    program_name=program.name,
+                    package_name=package.name,
+                    preferred_counselling_mode=request.data.get(
+                        "preferred_counselling_mode",
+                        "online"
+                    )
+                )
+
+            except Exception as email_error:
+                logger.error(
+                    f"Email sending failed: {str(email_error)}"
+                )
+
+            # =================================
+            # RESPONSE
+            # =================================
+            return Response(
+                {
+                    "message": "HandHolding participant created successfully",
+                    "data": {
+                        "user": UserDetailSerializer(user).data,
+                        "participant_id": participant.id,
+                        "program_package": UserProgramPackageDetailSerializer(
+                            upp
+                        ).data,
+                        "payment": (
+                            PaymentDetailSerializer(
+                                payment,
+                                context={
+                                    "request": request
+                                }
+                            ).data
+                            if payment else None
+                        ),
+                        "generated_password": password
+                    }
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        except Role.DoesNotExist:
+            return Response(
+                {
+                    "message": "Handholding role not found"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "message": "Registration failed",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    def put(self, request, user_id):
+
+        try:
+
+            # =================================
+            # GET USER
+            # =================================
+            user = get_object_or_404(
+                User.objects.select_related("role"),
+                id=user_id,
+                role__name="handholding"
+            )
+
+            participant = HandHoldingParticipant.objects.filter(
+                user=user
+            ).first()
+
+            # =================================
+            # UPDATE USER
+            # =================================
+            user.first_name = request.data.get(
+                "first_name",
+                user.first_name
+            )
+
+            user.last_name = request.data.get(
+                "last_name",
+                user.last_name
+            )
+
+            user.phone = request.data.get(
+                "phone",
+                user.phone
+            )
+
+            user.save()
+
+            # =================================
+            # UPDATE PARTICIPANT
+            # =================================
+            if participant:
+
+                participant.mobile = request.data.get(
+                    "phone",
+                    participant.mobile
+                )
+
+                participant.full_address = request.data.get(
+                    "full_address",
+                    participant.full_address
+                )
+
+                participant.city = request.data.get(
+                    "city",
+                    participant.city
+                )
+
+                participant.preferred_counselling_mode = request.data.get(
+                    "preferred_counselling_mode",
+                    participant.preferred_counselling_mode
+                )
+
+                show_profile = request.data.get("show_profile")
+
+                if show_profile is not None:
+                    participant.show_profile = show_profile
+
+                if request.FILES.get("resume_file"):
+                    participant.resume_file = request.FILES.get(
+                        "resume_file"
+                    )
+
+                if request.FILES.get("photo"):
+                    participant.photo = request.FILES.get(
+                        "photo"
+                    )
+
+                participant.save()
+
+            # =================================
+            # UPDATE PACKAGE (OPTIONAL)
+            # =================================
+            package_id = request.data.get("package")
+
+            if package_id:
+
+                package = get_object_or_404(
+                    Package,
+                    id=package_id
+                )
+
+                upp = UserProgramPackage.objects.filter(
+                    user=user
+                ).first()
+
+                if upp:
+                    upp.package = package
+                    upp.save()
+
+            return Response(
+                {
+                    "message": "HandHolding participant updated successfully",
+                    "user": UserDetailSerializer(user).data,
+                    "participant_id": (
+                        participant.id if participant else None
+                    )
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "message": "Update failed",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            
+    def delete(self, request, user_id):
+
+        try:
+
+            # =================================
+            # GET USER
+            # =================================
+            user = get_object_or_404(
+                User.objects.select_related("role"),
+                id=user_id,
+                role__name="handholding"
+            )
+
+            participant = HandHoldingParticipant.objects.filter(
+                user=user
+            ).first()
+
+            # =================================
+            # DELETE PARTICIPANT SESSIONS
+            # =================================
+            if participant:
+                HandHoldingParticipantSession.objects.filter(
+                    handholding_participant=participant
+                ).delete()
+
+            # =================================
+            # DELETE PARTICIPANT
+            # =================================
+            HandHoldingParticipant.objects.filter(
+                user=user
+            ).delete()
+
+            # =================================
+            # DELETE USER PROGRAM PACKAGE
+            # =================================
+            UserProgramPackage.objects.filter(
+                user=user
+            ).delete()
+
+            # =================================
+            # DELETE CERTIFICATE
+            # =================================
+            Certificate.objects.filter(
+                user=user,
+                program_type="handholding"
+            ).delete()
+
+            # =================================
+            # DELETE PAYMENTS
+            # =================================
+            Payment.objects.filter(
+                user=user
+            ).delete()
+
+            # =================================
+            # DELETE USER
+            # =================================
+            user.delete()
+
+            return Response(
+                {
+                    "message": "HandHolding participant deleted successfully"
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "message": "Delete failed",
+                    "error": str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
         
 class CreateHandHoldingSessionAPIView(APIView):
     permission_classes = [AllowAny]  # Allow any user (can be restricted to admin later)
@@ -1838,6 +2335,16 @@ class ParticipantSessionListAPIView(APIView):
 
                     # ✅ FIXED
                     "booking_id": booking.id if booking else None,
+                    
+                    "program": {
+                        "id": booking.program.id,
+                        "name": booking.program.name
+                    } if booking and booking.program else None,
+
+                    "package": {
+                        "id": booking.package.id,
+                        "name": booking.package.name
+                    } if booking and booking.package else None,
 
                     "student_id": student.id if student else None,
                     "student_name": (
@@ -1886,6 +2393,15 @@ class ParticipantSessionListAPIView(APIView):
                     "status": session.status,
                     "date": session.session_date,
                     "slot_id": session.slot.id if session.slot else None,
+                    "program": {
+                        "id": booking.program.id,
+                        "name": booking.program.name
+                    } if booking and booking.program else None,
+
+                    "package": {
+                        "id": booking.package.id,
+                        "name": booking.package.name
+                    } if booking and booking.package else None,
                     "start_time": session.slot.start_time if session.slot else None,
                     "end_time": session.slot.end_time if session.slot else None,
                     "counsellor": (

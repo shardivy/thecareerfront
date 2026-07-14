@@ -16,8 +16,6 @@ export const getCompletedExamReportsByStudentApi = async (studentId) => {
   return response.data;
 };
 
-
-
 export const uploadReportApi = async (reportId, payload) => {
   const response = await axiosInstance.post(
     `/report/upload/${reportId}/`,
@@ -51,3 +49,44 @@ export const updateReportApi = async (reportId, payload) => {
   );
   return response.data;
 };
+
+
+// STUDENT V2 REPORT UPLOAD
+export const uploadStudentV2ReportApi = async (
+  studentId,
+  programId,
+  packageId,
+  payload
+) => {
+  const response = await axiosInstance.post(
+    `/report/student-report-upload/${studentId}/?program_id=${programId}&package_id=${packageId}`,
+    payload,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
+};
+
+export const updateStudentV2ReportApi = async (
+  studentId,
+  programId,
+  packageId,
+  payload
+) => {
+  const response = await axiosInstance.put(
+    `/report/student-report-upload/${studentId}/?program_id=${programId}&package_id=${packageId}`,
+    payload,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return response.data;
+};
+

@@ -1,14 +1,20 @@
 from django.urls import path
 
-from program_package.views import  ActiveProgramListAPIView, AddProgramAPIView, AddQuestionAPIView, CollegeListAnalysisListAPIView, CollegeListAnalysisStatusAPIView, CreateLandingPageAPIView, DashboardCountAPIView, EngineeringAnalysisDashboardAPIView, LandingPageByPackageAPIView, PackageCreateAPIView, PackageListAPIView, ProgramListAPIView, ProgramPackageDetailAPIView, ProgramPackagesAPIView, StartQuestionAPIView, SubmitMultipleAnswersAPIView, UpdateMultipleAnswersAPIView, UpdateProgramAPIView
+from program_package.views import  ActiveProgramListAPIView, AddProgramAPIView, AddQuestionAPIView, CollegeListAnalysisListAPIView, CollegeListAnalysisStatusAPIView, CreateLandingPageAPIView, DashboardCountAPIView, EngineeringAnalysisDashboardAPIView, ExcludeHandholdingProgramListAPIView, LandingPageByPackageAPIView, MultipleProgramPackagesAPIView, PackageCreateAPIView, PackageListAPIView, ProgramListAPIView, ProgramPackageDetailAPIView, ProgramPackagesAPIView, StartQuestionAPIView, SubmitMultipleAnswersAPIView, UpdateMultipleAnswersAPIView, UpdateProgramAPIView
 
 
 urlpatterns = [
     path('get-programs/', ProgramListAPIView.as_view(), name='list-programs'),
     path("programs/active/", ActiveProgramListAPIView.as_view(), name="active-programs"),
+    path("programs/exclude-handholding/", ExcludeHandholdingProgramListAPIView.as_view(), name="exclude-handholding-programs"),
     path('add-programs/', AddProgramAPIView.as_view(), name='add-program'),
     path('update-program/<int:program_id>/', UpdateProgramAPIView.as_view(), name='update-program'),
     path("programs/<int:program_id>/packages/",ProgramPackagesAPIView.as_view(),name="program-packages"),
+    path(
+        "multiple-program-packages/",
+        MultipleProgramPackagesAPIView.as_view(),
+        name="multiple-program-packages"
+    ),
     
     # path('add-packages/', AddPackageAPIView.as_view(), name='add-package'),
     path("create-packages/", PackageCreateAPIView.as_view()),

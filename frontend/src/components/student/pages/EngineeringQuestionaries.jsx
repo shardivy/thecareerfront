@@ -25,7 +25,7 @@ import EngineeringQuestionnaireModal from "../modals/EngineeringQuestionnaireMod
 import EngineeringInstructionsModal from "../modals/EngineeringInstructionsModal";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchQuestions } from "../../../adminSlices/questionSlice";
-import { startCollegeAnalysis, fetchCollegeAnalysisStatus , fetchCollegeAnalysis  } from "../../../adminSlices/collegeAnalysisSlice";
+import { startCollegeAnalysis, fetchCollegeAnalysisStatus, fetchCollegeAnalysis } from "../../../adminSlices/collegeAnalysisSlice";
 
 const { Title, Text } = Typography;
 
@@ -46,56 +46,87 @@ const EngineeringQuestionaries = () => {
   const isInProgress = status === "in_progress";
   const isCompleted = status === "completed";
 
-useEffect(() => {
- const studentId = localStorage.getItem("studentId");
+  const studentId = localStorage.getItem("studentId");
+  const programId = localStorage.getItem("selectedProgramId");
+  const packageId = localStorage.getItem("selectedPackageId");
 
-  dispatch(fetchQuestions());
-  dispatch(fetchCollegeAnalysisStatus(studentId));
-}, [dispatch]);
+  const draftKey =`${studentId}_${programId}_${packageId}`;
+ const currentDraft = draftAnswers?.[draftKey] || {};
+
+  useEffect(() => {
+    dispatch(fetchQuestions());
+
+    if (studentId && programId && packageId) {
+      dispatch(
+        fetchCollegeAnalysisStatus({
+          studentId,
+          programId,
+          packageId,
+        })
+      );
+    }
+  }, [dispatch, studentId, programId, packageId]);
 
   // START
-const handleStart = () => {
-  const studentId = localStorage.getItem("studentId");
+  const handleStart = () => {
+    const studentId = localStorage.getItem("studentId");
+    const programId = localStorage.getItem("selectedProgramId");
+    const packageId = localStorage.getItem("selectedPackageId");
 
-  dispatch(startCollegeAnalysis(studentId)) // ✅ send studentId
-    .unwrap()
-    .then((res) => {
-      if (res.analysis_status === "completed") {
-        message.info("Already completed");
-        dispatch(fetchCollegeAnalysisStatus(studentId));
-        return;
-      }
+  dispatch(
+  startCollegeAnalysis({
+    studentId,
+    programId,
+    packageId,
+  })
+)
+      .unwrap()
+      .then((res) => {
+        if (res.analysis_status === "completed") {
+          message.info("Already completed");
+          dispatch(
+            fetchCollegeAnalysisStatus({
+              studentId,
+              programId,
+              packageId,
+            })
+          );
+          return;
+        }
 
-      setModalOpen(true);
-      // message.success("Questionnaire started!");
+        setModalOpen(true);
+        // message.success("Questionnaire started!");
 
-      dispatch(fetchCollegeAnalysisStatus(studentId)); // ✅ correct
-    })
-    .catch((err) => {
-      message.error(err?.message || "Failed to start questionnaire");
-    });
-};
+        dispatch(fetchCollegeAnalysisStatus({ studentId, programId, packageId })); // ✅ correct
+      })
+      .catch((err) => {
+        message.error(err?.message || "Failed to start questionnaire");
+      });
+  };
 
-const handleResume = () => {
-  const studentId = localStorage.getItem("studentId");
+  const handleResume = () => {
 
-  dispatch(fetchCollegeAnalysis({ 
-    tab: "draft", 
-    studentId 
-  }))
-    .unwrap()
-    .then(() => {
-      setModalOpen(true);
-    })
-    .catch(() => {
-      message.error("Failed to load draft data");
-    });
-};
+    dispatch(fetchCollegeAnalysis({
+      tab: "draft",
+      studentId,
+      programId,
+      packageId,
+
+
+    }))
+      .unwrap()
+      .then(() => {
+        setModalOpen(true);
+      })
+      .catch(() => {
+        message.error("Failed to load draft data");
+      });
+  };
 
   return (
     <ConfigProvider theme={adminTheme}>
       <div style={{ minHeight: "100vh" }}>
-        
+
         {/* HEADER */}
         <div style={{ textAlign: "center", marginBottom: 48 }}>
           <Title level={2}>Engineering Questionnaires</Title>
@@ -111,20 +142,20 @@ const handleResume = () => {
             icon={<QuestionCircleOutlined />}
             style={{
               borderRadius: 8,
-               backgroundColor: token.colorPrimary,
+              backgroundColor: token.colorPrimary,
               color: "#fff",
               fontWeight: 600,
               border: "none",
             }}
             onClick={() => setInstructionsOpen(true)}
-            
+
           >
             Instructions
           </Button>
         </div>
 
         <Row gutter={[32, 32]} justify="center">
-          
+
           {/* LEFT CARD */}
           <Col xs={24} md={16}>
             <Card style={{ borderRadius: 14, marginTop: 32 }}>
@@ -153,11 +184,11 @@ const handleResume = () => {
 
               <Divider />
 
-  
-                <Button type="primary" onClick={() => setInstructionsOpen(true)}>
-                  View Instructions
-                </Button>
-              
+
+              <Button type="primary" onClick={() => setInstructionsOpen(true)}>
+                View Instructions
+              </Button>
+
 
               {/* {isCompleted && (
                 <Text type="colorTextSecondary">
@@ -184,8 +215,8 @@ const handleResume = () => {
                         isCompleted
                           ? "green"
                           : isInProgress
-                          ? "orange"
-                          : "blue"
+                            ? "orange"
+                            : "blue"
                       }
                     >
                       {status.replace("_", " ").toUpperCase()}
@@ -238,17 +269,17 @@ const handleResume = () => {
                     </Button>
                   )}
 
-               {isInProgress && (
-  <Button
-    type="primary"
-    size="large"
-    block
-    onClick={handleResume}
-    style={{ borderRadius: 10, height: 48 }}
-  >
-    Resume Questionnaire
-  </Button>
-)}
+                  {isInProgress && (
+                    <Button
+                      type="primary"
+                      size="large"
+                      block
+                      onClick={handleResume}
+                      style={{ borderRadius: 10, height: 48 }}
+                    >
+                      Resume Questionnaire
+                    </Button>
+                  )}
 
                   {isCompleted && (
                     <Button block disabled style={{ borderRadius: 10, height: 48 }}>
@@ -273,22 +304,32 @@ const handleResume = () => {
           onClose={() => setModalOpen(false)}
           questions={questions}
           loading={loading}
-           draftAnswers={draftAnswers}
-         onSubmit={(answers) => {
-  const studentId = localStorage.getItem("studentId");
+          // draftAnswers={draftAnswers}
+            draftAnswers={currentDraft}
 
-  console.log("User Answers:", answers);
+          onSubmit={(answers) => {
+            const studentId = localStorage.getItem("studentId");
+            const programId = localStorage.getItem("selectedProgramId");
+            const packageId = localStorage.getItem("selectedPackageId");
 
-  setModalOpen(false);
+            // console.log("User Answers:", answers);
 
-  // ✅ 1. Refresh status
-  dispatch(fetchCollegeAnalysisStatus(studentId));
+            setModalOpen(false);
 
-  // ✅ 2. CALL YOUR GET API HERE
-  dispatch(fetchCollegeAnalysis());
+            // ✅ 1. Refresh status
+            dispatch(
+              fetchCollegeAnalysisStatus({
+                studentId,
+                programId,
+                packageId,
+              })
+            );
 
-  message.success("Submitted Successfully!");
-}}
+            // ✅ 2. CALL YOUR GET API HERE
+            dispatch(fetchCollegeAnalysis());
+
+            message.success("Submitted Successfully!");
+          }}
         />
       </div>
     </ConfigProvider>

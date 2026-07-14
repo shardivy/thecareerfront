@@ -17,7 +17,7 @@ const Forgot_Password = () => {
   const navigate = useNavigate();
 
   const onFinish = (values) => {
-    console.log("Forgot Password Email:", values);
+    // console.log("Forgot Password Email:", values);
     // Call forgot password API here
     navigate("/reset-password"); // next step
   };

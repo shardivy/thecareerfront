@@ -80,7 +80,7 @@ class StudentAcademicHistoryAdmin(admin.ModelAdmin):
 
 @admin.register(Stream)
 class StreamAdmin(admin.ModelAdmin):
-    list_display = ("id", "name")
+    list_display = ("id", "name", "is_active", "created_at")
     search_fields = ("name",)
 
 @admin.register(StudentStream)

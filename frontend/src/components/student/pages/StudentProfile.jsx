@@ -43,6 +43,7 @@ const StudentProfile = () => {
   const [profile, setProfile] = useState(null);
   const [specializationOptions, setSpecializationOptions] = useState([]);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const selectedPackage = localStorage.getItem("selectedPackage");
 
   const [passwordData, setPasswordData] = useState({
     new_password: "",
@@ -182,8 +183,9 @@ const StudentProfile = () => {
         name: `${storedProfile.first_name || ""} ${storedProfile.last_name || ""}`,
         email: storedProfile.email || "",
         phone: storedProfile.phone || "",
-        program: storedProfile.program || "",
-        counselling_service: storedProfile.package || "",
+        // program: storedProfile.program || "",
+        // counselling_service: storedProfile.package || "",
+        program_packages: storedProfile.program_packages || [],
         joined_on: storedProfile.created_at ? dayjs(storedProfile.created_at).format("YYYY-MM-DD") : "",
         dob: storedProfile.dob || "",
 
@@ -240,7 +242,7 @@ const StudentProfile = () => {
         package: storedProfile.package || "",
         payments: storedProfile.payments || [],
 
-
+        suggested_stream: storedProfile.suggested_stream || "",
         complete_profile: storedProfile.complete_profile || false,
       };
 
@@ -249,8 +251,8 @@ const StudentProfile = () => {
       // ✅ Store program & package in localStorage immediately
       localStorage.setItem("studentId", formattedProfile.student_id || "");
       localStorage.setItem("username", formattedProfile.name || "");
-      localStorage.setItem("selectedProgram", formattedProfile.program || "");
-      localStorage.setItem("selectedPackage", formattedProfile.package || "");
+      // localStorage.setItem("selectedProgram", formattedProfile.program || "");
+      // localStorage.setItem("selectedPackage", formattedProfile.package || "");
 
 
 
@@ -417,7 +419,7 @@ const StudentProfile = () => {
       }
 
     } catch (error) {
-      console.error("Update error:", error);
+      // console.error("Update error:", error);
 
       // ✅ If backend returns field-wise errors
       if (typeof error === "object") {
@@ -558,13 +560,27 @@ const StudentProfile = () => {
               <Avatar size={70} icon={<UserOutlined />} />
 
               <div>
-                <Title level={3} style={{ color: "#fff", margin: 0 }}>
+                <Title level={3} style={{ color: "#fff", margin: 10 }}>
                   {profile.name}
                 </Title>
 
-                <Tag icon={<CrownOutlined />} color="gold">
-                  {profile.package || "Premium"}
-                </Tag>
+                 <div>
+                  <div>
+  {selectedPackage && (
+    <Tag icon={<CrownOutlined />} color="gold">
+      {selectedPackage}
+    </Tag>
+  )}
+</div>
+                </div> 
+
+                {/* <div>
+                  {profile.program_packages?.map((item, index) => (
+                    <Tag key={index} icon={<CrownOutlined />} color="gold">
+                      {item.package_name}
+                    </Tag>
+                  ))}
+                </div> */}
               </div>
             </Row>
           </Col>
@@ -621,22 +637,42 @@ const StudentProfile = () => {
             />
           </Col>
 
-          <Col xs={24} sm={24} md={12}>
-            <Text>Program</Text>
-            <Input value={profile.program} onChange={(e) => handleChange("program", e.target.value)} disabled />
-          </Col>
+          <Col span={24}>
+            <Text >
+              Programs & Counselling Services
+            </Text>
 
-          <Col xs={24} sm={24} md={12}>
-            <Text>Counselling Service</Text>
-            <Input
-              value={profile.counselling_service}
-              onChange={(e) =>
-                handleChange("counselling_service", e.target.value)
-              }
-              disabled
-            />
-          </Col>
+            <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
+              {profile.program_packages?.length > 0 ? (
+                profile.program_packages.map((item, index) => (
+                  <Col xs={24} sm={12} key={index}>
+                    <Card
+                      size="small"
+                      style={{
+                        borderRadius: 12,
+                        background: "#fafafa",
+                        height: "100%",
+                      }}
+                    >
+                      <Text strong>
+                        {index + 1}. {item.program_name}
+                      </Text>
 
+                      <br />
+
+                      <Tag color="#1E40AF" style={{ marginTop: 8 }}>
+                        {item.package_name}
+                      </Tag>
+                    </Card>
+                  </Col>
+                ))
+              ) : (
+                <Col span={24}>
+                  <Text type="secondary">No Program Assigned</Text>
+                </Col>
+              )}
+            </Row>
+          </Col>
           <Col xs={24} sm={24} md={12}>
             <Text>Joined On</Text>
             <Input value={profile.joined_on} disabled />
@@ -765,7 +801,7 @@ const StudentProfile = () => {
           </Col>
 
           <Col xs={24} sm={24} md={12}>
-            <Text>Stream</Text>
+            <Text>Current Stream</Text>
 
             <Select
               value={profile.stream}
@@ -779,6 +815,16 @@ const StudentProfile = () => {
               ))}
             </Select>
           </Col>
+
+          <Col xs={24} sm={24} md={12}>
+  <Text>Suggested Stream by Counsellor</Text>
+
+  <Input
+    value={profile.suggested_stream}
+    disabled
+    placeholder="Suggested by counsellor"
+  />
+</Col>
 
           <Col xs={24}>
             <Text>Special Notes by counsellor</Text>
@@ -804,87 +850,87 @@ const StudentProfile = () => {
             <Text>
               Liked Subjects <span style={{ color: "red" }}>*</span>
             </Text>
-<Select
-  mode="tags"
-  value={profile.liked_subjects || []}
-  style={{ width: "100%" }}
-  placeholder="Select or type subjects"
-  onChange={(values) => {
-    // remove duplicates
-    handleChange("liked_subjects", [...new Set(values)]);
-  }}
-  tokenSeparators={[","]}
-  maxTagCount="responsive"
->
-  {subjectList?.map((subject) => (
-    <Option
-      key={subject.id}
-      value={subject.id} // keeps IDs
-      disabled={
-        profile.disliked_subjects?.includes(subject.id) ||
-        profile.moderate_subjects?.includes(subject.id)
-      }
-    >
-      {subject.name}
-    </Option>
-  ))}
-</Select>
+            <Select
+              mode="tags"
+              value={profile.liked_subjects || []}
+              style={{ width: "100%" }}
+              placeholder="Select or type subjects"
+              onChange={(values) => {
+                // remove duplicates
+                handleChange("liked_subjects", [...new Set(values)]);
+              }}
+              tokenSeparators={[","]}
+              maxTagCount="responsive"
+            >
+              {subjectList?.map((subject) => (
+                <Option
+                  key={subject.id}
+                  value={subject.id} // keeps IDs
+                  disabled={
+                    profile.disliked_subjects?.includes(subject.id) ||
+                    profile.moderate_subjects?.includes(subject.id)
+                  }
+                >
+                  {subject.name}
+                </Option>
+              ))}
+            </Select>
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>
               Disliked Subjects <span style={{ color: "red" }}>*</span>
             </Text>
- <Select
-  mode="tags"
-  value={profile.disliked_subjects || []}
-  style={{ width: "100%" }}
-  onChange={(values) =>
-    handleChange("disliked_subjects", [...new Set(values)])
-  }
-  tokenSeparators={[","]}
-  maxTagCount="responsive"
->
-  {subjectList?.map((subject) => (
-    <Option
-      key={subject.id}
-      value={subject.id}
-      disabled={
-        profile.liked_subjects?.includes(subject.id) ||
-        profile.moderate_subjects?.includes(subject.id)
-      }
-    >
-      {subject.name}
-    </Option>
-  ))}
-</Select>
+            <Select
+              mode="tags"
+              value={profile.disliked_subjects || []}
+              style={{ width: "100%" }}
+              onChange={(values) =>
+                handleChange("disliked_subjects", [...new Set(values)])
+              }
+              tokenSeparators={[","]}
+              maxTagCount="responsive"
+            >
+              {subjectList?.map((subject) => (
+                <Option
+                  key={subject.id}
+                  value={subject.id}
+                  disabled={
+                    profile.liked_subjects?.includes(subject.id) ||
+                    profile.moderate_subjects?.includes(subject.id)
+                  }
+                >
+                  {subject.name}
+                </Option>
+              ))}
+            </Select>
           </Col>
 
           <Col xs={24} sm={24} md={12}>
             <Text>Moderate Subject (if any)</Text>
-     <Select
-  mode="tags"
-  value={profile.moderate_subjects || []}
-  style={{ width: "100%" }}
-  onChange={(values) =>
-    handleChange("moderate_subjects", [...new Set(values)])
-  }
-  tokenSeparators={[","]}
-  maxTagCount="responsive"
->
-  {subjectList?.map((subject) => (
-    <Option
-      key={subject.id}
-      value={subject.id}
-      disabled={
-        profile.liked_subjects?.includes(subject.id) ||
-        profile.disliked_subjects?.includes(subject.id)
-      }
-    >
-      {subject.name}
-    </Option>
-  ))}
-</Select>
+            <Select
+              mode="tags"
+              value={profile.moderate_subjects || []}
+              style={{ width: "100%" }}
+              onChange={(values) =>
+                handleChange("moderate_subjects", [...new Set(values)])
+              }
+              tokenSeparators={[","]}
+              maxTagCount="responsive"
+            >
+              {subjectList?.map((subject) => (
+                <Option
+                  key={subject.id}
+                  value={subject.id}
+                  disabled={
+                    profile.liked_subjects?.includes(subject.id) ||
+                    profile.disliked_subjects?.includes(subject.id)
+                  }
+                >
+                  {subject.name}
+                </Option>
+              ))}
+            </Select>
           </Col>
 
           <Col xs={24}>
@@ -907,23 +953,23 @@ const StudentProfile = () => {
 
 
 
-  <Select
-  mode="tags"
-  value={profile.hobbies || []}
-  style={{ width: "100%" }}
-  placeholder="Select or type hobbies"
-  onChange={(values) =>
-    handleChange("hobbies", [...new Set(values)])
-  }
-  tokenSeparators={[","]}
-  maxTagCount="responsive"
->
-  {hobbyList?.map((hobby) => (
-    <Option key={hobby.id} value={hobby.id}>
-      {hobby.name}
-    </Option>
-  ))}
-</Select>
+        <Select
+          mode="tags"
+          value={profile.hobbies || []}
+          style={{ width: "100%" }}
+          placeholder="Select or type hobbies"
+          onChange={(values) =>
+            handleChange("hobbies", [...new Set(values)])
+          }
+          tokenSeparators={[","]}
+          maxTagCount="responsive"
+        >
+          {hobbyList?.map((hobby) => (
+            <Option key={hobby.id} value={hobby.id}>
+              {hobby.name}
+            </Option>
+          ))}
+        </Select>
 
         {/* PARENT DETAILS */}
         <Divider />

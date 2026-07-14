@@ -327,7 +327,7 @@ const FollowUpManagement = () => {
   editData={rescheduleData}
   onCancel={() => setIsModalOpen(false)}
   onSubmit={(data) => {
-    console.log("Follow-up data:", data);
+    // console.log("Follow-up data:", data);
     setIsModalOpen(false);
   }}
 />
@@ -337,7 +337,7 @@ const FollowUpManagement = () => {
   record={selectedRecord}
   onCancel={() => setCompleteModalOpen(false)}
   onSubmit={(completedData) => {
-    console.log("Completed Follow-up:", completedData);
+    // console.log("Completed Follow-up:", completedData);
 
     // 🔥 STATUS MAPPING
     const statusMap = {

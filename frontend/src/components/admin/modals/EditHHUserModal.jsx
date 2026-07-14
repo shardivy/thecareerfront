@@ -44,7 +44,7 @@ useEffect(() => {
   const programId = userData?.program_id;
 
   if (programId) {
-    console.log("Fetching packages for program:", programId);
+    // console.log("Fetching packages for program:", programId);
     dispatch(fetchPackagesByProgram(programId));
   }
 }, [open, userData?.program_id, dispatch]);
@@ -79,7 +79,7 @@ useEffect(() => {
   if (!open || !userData) return;
 
   form.resetFields(); // 🔥 IMPORTANT FIX
-  console.log("userData inside modal:", userData);
+  // console.log("userData inside modal:", userData);
 
   form.setFieldsValue({
     firstName: userData.firstName,
@@ -179,8 +179,8 @@ Object.entries(values).forEach(([key, value]) => {
                 </Col>
 
                 <Col xs={24} sm={12}>
-                  <Form.Item name="email" label="Email">
-                    <Input />
+                  <Form.Item name="email" label="Email" >
+                    <Input disabled />
                   </Form.Item>
                 </Col>
 
@@ -191,8 +191,8 @@ Object.entries(values).forEach(([key, value]) => {
                 </Col>
 
                 <Col xs={24} sm={12}>
-                  <Form.Item name="program_name" label="Program">
-                    <Input />
+                  <Form.Item name="program_name" label="Program" >
+                    <Input disabled />
                   </Form.Item>
                 </Col>
 
@@ -208,12 +208,7 @@ Object.entries(values).forEach(([key, value]) => {
                   </Form.Item>
                 </Col> */}
 
-                <Col xs={24} sm={12}>
-                  <Form.Item name="city" label="City">
-                    <Input />
-                  </Form.Item>
-                </Col>
-
+              
                 <Col xs={24} sm={12}>
                  <Form.Item
                    name="package_id"
@@ -232,6 +227,12 @@ Object.entries(values).forEach(([key, value]) => {
                    </Select>
                  </Form.Item>
                </Col>
+
+                 <Col xs={24} sm={12}>
+                  <Form.Item name="city" label="City">
+                    <Input />
+                  </Form.Item>
+                </Col>
 
                 <Col xs={24} sm={12}>
                   <Form.Item

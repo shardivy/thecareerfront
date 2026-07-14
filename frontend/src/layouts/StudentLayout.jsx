@@ -13,7 +13,8 @@ import {
   Badge,
   theme,
   Alert,
-  Modal
+  Modal,
+  Select,
 } from "antd";
 import {
   UserOutlined,
@@ -29,13 +30,18 @@ import {
   CreditCardFilled,
   FormOutlined,
   ExclamationCircleFilled,
+  SwapOutlined,
+  RetweetOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
 import NotificationDropdown from "../components/student/pages/Notification";
 import { useDispatch, useSelector } from "react-redux";
 import { getProfile, clearProfile } from "../adminSlices/profileSlice";
+import { logout } from "../adminSlices/authSlice";
 import { ConfigProvider } from "antd";
 import adminTheme from "../theme/adminTheme";
+import { setSelection } from "../adminSlices/studentSelectionSlice";
+import {clearCollegeAnalysisDraft} from "../adminSlices/collegeAnalysisSlice";
 
 const { Header, Sider, Content } = Layout;
 const { useBreakpoint } = Grid;
@@ -53,11 +59,91 @@ export default function StudentLayout() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const { profile } = useSelector((state) => state.profile);
   const tokenFromStorage = localStorage.getItem("studentToken");
-  const selectedPackage = localStorage.getItem("selectedPackage");
+  // const selectedPackage = localStorage.getItem("selectedPackage");
   const getDashboardPath = () => "/student/dashboard";
   const adminRole = localStorage.getItem("adminRole");
   const isBasicUser = adminRole === "basic_user";
+  const profileRole = String(profile?.role || "").toLowerCase();
+  const isFreeUser =
+    profileRole === "basic_user" ||
+    (!profileRole && !profile?.package_id && !profile?.program_id);
   const [showModal, setShowModal] = useState(false);
+
+
+  const selectedProgramRedux = useSelector(
+    (state) => state.programs?.selectedProgram
+  );
+
+  const selectedPackageRedux = useSelector(
+    (state) => state.packages?.selectedPackage
+  );
+
+  const selectedProgramIdRedux = useSelector(
+    (state) => state.programs?.selectedProgramId
+  );
+
+  const selectedPackageIdRedux = useSelector(
+    (state) => state.packages?.selectedPackageId
+  );
+
+  const selectedProgram =
+    selectedProgramRedux ||
+    localStorage.getItem("selectedProgram");
+
+  const selectedProgramId =
+    selectedProgramIdRedux ||
+    Number(localStorage.getItem("selectedProgramId"));
+
+  const selectedPackage =
+    selectedPackageRedux ||
+    localStorage.getItem("selectedPackage");
+
+  const selectedPackageId =
+    selectedPackageIdRedux ||
+    Number(localStorage.getItem("selectedPackageId"));
+
+  const programPackages =
+    profile?.program_packages ||
+    JSON.parse(localStorage.getItem("programPackages")) ||
+    [];
+
+  const selectedProgramItem =
+    programPackages.find(
+      (item) =>
+        String(item.program_id) === String(selectedProgramId) &&
+        String(item.package_id) === String(selectedPackageId)
+    ) ||
+    programPackages.find(
+      (item) => String(item.program_id) === String(selectedProgramId)) ||
+    {};
+
+  // Persist program packages from profile if available
+  useEffect(() => {
+    if (profile?.program_packages) {
+      localStorage.setItem(
+        "programPackages",
+        JSON.stringify(profile.program_packages)
+      );
+    }
+  }, [profile?.program_packages]);
+
+  useEffect(() => {
+  if (profile?.stream) {
+    localStorage.setItem(
+      "selectedStreamId",
+      String(profile.stream.stream_id)
+    );
+
+    localStorage.setItem(
+      "selectedStream",
+      profile.stream.stream_name
+    );
+  } else {
+    // Optional: remove if stream is null
+    localStorage.removeItem("selectedStreamId");
+    localStorage.removeItem("selectedStream");
+  }
+}, [profile]);
 
   // Check if modal should be shown on component mount
   useEffect(() => {
@@ -68,11 +154,8 @@ export default function StudentLayout() {
     }
   }, []);
 
-  // Check if package exists in profile or localStorage
-  const hasPackage = !!(profile?.package_id || selectedPackage);
-
-  // Check if only program exists but no package
-  const hasOnlyProgram = !!(profile?.program) && !hasPackage;
+  const hasPackage = !!selectedPackageId;
+  const hasOnlyProgram = !!selectedProgramId && !hasPackage;
 
   const username = localStorage.getItem("username") || "Student";
   const userRole = profile?.role;
@@ -91,33 +174,45 @@ export default function StudentLayout() {
   }, [dispatch]);
 
   useEffect(() => {
-  if (profile?.role) {
-    const oldRole = localStorage.getItem("adminRole");
+  const disableRightClick = (e) => {
+    e.preventDefault();
+  };
 
-    // First time login → just store role
-    if (!oldRole) {
-      localStorage.setItem("adminRole", profile.role);
-      return;
+  document.addEventListener("contextmenu", disableRightClick);
+
+  return () => {
+    document.removeEventListener("contextmenu", disableRightClick);
+  };
+}, []);
+
+  useEffect(() => {
+    if (profile?.role) {
+      const oldRole = localStorage.getItem("adminRole");
+
+      // First time login → just store role
+      if (!oldRole) {
+        localStorage.setItem("adminRole", profile.role);
+        return;
+      }
+
+      // 🔥 Detect role change
+      if (oldRole !== profile.role) {
+        console.log("Role changed detected");
+
+        // Clear old cached UI data
+        localStorage.removeItem("dashboardConfig");
+        localStorage.removeItem("selectedPackage");
+        localStorage.removeItem("aptitude_test");
+        localStorage.removeItem("engineering_test_analysis");
+
+        // Update new role
+        localStorage.setItem("adminRole", profile.role);
+
+        // 🔥 Reload UI
+        window.location.reload();
+      }
     }
-
-    // 🔥 Detect role change
-    if (oldRole !== profile.role) {
-      console.log("Role changed detected");
-
-      // Clear old cached UI data
-      localStorage.removeItem("dashboardConfig");
-      localStorage.removeItem("selectedPackage");
-      localStorage.removeItem("aptitude_test");
-      localStorage.removeItem("engineering_test_analysis");
-
-      // Update new role
-      localStorage.setItem("adminRole", profile.role);
-
-      // 🔥 Reload UI
-      window.location.reload();
-    }
-  }
-}, [profile]);
+  }, [profile]);
 
   useEffect(() => {
     if (profile?.aptitude_test !== undefined) {
@@ -132,32 +227,45 @@ export default function StudentLayout() {
 
   const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
 
-  const showExamAndReport = aptitudeTestFromStorage === "true";
+  const showExamAndReport =
+    selectedProgramItem?.aptitude_test === true ||
+    selectedProgramItem?.aptitude_test === "true" ||
+    aptitudeTestFromStorage === "true";
 
   const showEngineering =
-    localStorage.getItem("engineering_test_analysis") === "true" &&
+    (selectedProgramItem?.engineering_test_analysis === true ||
+      selectedProgramItem?.engineering_test_analysis === "true" ||
+      localStorage.getItem("engineering_test_analysis") === "true") &&
     adminRole !== "basic_user";
+
+  const shouldShowSlotBooking = !isFreeUser;
+  const showSlotBookingAfterExam = showExamAndReport && !showEngineering;
+  const showSlotBookingAfterEngineering = showEngineering;
+  const showSlotBookingForOtherPrograms =
+    shouldShowSlotBooking &&
+    !showSlotBookingAfterExam &&
+    !showSlotBookingAfterEngineering;
 
   // const prevConverted = localStorage.getItem("prev_converted_lead");
 
-// useEffect(() => {
-//   if (profile?.is_converted_lead !== undefined) {
-//     const prev = localStorage.getItem("prev_converted_lead");
-//     const handled = localStorage.getItem("conversionHandled");
+  // useEffect(() => {
+  //   if (profile?.is_converted_lead !== undefined) {
+  //     const prev = localStorage.getItem("prev_converted_lead");
+  //     const handled = localStorage.getItem("conversionHandled");
 
-//     // Show modal only if just converted (false → true) and not already handled
-//     if (prev === "false" && profile.is_converted_lead === true && !handled) {
-//       setShowModal(true);
-//       localStorage.setItem("showConversionModal", "true");
-//     }
+  //     // Show modal only if just converted (false → true) and not already handled
+  //     if (prev === "false" && profile.is_converted_lead === true && !handled) {
+  //       setShowModal(true);
+  //       localStorage.setItem("showConversionModal", "true");
+  //     }
 
-//     // update previous state
-//     localStorage.setItem(
-//       "prev_converted_lead",
-//       profile.is_converted_lead
-//     );
-//   }
-// }, [profile]);
+  //     // update previous state
+  //     localStorage.setItem(
+  //       "prev_converted_lead",
+  //       profile.is_converted_lead
+  //     );
+  //   }
+  // }, [profile]);
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -264,6 +372,22 @@ export default function StudentLayout() {
     style: { marginBottom: 10 },
   };
 
+  const slotBookingItem = {
+    key: "/student/slot-booking",
+    icon: <ScheduleFilled />,
+    label: (
+      <div style={{ lineHeight: "20px" }}>
+        <div>Counselling</div>
+        <div>Slot Booking</div>
+      </div>
+    ),
+    onClick: () => {
+      navigate("/student/slot-booking");
+      setDrawerVisible(false);
+    },
+    style: { marginBottom: 18 },
+  };
+
   if (isBasicUser || !hasPackage) {
     menuItems.push(contentLibraryItem);
   }
@@ -286,134 +410,119 @@ export default function StudentLayout() {
 
   // Package-dependent items
   if (hasPackage) {
-   const packageItems = [
-  // ================= APTITUDE =================
-  ...(showExamAndReport
-    ? [
-        {
-          key: "/student/exam-management",
-          icon: <CalendarFilled />,
-          label: (
-            <div style={{ lineHeight: "20px" }}>
-              <div>Aptitude Test</div>
-              <div>Management</div>
-            </div>
-          ),
-          onClick: () => {
-            navigate("/student/exam-management");
-            setDrawerVisible(false);
+    const packageItems = [
+      // ================= APTITUDE =================
+      ...(showExamAndReport
+        ? [
+          {
+            key: "/student/exam-management",
+            icon: <CalendarFilled />,
+            label: (
+              <div style={{ lineHeight: "20px" }}>
+                <div>Aptitude Test</div>
+                <div>Management</div>
+              </div>
+            ),
+            onClick: () => {
+              navigate("/student/exam-management");
+              setDrawerVisible(false);
+            },
+            style: { marginBottom: 18 },
           },
-          style: { marginBottom: 18 },
-        },
 
-        // SLOT BOOKING AFTER EXAM MANAGEMENT
-        ...(!isBasicUser
-          ? [
+          // SLOT BOOKING AFTER EXAM MANAGEMENT
+          ...(showSlotBookingAfterExam
+            ? [slotBookingItem]
+            : []),
+
+          ...(!isBasicUser
+            ? [
+              // WRITE REVIEW
+              writeReviewItem,
+            ]
+            : []),
+
+          // REPORT AFTER REVIEW
+          {
+            key: "/student/report-management",
+            icon: <FileTextFilled />,
+            label: (
+              <div style={{ lineHeight: "20px" }}>
+                <div>Aptitude Test</div>
+                <div>Reports</div>
+              </div>
+            ),
+            onClick: () => {
+              navigate("/student/report-management");
+              setDrawerVisible(false);
+            },
+            style: { marginBottom: 18 },
+          },
+        ]
+        : []),
+
+      // ================= ENGINEERING =================
+      ...(showEngineering
+        ? [
+          engineeringQuestionnairesItem,
+
+          // SLOT BOOKING AFTER QUESTIONNAIRES
+          ...(!isBasicUser
+            ? [
               {
-                key: "/student/slot-booking",
-                icon: <ScheduleFilled />,
+                key: "/student/analysis-report",
+                icon: <FileTextFilled />,
                 label: (
                   <div style={{ lineHeight: "20px" }}>
-                    <div>Counselling</div>
-                    <div>Slot Booking</div>
+                    <div>Analysis Report</div>
                   </div>
                 ),
                 onClick: () => {
-                  navigate("/student/slot-booking");
+                  navigate("/student/analysis-report");
                   setDrawerVisible(false);
                 },
                 style: { marginBottom: 18 },
               },
 
-              // WRITE REVIEW
-              writeReviewItem,
-            ]
-          : []),
-
-        // REPORT AFTER REVIEW
-        {
-          key: "/student/report-management",
-          icon: <FileTextFilled />,
-          label: (
-            <div style={{ lineHeight: "20px" }}>
-              <div>Aptitude Test</div>
-              <div>Reports</div>
-            </div>
-          ),
-          onClick: () => {
-            navigate("/student/report-management");
-            setDrawerVisible(false);
-          },
-          style: { marginBottom: 18 },
-        },
-      ]
-    : []),
-
-  // ================= ENGINEERING =================
-  ...(showEngineering
-    ? [
-        engineeringQuestionnairesItem,
-
-        // SLOT BOOKING AFTER QUESTIONNAIRES
-        ...(!isBasicUser
-          ? [
-
-             {
-          key: "/student/analysis-report",
-          icon: <FileTextFilled />,
-          label: (
-            <div style={{ lineHeight: "20px" }}>
-              <div>Analysis Report</div>
-            </div>
-          ),
-          onClick: () => {
-            navigate("/student/analysis-report");
-            setDrawerVisible(false);
-          },
-          style: { marginBottom: 18 },
-        },
-              {
-                key: "/student/slot-booking",
-                icon: <ScheduleFilled />,
-                label: (
-                  <div style={{ lineHeight: "20px" }}>
-                    <div>Counselling</div>
-                    <div>Slot Booking</div>
-                  </div>
-                ),
-                onClick: () => {
-                  navigate("/student/slot-booking");
-                  setDrawerVisible(false);
-                },
-                style: { marginBottom: 18 },
-              },
+              ...(showSlotBookingAfterEngineering ? [slotBookingItem] : []),
 
               // WRITE REVIEW
               writeReviewItem,
             ]
-          : []),
+            : []),
 
-        // ANALYSIS REPORT AFTER REVIEW
-       
-      ]
-    : []),
+          // ANALYSIS REPORT AFTER REVIEW
 
-  // ================= PAYMENTS =================
-  ...(!isBasicUser
-    ? [
-        {
-          key: "/student/payments",
-          icon: <CreditCardFilled />,
-          label: "Payments",
-          onClick: () => {
-            navigate("/student/payments");
-            setDrawerVisible(false);
+        ]
+        : []),
+
+      ...(showSlotBookingForOtherPrograms ? [slotBookingItem] : []),
+
+
+      // WRITE REVIEW FOR REMAINING PROGRAMS
+      ...(
+        !isBasicUser &&
+          !showExamAndReport &&
+          !showEngineering
+          ? [writeReviewItem]
+          : []
+      ),
+      // ================= PAYMENTS =================
+      ...(!isBasicUser
+        ? [
+          {
+            key: "/student/payments",
+            icon: <CreditCardFilled />,
+            label: "Payments",
+            onClick: () => {
+              navigate("/student/payments");
+              setDrawerVisible(false);
+            },
+            style: { marginBottom: 12 },
           },
-          style: { marginBottom: 12 },
-        },
-      ]
-    : []),
-];
+        ]
+        : []),
+    ];
 
 
     // Merge package items
@@ -432,10 +541,10 @@ export default function StudentLayout() {
     localStorage.setItem("conversionHandled", "true");
     localStorage.removeItem("showConversionModal");
 
+    // Clear persisted auth/profile data
     localStorage.clear();
-
-    // Optional: reset Redux state
     dispatch(clearProfile());
+    dispatch(logout());
 
     navigate("/", { replace: true });
   };
@@ -485,6 +594,102 @@ export default function StudentLayout() {
   );
 
   const isProfilePage = location.pathname === "/student/student-profile";
+
+  // Handler for program/package change
+  const handleProgramChange = (value) => {
+    const allPrograms =
+      profile?.program_packages ||
+      JSON.parse(localStorage.getItem("programPackages")) ||
+      [];
+
+    const selectedItem = allPrograms.find(
+      (item) => `${item.program_id}_${item.package_id}` === value
+    );
+
+    if (!selectedItem) return;
+
+     // Clear old program-specific data
+      dispatch(clearCollegeAnalysisDraft());
+
+    // Reset program-specific flags
+    localStorage.removeItem("paymentCompleted");
+    localStorage.removeItem("examCompleted");
+    localStorage.removeItem("report_status");
+
+    // Update Redux
+    dispatch(
+      setSelection({
+        programId: selectedItem.program_id,
+        programName: selectedItem.program_name,
+        packageId: selectedItem.package_id,
+        packageName: selectedItem.package_name,
+      })
+    );
+
+    // Update LocalStorage
+    localStorage.setItem("selectedProgramId", selectedItem.program_id);
+    localStorage.setItem("selectedProgram", selectedItem.program_name);
+    localStorage.setItem("selectedPackageId", selectedItem.package_id);
+    localStorage.setItem("selectedPackage", selectedItem.package_name);
+
+    if (selectedItem.aptitude_test !== undefined) {
+      localStorage.setItem(
+        "aptitude_test",
+        String(selectedItem.aptitude_test)
+      );
+    }
+    if (selectedItem.engineering_test_analysis !== undefined) {
+      localStorage.setItem(
+        "engineering_test_analysis",
+        String(selectedItem.engineering_test_analysis)
+      );
+    }
+
+    // Dispatch custom event to notify dashboard of program change
+    window.dispatchEvent(
+      new CustomEvent("programChanged", {
+        detail: {
+          programId: selectedItem.program_id,
+          packageId: selectedItem.package_id,
+        },
+      })
+    );
+
+    navigate("/student/dashboard");
+  };
+
+  // On mount, if no selection in LocalStorage, set defaults
+  useEffect(() => {
+    if (!selectedProgramId && allPrograms.length > 0) {
+      const first = allPrograms[0];
+
+      localStorage.setItem("selectedProgramId", first.program_id);
+      localStorage.setItem("selectedProgram", first.program_name);
+      localStorage.setItem("selectedPackageId", first.package_id);
+      localStorage.setItem("selectedPackage", first.package_name);
+
+      dispatch(
+        setSelection({
+          programId: first.program_id,
+          programName: first.program_name,
+          packageId: first.package_id,
+          packageName: first.package_name,
+        })
+      );
+    }
+  }, []);
+
+  const allPrograms =
+    profile?.program_packages ||
+    JSON.parse(localStorage.getItem("programPackages")) || [];
+
+  const showProgramDropdown =
+    !isBasicUser && !isFreeUser && allPrograms.length > 1;
+
+  const programOptions = allPrograms.map((item) => ({
+    value: `${item.program_id}_${item.package_id}`,
+    label: `${item.program_name} - ${item.package_name}`,
+  }));
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -634,7 +839,7 @@ export default function StudentLayout() {
               header: {
                 background: token.colorPrimary,
                 borderBottom: "none",
-                direction: "rtl", // ⭐ moves close icon to right
+                direction: "rtl",
               },
               body: {
                 background: token.colorPrimary,
@@ -666,39 +871,76 @@ export default function StudentLayout() {
                 position: "sticky",
                 top: 0,
                 zIndex: 10,
+                height: screens.xs ? 56 : 64,
               }}
             >
-              {/* LEFT SIDE - BREADCRUMB */}
+              {/* LEFT SIDE */}
               <div
                 style={{
-                  maxWidth: screens.xs ? "55%" : "45%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  flex: 1,
+                  minWidth: 0,
                   overflow: "hidden",
-                  whiteSpace: "nowrap",
                 }}
               >
-                <Breadcrumb
-                  style={{
-                    fontSize: screens.xs ? 13 : 15,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {breadcrumbItems.map((item) => (
-                    <Breadcrumb.Item key={item.key}>
-                      <span
-                        style={{
-                          display: "inline-block",
-                          maxWidth: screens.xs ? 90 : "none",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          verticalAlign: "bottom",
-                        }}
-                      >
+                {/* Hide breadcrumb on mobile */}
+                {!screens.xs && (
+                  <Breadcrumb style={{ fontSize: 15, whiteSpace: "nowrap" }}>
+                    {breadcrumbItems.map((item) => (
+                      <Breadcrumb.Item key={item.key}>
                         {item.title}
-                      </span>
-                    </Breadcrumb.Item>
-                  ))}
-                </Breadcrumb>
+                      </Breadcrumb.Item>
+                    ))}
+                  </Breadcrumb>
+                )}
+
+                {/* Program Dropdown */}
+                {showProgramDropdown && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: "#fff",
+                      border: "1px solid #d9d9d9",
+                      borderRadius: 12,
+                      padding: screens.xs ? "4px 8px" : "5px 10px",
+                      marginLeft: screens.xs ? 0 : 12,
+                      maxWidth: screens.xs ? "100%" : "auto",
+                    }}
+                  >
+                    <RetweetOutlined style={{ color: "#1E40AF", fontSize: 14 }} />
+                    <Select
+                      bordered={false}
+                      value={`${selectedProgramId}_${selectedPackageId}`}
+                      options={programOptions}
+                      onChange={handleProgramChange}
+                      size={screens.xs ? "small" : "middle"}
+                      style={{
+                        width: screens.xs ? 150 : 280,
+                        fontSize: screens.xs ? 12 : 14,
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Show page title on mobile instead of breadcrumb */}
+                {screens.xs && !showProgramDropdown && (
+                  <Text
+                    strong
+                    style={{
+                      fontSize: 14,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: 160,
+                    }}
+                  >
+                    {breadcrumbNameMap[location.pathname] || "Dashboard"}
+                  </Text>
+                )}
               </div>
 
               {/* RIGHT SIDE */}
@@ -706,44 +948,40 @@ export default function StudentLayout() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: screens.xs ? 8 : 14,
+                  gap: screens.xs ? 6 : 14,
+                  flexShrink: 0,
                 }}
               >
-                {/* NOTIFICATION */}
+                {/* Notification */}
                 <Badge size="small">
-                  <BellOutlined style={{ fontSize: 18 }} />
+                  <BellOutlined style={{ fontSize: screens.xs ? 16 : 18 }} />
                 </Badge>
 
-                {/* USER NAME */}
+                {/* Username + Avatar - hide username text on mobile */}
                 <Dropdown menu={userMenu} trigger={["click"]}>
-                  <Space style={{ cursor: "pointer", alignItems: "center", gap: 8 }}>
-
-                    <Text
-                      strong
-                      style={{
-                        fontSize: screens.xs ? 13 : 15,
-                        maxWidth: screens.xs ? 90 : "none",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {truncatedUsername}
-                    </Text>
-
+                  <Space style={{ cursor: "pointer", alignItems: "center", gap: 6 }}>
+                    {!screens.xs && (
+                      <Text
+                        strong
+                        style={{ fontSize: 15 }}
+                      >
+                        {truncatedUsername}
+                      </Text>
+                    )}
                     <Avatar
                       icon={<UserOutlined />}
+                      size={screens.xs ? 28 : 32}
                       style={{ background: token.colorPrimary }}
                     />
-
                   </Space>
                 </Dropdown>
 
-                {/* MOBILE MENU BUTTON */}
+                {/* Mobile Menu Button */}
                 {screens.xs && (
                   <Button
                     type="text"
                     icon={<MenuOutlined />}
+                    size="small"
                     onClick={() => setDrawerVisible(true)}
                   />
                 )}

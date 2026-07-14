@@ -45,6 +45,7 @@ const EmployeeList = () => {
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const role = localStorage.getItem("adminRole");
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -153,27 +154,48 @@ const EmployeeList = () => {
         <Tag color={status === "Active" ? "success" : "default"}>{status}</Tag>
       ),
     },
-    {
-      title: "Actions",
-      render: (_, record) => (
-        <Space wrap>
-          <Button size="large" icon={<EyeOutlined />} onClick={() => handleView(record)}>
-            View
-          </Button>
-          <Button size="large" type="primary" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-            Edit
-          </Button>
-          <Button
-            size="large"
-            danger
-            icon={<DeleteOutlined />}
-            onClick={() => showDeleteConfirm(record)}
-          >
-            Delete
-          </Button>
-        </Space>
-      ),
-    },
+  {
+  title: "Actions",
+  render: (_, record) => {
+    const isRestrictedUser = record.name === "Reena Bhutada";
+
+    return (
+      <Space wrap>
+        <Button
+          size="large"
+          icon={<EyeOutlined />}
+          onClick={() => handleView(record)}
+        >
+          View
+        </Button>
+
+        {role === "superadmin" && (
+          <>
+            <Button
+              size="large"
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => handleEdit(record)}
+              disabled={isRestrictedUser}
+            >
+              Edit
+            </Button>
+
+            <Button
+              size="large"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => showDeleteConfirm(record)}
+              disabled={isRestrictedUser}
+            >
+              Delete
+            </Button>
+          </>
+        )}
+      </Space>
+    );
+  },
+},
   ];
 
   return (

@@ -12,10 +12,13 @@ import {
   Row,
   Col,
   DatePicker,
+  Modal,
+  message,
 } from "antd";
 import dayjs from "dayjs";
 import adminTheme from "../../../theme/adminTheme";
-import { EditOutlined, PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { EditOutlined, PlusOutlined, SearchOutlined, DeleteOutlined, DownOutlined } from "@ant-design/icons";
+import { deleteEnquiry } from "../../../adminSlices/updateEnquirySlice";
 import AddEnquiryModal from "../modals/AddEnquiryModal";
 import { fetchEnquiries } from "../../../adminSlices/enquiryListSlice";
 import * as XLSX from "xlsx";
@@ -30,6 +33,7 @@ const Enquiry = () => {
 
   const dispatch = useDispatch();
   const { list, loading, error } = useSelector((state) => state.enquiryList);
+  const role = localStorage.getItem("adminRole") || "";
 
 
 
@@ -90,9 +94,17 @@ const Enquiry = () => {
   const filteredEnquiries = enquiriesData.filter((enquiry) => {
     const search = searchText.toLowerCase();
 
+    const programText = Array.isArray(enquiry.program_detail)
+      ? enquiry.program_detail.map((p) => p.name).join(" ").toLowerCase()
+      : Array.isArray(enquiry.program)
+      ? enquiry.program.join(" ").toLowerCase()
+      : typeof enquiry.program === "string"
+      ? enquiry.program.toLowerCase()
+      : "";
+
     const matchesSearch =
       (enquiry.name?.toLowerCase() || "").includes(search) ||
-      (enquiry.program?.toLowerCase() || "").includes(search) ||
+      programText.includes(search) ||
       (enquiry.source?.toLowerCase() || "").includes(search) ||
       (enquiry.email?.toLowerCase() || "").includes(search) ||
       (enquiry.phone || "").includes(searchText);
@@ -195,11 +207,45 @@ const Enquiry = () => {
         </div>
       ),
     },
-    {
-      title: "Program of Interest",
-      dataIndex: "program",
-      key: "program",
-    },
+{
+  title: "Program of Interest",
+  dataIndex: "program_detail",
+  key: "program",
+  render: (program_detail, record) => {
+    if (Array.isArray(program_detail) && program_detail.length > 0) {
+      return (
+        <div>
+          {program_detail.map((p, index) => (
+            <div key={p.id || index}>
+              {index + 1}. {p.name}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (Array.isArray(record.program) && record.program.length > 0) {
+      return (
+        <div>
+          {record.program.map((p, index) => (
+            <div key={index}>
+              {index + 1}. {p}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (
+      typeof record.program === "string" &&
+      record.program.trim() !== ""
+    ) {
+      return `1. ${record.program}`;
+    }
+
+    return "N/A";
+  },
+},
     {
       title: "Source",
       dataIndex: "source",
@@ -244,8 +290,8 @@ render: (_, record) => {
           backgroundColor: isConverted
             ? adminTheme.token.disabledBg
             : isHHProgram
-            ? "#3b82f6" // HH blue
-            : adminTheme.token.colorPrimary, // default blue
+            ? "#3b82f6" 
+            : adminTheme.token.colorPrimary, 
 
           borderColor: isConverted
             ? adminTheme.token.disabledBg
@@ -253,7 +299,7 @@ render: (_, record) => {
             ? "#3b82f6"
             : adminTheme.token.colorPrimary,
 
-          color: isConverted ? "#888" : "#fff", // optional text dim
+          color: isConverted ? "#888" : "#fff", 
         }}
        onClick={() => {
   if (isHHProgram) {
@@ -275,17 +321,47 @@ render: (_, record) => {
       </Button>
 
       {!isConverted && (
-        <Button
-          type="default"
-          icon={<EditOutlined />}
-          onClick={() => {
-            setModalMode("edit");
-            setSelectedEnquiry(record);
-            setOpenAddModal(true);
-          }}
-        >
-          Edit
-        </Button>
+        <>
+          <Button
+            type="default"
+            icon={<EditOutlined />}
+            onClick={() => {
+              setModalMode("edit");
+              setSelectedEnquiry(record);
+              setOpenAddModal(true);
+            }}
+          >
+            Edit
+          </Button>
+
+          {role === "superadmin" && (
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => {
+                Modal.confirm({
+                  centered: true,
+                  title: `Delete enquiry for ${record.name}?`,
+                  content: `Are you sure you want to delete this enquiry? This action cannot be undone.`,
+                  okText: "Yes",
+                  cancelText: "No",
+                  onOk: async () => {
+                    try {
+                      await dispatch(deleteEnquiry(record.id)).unwrap();
+                      message.success("Enquiry deleted");
+                      dispatch(fetchEnquiries());
+                    } catch (err) {
+                      // console.error("Delete failed", err);
+                      message.error(err || "Failed to delete enquiry");
+                    }
+                  },
+                });
+              }}
+            >
+              Delete
+            </Button>
+          )}
+        </>
       )}
     </Space>
   );
@@ -310,6 +386,7 @@ render: (_, record) => {
         <Col>
           <Space>
             <Button
+               icon={<DownOutlined />}
               onClick={handleExport}
               style={{
                 borderRadius: adminTheme.token.borderRadius,

@@ -18,11 +18,42 @@ const StatusTrackingModal = ({ open, onClose }) => {
     (state) => state.exam
   );
 
+  // Redux values
+  const selectedProgramId = useSelector(
+    (state) => state.auth?.selectedProgramId
+  );
+
+  const selectedPackageId = useSelector(
+    (state) => state.auth?.selectedPackageId
+  );
+
+  // Fallback to localStorage
+  const programId =
+    selectedProgramId ||
+    localStorage.getItem("selectedProgramId");
+
+  const packageId =
+    selectedPackageId ||
+    localStorage.getItem("selectedPackageId");
+
   /* ---------------- FETCH WHEN MODAL OPENS ---------------- */
   useEffect(() => {
-    if (!open || !studentId) return;
-    dispatch(fetchExamTracker(studentId));
-  }, [open, dispatch, studentId]);
+    if (!open || !studentId || !programId || !packageId) return;
+
+    dispatch(
+      fetchExamTracker({
+        studentId,
+        programId,
+        packageId,
+      })
+    );
+  }, [
+    open,
+    dispatch,
+    studentId,
+    programId,
+    packageId,
+  ]);
 
   /* ---------------- DATE FORMAT FUNCTION (ADDED) ---------------- */
   const formatDateTime = (dateString) => {
@@ -70,22 +101,22 @@ const StatusTrackingModal = ({ open, onClose }) => {
             ? "current"
             : "pending",
       },
-    {
-  title: "Report Generation",
-  time:
-    tracker.report_generation?.report_status === "received_unlocked"
-      ? "Unlocked"
-      : tracker.report_generation?.report_status === "received_locked"
-      ? "Locked"
-      : "Pending Upload",
+      {
+        title: "Report Generation",
+        time:
+          tracker.report_generation?.report_status === "received_unlocked"
+            ? "Unlocked"
+            : tracker.report_generation?.report_status === "received_locked"
+              ? "Locked"
+              : "Pending Upload",
 
-  status:
-    tracker.report_generation?.report_status === "received_unlocked"
-      ? "done"
-      : tracker.report_generation?.report_status === "received_locked"
-      ? "current"
-      : "pending_uploaded",
-},
+        status:
+          tracker.report_generation?.report_status === "received_unlocked"
+            ? "done"
+            : tracker.report_generation?.report_status === "received_locked"
+              ? "current"
+              : "pending_uploaded",
+      },
 
     ];
   }, [tracker]);
@@ -97,34 +128,34 @@ const StatusTrackingModal = ({ open, onClose }) => {
     return <FileTextOutlined />;
   };
 
-const getColor = (status) => {
-  if (status === "done") return "#52c41a";
-  if (status === "current") return "#faad14";
-  if (status === "pending_uploaded") return "#bfbfbf";
-  return "#bfbfbf";
-};
+  const getColor = (status) => {
+    if (status === "done") return "#52c41a";
+    if (status === "current") return "#faad14";
+    if (status === "pending_uploaded") return "#bfbfbf";
+    return "#bfbfbf";
+  };
   const getTagLabel = (status) => {
-  if (status === "done") return "Completed";
-  if (status === "current") return "In Progress";
-  if (status === "pending_uploaded") return "Pending Upload";
-  return "Pending";
-};
+    if (status === "done") return "Completed";
+    if (status === "current") return "In Progress";
+    if (status === "pending_uploaded") return "Pending Upload";
+    return "Pending";
+  };
 
   /* ---------------- CURRENT STATUS LABEL ---------------- */
-const currentStatus =
-  tracker?.report_generation?.report_status === "received_unlocked"
-    ? "Report Unlocked"
-    : tracker?.report_generation?.report_status === "received_locked"
-    ? "Report Locked"
-    : tracker?.report_generation?.report_status === "not_received"
-    ? "Pending Upload"
-    : tracker?.awaiting_approval?.status
-    ? "Approved by Admin"
-    : tracker?.exam_submitted?.status
-    ? "Submitted - Waiting Approval"
-    : tracker?.exam_started?.status
-    ? "In Progress"
-    : "Not Started";
+  const currentStatus =
+    tracker?.report_generation?.report_status === "received_unlocked"
+      ? "Report Unlocked"
+      : tracker?.report_generation?.report_status === "received_locked"
+        ? "Report Locked"
+        : tracker?.report_generation?.report_status === "not_received"
+          ? "Pending Upload"
+          : tracker?.awaiting_approval?.status
+            ? "Approved by Admin"
+            : tracker?.exam_submitted?.status
+              ? "Submitted - Waiting Approval"
+              : tracker?.exam_started?.status
+                ? "In Progress"
+                : "Not Started";
 
   return (
     <Modal
@@ -211,9 +242,9 @@ const currentStatus =
                   </Text>
 
                   {step.status === "current" && (
-                     <Tag color={getColor(step.status)} style={{ marginTop: 6 }}>
-                    {getTagLabel(step.status)}
-                  </Tag>
+                    <Tag color={getColor(step.status)} style={{ marginTop: 6 }}>
+                      {getTagLabel(step.status)}
+                    </Tag>
                   )}
                 </div>
               </div>
@@ -268,177 +299,3 @@ const currentStatus =
 export default StatusTrackingModal;
 
 
-
-
-
-// import React from "react";
-// import { Modal, Button, Typography, Tag } from "antd";
-// import {
-//   CheckCircleOutlined,
-//   ClockCircleOutlined,
-//   FileTextOutlined,
-// } from "@ant-design/icons";
-
-// const { Text } = Typography;
-
-// const StatusTrackingModal = ({ open, onClose }) => {
-//   const steps = [
-//     {
-//       title: "Exam Started",
-//       time: "2026-01-07 14:00",
-//       status: "done",
-//       icon: <CheckCircleOutlined />,
-//       color: "#52c41a",
-//     },
-//     {
-//       title: "Exam Submitted",
-//       time: "2026-01-07 14:58",
-//       status: "done",
-//       icon: <CheckCircleOutlined />,
-//       color: "#52c41a",
-//     },
-//     {
-//       title: "Awaiting Approval",
-//       time: "Pending admin review",
-//       status: "current",
-//       icon: <ClockCircleOutlined />,
-//       color: "#1677ff",
-//     },
-//     {
-//       title: "Report Generation",
-//       time: "Will be available after approval",
-//       status: "pending",
-//       icon: <FileTextOutlined />,
-//       color: "#bfbfbf",
-//     },
-//   ];
-
-//   return (
-//     <Modal
-//       title="Exam Status Tracker"
-//       open={open}
-//       onCancel={onClose}
-//       footer={[
-//         <Button key="close" onClick={onClose}>
-//           Close
-//         </Button>,
-//       ]}
-//     >
-//       <div style={{ padding: "16px 12px" }}>
-//         {steps.map((step, index) => (
-//           <div
-//             key={index}
-//             style={{
-//               display: "flex",
-//               alignItems: "flex-start",
-//               gap: 16,
-//               position: "relative",
-//               paddingBottom: index !== steps.length - 1 ? 36 : 0,
-//             }}
-//           >
-//             {/* ICON */}
-//             <div
-//               style={{
-//                 width: 44,
-//                 height: 44,
-//                 borderRadius: "50%",
-//                 border: `2px solid ${step.color}`,
-//                 display: "flex",
-//                 alignItems: "center",
-//                 justifyContent: "center",
-//                 color: step.color,
-//                 background:
-//                   step.status === "done"
-//                     ? "#f6ffed"
-//                     : "#fff",
-//                 zIndex: 2,
-//                 fontSize: 16,
-//               }}
-//             >
-//               {step.icon}
-//             </div>
-
-//             {/* CONNECTOR */}
-//             {index !== steps.length - 1 && (
-//               <div
-//                 style={{
-//                   position: "absolute",
-//                   left: 22,
-//                   top: 48,
-//                   width: 2,
-//                   height: 34,
-//                   background:
-//                     step.status === "done"
-//                       ? step.color
-//                       : "#e5e7eb",
-//                 }}
-//               />
-//             )}
-
-//             {/* TEXT */}
-//             <div>
-//               <Text strong style={{ fontSize: 15 }}>
-//                 {step.title}
-//               </Text>
-//               <br />
-//               <Text
-//                 type="colorTextSecondary"
-//                 style={{
-//                   fontSize: 13,
-//                   display: "block",
-//                   marginTop: 2,
-//                 }}
-//               >
-//                 {step.time}
-//               </Text>
-
-//               {step.status === "current" && (
-//                 <Tag
-//                   color="blue"
-//                   style={{ marginTop: 6 }}
-//                 >
-//                   In Progress
-//                 </Tag>
-//               )}
-//             </div>
-//           </div>
-//         ))}
-
-//         {/* CURRENT STATUS */}
-//         <div
-//           style={{
-//             marginTop: 28,
-//             padding: 16,
-//             borderRadius: 10,
-//             background: "#f5f7ff",
-//             border: "1px solid #adc6ff",
-//           }}
-//         >
-//           <Text strong>Current Status</Text>
-
-//           <div style={{ marginTop: 8 }}>
-//             <Tag
-//               color="blue"
-//               style={{ fontSize: 14, padding: "2px 10px" }}
-//             >
-//               Submitted – Awaiting Approval
-//             </Tag>
-//           </div>
-
-//           <Text
-//             type="colorTextSecondary"
-//             style={{
-//               display: "block",
-//               marginTop: 8,
-//               fontSize: 13,
-//             }}
-//           >
-//             You will receive a notification once your exam is approved.
-//           </Text>
-//         </div>
-//       </div>
-//     </Modal>
-//   );
-// };
-
-// export default StatusTrackingModal;

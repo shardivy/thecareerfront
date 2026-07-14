@@ -10,7 +10,6 @@ export const convertEnquiry = createAsyncThunk(
       const response = await convertEnquiryApi(id, payload);
       return response;
     } catch (error) {
-      // If backend sends field errors
       if (error.response?.data?.errors) {
         const fieldErrors = error.response.data.errors;
         return rejectWithValue({ fieldErrors });
@@ -29,8 +28,8 @@ const convertEnquirySlice = createSlice({
   initialState: {
     loading: false,
     success: false,
-    error: null, // general error
-    fieldErrors: {}, // field-specific errors
+    error: null, 
+    fieldErrors: {}, 
     message: null,
   },
   reducers: {

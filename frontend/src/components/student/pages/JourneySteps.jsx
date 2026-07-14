@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, Typography, Tooltip, Spin } from "antd";
+import { Card, Typography, Tooltip, Spin, Timeline, Tag, Divider } from "antd";
 import { useNavigate } from "react-router-dom";
 import { CheckOutlined } from "@ant-design/icons";
 import { theme } from "antd";
@@ -11,12 +11,19 @@ const JourneySteps = ({
   currentStep = 0,
   showExamAndReport = true,
   engineeringTestAnalysis = false,
-  isFreeUser = false,
+  role = "",
   progressData = {},
+  historyData = [],
+  paymentSummary = {},
+  programName = "",
+  packageName = "",
   journeyLoading = false,
 }) => {
   const navigate = useNavigate();
   const { token } = useToken();
+
+  // Derive isFreeUser from role
+  const isFreeUser = String(role || "").toLowerCase() === "basic_user";
 
 
 
@@ -60,17 +67,17 @@ const JourneySteps = ({
         "Review",
         "Report"
       );
-    }
-
-    // ENGINEERING FLOW
-    if (engineeringTestAnalysis) {
+    } else if (engineeringTestAnalysis) {
+      // ENGINEERING FLOW
       steps.push(
         "Questionnaire",
         "Analysis Report",
         "Counselling Slot Booking",
-        "Review",
-     
+        "Review"
       );
+    } else {
+      // Normal paid journey flow: slot booking comes after payment
+      steps.push("Counselling Slot Booking", "Review");
     }
 
     steps.push("Full Access");
@@ -94,10 +101,10 @@ const JourneySteps = ({
       case "Report":
         return progressData.report === "received_unlocked";
       case "Questionnaire":
-        return progressData.analysis === "completed" || progressData.analysis === "in_progress";
+        return progressData.analysis === "completed" ;
 
       case "Analysis Report":
-        return progressData.report === "received_unlocked";
+        return progressData.report === "all_received";
 
       case "Counselling Slot Booking":
         return (
@@ -135,7 +142,11 @@ const JourneySteps = ({
         return progressData.analysis === "in_progress";
 
       case "Analysis Report":
-        return progressData.analysis === "received_locked";
+        return (
+          progressData.report === "received_locked" ||
+          progressData.report === "v1_received" ||
+          progressData.report === "in_progress"
+        );
 
       case "Review":
         return progressData.review === "in_process";
@@ -234,11 +245,17 @@ const JourneySteps = ({
     if (label === "Questionnaire" && progressData.analysis === "in_progress")
       return `${label} - In Progress`;
 
-    if (label === "Analysis Report" && progressData.report === "received_unlocked")
+    if (
+      label === "Analysis Report" &&
+      (
+        progressData.report === "received_unlocked" ||
+        progressData.report === "all_received"
+      )
+    )
       return `${label} - Completed`;
 
-    if (label === "Analysis Report" && progressData.report === "received_locked")
-      return `${label} - Locked`;
+    if (label === "Analysis Report")
+      return `${label} - In Progress`;
 
     if (label === "Review") {
       if (progressData.review === "in_process")
@@ -372,118 +389,124 @@ const JourneySteps = ({
         boxShadow: "0 6px 24px rgba(0,0,0,0.06)",
       }}
     >
-      <Title level={4} style={{ marginBottom: 24 }}>
+      <Title level={4} style={{ marginBottom: 8 }}>
         Your Journey Progress
       </Title>
+
+
 
       {journeyLoading ? (
         <div style={{ textAlign: "center", padding: "40px" }}>
           <Spin />
         </div>
       ) : (
-        <div
-          style={{
-            background: token.colorBgContainer,
-            padding: 24,
-            borderRadius: 16,
-            border: `1px solid ${token.colorBorder}`,
-            overflowX: "auto",
-          }}
-        >
+        <>
           <div
             style={{
-              display: "flex",
-              alignItems: "flex-start",
-              minWidth: journeySteps.length * 140,
+              background: token.colorBgContainer,
+              padding: 24,
+              borderRadius: 16,
+              border: `1px solid ${token.colorBorder}`,
+              overflowX: "auto",
             }}
           >
-            {journeySteps.map((label, index) => {
-              const stepColor = getStepColor(label, index);
-              const isCompleted = isStepCompleted(label);
-              const isPartialPayment = label === "Payment" && progressData.payment === "partial_paid";
-              const isClickable = index <= currentStep;
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                minWidth: journeySteps.length * 140,
+              }}
+            >
+              {journeySteps.map((label, index) => {
+                const stepColor = getStepColor(label, index);
+                const isCompleted = isStepCompleted(label);
+                const isPartialPayment = label === "Payment" && progressData.payment === "partial_paid";
+                const isClickable = index <= currentStep;
 
-              return (
-                <div
-                  key={label}
-                  style={{
-                    position: "relative",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    width: 140,
-                    flexShrink: 0,
-                    minHeight: 100,
-                  }}
-                >
-                  {index !== 0 && (
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 20,
-                        left: "-70px",
-                        width: "140px",
-                        height: 4,
-                        background: token.colorBorder,
-                      }}
-                    >
-                      <Tooltip title={isPartialPayment ? "Partial Paid" : ""}>
-                        <div
-                          style={{
-                            height: "100%",
-                            background: token.colorPrimary,
-                            width: getConnectorProgress(label, index),
-                            transition: "width 0.3s ease",
-                          }}
-                        />
-                      </Tooltip>
-                    </div>
-                  )}
-
-                  <Tooltip title={getTooltipText(label)}>
-                    <div
-                      onClick={() => handleStepClick(label, index)}
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: stepColor,
-                        color: stepColor === token.colorBorder ? token.colorTextSecondary : "#fff",
-                        zIndex: 1,
-                        cursor: isClickable ? "pointer" : "not-allowed",
-                        transition: "all 0.3s ease",
-                        ...(isClickable && {
-                          boxShadow: `0 2px 8px ${stepColor}40`,
-                        }),
-                      }}
-                    >
-                      {isCompleted ? <CheckOutlined /> : index + 1}
-                    </div>
-                  </Tooltip>
-
+                return (
                   <div
+                    key={label}
                     style={{
-                      marginTop: 10,
-                      fontSize: 13,
-                      textAlign: "center",
-                      maxWidth: 120,
-                      fontWeight: index === currentStep ? 600 : 400,
-                      color: index === currentStep ? token.colorPrimary : "inherit",
-                      cursor: isClickable ? "pointer" : "default",
+                      position: "relative",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      width: 140,
+                      flexShrink: 0,
+                      minHeight: 100,
                     }}
-                    onClick={() => handleStepClick(label, index)}
                   >
-                    {label}
+                    {index !== 0 && (
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: 20,
+                          left: "-70px",
+                          width: "140px",
+                          height: 4,
+                          background: token.colorBorder,
+                        }}
+                      >
+                        <Tooltip title={isPartialPayment ? "Partial Paid" : ""}>
+                          <div
+                            style={{
+                              height: "100%",
+                              background: token.colorPrimary,
+                              width: getConnectorProgress(label, index),
+                              transition: "width 0.3s ease",
+                            }}
+                          />
+                        </Tooltip>
+                      </div>
+                    )}
+
+                    <Tooltip title={getTooltipText(label)}>
+                      <div
+                        onClick={() => handleStepClick(label, index)}
+                        style={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: "50%",
+                          fontWeight: 600,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: stepColor,
+                          color: stepColor === token.colorBorder ? token.colorTextSecondary : "#fff",
+                          zIndex: 1,
+                          cursor: isClickable ? "pointer" : "not-allowed",
+                          transition: "all 0.3s ease",
+                          ...(isClickable && {
+                            boxShadow: `0 2px 8px ${stepColor}40`,
+                          }),
+                        }}
+                      >
+                        {isCompleted ? <CheckOutlined /> : index + 1}
+                      </div>
+                    </Tooltip>
+
+                    <div
+                      style={{
+                        marginTop: 10,
+                        fontSize: 13,
+                        textAlign: "center",
+                        maxWidth: 120,
+                        fontWeight: index === currentStep ? 600 : 400,
+                        color: index === currentStep ? token.colorPrimary : "inherit",
+                        cursor: isClickable ? "pointer" : "default",
+                      }}
+                      onClick={() => handleStepClick(label, index)}
+                    >
+                      {label}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+
+
+        </>
       )}
     </Card>
   );

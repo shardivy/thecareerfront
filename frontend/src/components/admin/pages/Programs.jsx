@@ -14,6 +14,8 @@ import {
   Space,
   Grid,
   message,
+  Tooltip,
+  Tag
 } from "antd";
 import {
   BookOutlined,
@@ -31,7 +33,6 @@ import {
 import AddProgramModal from "../modals/AddProgramModal";
 import AddPackageModal from "../modals/AddPackageModal";
 import adminTheme from "../../../theme/adminTheme";
-
 import {
   fetchPrograms,
   fetchProgramStats,
@@ -44,7 +45,9 @@ import {
   updatePackage,
 } from "../../../adminSlices/packageSlice";
 import AddLandingPageModal from "../modals/AddLandingPageModal";
+import AddStreamModal from "../modals/AddStreamModal";
 import { fetchLandingPages, deleteLandingPage } from "../../../adminSlices/landingPageSlice";
+import { fetchStreams, updateStream, deleteStream } from "../../../adminSlices/streamSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -61,8 +64,10 @@ const Programs = () => {
     (state) => state.packages
   );
   const { list: landingData } = useSelector(
-  (state) => state.landingPage
-);
+    (state) => state.landingPage
+  );
+  const { streamList } = useSelector((state) => state.streams);
+
 
   const [activeTab, setActiveTab] = useState("programs");
   const [searchText, setSearchText] = useState("");
@@ -73,6 +78,7 @@ const Programs = () => {
   const [viewMode, setViewMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
+  const [editingStream, setEditingStream] = useState(null);
 
 
   /* ---------- CONFIRM MODAL STATE ---------- */
@@ -83,7 +89,8 @@ const Programs = () => {
     dispatch(fetchPrograms());
     dispatch(fetchPackages());
     dispatch(fetchProgramStats());
-      dispatch(fetchLandingPages());
+    dispatch(fetchLandingPages());
+    dispatch(fetchStreams());
   }, [dispatch]);
 
   /* ---------- CONFIRM HANDLERS ---------- */
@@ -93,18 +100,33 @@ const Programs = () => {
     setConfirmOpen(true);
   };
 
-const handleDeleteLanding = async (record) => {
+  const handleDeleteLanding = async (record) => {
+    try {
+      await dispatch(deleteLandingPage(record.id)).unwrap();
+
+      message.success("Landing page deleted successfully");
+
+      // ❌ Not needed (already handled in slice)
+      // dispatch(fetchLandingPages());
+
+    } catch (err) {
+      message.error(err?.message || "Delete failed");
+      throw err; // 👈 IMPORTANT (for Modal)
+    }
+  };
+
+  const handleDeleteStream = async (record) => {
   try {
-    await dispatch(deleteLandingPage(record.id)).unwrap();
+    await dispatch(deleteStream(record.id)).unwrap();
 
-    message.success("Landing page deleted successfully");
+    message.success("Stream deleted successfully");
 
-    // ❌ Not needed (already handled in slice)
-    // dispatch(fetchLandingPages());
+    // Optional
+    dispatch(fetchStreams());
 
   } catch (err) {
     message.error(err?.message || "Delete failed");
-    throw err; // 👈 IMPORTANT (for Modal)
+    throw err;
   }
 };
 
@@ -139,6 +161,26 @@ const handleDeleteLanding = async (record) => {
       dispatch(fetchPackages());
     }
 
+    if (entity === "stream") {
+      await dispatch(
+        updateStream({
+          id: record.id,
+          payload: {
+            name: record.name,
+            programs: record.program_details.map((p) => p.id),
+            is_active: !record.is_active,
+          },
+        })
+      ).unwrap();
+
+      dispatch(fetchStreams());
+
+      message.success(
+        `Stream ${record.is_active ? "deactivated" : "activated"
+        } successfully`
+      );
+    }
+
     setConfirmOpen(false);
     setConfirmData(null);
   };
@@ -169,6 +211,7 @@ const handleDeleteLanding = async (record) => {
       icon: <DollarOutlined />,
     },
   ];
+
 
   /* ---------- PROGRAM COLUMNS ---------- */
 
@@ -372,194 +415,309 @@ const handleDeleteLanding = async (record) => {
     },
   ];
 
-const landingColumns = [
-  {
-    title: "Sr. No",
-    render: (_, __, index) =>
-      (currentPage - 1) * pageSize + index + 1,
-  },
+  const landingColumns = [
+    {
+      title: "Sr. No",
+      render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
+    },
 
- {
-  title: "Program / Counselling Service",
-  width: 220,
-  key: "program",
-  render: (_, record) => (
-    <div>
-      <Text strong>
-        {record.program_details?.name || "-"}
-      </Text>
-      <br />
-      <Text type="colorTextSecondary">
-        {record.package_details?.name || "-"}
-      </Text>
-    </div>
-  ),
-},
+    {
+      title: "Program / Counselling Service",
+      width: 220,
+      key: "program",
+      render: (_, record) => (
+        <div>
+          <Text strong>
+            {record.program_details?.name || "-"}
+          </Text>
+          <br />
+          <Text type="colorTextSecondary">
+            {record.package_details?.name || "-"}
+          </Text>
+        </div>
+      ),
+    },
 
- {
-  title: "Price",
-  render: (_, record) =>
-    record.package_details?.price
-      ? `₹${record.package_details.price}`
-      : "-",
-},
+    {
+      title: "Price",
+      render: (_, record) =>
+        record.package_details?.price
+          ? `₹${record.package_details.price}`
+          : "-",
+    },
 
-  {
-    title: "Description",
-    dataIndex: "description",
-    ellipsis: true,
-  },
+    {
+      title: "Description",
+      dataIndex: "description",
+      ellipsis: true,
+    },
+
+    {
+      title: "Features",
+      render: (_, record) => {
+        const features = record.package_details?.features;
+
+        if (!features || features.length === 0) return "-";
+
+        return (
+          <div>
+            {features.map((f, index) => (
+              <div key={index}>
+                {f.description}
+              </div>
+            ))}
+          </div>
+        );
+      },
+    },
+    // {
+    //   title: "Process",
+    //   dataIndex: "process",
+    //   ellipsis: true,
+    // },
+
+    // {
+    //   title: "Contact",
+    //   dataIndex: "contact_numbers",
+    //   render: (nums) => nums?.join(", ") || "-",
+    // },
+
+    {
+      title: "Enterprise",
+      dataIndex: "enterprise_name",
+      render: (t) => t || "-",
+    },
+
+    // {
+    //   title: "Registration",
+    //   dataIndex: "registration_details",
+    //   ellipsis: true,
+    // },
+
+    // {
+    //   title: "Instructions",
+    //   dataIndex: "instructions",
+    //   ellipsis: true,
+    // },
+
+    // {
+    //   title: "URL",
+    //   dataIndex: "url",
+    //   render: (url) =>
+    //     url ? (
+    //       <a href={url} target="_blank" rel="noreferrer">
+    //         {url}
+    //       </a>
+    //     ) : "-",
+    // },
+
+    // {
+    //   title: "Image",
+    //   dataIndex: "thumbnail_url",
+    //   render: (img) =>
+    //     img ? (
+    //       <img
+    //         src={img}
+    //         alt="thumb"
+    //         style={{ width: 50, height: 40, objectFit: "cover" }}
+    //       />
+    //     ) : "-",
+    // },
+
+    // {
+    //   title: "Status",
+    //   render: (_, record) => (
+    //     <Switch
+    //       checked={record.is_active}
+    //       checkedChildren="Active"
+    //       unCheckedChildren="Inactive"
+    //     />
+    //   ),
+    // },
+
+    {
+      title: "Actions",
+      render: (_, record) => (
+        <Space>
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setEditingLanding(record);
+              setModalVisible(true);
+              setViewMode(true); // ✅ important
+            }}
+          >
+            View
+          </Button>
+
+          <Button
+            icon={<EditOutlined />}
+            type="primary"
+            onClick={() => {
+              setEditingLanding(record);
+              setModalVisible(true);
+              setViewMode(false);
+            }}
+          >
+            Edit
+          </Button>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => {
+              Modal.confirm({
+                title: "Delete Landing Page",
+                content: "Are you sure you want to delete this record?",
+                okText: "Yes, Delete",
+                okType: "danger",
+                cancelText: "Cancel",
+                centered: true,
+                maskClosable: true, // ✅ THIS ENABLES OUTSIDE CLICK CLOSE
+
+                onOk: () => {
+                  return handleDeleteLanding(record);
+                },
+              });
+            }}
+          >
+            Delete
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
+  const streamColumns = [
+    {
+      title: "Sr. No",
+      render: (_, __, index) =>
+        (currentPage - 1) * pageSize + index + 1,
+    },
+    {
+      title: "Stream Name",
+      dataIndex: "name",
+    },
 
 {
-  title: "Features",
+  title: "Programs",
   render: (_, record) => {
-    const features = record.package_details?.features;
+    const programs = record.program_details || [];
 
-    if (!features || features.length === 0) return "-";
+    if (!programs.length) return "-";
+
+    const visiblePrograms = programs.slice(0, 2);
+    const hiddenPrograms = programs.slice(2);
 
     return (
-      <div>
-        {features.map((f, index) => (
-          <div key={index}>
-            {f.description}
-          </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {visiblePrograms.map((program) => (
+          <Tag key={program.id} color="blue">
+            {program.name}
+          </Tag>
         ))}
+
+        {hiddenPrograms.length > 0 && (
+          <Tooltip
+            title={
+              <div>
+                {hiddenPrograms.map((program) => (
+                  <div key={program.id}>{program.name}</div>
+                ))}
+              </div>
+            }
+          >
+            <Tag color="purple">
+              +{hiddenPrograms.length}
+            </Tag>
+          </Tooltip>
+        )}
       </div>
     );
   },
 },
-  // {
-  //   title: "Process",
-  //   dataIndex: "process",
-  //   ellipsis: true,
-  // },
-
-  // {
-  //   title: "Contact",
-  //   dataIndex: "contact_numbers",
-  //   render: (nums) => nums?.join(", ") || "-",
-  // },
-
-  {
-    title: "Enterprise",
-    dataIndex: "enterprise_name",
-    render: (t) => t || "-",
-  },
-
-  // {
-  //   title: "Registration",
-  //   dataIndex: "registration_details",
-  //   ellipsis: true,
-  // },
-
-  // {
-  //   title: "Instructions",
-  //   dataIndex: "instructions",
-  //   ellipsis: true,
-  // },
-
-  // {
-  //   title: "URL",
-  //   dataIndex: "url",
-  //   render: (url) =>
-  //     url ? (
-  //       <a href={url} target="_blank" rel="noreferrer">
-  //         {url}
-  //       </a>
-  //     ) : "-",
-  // },
-
-  // {
-  //   title: "Image",
-  //   dataIndex: "thumbnail_url",
-  //   render: (img) =>
-  //     img ? (
-  //       <img
-  //         src={img}
-  //         alt="thumb"
-  //         style={{ width: 50, height: 40, objectFit: "cover" }}
-  //       />
-  //     ) : "-",
-  // },
-
-  // {
-  //   title: "Status",
-  //   render: (_, record) => (
-  //     <Switch
-  //       checked={record.is_active}
-  //       checkedChildren="Active"
-  //       unCheckedChildren="Inactive"
-  //     />
-  //   ),
-  // },
-
-  {
-    title: "Actions",
-    render: (_, record) => (
-      <Space>
-        <Button
-  icon={<EyeOutlined />}
-  onClick={() => {
-    setEditingLanding(record);
-    setModalVisible(true);
-    setViewMode(true); // ✅ important
-  }}
->
-  View
-</Button>
-
-       <Button
-  icon={<EditOutlined />}
-  type="primary"
-  onClick={() => {
-    setEditingLanding(record);
-    setModalVisible(true);
-    setViewMode(false);
-  }}
->
-  Edit
-</Button>
-<Button
-  danger
-  icon={<DeleteOutlined />}
- onClick={() => {
-  Modal.confirm({
-    title: "Delete Landing Page",
-    content: "Are you sure you want to delete this record?",
-    okText: "Yes, Delete",
-    okType: "danger",
-    cancelText: "Cancel",
-  centered: true, 
-    maskClosable: true, // ✅ THIS ENABLES OUTSIDE CLICK CLOSE
-
-    onOk: () => {
-      return handleDeleteLanding(record);
+    {
+      title: "Status",
+      render: (_, record) => (
+        <Switch
+          checked={record.is_active}
+          checkedChildren="Active"
+          unCheckedChildren="Inactive"
+          onClick={() => openStatusConfirm(record, "stream")}
+        />
+      ),
     },
-  });
-  }}
->
-  Delete
-</Button>
-      </Space>
-    ),
-  },
-];
+    {
+      title: "Actions",
+      render: (_, record) => (
+        <Space>
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => {
+              setEditingStream(record);
+              setViewMode(true);
+              setModalVisible(true);
+            }}
+          >
+            View
+          </Button>
+
+          <Button
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => {
+              setEditingStream(record);
+              setViewMode(false);
+              setModalVisible(true);
+            }}
+          >
+            Edit
+          </Button>
+
+            <Button
+        danger
+        icon={<DeleteOutlined />}
+        onClick={() => {
+          Modal.confirm({
+            title: "Delete Stream",
+            content:
+              "Are you sure you want to delete this stream?",
+            okText: "Yes, Delete",
+            okType: "danger",
+            cancelText: "Cancel",
+            centered: true,
+            maskClosable: true,
+            onOk: () => handleDeleteStream(record),
+          });
+        }}
+      >
+        Delete
+      </Button>
+        </Space>
+      ),
+    },
+  ];
 
   /* ---------- FILTER ---------- */
 
-const filteredData =
-  activeTab === "packages"
-    ? packageData
-    : activeTab === "programs"
-    ? programData
-    : landingData;
+  const filteredData =
+    activeTab === "packages"
+      ? packageData
+      : activeTab === "programs"
+        ? programData
+        : activeTab === "streams"
+          ? streamList
+          : landingData;
 
-const finalFilteredData = filteredData.filter((i) =>
-  JSON.stringify(i).toLowerCase().includes(searchText.toLowerCase())
-);
+  const finalFilteredData = filteredData.filter((i) =>
+    JSON.stringify(i).toLowerCase().includes(searchText.toLowerCase())
+  );
+
+
+
+
+
   /* ---------- RENDER ---------- */
-  
-
   return (
     <div style={{ padding: screens.md ? 24 : 12 }}>
       <Title level={3}>Programs & Counselling Services</Title>
@@ -571,7 +729,7 @@ const finalFilteredData = filteredData.filter((i) =>
             <Card
               hoverable
               onClick={() => item.tabKey && setActiveTab(item.tabKey)}
-              style={{ borderRadius: 16, textAlign: "center" , fontSize: 16}}
+              style={{ borderRadius: 16, textAlign: "center", fontSize: 16 }}
             >
               <Text>{item.title}</Text>
               <div style={{ marginTop: 8 }}>
@@ -604,7 +762,9 @@ const finalFilteredData = filteredData.filter((i) =>
             items={[
               { key: "programs", label: "Programs" },
               { key: "packages", label: "Counselling Services" },
-              { key: "landing", label: "Landing Pages" },
+              // { key: "landing", label: "Landing Pages" },
+              { key: "streams", label: "Streams" },
+
             ]}
           />
         </Col>
@@ -617,16 +777,21 @@ const finalFilteredData = filteredData.filter((i) =>
             onClick={() => {
               setEditingProgram(null);
               setEditingPackage(null);
-                setEditingLanding(null);
+              setEditingLanding(null);
+              setEditingStream(null);
               setModalVisible(true);
-               setViewMode(false); 
+              setViewMode(false);
             }}
           >
-            Create  {activeTab === "packages"
-    ? "Counselling Service"
-    : activeTab === "programs"
-    ? "Program"
-    : "Landing Page"} 
+            Create {
+              activeTab === "packages"
+                ? "Counselling Service"
+                : activeTab === "programs"
+                  ? "Program"
+                  : activeTab === "streams"
+                    ? "Stream"
+                    : "Landing Page"
+            }
           </Button>
         </Col>
       </Row>
@@ -637,12 +802,14 @@ const finalFilteredData = filteredData.filter((i) =>
 
         <Col>
           <Title level={5} style={{ margin: 10 }}>
-  {activeTab === "packages"
-    ? `Counselling Service Records (${filteredData.length})`
-    : activeTab === "programs"
-    ? `Program Records (${filteredData.length})`
-    : `Landing Page Records (${filteredData.length})`} {/* ✅ */}
-</Title>
+            {activeTab === "packages"
+              ? `Counselling Service Records (${filteredData.length})`
+              : activeTab === "programs"
+                ? `Program Records (${filteredData.length})`
+                : activeTab === "streams"
+                  ? `Stream Records (${filteredData.length})`
+                  : `Landing Page Records (${filteredData.length})`}
+          </Title>
         </Col>
 
 
@@ -659,15 +826,17 @@ const finalFilteredData = filteredData.filter((i) =>
         <Table
           rowKey="id"
           scroll={{ x: "max-content" }}
-         columns={
-    activeTab === "packages"
-      ? packageColumns
-      : activeTab === "programs"
-      ? programColumns
-      : landingColumns // ✅ NEW
-  }
+          columns={
+            activeTab === "packages"
+              ? packageColumns
+              : activeTab === "programs"
+                ? programColumns
+                : activeTab === "streams"
+                  ? streamColumns
+                  : landingColumns
+          }
 
-         dataSource={finalFilteredData}
+          dataSource={finalFilteredData}
           pagination={{
             current: currentPage,
             pageSize: pageSize,
@@ -732,7 +901,7 @@ const finalFilteredData = filteredData.filter((i) =>
               name: values.name,
               price: Number(values.price),
               is_active: true,
-               engineering_test_analysis: values.engineering_test_analysis,
+              engineering_test_analysis: values.engineering_test_analysis,
             };
 
             if (editingPackage) {
@@ -754,19 +923,41 @@ const finalFilteredData = filteredData.filter((i) =>
 
 
       {activeTab === "landing" && (
-  <AddLandingPageModal
-    visible={modalVisible}
-    onClose={() => setModalVisible(false)}
-    initialValues={editingLanding}
-       viewMode={viewMode} 
-    programs={programData}
-    packages={packageData}
-    onSubmit={(values) => {
-      // console.log("Landing Page Payload:", values);
-      setModalVisible(false);
-    }}
-  />
-)}
+        <AddLandingPageModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          initialValues={editingLanding}
+          viewMode={viewMode}
+          programs={programData}
+          packages={packageData}
+          onSubmit={(values) => {
+            // console.log("Landing Page Payload:", values);
+            setModalVisible(false);
+          }}
+        />
+      )}
+
+      {activeTab === "streams" && (
+        <AddStreamModal
+          visible={modalVisible}
+          onClose={() => {
+            setModalVisible(false);
+            setEditingStream(null); // ✅ Clear selected stream
+            setViewMode(false);
+          }}
+          initialValues={editingStream}
+          viewMode={viewMode}
+          programs={programData}
+          onSubmit={(values) => {
+            // console.log("Stream Data:", values);
+
+            // API call later
+
+            setModalVisible(false);
+          }}
+        />
+      )}
+
     </div>
   );
 };

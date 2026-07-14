@@ -24,6 +24,19 @@ class UserExam(models.Model):
     )
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    program = models.ForeignKey(
+        "program_package.Program",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
+
+    package = models.ForeignKey(
+        "program_package.Package",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True
+    )
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
     status = models.CharField(max_length=200, choices=STATUS_CHOICES, default='not_started')
     description = models.TextField(blank=True, null=True)
@@ -32,4 +45,33 @@ class UserExam(models.Model):
         User, on_delete=models.SET_NULL, null=True, related_name='approved_exams'
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "program", "package"],
+                name="unique_user_program_package_exam"
+            )
+        ]
+        
+class CareerFuturaTest(models.Model):
+    student = models.ForeignKey(
+        "lead_registration.StudentProfile",
+        on_delete=models.CASCADE,
+        related_name="career_futura_tests"
+    )
+
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    password = models.CharField(max_length=255)
+    study_class = models.CharField(max_length=50, blank=True, null=True)
+    qualification_status = models.CharField(max_length=100, blank=True, null=True)
+    type = models.CharField(max_length=100, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.student.id} - {self.first_name}"  
 

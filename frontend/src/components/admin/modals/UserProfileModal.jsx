@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   Modal,
@@ -12,6 +12,7 @@ import {
   theme,
   Tooltip,
   Spin,
+  Select,
 } from "antd";
 import { CheckOutlined } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
@@ -70,12 +71,10 @@ baseJourneySteps;
 
 
 const UserProfileModal = ({ open, onClose, user }) => {
+  const [selectedProgramIdx, setSelectedProgramIdx] = useState(0);
   const { token } = theme.useToken();
   const dispatch = useDispatch();
   const { journey, journeyLoading } = useSelector((state) => state.users);
-
-  const engineeringTestAnalysis = journey?.engineering_test_analysis;
-
 
   useEffect(() => {
     if (open && user?.id) {
@@ -83,13 +82,52 @@ const UserProfileModal = ({ open, onClose, user }) => {
     }
   }, [open, user, dispatch]);
 
+  // Reset to first program when modal opens
+  useEffect(() => {
+    if (open) {
+      setSelectedProgramIdx(0);
+    }
+  }, [open, user?.id]);
+
+  // Normalize program journeys from API payload
+  const programJourneys = Array.isArray(journey?.programs) && journey.programs.length > 0
+    ? journey.programs
+    : Array.isArray(journey?.journeys) && journey.journeys.length > 0
+      ? journey.journeys
+      : journey && (journey.progress || journey.history || journey.payment_summary)
+        ? [{
+          ...journey,
+          program_name: journey.program_name || journey.program?.name || user?.program,
+          package: journey.package || journey.package_name || user?.package,
+        }]
+        : [];
+
+  const programs = programJourneys.length > 0
+    ? programJourneys
+    : Array.isArray(user?.programs)
+      ? user.programs
+      : [];
+
+  const hasMultiplePrograms = programs.length > 1;
+
+  const selectedJourney = programJourneys[selectedProgramIdx] || programJourneys[0] || journey || {};
+
+  useEffect(() => {
+    if (programJourneys.length > 0 && selectedProgramIdx >= programJourneys.length) {
+      setSelectedProgramIdx(0);
+    }
+  }, [programJourneys.length, selectedProgramIdx]);
+
   if (!user) return null;
 
-
   /* ================= API DATA ================= */
-  const progressData = journey?.progress || {};
-  const historyData = journey?.history || [];
-  const paymentSummary = journey?.payment_summary || {};
+  const progressData = selectedJourney?.progress || journey?.progress || {};
+  const historyData = Array.isArray(selectedJourney?.history)
+    ? selectedJourney.history
+    : Array.isArray(journey?.history)
+      ? journey.history
+      : Object.values(selectedJourney?.history || journey?.history || {});
+  const paymentSummary = selectedJourney?.payment_summary || journey?.payment_summary || {};
   const payments = paymentSummary.all_payments || paymentSummary.payments || [];
   const lastPaymentStatus = paymentSummary?.last_payment?.status || null;
 
@@ -103,7 +141,19 @@ const UserProfileModal = ({ open, onClose, user }) => {
       .toString()
       .trim()}`.trim();
 
-  const showExamReport = user?.aptitude_test === true;
+  const engineeringTestAnalysis = selectedJourney?.engineering_test_analysis || journey?.engineering_test_analysis;
+
+  const showExamReport =
+    (selectedJourney?.aptitude_test === true || user?.aptitude_test === true) &&
+    !engineeringTestAnalysis;
+
+  const visibleJourneySteps = journeySteps.filter((label) => {
+    if (!showExamReport && (label === "Exam" || label === "Report")) return false;
+    if (!engineeringTestAnalysis && (label === "Questionnaire" || label === "Analysis Report")) return false;
+    return true;
+  });
+
+  const normalizedCurrentStep = Math.min(currentStep, visibleJourneySteps.length || 1);
 
   return (
     <ConfigProvider theme={adminTheme}>
@@ -131,8 +181,28 @@ const UserProfileModal = ({ open, onClose, user }) => {
             <Col xs={24} md={12}>
               <Title level={5}>Program Details</Title>
               <Descriptions bordered column={1}>
-                <Descriptions.Item label="Program">{user.program}</Descriptions.Item>
-                <Descriptions.Item label="Counselling Services">{user.package}</Descriptions.Item>
+                <Descriptions.Item label="Program / Counselling Service">
+                  {Array.isArray(user.programs) && user.programs.length > 0 ? (
+                    user.programs.map((item, idx) => (
+                      <div key={idx} style={{ marginBottom: 10 }}>
+                        <Text strong>{`Program ${idx + 1}: `}</Text>
+                        <Text strong >
+                          {item.program_name || item.program?.name || user.program || "-"}
+                        </Text>
+                        <br />
+                        <Text type="colorTextSecondary">
+                          {`Service ${idx + 1}: ${item.package?.name || item.package_name || user.package || "-"}`}
+                        </Text>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <Text strong>{user.program || "-"}</Text>
+                      <br />
+                      <Text type="colorTextSecondary">{user.package || "-"}</Text>
+                    </>
+                  )}
+                </Descriptions.Item>
                 <Descriptions.Item label="Preferred Counselling Mode">
                   {user.preferred_counselling_mode &&
                     user.preferred_counselling_mode !== "Not Specified" ? (
@@ -237,6 +307,33 @@ const UserProfileModal = ({ open, onClose, user }) => {
 
           <Divider />
 
+          {/* ================= PROGRAM SELECTOR (if multiple) ================= */}
+          {hasMultiplePrograms && (
+            <div style={{ marginBottom: 20 }}>
+              <Row gutter={16}>
+                <Col xs={24} md={10}>
+                  <label style={{ display: "block", marginBottom: 8, fontWeight: 500 }}>
+                    Select Program:
+                  </label>
+                  <Select
+                    value={selectedProgramIdx}
+                    onChange={setSelectedProgramIdx}
+                    style={{ width: window.innerWidth < 768 ? "100%" : "150%" }}
+                  >
+                    {programs.map((prog, idx) => (
+                      <Select.Option key={idx} value={idx}>
+                        {`Program ${idx + 1}: ${prog.program_name || prog.program?.name || "—"
+                          } | Package: ${prog.package?.name || prog.package_name || "—"
+                          }`}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                </Col>
+              </Row>
+              <Divider />
+            </div>
+          )}
+
           {/* ================= JOURNEY PROGRESS ================= */}
           <Title level={5}>Journey Progress</Title>
 
@@ -254,33 +351,17 @@ const UserProfileModal = ({ open, onClose, user }) => {
               style={{
                 display: "flex",
                 alignItems: "flex-start",
-                minWidth: journeySteps.length * 140,
+                minWidth: visibleJourneySteps.length * 140,
               }}
             >
-              {journeySteps.map((label, index) => {
+              {visibleJourneySteps.map((label, index) => {
                 const isPartialReportStep = label === "Partial Report";
                 const isFullReportStep = label === "Full Report";
-                // Hide Exam & Report for programs other than Aptitude & PG
-                if (!showExamReport && (label === "Exam" || label === "Report")) {
-                  return null;
-                }
-
-                // ✅ SHOW Questionnaire & Analysis Report ONLY if flag is true
-                if (
-                  !engineeringTestAnalysis &&
-                  (label === "Questionnaire" || label === "Analysis Report")
-                ) {
-                  return null;
-                }
-
-
-
                 const stepNo = index + 1;
-                // const isPaymentStep = stepNo === 3;
                 const isPaymentStep = label === "Payment";
                 const isExamStep = label === "Exam";
                 const isReportStep = label === "Report";
-                const isActive = stepNo === currentStep;
+                const isActive = stepNo === normalizedCurrentStep;
 
                 const isCompleted =
                   (label === "Registration" && progressData.registration) ||
@@ -289,10 +370,11 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   (label === "Exam" && progressData.exam === "completed") ||
                   (label === "Report" && progressData.report === "received_unlocked") ||
                   (label === "Questionnaire" &&
-                    (progressData.analysis === "completed" || progressData.analysis === "in_progress")) ||
+                    (progressData.analysis === "completed")) ||
 
                   (label === "Analysis Report" &&
-                    progressData.analysis === "completed") ||
+                    (progressData.report === "completed" || progressData.report === "all_received")) ||
+
 
                   (label === "Counselling Slot Booking" &&
                     ["booked", "rescheduled", "completed"].includes(
@@ -485,7 +567,8 @@ const UserProfileModal = ({ open, onClose, user }) => {
                   status === "received_unlocked" ||
                   status === "rescheduled" ||
                   status == "booked" ||
-                  status === "submitted";
+                  status === "submitted" ||
+                  status === "all_received";
 
                 const isPartial =
                   status === "partial_paid" ||

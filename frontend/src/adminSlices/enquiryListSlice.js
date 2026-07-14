@@ -8,30 +8,44 @@ export const fetchEnquiries = createAsyncThunk(
     try {
       const response = await getEnquiriesApi();
 
-      const transformedData = response.data.map((item) => ({
-        key: item.id,
-        id: item.id,
-        name: `${item.first_name} ${item.last_name}`,
-        first_name: item.first_name,
-        last_name: item.last_name,
-        phone: item.phone,
-        email: item.email,
-        program: item.program_detail?.name || "N/A",
-        programId: item.program,
-        programDetail: item.program_detail || null,
-        handholding_details: item.handholding_details || null,
-        source: item.source
-          ? item.source.charAt(0).toUpperCase() +
-            item.source.slice(1).toLowerCase()
-          : "N/A",
-        status: item.status
-          ? item.status.charAt(0).toUpperCase() +
-            item.status.slice(1).toLowerCase()
-          : "N/A",
+      const transformedData = response.data.map((item) => {
+        // Normalize program_detail (backend returns array of objects)
+        const programDetailArray = Array.isArray(item.program_detail)
+          ? item.program_detail
+          : [];
 
-        // ✅ ONLY BACKEND DATE
-        date: item.date ? dayjs(item.date).format("YYYY-MM-DD") : "N/A",
-      }));
+        const programText = programDetailArray.length
+          ? programDetailArray.map((p) => p.name).join(", ")
+          : Array.isArray(item.program)
+          ? item.program.join(", ")
+          : item.program || "N/A";
+
+        return {
+          key: item.id,
+          id: item.id,
+          name: `${item.first_name} ${item.last_name}`,
+          first_name: item.first_name,
+          last_name: item.last_name,
+          phone: item.phone,
+          email: item.email,
+          program: programText,
+          programId: item.program,
+          // keep backend array under `program_detail` so UI can read it directly
+          program_detail: programDetailArray,
+          handholding_details: item.handholding_details || null,
+          source: item.source
+            ? item.source.charAt(0).toUpperCase() +
+              item.source.slice(1).toLowerCase()
+            : "N/A",
+          status: item.status
+            ? item.status.charAt(0).toUpperCase() +
+              item.status.slice(1).toLowerCase()
+            : "N/A",
+
+          // ✅ ONLY BACKEND DATE
+          date: item.date ? dayjs(item.date).format("YYYY-MM-DD") : "N/A",
+        };
+      });
 
     const sortedData = transformedData.sort((a, b) => {
   if (a.date === "N/A") return 1;

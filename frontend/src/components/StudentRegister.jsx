@@ -19,6 +19,7 @@ import {
   MailOutlined,
   LockOutlined,
   PhoneOutlined,
+  CheckCircleOutlined,
 } from "@ant-design/icons";
 import adminTheme from "../theme/adminTheme";
 import { useDispatch, useSelector } from "react-redux";
@@ -41,7 +42,7 @@ const StudentRegister = () => {
   const [form] = Form.useForm();
 
   // State
-  const [parentMode, setParentMode] = useState("compact");
+  // const [parentMode, setParentMode] = useState("compact");
   const [parentExists, setParentExists] = useState(null);
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -52,8 +53,6 @@ const StudentRegister = () => {
   const [parentNameFromApi, setParentNameFromApi] = useState("");
 
   const selectedProgram = Form.useWatch("program", form);
-  const hideParentSection = selectedProgram === "Hand Holding Program";
-
 
   // Redux selectors
   const {
@@ -61,9 +60,16 @@ const StudentRegister = () => {
     verifyOtpLoading,
     registerLoading
   } = useSelector((state) => state.student || {});
-  const { activeList: programList, loading: programsLoading } = useSelector(
+  const { activeList: programList = [], loading: programsLoading } = useSelector(
     (state) => state.programs
   );
+  const handHoldingProgramId = programList.find((p) => p.name === "Hand Holding Program")?.id;
+  const hideParentSection = handHoldingProgramId
+    ? Array.isArray(selectedProgram)
+      ? selectedProgram.includes(handHoldingProgramId)
+      : selectedProgram === handHoldingProgramId
+    : false;
+
   const { streamList, loading: streamsLoading } = useSelector(
     (state) => state.streams
   );
@@ -97,8 +103,14 @@ const StudentRegister = () => {
   }, [dispatch]);
 
   // Helper
+  // const canSendOtp =
+  //   parentMobileValue.length === 10 && parentEmailValue && !otpVerified && !otpSent;
+  const studentEmail = Form.useWatch("email", form);
+
   const canSendOtp =
-    parentMobileValue.length === 10 && parentEmailValue && !otpVerified && !otpSent;
+    studentEmail &&
+    !otpVerified &&
+    !otpSent;
 
   // Handlers
   const handleParentCheck = () => {
@@ -114,7 +126,7 @@ const StudentRegister = () => {
       return;
     }
 
-    dispatch(sendOtp({ parent_mobile: mobile, parent_email: email }))
+    dispatch(sendOtp({ student_email: form.getFieldValue("email"), }))
       .unwrap()
       .then((res) => {
         setOtpSent(true);
@@ -130,19 +142,18 @@ const StudentRegister = () => {
   };
 
   const handleSendOtp = () => {
-    const mobile = parentMobileValue;
-    const email = parentEmailValue;
+    const studentEmail = form.getFieldValue("email");
 
-    if (!mobile || mobile.length !== 10) {
-      message.error("Please enter a valid 10 digit mobile number");
-      return;
-    }
-    if (!email) {
-      message.error("Please enter parent email");
+    if (!studentEmail) {
+      message.error("Please enter student email");
       return;
     }
 
-    dispatch(sendOtp({ parent_mobile: mobile, parent_email: email }))
+    dispatch(
+      sendOtp({
+        student_email: studentEmail,
+      })
+    )
       .unwrap()
       .then((res) => {
         setOtpSent(true);
@@ -152,52 +163,74 @@ const StudentRegister = () => {
   };
 
   const handleVerifyOtp = () => {
-    if (!parentEmailValue) {
-      message.error("Enter a valid parent email");
-      return;
-    }
-    if (!otpValue || otpValue.trim().length < 4) {
-      message.error("Enter a valid OTP");
+    const studentEmail = form.getFieldValue("email");
+    const parentEmail = form.getFieldValue("parentEmail");
+
+    if (!studentEmail) {
+      message.error("Enter student email");
       return;
     }
 
-    dispatch(verifyOtpRegister({ parent_email: parentEmailValue, otp: otpValue }))
+    if (!parentEmail) {
+      message.error("Enter parent email");
+      return;
+    }
+
+    if (!otpValue) {
+      message.error("Enter OTP");
+      return;
+    }
+
+    dispatch(
+      verifyOtpRegister({
+        student_email: studentEmail,
+        parent_email: parentEmail,
+        otp: otpValue,
+      })
+    )
       .unwrap()
       .then((res) => {
         setOtpVerified(true);
-        message.success(res.message || "OTP verified successfully");
 
+        // save parent existence
+        setParentExists(res.parent_exists);
+
+        // Existing Parent
         if (res.parent_exists === true) {
-          setParentExists(true);
-          setParentMode("full");
           setParentNameFromApi(res.parent_name || "");
 
-          // Set value inside form
           form.setFieldsValue({
             parentName: res.parent_name || "",
           });
-        } else {
-          setParentExists(false);
-          setParentMode("full");
+        }
 
+        // New Parent
+        if (res.parent_exists === false) {
           form.setFieldsValue({
             parentName: "",
           });
         }
+
+        message.success(res.message || "OTP verified successfully");
       })
       .catch((err) => message.error(err));
   };
 
   const onFinish = (values) => {
-    const isHandHolding = values.program === "Hand Holding Program";
+    const selectedProgramIds = Array.isArray(values.program)
+      ? values.program
+      : [values.program];
+    const isHandHolding = handHoldingProgramId
+      ? selectedProgramIds.includes(handHoldingProgramId)
+      : false;
 
     // 👉 HAND HOLDING FLOW
     if (isHandHolding) {
       const formData = new FormData();
 
       // split name safely
-    const firstName = values.firstName || "";
-const lastName = values.lastName || "";
+      const firstName = values.firstName || "";
+      const lastName = values.lastName || "";
 
       formData.append("first_name", firstName);
       formData.append("last_name", lastName);
@@ -212,8 +245,14 @@ const lastName = values.lastName || "";
         values.preferred_counselling_mode || ""
       );
 
+      formData.append("password", values.password || "");
+      formData.append("confirm_password", values.confirmPassword || "");
+
       // optional (if needed by backend)
-      formData.append("program", values.program);
+      const programValue = Array.isArray(values.program)
+        ? JSON.stringify(values.program)
+        : values.program;
+      formData.append("program", programValue);
 
       dispatch(registerHH(formData))
         .unwrap()
@@ -243,7 +282,9 @@ const lastName = values.lastName || "";
       parent_mobile: values.parentMobile,
       parent_email: values.parentEmail,
       parent_name: values.parentName,
-      program: programList.find((p) => p.name === values.program)?.id,
+      program: Array.isArray(values.program)
+        ? values.program
+        : [values.program],
       password: values.password,
       confirm_password: values.confirmPassword,
     };
@@ -325,7 +366,7 @@ const lastName = values.lastName || "";
             {/* RIGHT FORM PANEL */}
             <Col xs={24} md={14} style={{ padding: "48px 40px", background: "#fff", borderRadius: "0 24px 24px 0" }}>
               {/* LOGO + TITLE */}
-                    <div style={{ marginBottom: 16 }}>
+              <div style={{ marginBottom: 16 }}>
                 <img
                   src="/Abhinav-logo.jpg"
                   alt="Career Counselling"
@@ -339,7 +380,7 @@ const lastName = values.lastName || "";
 
                 <div
                   style={{
-                    fontSize: 28,   // bigger like Title
+                    fontSize: 28,
                     fontWeight: 700,
                     color: "#1E40AF",
                   }}
@@ -348,7 +389,7 @@ const lastName = values.lastName || "";
                 </div>
 
                 <Title
-                  level={3}   // smaller title
+                  level={3}
                   style={{
                     marginTop: 12,
                     marginBottom: 24,
@@ -396,22 +437,24 @@ const lastName = values.lastName || "";
 
                 <Row gutter={16}>
                   <Col md={24}>
-                    <Form.Item
-                      label="Interested Program"
-                      name="program"
-                      rules={[{ required: true }]}
-                    >
+                    <Form.Item label="Interested Program" name="program" rules={[{ required: true }]}>
                       <Select
+                        key={hideParentSection ? "single" : "multiple"}  // ✅ forces remount on mode change
                         size="large"
-                        placeholder={
-                          programsLoading
-                            ? "Loading programs..."
-                            : "Select Interested Program"
-                        }
+                        mode={hideParentSection ? undefined : "multiple"}
+                        placeholder={programsLoading ? "Loading programs..." : "Select Interested Programs"}
                         loading={programsLoading}
+                        allowClear
+                        onChange={(value) => {
+                          // When switching to HH (single), clear field then set
+                          if (value === handHoldingProgramId ||
+                            (Array.isArray(value) && value.includes(handHoldingProgramId))) {
+                            form.setFieldsValue({ program: handHoldingProgramId });
+                          }
+                        }}
                       >
                         {programList.map((program) => (
-                          <Option key={program.id} value={program.name}>
+                          <Option key={program.id} value={program.id}>
                             {program.name}
                           </Option>
                         ))}
@@ -421,107 +464,107 @@ const lastName = values.lastName || "";
                 </Row>
 
                 <Divider orientation="left">Student Details</Divider>
-            <Row gutter={16}>
-  <Col md={12}>
-    <Form.Item
-      label="First Name"
-      name="firstName"
-      rules={[{ required: true, message: "Enter first name" }]}
-    >
-      <Input size="large" prefix={<UserOutlined />} />
-    </Form.Item>
-  </Col>
+                <Row gutter={16}>
+                  <Col md={12}>
+                    <Form.Item
+                      label="First Name"
+                      name="firstName"
+                      rules={[{ required: true, message: "Enter first name" }]}
+                    >
+                      <Input size="large" prefix={<UserOutlined />} />
+                    </Form.Item>
+                  </Col>
 
-  <Col md={12}>
-    <Form.Item
-      label="Last Name"
-      name="lastName"
-      rules={[{ required: true, message: "Enter last name" }]}
-    >
-      <Input size="large" prefix={<UserOutlined />} />
-    </Form.Item>
-  </Col>
-</Row>
+                  <Col md={12}>
+                    <Form.Item
+                      label="Last Name"
+                      name="lastName"
+                      rules={[{ required: true, message: "Enter last name" }]}
+                    >
+                      <Input size="large" prefix={<UserOutlined />} />
+                    </Form.Item>
+                  </Col>
+                </Row>
 
-                
-{hideParentSection && (
-  <Row gutter={16}>
-    <Col xs={24} md={12}>
-      <Form.Item
-        label="Email"
-        name="email"
-        rules={[{ type: "email", required: true }]}
-      >
-        <Input size="large" prefix={<MailOutlined />} />
-      </Form.Item>
-    </Col>
 
-    <Col xs={24} md={12}>
-      <Form.Item
-        label="Mobile Number"
-        name="mobile"
-        rules={[{ required: true, message: "Enter mobile number" }]}
-      >
-        <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
-      </Form.Item>
-    </Col>
-  </Row>
-)}
-{!hideParentSection && (
-  <>
-    <Row gutter={16}>
-      <Col xs={24} md={12}>
-        <Form.Item label="Date of Birth" name="dob">
-          <DatePicker size="large" style={{ width: "100%" }} />
-        </Form.Item>
-      </Col>
+                {hideParentSection && (
+                  <Row gutter={16}>
+                    <Col xs={24} md={12}>
+                      <Form.Item
+                        label="Email"
+                        name="email"
+                        rules={[{ type: "email", required: true }]}
+                      >
+                        <Input size="large" prefix={<MailOutlined />} />
+                      </Form.Item>
+                    </Col>
 
-      <Col xs={24} md={12}>
-        <Form.Item
-          label="Email"
-          name="email"
-          rules={[{ type: "email", required: true }]}
-        >
-          <Input size="large" prefix={<MailOutlined />} />
-        </Form.Item>
-      </Col>
-    </Row>
+                    <Col xs={24} md={12}>
+                      <Form.Item
+                        label="Mobile Number"
+                        name="mobile"
+                        rules={[{ required: true, message: "Enter mobile number" }]}
+                      >
+                        <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                )}
+                {!hideParentSection && (
+                  <>
+                    <Row gutter={16}>
+                      <Col xs={24} md={12}>
+                        <Form.Item label="Date of Birth" name="dob">
+                          <DatePicker size="large" style={{ width: "100%" }} />
+                        </Form.Item>
+                      </Col>
 
-    <Row gutter={16}>
-      <Col xs={24} md={12}>
-        <Form.Item label="Mobile Number" name="mobile">
-          <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
-        </Form.Item>
-      </Col>
+                      <Col xs={24} md={12}>
+                        <Form.Item
+                          label="Email"
+                          name="email"
+                          rules={[{ type: "email", required: true }]}
+                        >
+                          <Input size="large" prefix={<MailOutlined />} />
+                        </Form.Item>
+                      </Col>
+                    </Row>
 
-{!hideParentSection && (
-      <Col xs={24} md={12}>
-    <Form.Item
-      label="Class"
-      name="class"
-      rules={[{ required: true }]}
-    >
-      <Select
-        size="large"
-        placeholder="Select Class"
-        onChange={(value) => {
-          const specs = specializationMap[value] || [];
-          setSpecializationOptions(specs);
-          form.setFieldsValue({ specialization: undefined });
-        }}
-      >
-        {classOptions.map((cls) => (
-          <Option key={cls} value={cls}>
-            {cls}
-          </Option>
-        ))}
-      </Select>
-    </Form.Item>
-  </Col>
-)}
-    </Row>
-  </>
-)}
+                    <Row gutter={16}>
+                      <Col xs={24} md={12}>
+                        <Form.Item label="Mobile Number" name="mobile">
+                          <Input size="large" prefix={<PhoneOutlined />} maxLength={10} />
+                        </Form.Item>
+                      </Col>
+
+                      {!hideParentSection && (
+                        <Col xs={24} md={12}>
+                          <Form.Item
+                            label="Class"
+                            name="class"
+                            rules={[{ required: true }]}
+                          >
+                            <Select
+                              size="large"
+                              placeholder="Select Class"
+                              onChange={(value) => {
+                                const specs = specializationMap[value] || [];
+                                setSpecializationOptions(specs);
+                                form.setFieldsValue({ specialization: undefined });
+                              }}
+                            >
+                              {classOptions.map((cls) => (
+                                <Option key={cls} value={cls}>
+                                  {cls}
+                                </Option>
+                              ))}
+                            </Select>
+                          </Form.Item>
+                        </Col>
+                      )}
+                    </Row>
+                  </>
+                )}
 
 
 
@@ -542,7 +585,7 @@ const lastName = values.lastName || "";
 
                   {!hideParentSection && (
                     <Col md={12}>
-                      <Form.Item label="Stream" name="stream">
+                      <Form.Item label="Current Stream" name="stream">
                         <Select
                           size="large"
                           placeholder={streamsLoading ? "Loading streams..." : "Select Stream"}
@@ -620,15 +663,25 @@ const lastName = values.lastName || "";
                     </Row>
 
                     {/* Full Parent Mode */}
-                    {parentMode === "full" && otpVerified && (
+                    {otpVerified && (
                       <Form.Item
                         label="Parent Name"
                         name="parentName"
-                        rules={[{ required: true }]}
+                        rules={[
+                          {
+                            required: true,
+                            message: "Please enter parent name",
+                          },
+                        ]}
                       >
                         <Input
                           size="large"
                           prefix={<UserOutlined />}
+                          placeholder={
+                            parentExists
+                              ? "Parent name"
+                              : "Enter parent name"
+                          }
                           disabled={parentExists === true}
                         />
                       </Form.Item>
@@ -639,7 +692,7 @@ const lastName = values.lastName || "";
                       <Button
                         type="primary"
                         loading={sendOtpLoading}
-                        onClick={parentMode === "full" ? handleSendOtp : handleParentCheck}
+                        onClick={handleSendOtp}
                       >
                         Send OTP
                       </Button>
@@ -647,22 +700,85 @@ const lastName = values.lastName || "";
 
                     {/* OTP Verification */}
                     {otpSent && !otpVerified && (
-                      <Row gutter={16} align="middle" style={{ marginTop: 16 }}>
-                        <Col md={8}>
-                          <Input placeholder="Enter OTP" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} />
-                        </Col>
-                        <Col>
-                          <Button type="primary" onClick={handleVerifyOtp} loading={verifyOtpLoading}>
-                            Verify OTP
-                          </Button>
-                        </Col>
-                      </Row>
+                      <>
+                        <div
+                          style={{
+                            marginTop: 12,
+                            marginBottom: 16,
+                            padding: "12px 16px",
+                            borderRadius: 8,
+                            background: "#f6ffed",
+                            border: "1px solid #b7eb8f",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
+                        >
+                          <MailOutlined
+                            style={{
+                              color: "#52c41a",
+                              fontSize: 18,
+                            }}
+                          />
+
+                          <Text style={{ color: "#389e0d" }}>
+                            OTP has been sent to your student email:
+                            <strong> {form.getFieldValue("email")}</strong>
+                          </Text>
+                        </div>
+
+                        <Row gutter={16} align="middle">
+                          <Col md={8}>
+                            <Input
+                              placeholder="Enter OTP"
+                              value={otpValue}
+                              onChange={(e) => setOtpValue(e.target.value)}
+                            />
+                          </Col>
+
+                          <Col>
+                            <Button
+                              type="primary"
+                              onClick={handleVerifyOtp}
+                              loading={verifyOtpLoading}
+                            >
+                              Verify OTP
+                            </Button>
+                          </Col>
+                        </Row>
+                      </>
                     )}
 
-                    {otpVerified && (
+                    {/* {otpVerified && (
                       <Text type="success" style={{ display: "block", marginTop: 12 }}>
-                        Parent Email verified ✓
+                        Student Email verified ✓
                       </Text>
+                    )} */}
+
+                    {otpVerified && (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          padding: "12px 16px",
+                          borderRadius: 8,
+                          background: "#f6ffed",
+                          border: "1px solid #b7eb8f",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <CheckCircleOutlined
+                          style={{
+                            color: "#52c41a",
+                            fontSize: 18,
+                          }}
+                        />
+
+                        <Text style={{ color: "#389e0d" }}>
+                          Student email verified successfully
+                        </Text>
+                      </div>
                     )}
                   </>
                 )}

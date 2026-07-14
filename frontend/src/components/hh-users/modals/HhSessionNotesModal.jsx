@@ -34,6 +34,7 @@ import {
     deleteCounsellingFile
 } from "../../../adminSlices/counsellorSlice";
 import jsPDF from "jspdf";
+import { progressPercentage } from "framer-motion";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -141,6 +142,7 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
             time: session.slot_time || `${session.startTime}`,
             status: session.status || "N/A",
             id: session.id,
+           
         }
         : {};
 
@@ -274,6 +276,8 @@ const HhSessionNotesModal = ({ session, onClose, isViewMode = false, hideSession
     const handleSave = async () => {
         const formData = new FormData();
         formData.append("notes", discussion);
+        formData.append("program", session.programId);
+        formData.append("package", session.packageId);
 
         // Only append NEW uploaded files
         uploadedFiles.slice(0, 5).forEach((file, index) => {

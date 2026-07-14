@@ -20,7 +20,7 @@ const Reset_Password = () => {
   const navigate = useNavigate();
 
   const onFinish = (values) => {
-    console.log("Reset Password Values:", values);
+    // console.log("Reset Password Values:", values);
     navigate("/reset-password-success"); // or error page
   };
 

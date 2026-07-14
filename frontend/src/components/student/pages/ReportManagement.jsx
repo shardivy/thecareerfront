@@ -227,6 +227,8 @@
 
 // export default ReportManagement;
 
+
+
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -288,36 +290,39 @@ const ReportManagement = () => {
       a.remove();
       window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
-      console.error("Download error:", err);
+      // console.error("Download error:", err);
     }
   };
 
-  const getFileType = (url = "") => {
-    try {
-      const cleanUrl = url.split("?")[0].toLowerCase();
+  const getFileType = (fileName = "") => {
+    const ext = fileName.split(".").pop()?.toLowerCase();
 
-      // ✅ CASE 1: API endpoint contains pdf
-      if (cleanUrl.includes("/pdf/") || cleanUrl.endsWith("/pdf")) {
-        return "pdf";
-      }
+    if (ext === "pdf") return "pdf";
+    if (["xls", "xlsx"].includes(ext)) return "excel";
+    if (["doc", "docx"].includes(ext)) return "word";
 
-      // ✅ CASE 2: normal file extensions
-      const ext = cleanUrl.substring(cleanUrl.lastIndexOf(".") + 1);
-
-      if (ext === "pdf") return "pdf";
-      if (["xls", "xlsx"].includes(ext)) return "excel";
-      if (["doc", "docx"].includes(ext)) return "word";
-
-      return "other";
-    } catch {
-      return "other";
-    }
+    return "other";
   };
 
   const handleView = (url) => {
     if (!url) return;
     window.open(url, "_blank");
   };
+
+  const selectedProgram = localStorage.getItem("selectedProgram");
+  const selectedPackage = localStorage.getItem("selectedPackage");
+  const selectedProgramId = localStorage.getItem("selectedProgramId");
+  const selectedPackageId = localStorage.getItem("selectedPackageId");
+  const selectedProgramIdNum = selectedProgramId ? Number(selectedProgramId) : null;
+  const selectedPackageIdNum = selectedPackageId ? Number(selectedPackageId) : null;
+
+  const filteredReports = reports?.filter((report) => {
+    if (!selectedProgramIdNum || !selectedPackageIdNum) return true;
+    return (
+      Number(report.program_id) === selectedProgramIdNum &&
+      Number(report.package_id) === selectedPackageIdNum
+    );
+  });
 
   const handleReviewRedirect = (reportId) => {
     navigate(`/student/write-review`);
@@ -335,7 +340,7 @@ const ReportManagement = () => {
   /* ---------------- REPORT CARD ---------------- */
 
   const ReportCard = ({ title, locked, reason, report }) => {
-    const type = getFileType(report?.file_path);
+    const type = getFileType(report?.file_name);
     const isPdf = type === "pdf";
 
     return (
@@ -392,24 +397,23 @@ const ReportManagement = () => {
         {/* Actions */}
         {!locked ? (
           <>
-            {isPdf && (
+            {isPdf ? (
               <Button
                 block
                 icon={<EyeOutlined />}
-                style={{ marginBottom: 10 }}
                 onClick={() => handleView(report.file_path)}
               >
                 View Report
               </Button>
+            ) : (
+              <Button
+                block
+                icon={<DownloadOutlined />}
+                onClick={() => handleDownload(report.file_path, report.file_name)}
+              >
+                Download {type.toUpperCase()}
+              </Button>
             )}
-
-            <Button
-              block
-              icon={<DownloadOutlined />}
-              onClick={() => handleDownload(report.file_path, report.file_name)}
-            >
-              Download {type.toUpperCase()}
-            </Button>
           </>
         ) : reason === "payment" ? (
           <Alert
@@ -543,9 +547,9 @@ const ReportManagement = () => {
         </div>
       ) : (
         <Row gutter={[24, 24]} justify="center">
-          {reports?.length > 0 ? (
-            reports.map((report) => {
-              if (report.report_status === "not_received") {
+          {filteredReports?.length > 0 ? (
+            filteredReports.map((report) => {
+              if (report.report_status === "not_received" || !report.file_path) {
                 return (
                   <Col xs={24} md={10} key={report.id}>
                     <PendingUploadCard />
@@ -569,12 +573,6 @@ const ReportManagement = () => {
                   <ReportCard
                     report={report}
                     title="Aptitude Test Report"
-                    //  locked={report.report_status !== "received_unlocked"}
-                    //   reason={
-                    //     report.payment_status !== "fully_paid"
-                    //       ? "payment"
-                    //       : "review"
-                    //   }
                     locked={!isUnlocked}
                     reason={reason}
                   />
@@ -582,7 +580,7 @@ const ReportManagement = () => {
               );
             })
           ) : (
-            <Col xs={24} md={12}>
+            <Col xs={24} md={10}>
               <PendingUploadCard />
             </Col>
           )}

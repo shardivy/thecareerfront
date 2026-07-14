@@ -1,5 +1,18 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { uploadContentApi, updateContentApi, getContentListApi, getContentCountApi, deleteContentApi ,incrementDownloadCountApi, getProgramContentApi} from "../adminApi/contentApi";
+import {
+  uploadContentApi,
+  updateContentApi,
+  getContentListApi,
+  getContentCountApi,
+  deleteContentApi,
+  incrementDownloadCountApi,
+  getProgramContentApi,
+  getStudentCounsellingNotesApi,
+  getFilteredContentApi,
+  assignStreamContentApi,
+  getStudentContentApi,
+  updateStreamContentApi,
+} from "../adminApi/contentApi";
 
 // ================= THUNK =================
 export const uploadContent = createAsyncThunk(
@@ -15,7 +28,6 @@ export const uploadContent = createAsyncThunk(
     }
   }
 );
-
 
 // ================= UPDATE THUNK =================
 export const updateContent = createAsyncThunk(
@@ -107,6 +119,95 @@ export const fetchProgramContent = createAsyncThunk(
   }
 );
 
+export const fetchStudentCounsellingNotes = createAsyncThunk(
+  "counsellors/fetchStudentCounsellingNotes",
+  async (
+    { studentId, programId, packageId },
+    { rejectWithValue }
+  ) => {
+    try {
+      return await getStudentCounsellingNotesApi(
+        studentId,
+        programId,
+        packageId
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+        "Failed to fetch counselling notes"
+      );
+    }
+  }
+);
+
+export const fetchFilteredContent = createAsyncThunk(
+  "content/fetchFilteredContent",
+  async (
+    { programId, packageId, streamIds },
+    { rejectWithValue }
+  ) => {
+    try {
+      const data = await getFilteredContentApi(
+        programId,
+        packageId,
+        streamIds
+      );
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data ||
+        "Filtered content fetch failed"
+      );
+    }
+  }
+);
+
+export const assignStreamContent = createAsyncThunk(
+  "content/assignStreamContent",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const data = await assignStreamContentApi(payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to assign content"
+      );
+    }
+  }
+);
+
+export const fetchStudentContent = createAsyncThunk(
+  "content/fetchStudentContent",
+  async (studentId, { rejectWithValue }) => {
+    try {
+      const data = await getStudentContentApi(studentId);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to fetch student content"
+      );
+    }
+  }
+);
+
+
+//================= UPDATE STREAM CONTENT (already-assigned content) =================
+export const updateStreamContent = createAsyncThunk(
+  "content/updateStreamContent",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const data = await updateStreamContentApi(payload);
+      return data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to update assigned content"
+      );
+    }
+  }
+);
+ 
+
 // ================= SLICE =================
 const contentSlice = createSlice({
   name: "content",
@@ -115,15 +216,25 @@ const contentSlice = createSlice({
     success: false,
     error: null,
     contentList: [],
+    studentContent: [],
     contentStats: null,
+    studentCounsellingNotes: [],
+    studentCounsellingNotesLoading: false,
+    assignLoading: false,
+    assignSuccess: false,
+
   },
-  reducers: {
-    resetContentState: (state) => {
-      state.loading = false;
-      state.success = false;
-      state.error = null;
-    },
+ reducers: {
+  resetContentState: (state) => {
+    state.loading = false;
+    state.success = false;
+    state.error = null;
   },
+
+  clearFilteredContent: (state) => {
+    state.contentList = [];
+  },
+},
   extraReducers: (builder) => {
     builder
       .addCase(uploadContent.pending, (state) => {
@@ -201,42 +312,132 @@ const contentSlice = createSlice({
       })
 
       // INCREMENT DOWNLOAD COUNT
-    .addCase(incrementDownloadCount.pending, (state) => {
-      state.loading = true;
-    })
-    .addCase(incrementDownloadCount.fulfilled, (state, action) => {
-      state.loading = false;
-      // Optionally update contentStats if needed
-      if (action.payload?.id) {
-        const item = state.contentList.find(c => c.id === action.payload.id);
-        if (item) item.downloads = action.payload.downloads; // assuming API returns new count
-      }
-    })
-    .addCase(incrementDownloadCount.rejected, (state, action) => {
-      state.loading = false;
-      state.error = action.payload;
-    })
+      .addCase(incrementDownloadCount.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(incrementDownloadCount.fulfilled, (state, action) => {
+        state.loading = false;
+        // Optionally update contentStats if needed
+        if (action.payload?.id) {
+          const item = state.contentList.find(c => c.id === action.payload.id);
+          if (item) item.downloads = action.payload.downloads; // assuming API returns new count
+        }
+      })
+      .addCase(incrementDownloadCount.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
 
 
-    // ================= PROGRAM CONTENT =================
-.addCase(fetchProgramContent.pending, (state) => {
-  state.loading = true;
-})
-.addCase(fetchProgramContent.fulfilled, (state, action) => {
-  state.loading = false;
+      // ================= PROGRAM CONTENT =================
+      .addCase(fetchProgramContent.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchProgramContent.fulfilled, (state, action) => {
+        state.loading = false;
 
-  const list = action.payload?.data || [];
+        const list = action.payload?.data || [];
 
-  state.contentList = list.sort(
-    (a, b) => new Date(b.date) - new Date(a.date)
-  );
-})
-.addCase(fetchProgramContent.rejected, (state, action) => {
-  state.loading = false;
-  state.error = action.payload;
-});
+        state.contentList = list.sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        );
+      })
+      .addCase(fetchProgramContent.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+
+      /* FETCH STUDENT COUNSELLING NOTES */
+      .addCase(fetchStudentCounsellingNotes.pending, (state) => {
+        state.studentCounsellingNotesLoading = true;
+        state.error = null;
+      })
+
+      .addCase(fetchStudentCounsellingNotes.fulfilled, (state, action) => {
+        state.studentCounsellingNotesLoading = false;
+
+        state.studentCounsellingNotes =
+          action.payload?.data ||
+          action.payload ||
+          [];
+      })
+
+      .addCase(fetchStudentCounsellingNotes.rejected, (state, action) => {
+        state.studentCounsellingNotesLoading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(fetchFilteredContent.pending, (state) => {
+        state.loading = true;
+      })
+
+      .addCase(fetchFilteredContent.fulfilled, (state, action) => {
+        console.log("API Response:", action.payload);
+        state.loading = false;
+
+        state.contentList =
+          action.payload?.data ||
+          action.payload ||
+          [];
+      })
+
+      .addCase(fetchFilteredContent.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(assignStreamContent.pending, (state) => {
+        state.assignLoading = true;
+        state.assignSuccess = false;
+      })
+
+      .addCase(assignStreamContent.fulfilled, (state, action) => {
+        state.assignLoading = false;
+        state.assignSuccess = true;
+      })
+
+      .addCase(assignStreamContent.rejected, (state, action) => {
+        state.assignLoading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(fetchStudentContent.pending, (state) => {
+        state.loading = true;
+      })
+
+      .addCase(fetchStudentContent.fulfilled, (state, action) => {
+         console.log("Student API Response:", action.payload);
+        state.loading = false;
+
+       state.studentContent = Array.isArray(action.payload?.contents)
+      ? action.payload.contents
+      : [];
+      })
+
+      .addCase(fetchStudentContent.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // ================= UPDATE STREAM CONTENT =================
+      .addCase(updateStreamContent.pending, (state) => {
+        state.updateLoading = true;
+        state.updateSuccess = false;
+      })
+ 
+      .addCase(updateStreamContent.fulfilled, (state, action) => {
+        state.updateLoading = false;
+        state.updateSuccess = true;
+      })
+ 
+      .addCase(updateStreamContent.rejected, (state, action) => {
+        state.updateLoading = false;
+        state.error = action.payload;
+      })
+ 
   },
 });
 
-export const { resetContentState } = contentSlice.actions;
+export const { resetContentState , clearFilteredContent} = contentSlice.actions;
 export default contentSlice.reducer;

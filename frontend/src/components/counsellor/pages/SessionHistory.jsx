@@ -43,9 +43,9 @@ const SessionHistory = () => {
   const { students, studentsLoading, notes } = useSelector(
     (state) => state.counsellors
   );
-const { studentProfile, loading: profileLoading } = useSelector(
-  (state) => state.profile
-);
+  const { studentProfile, loading: profileLoading } = useSelector(
+    (state) => state.profile
+  );
 
 
   useEffect(() => {
@@ -54,7 +54,7 @@ const { studentProfile, loading: profileLoading } = useSelector(
 
   const tableData = (students || []).map((item) => {
     const [startTime, endTime] = item.slot_time?.split(" - ") || ["", ""];
-     const preferredMode = item.preferred_counselling_mode || "";
+    const preferredMode = item.preferred_counselling_mode || "";
 
     return {
       ...item, // keep all original fields for modal
@@ -62,12 +62,17 @@ const { studentProfile, loading: profileLoading } = useSelector(
       studentName: item.student_name,
       studentEmail: item.student_email,
       studentPhone: item.student_phone,
-        counsellorList: item.counsellor_name || [],
+      counsellorList: item.counsellor_name || [],
       date: item.date,
       startTime,
       endTime,
-       preferred_counselling_mode: preferredMode,
+      preferred_counselling_mode: preferredMode,
       status: item.status,
+
+      programId: item.program?.id || null,
+      packageId: item.package?.id || null,
+      programName: item.program?.name || "-",
+      packageName: item.package?.name || "-",
     };
   });
   /* ================= STATES ================= */
@@ -95,8 +100,8 @@ const { studentProfile, loading: profileLoading } = useSelector(
       : true;
 
     const matchesMode = filterMode
-  ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
-  : true;
+      ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
+      : true;
 
     return matchesSearch && matchesDate && matchesMode;
   });
@@ -106,13 +111,14 @@ const { studentProfile, loading: profileLoading } = useSelector(
     {
       title: "Sr No",
       key: "serial",
-      width: 80,
+      width: 60,
       render: (_, __, index) =>
         (pagination.current - 1) * pagination.pageSize + index + 1,
     },
     {
       title: "User Name",
       dataIndex: "studentName",
+      width: 150,
       render: (text, record) => (
         <div>
           <div style={{ fontWeight: 600 }}>{record.studentName}</div>
@@ -121,25 +127,44 @@ const { studentProfile, loading: profileLoading } = useSelector(
       ),
     },
     {
+      title: "Program / Service",
+      key: "programService",
+      width: 180,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600 }}>
+            {record.programName}
+          </div>
+
+          <div
+            tyle="colorTextSecondary"
+          >
+            {record.packageName}
+          </div>
+        </div>
+      ),
+    },
+    {
       title: "Date",
       dataIndex: "date",
+      width: 120,
       render: (date) => dayjs(date).format("DD-MM-YYYY"),
     },
-     {
-  title: "Slot Time",
-  dataIndex: "startTime",
-},  
-   {
-  title: "Preferred counselling Mode",
-  dataIndex: "preferred_counselling_mode",
-  key: "preferred_counselling_mode",
-  render: (mode) => {
-    if (!mode) return "-";
-    const displayMode = mode.toLowerCase() === "online" ? "Online" : "Offline";
-    const color = displayMode === "Online" ? "green" : "blue";
-    return <Tag color={color}>{displayMode}</Tag>;
-  },
-},
+    {
+      title: "Slot Time",
+      dataIndex: "startTime",
+    },
+    {
+      title: "Preferred counselling Mode",
+      dataIndex: "preferred_counselling_mode",
+      key: "preferred_counselling_mode",
+      render: (mode) => {
+        if (!mode) return "-";
+        const displayMode = mode.toLowerCase() === "online" ? "Online" : "Offline";
+        const color = displayMode === "Online" ? "green" : "blue";
+        return <Tag color={color}>{displayMode}</Tag>;
+      },
+    },
     {
       title: "Actions",
       render: (_, record) => (
@@ -228,40 +253,40 @@ const { studentProfile, loading: profileLoading } = useSelector(
 
         {/* ================= TABLE ================= */}
         <div style={{ overflowX: "auto" }}>
-         <Table
-  columns={columns}
-  dataSource={tableData.filter((session) => {
-    const matchesSearch = session.studentName
-      .toLowerCase()
-      .includes(searchText.toLowerCase());
+          <Table
+            columns={columns}
+            dataSource={tableData.filter((session) => {
+              const matchesSearch = session.studentName
+                .toLowerCase()
+                .includes(searchText.toLowerCase());
 
-    const matchesDate = filterDate
-      ? dayjs(session.date).format("YYYY-MM-DD") ===
-        dayjs(filterDate).format("YYYY-MM-DD")
-      : true;
+              const matchesDate = filterDate
+                ? dayjs(session.date).format("YYYY-MM-DD") ===
+                dayjs(filterDate).format("YYYY-MM-DD")
+                : true;
 
-    const matchesMode = filterMode
-      ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
-      : true;
+              const matchesMode = filterMode
+                ? session.preferred_counselling_mode.toLowerCase() === filterMode.toLowerCase()
+                : true;
 
-    return matchesSearch && matchesDate && matchesMode;
-  })}
-  rowKey="id"
-  loading={studentsLoading}
-  pagination={{
-    current: pagination.current,
-    pageSize: pagination.pageSize,
-    showSizeChanger: true,
-    pageSizeOptions: [5, 10, 20, 50],
-    onChange: (page, pageSize) => {
-      setPagination({
-        current: page,
-        pageSize: pageSize,
-      });
-    },
-  }}
-  scroll={{ x: 800 }}
-/>
+              return matchesSearch && matchesDate && matchesMode;
+            })}
+            rowKey="id"
+            loading={studentsLoading}
+            pagination={{
+              current: pagination.current,
+              pageSize: pagination.pageSize,
+              showSizeChanger: true,
+              pageSizeOptions: [5, 10, 20, 50],
+              onChange: (page, pageSize) => {
+                setPagination({
+                  current: page,
+                  pageSize: pageSize,
+                });
+              },
+            }}
+            scroll={{ x: 1200 }}
+          />
         </div>
       </Card>
 

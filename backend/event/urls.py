@@ -1,9 +1,11 @@
 from django.urls import path
 
-from event.views import AdvertisementCreateAPIView, AdvertisementDashboardCountAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateDashboardCountAPIView, CertificateTemplateAPIView, CounsellorStudentBookingByIdAPIView, CreateHandHoldingSessionAPIView, DashboardStatsAPIView, EventCreateAPIView, EventDashboardCountAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkEventCompletedAPIView, MarkSessionCompletedAPIView, ParticipantCertificateAPIView, ParticipantSessionListAPIView, ParticipantSessionProgressAPIView, PendingCertificateParticipantsAPIView, RescheduleSessionAPIView, SendHandHoldingReminderAPIView, SendReminderByEventAPIView
+from event.views import AddHandHoldingRegisterAPIView, AdvertisementCreateAPIView, AdvertisementDashboardCountAPIView, BookHandHoldingSessionAPIView, BookedRescheduledSlotsByDateAPIView, CancelSessionAPIView, CertificateDashboardCountAPIView, CertificateTemplateAPIView, CounsellorStudentBookingByIdAPIView, CreateHandHoldingSessionAPIView, DashboardStatsAPIView, EventCreateAPIView, EventDashboardCountAPIView, GenerateCertificateAPIView, HandHoldingParticipantListAPIView, HandHoldingRegisterAPIView, HandHoldingSessionListAPIView, IssuedCertificateAPIView, MarkEventCompletedAPIView, MarkSessionCompletedAPIView, ParticipantCertificateAPIView, ParticipantSessionListAPIView, ParticipantSessionProgressAPIView, PendingCertificateParticipantsAPIView, RescheduleSessionAPIView, SendHandHoldingReminderAPIView, SendReminderByEventAPIView
 
 urlpatterns = [
     path('handholding/register/', HandHoldingRegisterAPIView.as_view(), name='handholding-register'),
+    path('add-handholding/', AddHandHoldingRegisterAPIView.as_view(), name='add-handholding'),
+    path('update/delete/handholding/<int:user_id>/', AddHandHoldingRegisterAPIView.as_view(), name='update-handholding'),
     path('card-count/', DashboardStatsAPIView.as_view(), name='dashboard-stats'),
     
     path("handholding-session/", CreateHandHoldingSessionAPIView.as_view()),

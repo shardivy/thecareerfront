@@ -9,14 +9,23 @@ import {
   updateAnalysisReportApi,
   updateAnswersApi,
   getAnalysisDashboardApi,
+  uploadEngineeringV3ReportApi
 } from "../adminApi/collegeAnalysisApi";
 
 // 📥 FETCH USER REQUESTS
 export const fetchCollegeAnalysis = createAsyncThunk(
   "collegeAnalysis/fetchCollegeAnalysis",
-  async ({ studentId, tab } = {}, { rejectWithValue }) => {
+  async (
+    { studentId, tab, programId, packageId } = {},
+    { rejectWithValue }
+  ) => {
     try {
-      return await getCollegeListAnalysisApi({ studentId, tab });
+      return await getCollegeListAnalysisApi({
+        studentId,
+        tab,
+        programId,
+        packageId,
+      });
     } catch (err) {
       return rejectWithValue(err.response?.data || "Error");
     }
@@ -38,9 +47,16 @@ export const submitAnswers = createAsyncThunk(
 // 🚀 START QUESTIONNAIRE
 export const startCollegeAnalysis = createAsyncThunk(
   "collegeAnalysis/startCollegeAnalysis",
-  async (id, { rejectWithValue }) => {
+  async (
+    { studentId, programId, packageId },
+    { rejectWithValue }
+  ) => {
     try {
-      return await startCollegeAnalysisApi(id);
+      return await startCollegeAnalysisApi(
+        studentId,
+        programId,
+        packageId
+      );
     } catch (err) {
       return rejectWithValue(err.response?.data || "Error");
     }
@@ -61,9 +77,16 @@ export const updateAnswers = createAsyncThunk(
 // 📊 GET STATUS
 export const fetchCollegeAnalysisStatus = createAsyncThunk(
   "collegeAnalysis/fetchStatus",
-  async (studentId, { rejectWithValue }) => {
+  async (
+    { studentId, programId, packageId },
+    { rejectWithValue }
+  ) => {
     try {
-      return await getCollegeAnalysisStatusApi(studentId);
+      return await getCollegeAnalysisStatusApi(
+        studentId,
+        programId,
+        packageId
+      );
     } catch (err) {
       return rejectWithValue(err.response?.data || "Error");
     }
@@ -73,9 +96,9 @@ export const fetchCollegeAnalysisStatus = createAsyncThunk(
 // 📤 UPLOAD REPORT
 export const uploadAnalysisReport = createAsyncThunk(
   "collegeAnalysis/uploadReport",
-  async ({ id, file }, { rejectWithValue }) => {
+  async ({ id, formData }, { rejectWithValue }) => {
     try {
-      return await uploadAnalysisReportApi(id, file);
+      return await uploadAnalysisReportApi(id, formData);
     } catch (err) {
       return rejectWithValue(err.response?.data || "Upload failed");
     }
@@ -96,9 +119,9 @@ export const fetchCompletedReports = createAsyncThunk(
 
 export const updateAnalysisReport = createAsyncThunk(
   "collegeAnalysis/updateReport",
-  async ({ id, file, isExisting }, { rejectWithValue }) => {
+  async ({ id, formData }, { rejectWithValue }) => {
     try {
-      return await updateAnalysisReportApi(id, file, isExisting);
+      return await updateAnalysisReportApi(id, formData);
     } catch (err) {
       return rejectWithValue(err.response?.data || "Update failed");
     }
@@ -117,6 +140,19 @@ export const fetchAnalysisDashboard = createAsyncThunk(
   }
 );
 
+export const uploadEngineeringV3Report = createAsyncThunk(
+  "reports/uploadEngineeringV3Report",
+  async ({ reportId, formData }, { rejectWithValue }) => {
+    try {
+      return await uploadEngineeringV3ReportApi(reportId, formData);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to upload V3 report"
+      );
+    }
+  }
+);
+
 const collegeAnalysisSlice = createSlice({
   name: "collegeAnalysis",
   initialState: {
@@ -126,8 +162,14 @@ const collegeAnalysisSlice = createSlice({
     requests: [],
     completedReports: [],
     status: "not_started",
-     dashboardStats: null,
-      draftAnswers: {}, 
+    dashboardStats: null,
+    draftAnswers: {},
+  },
+   reducers: {
+    clearCollegeAnalysisDraft: (state) => {
+      state.draftAnswers = {};
+      state.status = "not_started";
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -135,23 +177,51 @@ const collegeAnalysisSlice = createSlice({
         state.loading = true;
       })
       .addCase(fetchCollegeAnalysis.fulfilled, (state, action) => {
-  state.loading = false;
+        state.loading = false;
 
-  const data = action.payload.data || [];
+        const data = action.payload.data || [];
+        state.requests = [...data].reverse();
 
-  state.requests = [...data].reverse();
+        const { studentId, programId, packageId } =
+          action.meta.arg || {};
 
-  // ✅ HANDLE DRAFT PREFILL
-  if (data.length > 0 && data[0].answers) {
-    const formatted = {};
+        const key = `${studentId}_${programId}_${packageId}`;
 
-    data[0].answers.forEach((ans) => {
-      formatted[ans.question_id] = ans.answer_text;
-    });
+        if (!state.draftAnswers) {
+          state.draftAnswers = {};
+        }
 
-    state.draftAnswers = formatted; // ✅ SAVE
-  }
-})
+        state.draftAnswers[key] = {};
+
+        if (data.length > 0 && data[0].answers) {
+          const formatted = {};
+
+          data[0].answers.forEach((ans) => {
+            formatted[ans.question_id] = ans.answer_text;
+          });
+
+          state.draftAnswers[key] = formatted;
+        }
+      })
+      // .addCase(fetchCollegeAnalysis.fulfilled, (state, action) => {
+      //   state.loading = false;
+
+      //   const data = action.payload.data || [];
+
+      //   state.requests = [...data].reverse();
+
+      //   state.draftAnswers = {}; // clear old draft first
+
+      //   if (data.length > 0 && data[0].answers) {
+      //     const formatted = {};
+
+      //     data[0].answers.forEach((ans) => {
+      //       formatted[ans.question_id] = ans.answer_text;
+      //     });
+
+      //     state.draftAnswers = formatted;
+      //   }
+      // })
       .addCase(fetchCollegeAnalysis.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -223,18 +293,18 @@ const collegeAnalysisSlice = createSlice({
         // ✅ Update that specific record
         const updated = action.payload;
 
-       state.requests = state.requests.map((item) =>
-  item.id === updated.id
-    ? {
-        ...item,
-        report_status: updated.report_status,
-        payment_status: updated.payment_status,
-        uploaded_at: updated.uploaded_at,
-        status: updated.college_analysis_status,
-        
-      }
-    : item
-);
+        state.requests = state.requests.map((item) =>
+          item.id === updated.id
+            ? {
+              ...item,
+              report_status: updated.report_status,
+              payment_status: updated.payment_status,
+              uploaded_at: updated.uploaded_at,
+              status: updated.college_analysis_status,
+
+            }
+            : item
+        );
       })
       .addCase(uploadAnalysisReport.rejected, (state, action) => {
         state.loading = false;
@@ -282,19 +352,31 @@ const collegeAnalysisSlice = createSlice({
       })
 
       .addCase(fetchAnalysisDashboard.pending, (state) => {
-  state.loading = true;
-})
-.addCase(fetchAnalysisDashboard.fulfilled, (state, action) => {
-  state.loading = false;
+        state.loading = true;
+      })
+      .addCase(fetchAnalysisDashboard.fulfilled, (state, action) => {
+        state.loading = false;
 
-  // ✅ store full response
-  state.dashboardStats = action.payload.data || action.payload;
-})
-.addCase(fetchAnalysisDashboard.rejected, (state, action) => {
-  state.loading = false;
-  state.error = action.payload;
-});
+        // ✅ store full response
+        state.dashboardStats = action.payload.data || action.payload;
+      })
+      .addCase(fetchAnalysisDashboard.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      .addCase(uploadEngineeringV3Report.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(uploadEngineeringV3Report.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(uploadEngineeringV3Report.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
   },
 });
 
+export const { clearCollegeAnalysisDraft } = collegeAnalysisSlice.actions;
 export default collegeAnalysisSlice.reducer;

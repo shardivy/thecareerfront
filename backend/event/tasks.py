@@ -9,6 +9,9 @@ from .models import Event
 @shared_task(bind=True)
 def send_event_reminder_by_id(self, event_id):
     import traceback
+    print("EMAIL_HOST:", settings.EMAIL_HOST)
+    print("EMAIL_PORT:", settings.EMAIL_PORT)
+    print("EMAIL_HOST_USER:", settings.EMAIL_HOST_USER)
 
     print("RUNNING TASK", event_id)
 
@@ -21,7 +24,7 @@ def send_event_reminder_by_id(self, event_id):
         send_mail(
             subject=f"Reminder: {event.seminar_webinar_name}",
             message=f"""
-Hello {event.concerned_person_name},
+Dear {event.concerned_person_name},
 
 This is a reminder for your event:
 

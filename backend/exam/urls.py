@@ -1,6 +1,6 @@
 from django.urls import path
 
-from exam.views import AddExamToPackageAPIView, ApproveUserExamAPIView, ExamCreateAPIView, ExamTrackerAPIView, FetchStudentExamStatusAPIView, RejectUserExamAPIView, StartExamAPIView, UpdateExamToPendingApprovalAPIView, UserExamCreateAPIView, UserExamListAPIView
+from exam.views import AddExamToPackageAPIView, ApproveUserExamAPIView, ExamCreateAPIView, ExamTrackerAPIView, FetchStudentExamStatusAPIView, LaunchTestAPIView, RejectUserExamAPIView, SaveCareerFuturaDetailsAPIView, StartExamAPIView, UpdateExamToPendingApprovalAPIView, UserExamCreateAPIView, UserExamListAPIView
 
 
 urlpatterns = [
@@ -22,5 +22,16 @@ urlpatterns = [
     path("start-exam/<int:student_id>/", StartExamAPIView.as_view(), name="start-exam"),
     path("exam-status/<int:student_id>/", FetchStudentExamStatusAPIView.as_view(), name="exam-status"),
     path("exam-tracker/student/<int:student_id>/", ExamTrackerAPIView.as_view()),
+    path(
+        "save-career-futura-details/<int:student_id>/",
+        SaveCareerFuturaDetailsAPIView.as_view(),
+        name="save-career-futura-details",
+    ),
+
+    path(
+        "launch-test/<int:student_id>/<int:test_id>/",
+        LaunchTestAPIView.as_view(),
+        name="launch-test",
+    ),
     
 ]

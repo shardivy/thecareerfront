@@ -63,7 +63,7 @@ const Payments = () => {
   useEffect(() => {
     const studentId = localStorage.getItem("studentId");
 
-    console.log("Student ID from localStorage:", studentId);
+    // console.log("Student ID from localStorage:", studentId);
 
     if (studentId) {
       dispatch(fetchStudentPaymentHistory(studentId));
@@ -88,7 +88,7 @@ const Payments = () => {
 
   const handleUploadSuccess = () => {
     // Refresh payments or summary if needed
-    console.log("Payment uploaded successfully");
+    // console.log("Payment uploaded successfully");
   };
 
   const truncateAfterFive = (text = "") => {
@@ -101,7 +101,8 @@ const Payments = () => {
   const formattedHistory = historyList.map((item, index) => {
     const rawDate = item.payment_date || item.created_at;
     const savedProgram = localStorage.getItem("selectedProgram");
-    const savedPackage = localStorage.getItem("selectedPackageName");
+    const savedPackageName = localStorage.getItem("selectedPackageName");
+    const savedPackage = savedPackageName || localStorage.getItem("selectedPackage");
     return {
       key: item.id || index,
       studentId: item.student_id,
@@ -288,7 +289,7 @@ const Payments = () => {
                     window.open(url, "_blank");
 
                   } catch (error) {
-                    console.error("View failed", error);
+                    // console.error("View failed", error);
                   }
                 }}
               >
@@ -317,7 +318,7 @@ const Payments = () => {
                     link.remove();
 
                   } catch (error) {
-                    console.error("Download failed", error);
+                    // console.error("Download failed", error);
                   }
                 }}
               >

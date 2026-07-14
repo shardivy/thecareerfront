@@ -203,14 +203,16 @@ class CompletedExamReportAPIView(APIView):
         try:
             reports = (
                 Report.objects
-                .select_related('user', 'exam')
+                .select_related('user', 'exam', 'program', 'package')
                 .order_by('-uploaded_at')
             )
 
             response_data = []
 
             # 🔥 PRELOAD DATA
-            user_ids = [r.user_id for r in reports if r.user_id]
+            user_ids = list(
+                reports.values_list("user_id", flat=True)
+            )
 
             user_programs = {
                 up.user_id: up
@@ -223,7 +225,7 @@ class CompletedExamReportAPIView(APIView):
             user_exams = UserExam.objects.filter(user_id__in=user_ids)
 
             for ue in user_exams:
-                key = (ue.user_id, ue.exam_id)
+                key = (ue.user_id, ue.program_id, ue.package_id)
                 if key not in user_exams_map or ue.id > user_exams_map[key].id:
                     user_exams_map[key] = ue
 
@@ -240,13 +242,13 @@ class CompletedExamReportAPIView(APIView):
 
                 student_profile = StudentProfile.objects.filter(user=user).first()
 
-                user_program = user_programs.get(user.id)
+                report_program = report.program
+                report_package = report.package
 
                 # 🚫 Skip Engineering Test Analysis
                 if (
-                    user_program
-                    and user_program.package
-                    and user_program.package.engineering_test_analysis
+                    report_package
+                    and report_package.engineering_test_analysis
                 ):
                     continue
 
@@ -255,8 +257,10 @@ class CompletedExamReportAPIView(APIView):
                 # =============================
                 user_exam = None
 
-                if report.exam:
-                    user_exam = user_exams_map.get((user.id, report.exam.id))
+                if report.program and report.package:
+                    user_exam = user_exams_map.get(
+                        (user.id, report.program.id, report.package.id)
+                    )
 
                 if not user_exam:
                     user_exam = fallback_user_exam.get(user.id)
@@ -266,12 +270,15 @@ class CompletedExamReportAPIView(APIView):
                 # =============================
                 payment_status = None
 
-                if user_program and user_program.package:
-                    package_price = user_program.package.price or 0
+                if report_package:
+                    package_price = report_package.price or 0
 
                     total_paid = (
                         Payment.objects
-                        .filter(user=user, package=user_program.package)
+                        .filter(
+                            user=user,
+                            package=report_package
+                        )
                         .aggregate(total=Sum('amount'))["total"] or 0
                     )
 
@@ -349,12 +356,11 @@ class CompletedExamReportAPIView(APIView):
                     "email": user.email,
                     "phone": getattr(user, "phone", None),
 
-                    "program_id": user_program.program.id if user_program and user_program.program else None,
-                    "program": user_program.program.name if user_program and user_program.program else None,
+                    "program_id": report.program.id if report.program else None,
+                    "program": report.program.name if report.program else None,
 
-                    "package_id": user_program.package.id if user_program and user_program.package else None,
-                    "package": user_program.package.name if user_program and user_program.package else None,
-
+                    "package_id": report.package.id if report.package else None,
+                    "package": report.package.name if report.package else None,
                     "exam_id": report.exam.id if report.exam else None,
                     "exam": report.exam.name if report.exam else None,
 
@@ -516,7 +522,7 @@ class CompletedExamReportStudentIDAPIView(APIView):
         reports = (
             Report.objects
             .filter(user=user)
-            .select_related("user", "exam")
+            .select_related("user", "exam", "program", "package")
             .order_by("-uploaded_at")
         )
 
@@ -564,56 +570,61 @@ class CompletedExamReportStudentIDAPIView(APIView):
                 .first()
             )
 
-            # ==========================================
-            # 🔹 FILE DETAILS
-            # ==========================================
+            # # ==========================================
+            # # 🔹 FILE DETAILS
+            # # ==========================================
+            
             # file_url = None
             # file_name = None
 
             # if report.file_path:
             #     try:
-            #         # Actual uploaded file name
-            #         file_name = os.path.basename(
-            #             report.file_path.name
+            #         # ✅ Actual uploaded file name
+            #         file_name = os.path.basename(report.file_path.name)
+
+            #         # ✅ ALL FILE TYPES use same API
+            #         file_url = request.build_absolute_uri(
+            #             f"/api/report/report/pdf/{report.id}/"
             #         )
-
-            #         # File extension
-            #         file_extension = os.path.splitext(
-            #             file_name
-            #         )[1].lower()
-
-            #         # PDF → preview
-            #         if file_extension == ".pdf":
-            #             file_url = request.build_absolute_uri(
-            #                 f"/api/report/report/pdf/{report.id}/"
-            #             )
-
-            #         # Other files → direct open/download
-            #         else:
-            #             file_url = request.build_absolute_uri(
-            #                 report.file_path.url
-            #             )
 
             #     except Exception:
             #         file_url = None
             #         file_name = None
             
-            file_url = None
-            file_name = None
+            # ==========================================
+            # 🔹 FILE DETAILS
+            # ==========================================
 
-            if report.file_path:
-                try:
-                    # ✅ Actual uploaded file name
-                    file_name = os.path.basename(report.file_path.name)
+            main_file_url = None
+            main_file_name = None
 
-                    # ✅ ALL FILE TYPES use same API
-                    file_url = request.build_absolute_uri(
-                        f"/api/report/report/pdf/{report.id}/"
+            v1_file_url = None
+            v1_file_name = None
+
+            v2_file_url = None
+            v2_file_name = None
+
+            try:
+                if report.file_path:
+                    main_file_name = os.path.basename(report.file_path.name)
+                    main_file_url = request.build_absolute_uri(
+                        f"/api/report/report/pdf/{report.id}/?type=v1"
                     )
 
-                except Exception:
-                    file_url = None
-                    file_name = None
+                if report.file_path1:
+                    v1_file_name = os.path.basename(report.file_path1.name)
+                    v1_file_url = request.build_absolute_uri(
+                        f"/api/report/report/pdf/{report.id}/?type=v2"
+                    )
+
+                if report.file_path2:
+                    v2_file_name = os.path.basename(report.file_path2.name)
+                    v2_file_url = request.build_absolute_uri(
+                        f"/api/report/report/pdf/{report.id}/?type=v3"
+                    )
+
+            except Exception:
+                pass
                     
                     
             # ==========================================
@@ -648,24 +659,24 @@ class CompletedExamReportStudentIDAPIView(APIView):
                 "phone": getattr(user, "phone", None),
 
                 "program_id": (
-                    user_program.program.id
-                    if user_program and user_program.program
+                    report.program.id
+                    if report.program
                     else None
                 ),
                 "program": (
-                    user_program.program.name
-                    if user_program and user_program.program
+                    report.program.name
+                    if report.program
                     else None
                 ),
 
                 "package_id": (
-                    user_program.package.id
-                    if user_program and user_program.package
+                    report.package.id
+                    if report.package
                     else None
                 ),
                 "package": (
-                    user_program.package.name
-                    if user_program and user_program.package
+                    report.package.name
+                    if report.package
                     else None
                 ),
 
@@ -675,12 +686,21 @@ class CompletedExamReportStudentIDAPIView(APIView):
                 "booking_status": booking.status if booking else None,
 
                 "report_status": report.report_status,
-
-                # ✅ Smart file path
-                "file_path": file_url,
-
-                # ✅ Actual file name
-                "file_name": file_name,
+                "file_path": main_file_url,
+                "file_name": main_file_name,
+                "file_path_count": report.file_path_count,
+                
+                # V1 Report
+                "report_status_v2": report.report_status_v2,
+                "file_path1": v1_file_url,
+                "file_name1": v1_file_name,
+                "file_path1_count": report.file_path1_count,
+                
+                # V2 Report
+                "report_status_v3": report.report_status_v3,
+                "file_path2": v2_file_url,
+                "file_name2": v2_file_name,
+                "file_path2_count": report.file_path2_count,
 
                 "uploaded_at": report.uploaded_at,
 
@@ -719,15 +739,14 @@ class CompletedExamReportStudentIDAPIView(APIView):
 #         response["X-Frame-Options"] = "ALLOWALL"
 #         return response
 
+
 # class ReportPDFView(APIView):
-#     authentication_classes = []          # 🔥 skips JWT completely
-#     permission_classes = [AllowAny] 
+#     authentication_classes = []
+#     permission_classes = [AllowAny]
 
 #     def get(self, request, report_id):
-#         # This will return 404 if report doesn't exist
 #         report = get_object_or_404(Report, id=report_id)
-        
-#         # Check if file path exists
+
 #         if not report.file_path:
 #             return Response(
 #                 {
@@ -736,32 +755,51 @@ class CompletedExamReportStudentIDAPIView(APIView):
 #                 },
 #                 status=status.HTTP_404_NOT_FOUND
 #             )
-        
-#         # Check if physical file exists
+
 #         if not os.path.exists(report.file_path.path):
 #             return Response(
 #                 {
-#                     "error": "PDF file not found",
-#                     "message": f"The PDF file for report {report_id} could not be found on the server"
+#                     "error": "File not found",
+#                     "message": f"The file for report {report_id} could not be found on the server"
 #                 },
 #                 status=status.HTTP_404_NOT_FOUND
 #             )
-        
-#         # Try to open and serve the file
+
 #         try:
+#             file_path = report.file_path.path
+#             file_name = os.path.basename(file_path)
+
+#             # ✅ Detect correct content type
+#             content_type, _ = mimetypes.guess_type(file_path)
+
+#             if not content_type:
+#                 content_type = "application/octet-stream"
+
 #             response = FileResponse(
-#                 report.file_path.open("rb"),
-#                 content_type="application/pdf"
+#                 open(file_path, "rb"),
+#                 content_type=content_type
 #             )
-#             response["Content-Disposition"] = "inline"
-#             response["X-Frame-Options"] = "ALLOWALL"
+
+#             # ==========================================
+#             # 🔹 PDF → Preview
+#             # ==========================================
+#             if content_type == "application/pdf":
+#                 response["Content-Disposition"] = f'inline; filename="{file_name}"'
+#                 response["X-Frame-Options"] = "ALLOWALL"
+
+#             # ==========================================
+#             # 🔹 Other files → Download
+#             # ==========================================
+#             else:
+#                 response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+
 #             return response
-            
+
 #         except (FileNotFoundError, IOError, OSError) as e:
 #             return Response(
 #                 {
 #                     "error": "File access error",
-#                     "message": f"Unable to access the PDF file: {str(e)}"
+#                     "message": f"Unable to access file: {str(e)}"
 #                 },
 #                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
 #             ) 
@@ -771,31 +809,49 @@ class ReportPDFView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, report_id):
+
         report = get_object_or_404(Report, id=report_id)
 
-        if not report.file_path:
+        # v1 | v2 | v3
+        report_type = request.GET.get("type", "v1")
+
+        if report_type == "v1":
+            file_obj = report.file_path
+
+        elif report_type == "v2":
+            file_obj = report.file_path1
+
+        elif report_type == "v3":
+            file_obj = report.file_path2
+
+        else:
+            return Response(
+                {"error": "Invalid report type"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not file_obj:
             return Response(
                 {
                     "error": "File path not found",
-                    "message": f"No file path associated with report {report_id}"
+                    "message": f"{report_type} file not uploaded"
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        if not os.path.exists(report.file_path.path):
+        if not os.path.exists(file_obj.path):
             return Response(
                 {
                     "error": "File not found",
-                    "message": f"The file for report {report_id} could not be found on the server"
+                    "message": "The file could not be found on the server"
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
 
         try:
-            file_path = report.file_path.path
+            file_path = file_obj.path
             file_name = os.path.basename(file_path)
 
-            # ✅ Detect correct content type
             content_type, _ = mimetypes.guess_type(file_path)
 
             if not content_type:
@@ -806,18 +862,16 @@ class ReportPDFView(APIView):
                 content_type=content_type
             )
 
-            # ==========================================
-            # 🔹 PDF → Preview
-            # ==========================================
             if content_type == "application/pdf":
-                response["Content-Disposition"] = f'inline; filename="{file_name}"'
+                response["Content-Disposition"] = (
+                    f'inline; filename="{file_name}"'
+                )
                 response["X-Frame-Options"] = "ALLOWALL"
 
-            # ==========================================
-            # 🔹 Other files → Download
-            # ==========================================
             else:
-                response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+                response["Content-Disposition"] = (
+                    f'attachment; filename="{file_name}"'
+                )
 
             return response
 
@@ -825,11 +879,10 @@ class ReportPDFView(APIView):
             return Response(
                 {
                     "error": "File access error",
-                    "message": f"Unable to access file: {str(e)}"
+                    "message": str(e)
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            ) 
-
+            )
 
 # class UploadReportAPIView(APIView):
 #     """
@@ -923,6 +976,7 @@ class UploadReportAPIView(APIView):
        - Payment is fully_paid
        - Review entry exists for user
        - Review status = submitted
+       - Booking is completed 
 
     ❌ Else:
        - received_locked
@@ -1020,7 +1074,11 @@ class UploadReportAPIView(APIView):
         if student_profile:
             latest_booking = (
                 Booking.objects
-                .filter(student=student_profile)
+                .filter(
+                    student=student_profile,
+                    program=report.program,
+                    package=report.package
+                )
                 .order_by("-id")
                 .first()
             )
@@ -1084,26 +1142,31 @@ class UploadReportAPIView(APIView):
         # =========================
         # 📅 Booking
         # =========================
-        booking = None
         created = False
 
         if student_profile:
 
-            # ✅ Get latest booking if multiple exist
-            booking = (
-                Booking.objects
-                .filter(student=student_profile)
+            upp = (
+                UserProgramPackage.objects
+                .filter(user=user)
                 .order_by("-id")
                 .first()
             )
+            print("Student Profile:", student_profile.id)
+            print("UPP:", upp)
 
-            # ✅ Create only if no booking exists
-            if not booking:
-                booking = Booking.objects.create(
-                    student=student_profile,
-                    status="not_booked"
-                )
-                created = True
+            
+            booking, created = Booking.objects.get_or_create(
+                student=student_profile,
+                program=report.program,
+                package=report.package,
+                defaults={
+                    "status": "not_booked"
+                }
+            )  
+            print("Booking Created ID:", booking.id)
+
+            created = True
 
         # =========================
         # 📤 Response
@@ -1271,9 +1334,9 @@ class ReportStatusCountAPIView(APIView):
 import os
 
 # class EngineeringTestAnalysisReportAPIView(APIView):
-    
 #     """
-#     Fetch reports only for students whose package has engineering_test_analysis = True
+#     Fetch reports only for students whose package has
+#     engineering_test_analysis = True
 #     """
 
 #     permission_classes = [IsAuthenticated]
@@ -1282,7 +1345,7 @@ import os
 
 #         reports = (
 #             Report.objects
-#             .select_related("user", "exam")
+#         .select_related("user", "exam", "program", "package")
 #             .order_by("-uploaded_at")
 #         )
 
@@ -1294,106 +1357,157 @@ import os
 #             if not user:
 #                 continue
 
+#             # ==========================================
+#             # 🔹 STUDENT PROFILE
+#             # ==========================================
 #             student_profile = StudentProfile.objects.filter(
 #                 user=user
 #             ).first()
 
-#             user_program = (
-#                 UserProgramPackage.objects
-#                 .filter(
-#                     user=user,
-#                     package__engineering_test_analysis=True
-#                 )
-#                 .select_related("program", "package")
+#             # ==========================================
+#             # 🔹 USER PROGRAM
+#             # ==========================================
+#             # Skip reports that are not Engineering reports
+#             if (
+#                 not report.package
+#                 or not report.package.engineering_test_analysis
+#             ):
+#                 continue
+
+#             # ==========================================
+#             # 🔹 ANALYSIS STATUS
+#             # ==========================================
+#             analysis = (
+#                 CollegeListAnalysis.objects
+#                 .filter(user=user)
 #                 .first()
 #             )
 
-#             # Skip non-engineering students
-#             if not user_program:
-#                 continue
-
-#             # =========================
-#             # ANALYSIS STATUS
-#             # =========================
-#             analysis = CollegeListAnalysis.objects.filter(
-#                 user=user
-#             ).first()
-
-#             # =========================
-#             # PAYMENT STATUS
-#             # =========================
+#             # ==========================================
+#             # 🔹 PAYMENT
+#             # ==========================================
 #             payment = (
 #                 Payment.objects
 #                 .filter(user=user)
 #                 .order_by("-created_at")
 #                 .first()
 #             )
+            
+#             # ==========================================
+#             # 🔹 BOOKING STATUS
+#             # ==========================================
+#             booking = None
 
-#             # =========================
-#             # FILE DETAILS
-#             # =========================
+#             if student_profile:
+#                 booking = (
+#                     Booking.objects
+#                     .filter(student=student_profile)
+#                     .order_by("-created_at")
+#                     .first()
+#                 )
+
+#             # ==========================================
+#             # 🔹 FILE DETAILS
+#             # ==========================================
+#             # file_url = None
+#             # file_name = None
+
+#             # if report.file_path:
+#             #     try:
+#             #         # Actual uploaded filename
+#             #         file_name = os.path.basename(
+#             #             report.file_path.name
+#             #         )
+
+#             #         # File extension
+#             #         file_extension = os.path.splitext(
+#             #             file_name
+#             #         )[1].lower()
+
+#             #         # ==========================================
+#             #         # PDF → Preview route
+#             #         # ==========================================
+#             #         if file_extension == ".pdf":
+#             #             file_url = request.build_absolute_uri(
+#             #                 f"/api/report/report/pdf/{report.id}/"
+#             #             )
+
+#             #         # ==========================================
+#             #         # Excel / Doc / Zip / Other → Direct media
+#             #         # ==========================================
+#             #         else:
+#             #             file_url = request.build_absolute_uri(
+#             #                 report.file_path.url
+#             #             )
+
+#             #     except Exception:
+#             #         file_url = None
+#             #         file_name = None
+            
 #             file_url = None
-#             preview_url = None
 #             file_name = None
 
 #             if report.file_path:
 #                 try:
-#                     # ✅ Actual uploaded file URL
-#                     file_url = request.build_absolute_uri(
-#                         report.file_path.url
-#                     )
-
-#                     # ✅ Use existing PDF preview route
-#                     # Browser preview works better than direct media path
-#                     preview_url = request.build_absolute_uri(
-#                         f"/api/report/report/pdf/{report.id}/"
-#                     )
-
-#                     # ✅ Exact uploaded file name with extension
+#                     # ✅ Actual uploaded filename
 #                     file_name = os.path.basename(
 #                         report.file_path.name
 #                     )
 
+#                     # ✅ ALL file types use same secure API
+#                     file_url = request.build_absolute_uri(
+#                         f"/api/report/report/pdf/{report.id}/"
+#                     )
+
 #                 except Exception:
 #                     file_url = None
-#                     preview_url = None
 #                     file_name = None
 
-#             # =========================
-#             # RESPONSE DATA
-#             # =========================
+#             # ==========================================
+#             # 🔹 RESPONSE DATA
+#             # ==========================================
 #             response_data.append({
 #                 "id": report.id,
 #                 "user_id": user.id,
-#                 "student_id": student_profile.id if student_profile else None,
+#                 "student_id": (
+#                     student_profile.id
+#                     if student_profile else None
+#                 ),
 
 #                 "first_name": user.first_name,
 #                 "last_name": user.last_name,
 #                 "email": user.email,
 #                 "phone": getattr(user, "phone", None),
 
-#                 "program_id": user_program.program.id if user_program.program else None,
-#                 "program": user_program.program.name if user_program.program else None,
+#                 "program_id": report.program.id if report.program else None,
+#                 "program": report.program.name if report.program else None,
 
-#                 "package_id": user_program.package.id if user_program.package else None,
-#                 "package": user_program.package.name if user_program.package else None,
+#                 "package_id": report.package.id if report.package else None,
+#                 "package": report.package.name if report.package else None,
 
-#                 "analysis_status": analysis.status if analysis else None,
+#                 "analysis_status": (
+#                     analysis.status
+#                     if analysis else None
+#                 ),
 
 #                 "report_status": report.report_status,
+#                 "booking_status": (
+#                     booking.status
+#                     if booking else None
+#                 ),
 
-#                 # ✅ Main file path
+#                 # ✅ Smart file path
 #                 "file_path": file_url,
 
-#                 # ✅ Preview link
-#                 "preview_url": preview_url,
-
-#                 # ✅ Uploaded file name
+#                 # ✅ Actual uploaded file name
 #                 "file_name": file_name,
 
 #                 "uploaded_at": report.uploaded_at,
 
-#                 "payment_status": payment.status if payment else None,
+#                 "payment_status": (
+#                     payment.status
+#                     if payment else None
+#                 ),
 #             })
 
 #         serializer = EngineeringTestAnalysisReportSerializer(
@@ -1418,7 +1532,7 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 
         reports = (
             Report.objects
-            .select_related("user", "exam")
+        .select_related("user", "exam", "program", "package")
             .order_by("-uploaded_at")
         )
 
@@ -1440,18 +1554,11 @@ class EngineeringTestAnalysisReportAPIView(APIView):
             # ==========================================
             # 🔹 USER PROGRAM
             # ==========================================
-            user_program = (
-                UserProgramPackage.objects
-                .filter(
-                    user=user,
-                    package__engineering_test_analysis=True
-                )
-                .select_related("program", "package")
-                .first()
-            )
-
-            # Skip non-engineering students
-            if not user_program:
+            # Skip reports that are not Engineering reports
+            if (
+                not report.package
+                or not report.package.engineering_test_analysis
+            ):
                 continue
 
             # ==========================================
@@ -1459,7 +1566,11 @@ class EngineeringTestAnalysisReportAPIView(APIView):
             # ==========================================
             analysis = (
                 CollegeListAnalysis.objects
-                .filter(user=user)
+                .filter(
+                    user=user,
+                    program=report.program,
+                    package=report.package
+                )
                 .first()
             )
 
@@ -1524,24 +1635,36 @@ class EngineeringTestAnalysisReportAPIView(APIView):
             #         file_url = None
             #         file_name = None
             
-            file_url = None
-            file_name = None
+            main_file_url = None
+            main_file_name = None
 
-            if report.file_path:
-                try:
-                    # ✅ Actual uploaded filename
-                    file_name = os.path.basename(
-                        report.file_path.name
+            v1_file_url = None
+            v1_file_name = None
+
+            v2_file_url = None
+            v2_file_name = None
+
+            try:
+                if report.file_path:
+                    main_file_name = os.path.basename(report.file_path.name)
+                    main_file_url = request.build_absolute_uri(
+                        f"/api/report/report/pdf/{report.id}/?type=v1"
                     )
 
-                    # ✅ ALL file types use same secure API
-                    file_url = request.build_absolute_uri(
-                        f"/api/report/report/pdf/{report.id}/"
+                if report.file_path1:
+                    v1_file_name = os.path.basename(report.file_path1.name)
+                    v1_file_url = request.build_absolute_uri(
+                        f"/api/report/report/v1/pdf/{report.id}/?type=v2"
                     )
 
-                except Exception:
-                    file_url = None
-                    file_name = None
+                if report.file_path2:
+                    v2_file_name = os.path.basename(report.file_path2.name)
+                    v2_file_url = request.build_absolute_uri(
+                        f"/api/report/report/v2/pdf/{report.id}/?type=v3"
+                    )
+
+            except Exception:
+                pass
 
             # ==========================================
             # 🔹 RESPONSE DATA
@@ -1559,23 +1682,11 @@ class EngineeringTestAnalysisReportAPIView(APIView):
                 "email": user.email,
                 "phone": getattr(user, "phone", None),
 
-                "program_id": (
-                    user_program.program.id
-                    if user_program.program else None
-                ),
-                "program": (
-                    user_program.program.name
-                    if user_program.program else None
-                ),
+                "program_id": report.program.id if report.program else None,
+                "program": report.program.name if report.program else None,
 
-                "package_id": (
-                    user_program.package.id
-                    if user_program.package else None
-                ),
-                "package": (
-                    user_program.package.name
-                    if user_program.package else None
-                ),
+                "package_id": report.package.id if report.package else None,
+                "package": report.package.name if report.package else None,
 
                 "analysis_status": (
                     analysis.status
@@ -1583,16 +1694,27 @@ class EngineeringTestAnalysisReportAPIView(APIView):
                 ),
 
                 "report_status": report.report_status,
+                "report_status_v2": report.report_status_v2,
+                "report_status_v3": report.report_status_v3,
                 "booking_status": (
                     booking.status
                     if booking else None
                 ),
 
-                # ✅ Smart file path
-                "file_path": file_url,
+                # Main Report
+                "file_path": main_file_url,
+                "file_name": main_file_name,
+                "file_path_count": report.file_path_count,
 
-                # ✅ Actual uploaded file name
-                "file_name": file_name,
+                # V1 Report
+                "file_path1": v1_file_url,
+                "file_name1": v1_file_name,
+                "file_path1_count": report.file_path1_count,
+
+                # V2 Report
+                "file_path2": v2_file_url,
+                "file_name2": v2_file_name,
+                "file_path2_count": report.file_path2_count,
 
                 "uploaded_at": report.uploaded_at,
 
@@ -1614,14 +1736,14 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 
 
 
+
 # class EngineeringReportUploadAPIView(APIView):
 #     """
 #     Upload or replace a report file.
 
-#     Conditions:
-#     1️⃣ CollegeListAnalysis status must be 'completed'
-#     2️⃣ If latest payment is fully_paid → report received_unlocked
-#     3️⃣ If partial_paid or no payment → report received_locked
+#     Condition:
+#     ✅ CollegeListAnalysis status must be completed
+#     ✅ Report status always received_unlocked
 #     """
 
 #     permission_classes = [IsAuthenticated]
@@ -1632,17 +1754,6 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 #         user = report.user
 
 #         # ------------------------------------
-#         # CHECK EXAM EXISTS
-#         # ------------------------------------
-#         # if not report.exam:
-#         #     return Response(
-#         #         {"message": "Exam not linked with this report"},
-#         #         status=status.HTTP_400_BAD_REQUEST
-#         #     )
-
-#         # exam = report.exam
-
-#         # ------------------------------------
 #         # CHECK COLLEGE ANALYSIS STATUS
 #         # ------------------------------------
 #         college_analysis = CollegeListAnalysis.objects.filter(
@@ -1651,7 +1762,7 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 
 #         if not college_analysis or college_analysis.status != "completed":
 #             return Response(
-#                 {   
+#                 {
 #                     "message": "College list analysis is not completed. Report upload not allowed."
 #                 },
 #                 status=status.HTTP_400_BAD_REQUEST
@@ -1662,7 +1773,6 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 #         # ------------------------------------
 #         file_path = request.FILES.get("file_path")
 
-#         # Only require file for POST (new upload)
 #         if request.method == "POST" and not file_path:
 #             return Response(
 #                 {"message": "Report file is required"},
@@ -1670,31 +1780,17 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 #             )
 
 #         # ------------------------------------
-#         # GET LATEST PAYMENT
-#         # ------------------------------------
-#         latest_payment = (
-#             Payment.objects
-#             .filter(user=user)
-#             .order_by('-created_at')
-#             .first()
-#         )
-
-#         # ------------------------------------
-#         # REPORT STATUS LOGIC
-#         # ------------------------------------
-#         report_status = "received_locked"
-
-#         if latest_payment and latest_payment.status == "fully_paid":
-#             report_status = "received_unlocked"
-
-#         # ------------------------------------
 #         # SAVE REPORT
 #         # ------------------------------------
 #         if file_path:
 #             report.file_path = file_path
+
 #         report.uploaded_by = request.user
 #         report.uploaded_at = timezone.now()
-#         report.report_status = report_status
+
+#         # ALWAYS UNLOCK
+#         report.report_status = "received_unlocked"
+
 #         report.save()
 
 #         # ------------------------------------
@@ -1709,11 +1805,6 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 
 #         created = False
 
-#         # if student_profile:
-#         #     booking, created = Booking.objects.get_or_create(
-#         #         student=student_profile,
-#         #         defaults={"status": "not_booked"}
-#         #     )
 #         if student_profile:
 #             booking = Booking.objects.filter(
 #                 student=student_profile
@@ -1732,7 +1823,6 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 #                 "report_id": report.id,
 #                 "uploaded_at": report.uploaded_at,
 #                 "report_status": report.report_status,
-#                 "payment_status": latest_payment.status if latest_payment else None,
 #                 "college_analysis_status": college_analysis.status,
 #                 "booking_created": created if student_profile else False
 #             },
@@ -1743,7 +1833,7 @@ class EngineeringTestAnalysisReportAPIView(APIView):
 #         return self.handle_upload(request, report_id)
 
 #     def put(self, request, report_id):
-#         return self.handle_upload(request, report_id)
+#         return self.handle_upload(request, report_id)  
 
 class EngineeringReportUploadAPIView(APIView):
     """
@@ -1751,7 +1841,7 @@ class EngineeringReportUploadAPIView(APIView):
 
     Condition:
     ✅ CollegeListAnalysis status must be completed
-    ✅ Report status always received_unlocked
+    ✅ Report status always v1_received
     """
 
     permission_classes = [IsAuthenticated]
@@ -1765,7 +1855,9 @@ class EngineeringReportUploadAPIView(APIView):
         # CHECK COLLEGE ANALYSIS STATUS
         # ------------------------------------
         college_analysis = CollegeListAnalysis.objects.filter(
-            user=user
+            user=user,
+            program_id=report.program_id,
+            package_id=report.package_id
         ).order_by("-created_at").first()
 
         if not college_analysis or college_analysis.status != "completed":
@@ -1780,10 +1872,11 @@ class EngineeringReportUploadAPIView(APIView):
         # FILE VALIDATION
         # ------------------------------------
         file_path = request.FILES.get("file_path")
+        file_path2 = request.FILES.get("file_path2")
 
-        if request.method == "POST" and not file_path:
+        if request.method in ["POST", "PUT"] and not (file_path or file_path2):
             return Response(
-                {"message": "Report file is required"},
+                {"message": "Report files are required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -1792,12 +1885,17 @@ class EngineeringReportUploadAPIView(APIView):
         # ------------------------------------
         if file_path:
             report.file_path = file_path
+            report.file_path_count = (report.file_path_count or 0) + 1
+
+        if file_path2:
+            report.file_path2 = file_path2
+            report.file_path2_count = (report.file_path2_count or 0) + 1
 
         report.uploaded_by = request.user
         report.uploaded_at = timezone.now()
 
         # ALWAYS UNLOCK
-        report.report_status = "received_unlocked"
+        report.report_status = "v1_received"
 
         report.save()
 
@@ -1815,7 +1913,7 @@ class EngineeringReportUploadAPIView(APIView):
 
         if student_profile:
             booking = Booking.objects.filter(
-                student=student_profile
+                student=student_profile          
             ).first()
 
             if not booking:
@@ -1829,6 +1927,8 @@ class EngineeringReportUploadAPIView(APIView):
             {
                 "message": "Report uploaded successfully",
                 "report_id": report.id,
+                "file_path_count": report.file_path_count,
+                "file_path2_count": report.file_path2_count,
                 "uploaded_at": report.uploaded_at,
                 "report_status": report.report_status,
                 "college_analysis_status": college_analysis.status,
@@ -1841,7 +1941,228 @@ class EngineeringReportUploadAPIView(APIView):
         return self.handle_upload(request, report_id)
 
     def put(self, request, report_id):
-        return self.handle_upload(request, report_id)  
+        return self.handle_upload(request, report_id)
+    
+    
+class StudentReportUploadAPIView(APIView):
+    """
+    Student Upload/Update Report
+
+    Upload File -> file_path1
+    Status -> v2_received
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def handle_upload(self, request, student_id):
+        
+
+        # -----------------------------
+        # GET STUDENT
+        # -----------------------------
+        student = get_object_or_404(
+            StudentProfile.objects.select_related("user"),
+            id=student_id
+        )
+        
+        program_id = request.GET.get("program_id")
+        package_id = request.GET.get("package_id")
+        
+        if not program_id or not package_id:
+            return Response(
+                {
+                    "message": "program_id and package_id are required"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Optional Security Check
+        # if request.user != student.user:
+        #     return Response(
+        #         {"message": "You can upload only your own report"},
+        #         status=status.HTTP_403_FORBIDDEN
+        #     )
+
+        # -----------------------------
+        # GET REPORT
+        # -----------------------------
+        # Check Engineering Test Analysis Package
+
+        user_package = UserProgramPackage.objects.filter(
+            user=student.user,
+            program_id=program_id,
+            package_id=package_id,
+            package__engineering_test_analysis=True
+        ).select_related("program", "package").first()
+
+        if not user_package:
+            return Response(
+                {
+                    "message": "Engineering Test Analysis package not found."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        report = Report.objects.filter(
+            user=student.user,
+            program_id=program_id,
+            package_id=package_id
+        ).first()
+
+        if not report:
+            return Response(
+                {"message": "Report not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # -----------------------------
+        # FILE VALIDATION
+        # -----------------------------
+        file_path1 = request.FILES.get("file_path1")
+
+        if request.method == "POST" and not file_path1:
+            return Response(
+                {"message": "Report file is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # -----------------------------
+        # SAVE FILE
+        # -----------------------------
+        if file_path1:
+            report.file_path1 = file_path1
+            report.file_path1_count = (report.file_path1_count or 0) + 1
+            report.report_status_v2 = "v2_received"
+
+        report.uploaded_at = timezone.now()
+
+        report.save()
+
+        return Response(
+            {
+                "message": "Report uploaded successfully",
+                "student_id": student.id,
+                "report_id": report.id,
+                "report_status_v2": report.report_status_v2,
+                "uploaded_at": report.uploaded_at,
+                "file_path_count": report.file_path_count,
+                "file_path1_count": report.file_path1_count
+            },
+            status=status.HTTP_200_OK
+        )
+
+    def post(self, request, student_id):
+        return self.handle_upload(request, student_id)
+
+    def put(self, request, student_id):
+        return self.handle_upload(request, student_id) 
+    
+class EngineeringV2ReportUploadAPIView(APIView):
+    """
+    Upload or replace a report file.
+
+    Condition:
+    ✅ CollegeListAnalysis status must be completed
+    ✅ Report status always v3_received
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def handle_upload(self, request, report_id):
+
+        report = get_object_or_404(Report, id=report_id)
+        user = report.user
+
+        # ------------------------------------
+        # CHECK COLLEGE ANALYSIS STATUS
+        # ------------------------------------
+        college_analysis = CollegeListAnalysis.objects.filter(
+            user=user,
+            program_id=report.program_id,
+            package_id=report.package_id,
+        ).order_by("-created_at").first()
+
+        if not college_analysis or college_analysis.status != "completed":
+            return Response(
+                {
+                    "message": "College list analysis is not completed. Report upload not allowed."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ------------------------------------
+        # FILE VALIDATION
+        # ------------------------------------
+        file_path2 = request.FILES.get("file_path2")
+
+        if request.method == "POST" and not file_path2:
+            return Response(
+                {"message": "Report file is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # ------------------------------------
+        # SAVE REPORT
+        # ------------------------------------
+        if file_path2:
+            report.file_path2 = file_path2
+            report.file_path2_count = (report.file_path2_count or 0) + 1
+
+        report.uploaded_by = request.user
+        report.uploaded_at = timezone.now()
+
+        # ALWAYS UNLOCK
+        report.report_status_v3 = "v3_received"
+
+        report.save()
+
+        # ------------------------------------
+        # SEND EMAIL
+        # ------------------------------------
+        send_report_uploaded_email(user, report)
+
+        # ------------------------------------
+        # CREATE BOOKING IF NOT EXISTS
+        # ------------------------------------
+        # student_profile = StudentProfile.objects.filter(user=user).first()
+
+        # created = False
+
+        # if student_profile:
+        #     booking = Booking.objects.filter(
+        #         student=student_profile
+        #     ).first()
+
+        #     if not booking:
+        #         booking = Booking.objects.create(
+        #             student=student_profile,
+        #             status="not_booked"
+        #         )
+        #         created = True
+
+        return Response(
+            {
+                "message": "Report uploaded successfully",
+                "report_id": report.id,
+                "uploaded_at": report.uploaded_at,
+                "report_status_v3": report.report_status_v3,
+                "college_analysis_status": college_analysis.status,
+                "file_path_count": report.file_path_count,
+                "file_path1_count": report.file_path1_count,
+                "file_path2_count": report.file_path2_count,
+                # "booking_created": created if student_profile else False
+            },
+            status=status.HTTP_200_OK
+        )
+
+    def post(self, request, report_id):
+        return self.handle_upload(request, report_id)
+
+    def put(self, request, report_id):
+        return self.handle_upload(request, report_id)
+     
+    
+
     
 # ======================= Review APIView =======================
 
@@ -2100,6 +2421,7 @@ class SubmitReviewAPIView(APIView):
         
         # if latest_payment:
         #     PaymentCreateAPIView().unlock_report_if_paid(latest_payment)
+        
 
         # =========================
         # 🎓 GET STUDENT PROFILE
@@ -2122,35 +2444,81 @@ class SubmitReviewAPIView(APIView):
                 .order_by("-id")
                 .first()
             )
-
+        # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++    
         # =========================
-        # 🔒 DEFAULT REPORT STATUS
+        # 🚫 ENGINEERING TEST ANALYSIS
         # =========================
-        report_status = "received_locked"
-
-        # =========================
-        # 🔓 UNLOCK REPORT ONLY IF:
-        # ✅ Payment fully paid
-        # ✅ Review submitted
-        # ✅ Booking completed
-        # =========================
-        if (
+        is_engineering_analysis = (
             latest_payment
-            and latest_payment.status == "fully_paid"
-            and review.review_status == "submitted"
-            and latest_booking
-            and latest_booking.status == "completed"
-        ):
-            report_status = "received_unlocked"
-
-        # =========================
-        # 📄 UPDATE REPORT STATUS
-        # =========================
-        Report.objects.filter(
-            user=user
-        ).update(
-            report_status=report_status
+            and latest_payment.package.filter(
+                engineering_test_analysis=True
+            ).exists()
         )
+
+        if is_engineering_analysis:
+
+            # Get current report status from DB
+            report = Report.objects.filter(
+                user=user
+            ).first()
+
+            report_status = (
+                report.report_status
+                if report
+                else None
+            )
+
+        else:
+
+            # =========================
+            # 🔒 DEFAULT REPORT STATUS
+            # =========================
+            report_status = "received_locked"
+
+            if (
+                latest_payment
+                and latest_payment.status == "fully_paid"
+                and review.review_status == "submitted"
+                and latest_booking
+                and latest_booking.status == "completed"
+            ):
+                report_status = "received_unlocked"
+
+            Report.objects.filter(
+                user=user
+            ).update(
+                report_status=report_status
+            )
+            # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+        # # =========================
+        # # 🔒 DEFAULT REPORT STATUS
+        # # =========================
+        # report_status = "received_locked"
+
+        # # =========================
+        # # 🔓 UNLOCK REPORT ONLY IF:
+        # # ✅ Payment fully paid
+        # # ✅ Review submitted
+        # # ✅ Booking completed
+        # # =========================
+        # if (
+        #     latest_payment
+        #     and latest_payment.status == "fully_paid"
+        #     and review.review_status == "submitted"
+        #     and latest_booking
+        #     and latest_booking.status == "completed"
+        # ):
+        #     report_status = "received_unlocked"
+
+        # # =========================
+        # # 📄 UPDATE REPORT STATUS
+        # # =========================
+        # Report.objects.filter(
+        #     user=user
+        # ).update(
+        #     report_status=report_status
+        # )
         
         # # =========================
         # # REPORT STATUS LOGIC

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Modal,
   Form,
@@ -16,7 +16,7 @@ import {
   Empty,
   Image,
 } from "antd";
-import { UploadOutlined, EyeOutlined } from "@ant-design/icons";
+import { UploadOutlined, EyeOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useDispatch, useSelector } from "react-redux";
 
@@ -43,12 +43,19 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
   const dispatch = useDispatch();
 
   const liveValues = Form.useWatch([], form);
+  const programRows = liveValues?.programs || [];
   const paymentType = Form.useWatch("payment_type", form);
   const paymentMethod = Form.useWatch("method", form);
   const amount = Form.useWatch("amount", form);
 
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [packagesByProgramId, setPackagesByProgramId] = useState({}); 
+  const [programPkgLoading, setProgramPkgLoading] = useState({}); 
+const selectedPrograms = Form.useWatch("program", form);
+const selectedPackages = (liveValues?.programs || [])
+  .map((p) => p?.package)
+  .filter(Boolean);
 
   const { activeList: programs = [], loading: programsLoading } = useSelector(
     (state) => state.programs
@@ -62,7 +69,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
     (state) => state.convertEnquiry
   );
 
-  const { loading: addLoading, success: addSuccess, message: addMessage } =
+  const { loading: addLoading, success: addSuccess, error: addError, message: addMessage } =
     useSelector((state) => state.addEnquiry);
 
   const { loading: convertLoading, success: convertSuccess, message: convertMessage } =
@@ -71,15 +78,41 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
   const { loading: updateLoading, success: updateSuccess, message: updateMessage } =
     useSelector((state) => state.updateEnquiry);
 
-  const selectedPackage = packages.find(
-    (p) => p.id === liveValues?.package
-  );
+  const getPackagePrice = (programId, packageId) => {
+    if (!programId || !packageId) return 0;
+    const pkg = (packagesByProgramId[programId] || []).find((p) => p.id === packageId);
+    return pkg ? Number(pkg.price) : 0;
+  };
 
-  const totalPackageAmount = selectedPackage
-    ? Number(selectedPackage.price)
-    : 0;
+  
+  const selectedPackage = mode === "convert"
+    ? (packagesByProgramId[liveValues?.programs?.[0]?.program] || []).find((p) => p.id === liveValues?.programs?.[0]?.package)
+    : packages.find((p) => p.id === liveValues?.package);
 
+  const selectedProgram = mode === "convert"
+    ? programs.find((p) => p.id === liveValues?.programs?.[0]?.program)
+    : programs.find((p) => p.id === liveValues?.program);
+
+  const totalPackageAmount = mode === "convert"
+    ? Array.isArray(liveValues?.programs)
+      ? liveValues.programs.reduce(
+          (sum, item) => sum + getPackagePrice(item.program, item.package),
+          0
+        )
+      : selectedPackage
+        ? Number(selectedPackage.price)
+        : 0
+    : selectedPackage
+      ? Number(selectedPackage.price)
+      : 0;
+
+  const isEngineeringProgram = mode === "convert"
+    ? Array.isArray(liveValues?.programs) && liveValues.programs.some((item) =>
+        programs.find((p) => p.id === item.program)?.name === "Engineering"
+      )
+    : selectedProgram?.name === "Engineering";
   const isConvert = mode === "convert";
+  const isView = mode === "view";
 
   /* ================= FETCH PROGRAMS ================= */
   useEffect(() => {
@@ -87,6 +120,17 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
       dispatch(fetchActivePrograms());
     }
   }, [open, dispatch]);
+
+  // ✅ When packages Redux updates, extract program ID from packages and store by programId
+  useEffect(() => {
+    if (packages.length > 0 && packages[0]?.program?.id) {
+      const programId = packages[0].program.id;
+      setPackagesByProgramId((prev) => ({
+        ...prev,
+        [programId]: packages,
+      }));
+    }
+  }, [packages]);
 
   /* ================= PREFILL DATA ================= */
   useEffect(() => {
@@ -102,18 +146,21 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
       programs.find((p) => p.name === enquiryData.program)?.id ??
       null;
 
+    // Ensure program field is an array for the form (backend expects array)
+    const programValue = Array.isArray(programId) ? programId : (programId !== null ? [programId] : undefined);
+
     form.setFieldsValue({
       firstName,
       lastName,
       phone: enquiryData.phone || "",
       email: enquiryData.email || "",
-      program: programId,
+      program: programValue,
       source: enquiryData.source || null,
       date: enquiryData.date ? dayjs(enquiryData.date) : null,
     });
 
     if (programId) {
-      dispatch(fetchPackagesByProgram(programId));
+      dispatch(fetchPackagesByProgram(Array.isArray(programId) ? programId[0] : programId));
     }
   }, [open, enquiryData, programs, dispatch, form, mode]);
 
@@ -189,6 +236,15 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
     }
   }, [paymentMethod, form]);
 
+  useEffect(() => {
+    if (isConvert && isEngineeringProgram) {
+      form.setFieldsValue({
+        payment_type: "online",
+        method: "upi",
+      });
+    }
+  }, [isConvert, isEngineeringProgram, form]);
+
   /* ================= RESET WHEN ADD MODE ================= */
   useEffect(() => {
     if (open && mode === "add") {
@@ -198,28 +254,81 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
     }
   }, [open, mode, form]);
 
+  const loadPackagesForIndex = (idx, programId) => {
+    setProgramPkgLoading((prev) => ({ ...prev, [idx]: true }));
+    dispatch(fetchPackagesByProgram(programId)).finally(() => {
+      setProgramPkgLoading((prev) => ({ ...prev, [idx]: false }));
+    });
+  };
+
+  const handleConvertProgramChange = (index, programId) => {
+    const currentPrograms = form.getFieldValue("programs") || [];
+    const nextPrograms = [...currentPrograms];
+
+    nextPrograms[index] = {
+      ...nextPrograms[index],
+      program: programId,
+      package: undefined,
+    };
+
+    const selectedProgram = programs.find((p) => p.id === programId);
+    if (selectedProgram?.name?.toLowerCase() === "engineering") {
+      form.setFieldsValue({
+        payment_type: "online",
+        method: "upi",
+      });
+    }
+
+    form.setFieldsValue({ programs: nextPrograms });
+    if (programId) {
+      loadPackagesForIndex(index, programId);
+    }
+  };
+
+  const handleRemoveProgramRow = (name, remove) => {
+    remove(name);
+    setProgramPkgLoading((prev) => {
+      const next = { ...prev };
+      delete next[name];
+      return next;
+    });
+  };
+
   /* ================= SUBMIT ================= */
   const handleSubmit = (values) => {
     if (isConvert && enquiryData?.id) {
       const formData = new FormData();
 
-      formData.append("study_class", values.study_class);
-      formData.append("program", values.program);
-      formData.append("package", values.package);
-      formData.append("preferred_counselling_mode", values.preferred_counselling_mode);
-      formData.append("amount", values.amount);
+      // Build programs array payload from Form.List rows
+      // const programsPayload = (values.programs || []).map((p) => ({
+      //   program: p.program,
+      //   package: p.package,
+      // }));
+
+      // Support multiple program rows from Form.List (convert mode)
+      if (Array.isArray(values.programs) && values.programs.length > 0) {
+        (values.programs || []).forEach((p) => {
+          if (p.program !== undefined) formData.append("program", p.program);
+          if (p.package !== undefined) formData.append("package", p.package);
+        });
+      } else {
+        formData.append("program", values.program || "");
+        formData.append("package", values.package || "");
+      }
+      formData.append("study_class", values.study_class || "");
+      formData.append("preferred_counselling_mode", values.preferred_counselling_mode || "");
+      formData.append("amount", values.amount || 0);
       formData.append("payment_type", values.payment_type || "");
       formData.append("method", values.method || "");
       formData.append("transaction_id", values.transaction_id || "");
       formData.append("last_name", values.lastName || "");
 
+      // Attach single receipt file if uploaded
       if (fileList.length > 0 && fileList[0].originFileObj) {
         formData.append("proof_file", fileList[0].originFileObj);
       }
 
-      dispatch(
-        convertEnquiry({ id: enquiryData.id, payload: formData })
-      );
+      dispatch(convertEnquiry({ id: enquiryData.id, payload: formData }));
       return;
     }
 
@@ -228,7 +337,8 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
       last_name: values.lastName,
       phone: values.phone,
       email: values.email,
-      program: values.program,
+      // Always send program as an array (backend expects an array)
+      program: Array.isArray(values.program) ? values.program : (values.program ? [values.program] : []),
       source: values.source ? values.source.toLowerCase() : null,
       date: values.date
         ? values.date.format("YYYY-MM-DD")
@@ -244,7 +354,12 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
 
   const handleProgramChange = (programId) => {
     form.setFieldsValue({ package: undefined });
-    dispatch(fetchPackagesByProgram(programId));
+    const programToFetch = Array.isArray(programId)
+      ? programId[0]
+      : programId;
+    if (programToFetch) {
+      dispatch(fetchPackagesByProgram(programToFetch));
+    }
   };
 
   const handleFileChange = ({ fileList: newFileList }) => {
@@ -262,11 +377,35 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
 
   useEffect(() => {
     if (open && mode === "convert") {
+      // derive program IDs from enquiryData: prefer `program` array, then `programId`, then `program_detail`
+      let programIds = [];
+      if (Array.isArray(enquiryData?.program) && enquiryData.program.length) {
+        programIds = enquiryData.program;
+      } else if (Array.isArray(enquiryData?.programId) && enquiryData.programId.length) {
+        programIds = enquiryData.programId;
+      } else if (Array.isArray(enquiryData?.program_detail) && enquiryData.program_detail.length) {
+        programIds = enquiryData.program_detail.map((p) => p.id);
+      } else if (enquiryData?.programId) {
+        programIds = [enquiryData.programId];
+      } else if (enquiryData?.program) {
+        programIds = [enquiryData.program];
+      }
+
+      const programRows = programIds.length
+        ? programIds.map((pid) => ({ program: pid, package: undefined }))
+        : [{ program: undefined, package: undefined }];
+
       form.setFieldsValue({
         preferred_counselling_mode: "online",
+        programs: programRows,
+      });
+
+      // load packages for each program row
+      programIds.forEach((pid, idx) => {
+        if (pid) loadPackagesForIndex(idx, pid);
       });
     }
-  }, [open, mode, form]);
+  }, [open, mode, form, enquiryData, programs]);
 
   const disableFutureDates = (current) => {
     return current && current > dayjs().endOf("day");
@@ -275,6 +414,24 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
   const isWebsiteSource =
     enquiryData?.source?.toLowerCase() === "website";
 
+
+    const handHoldingProgram = programs.find(
+  (p) => p.name?.toLowerCase() === "hand holding program"
+);
+
+const isHandHoldingSelected =
+  Array.isArray(selectedPrograms) &&
+  handHoldingProgram &&
+  selectedPrograms.includes(handHoldingProgram.id);
+
+  useEffect(() => {
+  if (addError) {
+    message.error(
+      addError?.message || addError || "Failed to add enquiry"
+    );
+  }
+}, [addError]);
+   
   return (
     <Modal
       open={open}
@@ -378,26 +535,48 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                   </Form.Item>
                 </Col>
 
-                <Col xs={24} sm={12}>
-                  <Form.Item
-                    name="program"
-                    label="Program"
-                    rules={[{ required: true }]}
-                  >
-                    <Select
-                      placeholder="Select program"
-                      loading={programsLoading}
-                      onChange={handleProgramChange}
-                      disabled={isConvert && !isWebsiteSource}
+                {!isConvert && (
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="program"
+                      label={mode !== "convert" ? "Programs" : "Program"}
+                      rules={[{ required: true }]}
                     >
-                      {programs.map((p) => (
-                        <Option key={p.id} value={p.id}>
-                          {p.name}
-                        </Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-                </Col>
+                      <Select
+                        mode={mode !== "convert" && !isHandHoldingSelected ? "multiple" : undefined}
+                        placeholder={mode !== "convert" ? "Select programs" : "Select program"}
+                        loading={programsLoading}
+                        // onChange={handleProgramChange}
+             onChange={(value) => {
+            const handHoldingId = handHoldingProgram?.id;
+
+  if (
+    Array.isArray(value) &&
+    handHoldingId &&
+    value.includes(handHoldingId) &&
+    value.length > 1
+  ) {
+    message.warning(
+      "Hand Holding program cannot be selected with other programs."
+    );
+    // Keep only Hand Holding selected
+    form.setFieldValue("program", [handHoldingId]);
+    return;
+  }
+  handleProgramChange(value);
+}}
+                        disabled={isConvert && !isWebsiteSource}
+                        allowClear
+                      >
+                        {programs.map((p) => (
+                          <Option key={p.id} value={p.id}>
+                            {p.name}
+                          </Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                  </Col>
+                )}
 
                 <Col xs={24} sm={12}>
                   <Form.Item name="source" label="Source" >
@@ -413,7 +592,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                   </Form.Item>
                 </Col>
 
-                <Col xs={24}>
+                <Col xs={24} sm={12}>
                   <Form.Item
                     name="date"
                     label="Enquiry Date"
@@ -432,6 +611,108 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                   <>
                     <Col span={24}>
                       <Divider />
+                    </Col>
+
+                    <Col xs={24}>
+                      <Form.List name="programs">
+                        {(fields, { add, remove }) => (
+                          <>
+                            {fields.map((field, index) => (
+                              <Card
+                                key={field.key}
+                                style={{ marginBottom: 16, borderRadius: 8, border: "1px solid #e8e8e8" }}
+                                title={
+                                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <span style={{ fontWeight: 600, fontSize: 14, color: "#1677ff" }}>
+                                      {index === 0 ? "Program 1" : `Program ${index + 1}`}
+                                    </span>
+                                    <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                                      {index === 0 && !isView && (
+                                        <span
+                                          onClick={() => add({})}
+                                          style={{ color: "#1677ff", cursor: "pointer", fontSize: 13, fontWeight: 500 }}
+                                        >
+                                          + Add Program
+                                        </span>
+                                      )}
+                                      {fields.length > 1 && (
+                                        <DeleteOutlined
+                                          onClick={() => handleRemoveProgramRow(field.name, remove)}
+                                          style={{ color: "red", cursor: "pointer", fontSize: 16 }}
+                                        />
+                                      )}
+                                    </div>
+                                  </div>
+                                }
+                              >
+                                <Row gutter={[16, 0]}>
+                                  <Col xs={24} sm={12}>
+                                    <Form.Item
+                                      {...field}
+                                      name={[field.name, "program"]}
+                                      label="Program"
+                                      rules={[{ required: true, message: "Please select program" }]}
+                                    >
+                                      <Select
+                                        placeholder="Select program"
+                                        loading={programsLoading}
+                                        onChange={(value) => handleConvertProgramChange(index, value)}
+                                        // disabled={!isWebsiteSource}
+                                        allowClear
+                                      >
+                                        {programs.map((p) => (
+                                          <Option key={p.id} value={p.id}>
+                                            {p.name}
+                                          </Option>
+                                        ))}
+                                      </Select>
+                                    </Form.Item>
+                                  </Col>
+
+                                  <Col xs={24} sm={12}>
+                                    <Form.Item
+                                      {...field}
+                                      name={[field.name, "package"]}
+                                      label="Counselling Service"
+                                      rules={[{ required: true, message: "Please select service" }]}
+                                    >
+                                      {/* <Select
+                                        placeholder="Select counselling service"
+                                        loading={programPkgLoading[index]}
+                                        // disabled={!isWebsiteSource}
+                                        allowClear
+                                      >
+                                        {(packagesByProgramId[liveValues?.programs?.[index]?.program] || []).map((p) => (
+                                          <Option key={p.id} value={p.id}>
+                                            {p.name}
+                                          </Option>
+                                        ))}
+                                      </Select> */}
+                                      
+
+                                      <Select
+  placeholder="Select counselling service"
+  loading={programPkgLoading[index]}
+  allowClear
+>
+{(packagesByProgramId[liveValues?.programs?.[index]?.program] || []).map((p) => {
+  const isDisabled = selectedPackages.includes(p.id);
+
+  return (
+    <Option key={p.id} value={p.id} disabled={isDisabled}>
+      {p.name}
+    </Option>
+  );
+})}
+</Select>
+                                    </Form.Item>
+                                  </Col>
+                                </Row>
+                              </Card>
+                            ))}
+                          </>
+                        )}
+                      </Form.List>
                     </Col>
 
                     <Col xs={24} sm={12}>
@@ -461,22 +742,6 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                       </Form.Item>
                     </Col>
 
-                    <Col xs={24} sm={12}>
-                      <Form.Item
-                        name="package"
-                        label="Counselling Services"
-                        rules={[{ required: true }]}
-                      >
-                        <Select placeholder="Select counselling service" loading={packagesLoading}>
-                          {packages.map((p) => (
-                            <Option key={p.id} value={p.id}>
-                              {p.name}
-                            </Option>
-                          ))}
-                        </Select>
-                      </Form.Item>
-                    </Col>
-
                     {isConvert && (
                       <Col xs={24} sm={12}>
                         <Form.Item
@@ -499,7 +764,7 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                         name="amount"
                         label="Fees Paid"
                         placeholder="Enter amount"
-                        dependencies={["package"]}
+                        dependencies={["package", "program", "programs"]}
                         rules={[
                           { required: true, message: "Please enter the amount paid" },
                           {
@@ -516,6 +781,15 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
 
                               if (numericValue < 0) {
                                 return Promise.reject("Amount cannot be negative");
+                              }
+
+                              if (isEngineeringProgram) {
+                                if (numericValue !== totalPackageAmount) {
+                                  return Promise.reject(
+                                    `For Engineering program, Fees Paid must be exactly ₹${totalPackageAmount}`
+                                  );
+                                }
+                                return Promise.resolve();
                               }
 
                               if (numericValue !== 0 && numericValue % 100 !== 0) {
@@ -536,8 +810,8 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                         ]}
                       >
                         <Input
-                          type="number"
-                          min={0}
+                          type="text"
+                          placeholder="Enter amount"
                         />
                       </Form.Item>
                     </Col>
@@ -552,7 +826,9 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                           >
                             <Select placeholder="Select payment type">
                               <Option value="online">Online</Option>
-                              <Option value="offline">Offline</Option>
+                              {!isEngineeringProgram && (
+                                <Option value="offline">Offline</Option>
+                              )}
                             </Select>
                           </Form.Item>
                         </Col>
@@ -565,27 +841,30 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
                             rules={[{ required: true }]}
                           >
                             <Select disabled={!paymentType}>
-                              {paymentType === "online" && (
-                                <Option value="upi">UPI</Option>
-                              )}
-                              {paymentType === "offline" && (
+                              <Option value="upi">UPI</Option>
+                              {!isEngineeringProgram && paymentType === "offline" && (
                                 <Option value="cash">Cash</Option>
                               )}
                             </Select>
                           </Form.Item>
                         </Col>
 
-                        {paymentMethod === "upi" && (
-                          <Col xs={24} sm={12}>
-                            <Form.Item
-                              name="transaction_id"
-                              label="Transaction ID"
-
-                            >
-                              <Input placeholder="Enter transaction ID" />
-                            </Form.Item>
-                          </Col>
-                        )}
+                       {paymentMethod === "upi" && (
+  <Col xs={24} sm={12}>
+    <Form.Item
+      name="transaction_id"
+      label="Transaction ID"
+      rules={[
+        {
+          required: true,
+          message: "Please enter transaction ID",
+        },
+      ]}
+    >
+      <Input placeholder="Enter transaction ID" />
+    </Form.Item>
+  </Col>
+)}
 
 
                         <Col span={24}>
@@ -665,22 +944,29 @@ const AddEnquiryModal = ({ open, onCancel, mode, enquiryData }) => {
 
                       <Divider />
 
-                      <p>
-                        <b>Program:</b>{" "}
-                        {programs.find(
-                          (p) =>
-                            p.id === liveValues.program
-                        )?.name || "-"}
-                      </p>
+                      {(liveValues?.programs || []).map((prog, idx) => {
+                        const progName = programs.find((p) => p.id === prog?.program)?.name;
+                        const pkgs = packagesByProgramId[prog?.program] || [];
+                        const pkgName = pkgs.find((p) => p.id === prog?.package)?.name;
+                        const pkgPrice = pkgs.find((p) => p.id === prog?.package)?.price;
 
-                      <p>
-                        <b>Package:</b>{" "}
-                        {packages.find(
-                          (p) =>
-                            p.id === liveValues.package
-                        )?.name || "-"}
-                      </p>
+                        return (
+                          <div key={idx}>
+                            <Divider
+                              orientation="left"
+                              plain
+                              style={{ fontSize: 13, color: "#888", margin: "10px 0" }}
+                            >
+                              {idx === 0 ? "Program 1" : `Program ${idx + 1}`}
+                            </Divider>
+                            <p><b>Program:</b>  {progName || "-"}</p>
+                            <p><b>Service:</b>  {pkgName || "-"}</p>
+                            <p><b>Price:</b> ₹{pkgPrice || "0"}</p>
+                          </div>
+                        );
+                      })}
 
+                      <Divider />
                       <p><b>Amount:</b> ₹{form.getFieldValue('amount') || '0'} / ₹{totalPackageAmount}</p>
 
                       <p>

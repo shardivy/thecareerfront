@@ -6,6 +6,7 @@ import {
   updatePackageApi,
   getPackagesByProgramApi,
   getProgramPackageDetailsApi,
+  getPackagesByMultipleProgramsApi,
 } from "../adminApi/packageApi";
 
 /* FETCH ALL PACKAGES */
@@ -26,7 +27,7 @@ export const fetchPackagesByProgram = createAsyncThunk(
   async (programId, { rejectWithValue }) => {
     try {
       const response = await getPackagesByProgramApi(programId);
-            console.log("API response:", response);
+      // console.log("API response:", response);
       return response.data.packages; // ✅ FIX
     } catch {
       return rejectWithValue("Failed to fetch packages");
@@ -34,6 +35,29 @@ export const fetchPackagesByProgram = createAsyncThunk(
   }
 );
 
+
+export const fetchPackagesByMultiplePrograms = createAsyncThunk(
+  "packages/fetchByMultiplePrograms",
+  async (programIds, { rejectWithValue }) => {
+    try {
+      const response =
+        await getPackagesByMultipleProgramsApi(programIds);
+
+      const programs = response?.data || [];
+
+      const allPackages = programs.flatMap(
+        (program) => program.packages || []
+      );
+
+      return {
+        packages: allPackages,
+        programsData: programs,
+      };
+    } catch {
+      return rejectWithValue("Failed to fetch packages");
+    }
+  }
+);
 
 /* CREATE PACKAGE */
 export const createPackage = createAsyncThunk(
@@ -75,9 +99,10 @@ const packageSlice = createSlice({
   name: "packages",
   initialState: {
     list: [],
+    programsData: [],
     loading: false,
     error: null,
-     selectedPackage: null, 
+    selectedPackage: null,
   },
   reducers: {
     /* ✅ NOW clearPackages EXISTS */
@@ -128,6 +153,26 @@ const packageSlice = createSlice({
         state.error = action.payload;
       })
 
+      //  fetch by multi program
+      .addCase(fetchPackagesByMultiplePrograms.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(
+        fetchPackagesByMultiplePrograms.fulfilled,
+        (state, action) => {
+          state.loading = false;
+          state.list = action.payload.packages || [];
+          state.programsData = action.payload.programsData || [];
+        }
+      )
+      .addCase(
+        fetchPackagesByMultiplePrograms.rejected,
+        (state, action) => {
+          state.loading = false;
+          state.error = action.payload;
+        }
+      )
+
       /* CREATE */
       .addCase(createPackage.fulfilled, (state, action) => {
         if (action.payload?.data) {
@@ -144,17 +189,17 @@ const packageSlice = createSlice({
       })
 
       /* FETCH SINGLE PACKAGE DETAILS */
-.addCase(fetchProgramPackageDetails.pending, (state) => {
-  state.loading = true;
-})
-.addCase(fetchProgramPackageDetails.fulfilled, (state, action) => {
-  state.loading = false;
-  state.selectedPackage = action.payload?.data || action.payload;
-})
-.addCase(fetchProgramPackageDetails.rejected, (state, action) => {
-  state.loading = false;
-  state.error = action.payload;
-});
+      .addCase(fetchProgramPackageDetails.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchProgramPackageDetails.fulfilled, (state, action) => {
+        state.loading = false;
+        state.selectedPackage = action.payload?.data || action.payload;
+      })
+      .addCase(fetchProgramPackageDetails.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
   },
 });
 

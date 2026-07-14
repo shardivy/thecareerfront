@@ -17,10 +17,13 @@ PROGRAM_PREFIX_MAP = {
     "career counselling": "CF26",
     "pg counselling": "PG",
     "hand holding program": "HH",
-    "bba": "BBA",
+    "commerce (bba & mba)": "BBA",
     "law": "LAW",
     "b.des": "BDES",
     "oci/nri/ciwg/pio engineering": "OCIENG",
     "medical": "MED",
     "aptitude test counselling": "APT",
+    "abroad counselling": "ABROAD",
+    "11th admission": "FYJC",
+    "design & architecture": "CREATIVE"
 }

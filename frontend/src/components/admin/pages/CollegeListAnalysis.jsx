@@ -34,12 +34,53 @@ import adminTheme from "../../../theme/adminTheme";
 import AddQuestionModal from "../modals/AddQuestionModal";
 import ViewRequestModal from "../modals/ViewRequestModal";
 import ViewAnalyasisReportModal from "../modals/ViewAnalysisReportModal";
+import UploadAnalysisReportModal from "../modals/UploadAnalysisReportModal"; // ← NEW
 import { useDispatch, useSelector } from "react-redux";
 import { fetchQuestions, deleteQuestion } from "../../../adminSlices/questionSlice";
 import { fetchCollegeAnalysis, fetchCompletedReports, fetchAnalysisDashboard } from "../../../adminSlices/collegeAnalysisSlice";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
+
+/* ── Shared report-status filter options ── */
+const REPORT_STATUS_OPTIONS = [
+    { label: "V1 — Not Received", value: "v1_not_received" },
+    { label: "V1 — Received", value: "v1_received" },
+    { label: "V2 — Not Received", value: "v2_not_received" },
+    { label: "V2 — Received", value: "v2_received" },
+    { label: "V3 — Not Received", value: "v3_not_received" },
+    { label: "V3 — Received", value: "v3_received" },
+];
+
+/* ── Shared report-status tag map ── */
+const REPORT_STATUS_MAP = {
+    v1_not_received: { color: "orange", label: "V1 — Not Received" },
+    v1_received: { color: "green", label: "V1 — Received" },
+    v2_not_received: { color: "orange", label: "V2 — Not Received" },
+    v2_received: { color: "blue", label: "V2 — Received" },
+    v3_not_received: { color: "orange", label: "V3 — Not Received" },
+    v3_received: { color: "green", label: "V3 — Received" },
+};
+
+const renderReportStatusTag = (status) => {
+    const current = REPORT_STATUS_MAP[status] || { color: "default", label: status || "-" };
+    return (
+        <Tag color={current.color} style={{ whiteSpace: "normal", lineHeight: "16px" }}>
+            {current.label}
+        </Tag>
+    );
+};
+
+/* ── Returns the most advanced report status for display ── */
+const getLatestReportStatus = (record) => {
+    const v3 = record?.report_status_v3;
+    const v2 = record?.report_status_v2;
+    const v1 = record?.report_status;
+
+    if (v3 && v3 !== "v3_not_received") return v3;
+    if (v2 && v2 !== "v2_not_received") return v2;
+    return v1;
+};
 
 const CollegeListAnalysis = () => {
     const { token } = theme.useToken();
@@ -53,15 +94,24 @@ const CollegeListAnalysis = () => {
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [isEditMode, setIsEditMode] = useState(false);
+
+    // ── View/Edit modal (unchanged) ──
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [selectedReport, setSelectedReport] = useState(null);
     const [reportMode, setReportMode] = useState("upload");
+    const [defaultTab, setDefaultTab] = useState("v1");
+    const [visibleTabs, setVisibleTabs] = useState(["v1", "v2", "v3"]);
+
+    // ── NEW: Upload-only modal ──
+    const [uploadModalOpen, setUploadModalOpen] = useState(false);
+    const [uploadVersion, setUploadVersion] = useState("v1"); // "v1" | "v3"
+    const [uploadTarget, setUploadTarget] = useState(null);  // the mapped record
+
     const [statusFilter, setStatusFilter] = useState(null);
     const [paymentFilter, setPaymentFilter] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(5);
     const [reportFilter, setReportFilter] = useState(null);
-
 
     const [form] = Form.useForm();
 
@@ -70,7 +120,7 @@ const CollegeListAnalysis = () => {
     const {
         requests: userRequests,
         completedReports,
-        loading: requestLoading
+        loading: requestLoading,
     } = useSelector((state) => state.collegeAnalysis);
     const { dashboardStats } = useSelector((state) => state.collegeAnalysis);
 
@@ -105,7 +155,6 @@ const CollegeListAnalysis = () => {
         },
     ];
 
-
     const renderStatus = (status) => {
         const statusMap = {
             completed: { color: "success", label: "Completed" },
@@ -113,12 +162,7 @@ const CollegeListAnalysis = () => {
             rejected: { color: "error", label: "Rejected" },
             not_started: { color: "default", label: "Not Started" },
         };
-
-        const current = statusMap[status] || {
-            color: "default",
-            label: status,
-        };
-
+        const current = statusMap[status] || { color: "default", label: status };
         return <Tag color={current.color}>{current.label}</Tag>;
     };
 
@@ -128,65 +172,38 @@ const CollegeListAnalysis = () => {
         pending: adminTheme.token.colorError,
     };
 
-    const reportStatusMap = {
-        not_received: { color: "orange", label: "Not Received" },
-        received_unlocked: { color: "green", label: "Received & Unlocked" },
-        received_locked: { color: "red", label: "Received & Locked" },
-    };
-
     const formatStatus = (status) =>
-        status
-            ?.replace(/_/g, " ")
-            .replace(/\b\w/g, (char) => char.toUpperCase());
+        status?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+    /* ================= FILTERS ================= */
     const filteredRequests = (userRequests || []).filter((req) => {
         const fullName = `${req?.first_name || ""} ${req?.last_name || ""}`.toLowerCase();
         const email = req?.email?.toLowerCase() || "";
 
-        const matchesSearch =
-            fullName.includes(searchText.toLowerCase()) ||
-            email.includes(searchText.toLowerCase());
-
-        const matchesStatus =
-            !statusFilter || req?.status === statusFilter;
-
-        const matchesPayment =
-            !paymentFilter || req?.payment_status === paymentFilter;
-
-        const matchesReport =
-            !reportFilter || req?.report_status === reportFilter; // ✅ NEW
+        const matchesSearch = fullName.includes(searchText.toLowerCase()) || email.includes(searchText.toLowerCase());
+        const matchesStatus = !statusFilter || req?.status === statusFilter;
+        const matchesPayment = !paymentFilter || req?.payment_status === paymentFilter;
+        const matchesReport = !reportFilter || req?.report_status === reportFilter.trim();
 
         return matchesSearch && matchesStatus && matchesPayment && matchesReport;
     });
 
-    /* ================= FILTER ================= */
     const filteredQuestions = questions.filter((q) =>
         q.question.toLowerCase().includes(searchText.toLowerCase())
-    );
-
-    const completedRequests = userRequests.filter(
-        (req) => req.status === "completed"
     );
 
     const filteredReports = (completedReports || []).filter((item) => {
         const fullName = `${item?.first_name || ""} ${item?.last_name || ""}`.toLowerCase();
         const email = item?.email?.toLowerCase() || "";
 
-        const matchesSearch =
-            fullName.includes(searchText.toLowerCase()) ||
-            email.includes(searchText.toLowerCase());
+        const matchesSearch = fullName.includes(searchText.toLowerCase()) || email.includes(searchText.toLowerCase());
+        const matchesReport = !reportFilter || getLatestReportStatus(item) === reportFilter.trim();
+        const matchesStatus = !statusFilter || item?.analysis_status === statusFilter;
 
-        const matchesReport =
-            !reportFilter || item?.report_status === reportFilter;
-
-        const matchesStatus =
-            !statusFilter || item?.analysis_status === statusFilter; // ✅ ADD THIS
-
-        return matchesSearch && matchesReport && matchesStatus; // ✅ include it
+        return matchesSearch && matchesReport && matchesStatus;
     });
 
     /* ================= HANDLERS ================= */
-
     const openAddModal = () => {
         setEditingRecord(null);
         form.resetFields();
@@ -195,22 +212,19 @@ const CollegeListAnalysis = () => {
 
     const handleViewRequest = (record) => {
         setSelectedRequest(record);
-        setIsEditMode(false); // 👈 IMPORTANT
+        setIsEditMode(false);
         setViewModalOpen(true);
     };
 
     const handleEdit = (record) => {
         setEditingRecord(record);
-        form.setFieldsValue({
-            question: record.question,
-            date: dayjs(record.date),
-        });
+        form.setFieldsValue({ question: record.question, date: dayjs(record.date) });
         setIsModalOpen(true);
     };
 
     const handleEditRequest = (record) => {
         setSelectedRequest(record);
-        setIsEditMode(true);   // ✅ enable edit mode
+        setIsEditMode(true);
         setViewModalOpen(true);
     };
 
@@ -223,7 +237,6 @@ const CollegeListAnalysis = () => {
             onOk: async () => {
                 try {
                     const res = await dispatch(deleteQuestion(record.id)).unwrap();
-
                     message.success(res.message || "Deleted successfully");
                 } catch (err) {
                     message.error(err?.message || "Delete failed");
@@ -232,74 +245,66 @@ const CollegeListAnalysis = () => {
         });
     };
 
-
     const formatQuestion = (text, wordsPerLine = 8) => {
         const words = text.split(" ");
         const lines = [];
-
         for (let i = 0; i < words.length; i += wordsPerLine) {
             lines.push(words.slice(i, i + wordsPerLine).join(" "));
         }
-
         return lines;
     };
 
-    const handleUploadReport = (record) => {
-        console.log("Upload clicked:", record);
+    /* ── Helper: build mapped record for view/edit modal ── */
+    const buildMappedRecord = (record) => ({
+        ...record,
+        v1_file_path: record.file_path,
+        v1_file_name: record.file_name,
+        v2_file_path: record.file_path1,
+        v2_file_name: record.file_name1,
+        v3_file_path: record.file_path2,
+        v3_file_name: record.file_name2,
+    });
 
-        setSelectedReport(record);
-
-        // If file exists → edit mode, else upload mode
-        if (record.file_path) {
-            setReportMode("edit");
-        } else {
-            setReportMode("upload");
-        }
-
-        setReportModalOpen(true);
+    /* ── Helper: open the new upload modal ── */
+    const openUploadModal = (record, version) => {
+        setUploadTarget(buildMappedRecord(record));
+        setUploadVersion(version);
+        setUploadModalOpen(true);
     };
 
+    /* ── Shared success callback — refetch both lists ── */
+    const handleReportSuccess = () => {
+        dispatch(fetchCollegeAnalysis());
+        dispatch(fetchCompletedReports());
+    };
 
     /* ================= TABLE COLUMNS ================= */
     const questionColumns = [
         {
             title: "Sr. No",
             width: 90,
-            render: (_, __, index) => (currentPage - 1) * pageSize + index + 1
+            render: (_, __, index) => (currentPage - 1) * pageSize + index + 1,
         },
         {
             title: "Question",
             dataIndex: "question",
-            // width:490,
             render: (text) => (
                 <Text strong>
-                    {formatQuestion(text).map((line, i) => (
-                        <div key={i}>{line}</div>
-                    ))}
+                    {formatQuestion(text).map((line, i) => <div key={i}>{line}</div>)}
                 </Text>
             ),
         },
         {
             title: "Date",
             dataIndex: "date",
-            render: (_, record) =>
-                dayjs(record.updated_at).format("YYYY-MM-DD")
+            render: (_, record) => dayjs(record.updated_at).format("YYYY-MM-DD"),
         },
         {
             title: "Actions",
             render: (_, record) => (
                 <Space>
-                    <Button icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-                        Edit
-                    </Button>
-
-                    <Button
-                        icon={<DeleteOutlined />}
-                        danger
-                        onClick={() => handleDelete(record)}
-                    >
-                        Delete
-                    </Button>
+                    <Button icon={<EditOutlined />} onClick={() => handleEdit(record)}>Edit</Button>
+                    <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record)}>Delete</Button>
                 </Space>
             ),
         },
@@ -311,119 +316,71 @@ const CollegeListAnalysis = () => {
             width: 60,
             render: (_, __, index) => (currentPage - 1) * pageSize + index + 1,
         },
-
-        /* 🔹 NAME + EMAIL */
         {
             title: "Username / Email",
             render: (_, record) => (
                 <div>
-                    <Text strong>
-                        {record.first_name} {record.last_name}
-                    </Text>
-                    <div>
-                        {record.email}
-                    </div>
+                    <Text strong>{record.first_name} {record.last_name}</Text>
+                    <div>{record.email}</div>
                 </div>
             ),
         },
-
-        /* 🔹 PROGRAM + SERVICE */
         {
             title: "Program / Counselling Service",
             width: 150,
             render: (_, record) => (
                 <div>
                     <Text strong>{record.program_name}</Text>
-                    <div>
-                        {record.package_name}
-                    </div>
+                    <div>{record.package_name}</div>
                 </div>
             ),
         },
-
         {
             title: "Submitted On",
             width: 120,
-            dataIndex: "submittedOn",
-            render: (_, record) =>
-                dayjs(record.created_at).format("YYYY-MM-DD")
+            render: (_, record) => dayjs(record.created_at).format("YYYY-MM-DD"),
         },
         {
             title: "Payment Status",
             width: 120,
             dataIndex: "payment_status",
             render: (status) => (
-                <Tag color={paymentStatusColorMap[status]}>
-                    {formatStatus(status)}
-                </Tag>
+                <Tag color={paymentStatusColorMap[status]}>{formatStatus(status)}</Tag>
             ),
         },
         {
             title: "Report Status",
-            width: 120,
-            dataIndex: "report_status",
-            render: (status) => {
-                const current = reportStatusMap[status] || {
-                    color: "default",
-                    label: status,
-                };
-
-                return (
-                    <Tag
-                        color={current.color}
-                        style={{
-                            whiteSpace: "normal",   // ✅ allow wrapping
-                            lineHeight: "16px",     // better spacing
-                            textAlign: "center",    // optional: center text
-                        }}
-                    >
-                        {current.label}
-                    </Tag>
-                );
-            },
+            width: 140,
+            render: (_, record) => renderReportStatusTag(getLatestReportStatus(record)),
         },
-
         {
             title: "Questionnaire Status",
             width: 120,
             dataIndex: "status",
-            render: (status) => renderStatus(status)
+            render: (status) => renderStatus(status),
         },
         {
             title: "Actions",
             render: (_, record) => (
                 <Space>
-                    <Button
-                        icon={<EyeOutlined />}
-                        onClick={() => handleViewRequest(record)}
-                    >
-                        View
-                    </Button>
-
-                    <Button
-                        icon={<EditOutlined />}
-                        onClick={() => handleEditRequest(record)}
-                    >
-                        Edit
-                    </Button>
+                    <Button icon={<EyeOutlined />} onClick={() => handleViewRequest(record)}>View</Button>
+                    <Button icon={<EditOutlined />} onClick={() => handleEditRequest(record)}>Edit</Button>
                 </Space>
             ),
-        }
+        },
     ];
 
     const analysisColumns = [
         {
             title: "Sr. No",
-            render: (_, __, index) => (currentPage - 1) * pageSize + index + 1
+            render: (_, __, index) => (currentPage - 1) * pageSize + index + 1,
         },
         {
             title: "Username / Email",
             width: 120,
             render: (_, record) => (
                 <div>
-                    <Text strong>
-                        {record.first_name} {record.last_name}
-                    </Text>
+                    <Text strong>{record.first_name} {record.last_name}</Text>
                     <div>{record.email}</div>
                 </div>
             ),
@@ -433,8 +390,8 @@ const CollegeListAnalysis = () => {
             width: 170,
             render: (_, record) => (
                 <div>
-                    <Text strong>{record.program}</Text> {/* ✅ FIX */}
-                    <div>{record.package}</div> {/* ✅ FIX */}
+                    <Text strong>{record.program}</Text>
+                    <div>{record.package}</div>
                 </div>
             ),
         },
@@ -442,52 +399,57 @@ const CollegeListAnalysis = () => {
             title: "Uploaded On",
             width: 120,
             render: (_, record) =>
-                record.uploaded_at
-                    ? dayjs(record.uploaded_at).format("YYYY-MM-DD")
-                    : "-",
+                record.uploaded_at ? dayjs(record.uploaded_at).format("YYYY-MM-DD") : "-",
         },
         {
             title: "Questionnaire Status",
             width: 120,
-            render: (_, record) => renderStatus(record.analysis_status), // ✅ FIX
+            render: (_, record) => renderStatus(record.analysis_status),
         },
         {
             title: "Report Status",
-            width: 120,
-            render: (_, record) => {
-                const map = {
-                    received_locked: { color: "red", label: "Received & Locked" },
-                    received_unlocked: { color: "green", label: "Received & Unlocked" },
-                    not_received: { color: "orange", label: "Not Received" },
-                };
-
-                const current = map[record.report_status] || {
-                    color: "default",
-                    label: record.report_status,
-                };
-
-                return <Tag color={current.color}>{current.label}</Tag>;
-            },
+            width: 140,
+            render: (_, record) => renderReportStatusTag(getLatestReportStatus(record)),
         },
         {
             title: "Actions",
-            render: (_, record) => (
-                <Space wrap>
-                    {!record.file_path ? (
+            render: (_, record) => {
+                const v2Received =
+                    record.report_status_v2 === "v2_received" ||
+                    record.report_status_v2 === "v2_received_unlocked";
+
+                // ── Case 1: V1 not yet uploaded → Upload V1 (new modal) ──
+                if (!record.file_path) {
+                    return (
                         <Button
                             type="primary"
                             icon={<UploadOutlined />}
-                            onClick={() => handleUploadReport(record)}
+                            onClick={() => openUploadModal(record, "v1")}
                         >
-                            Upload Report
+                            Upload V1 Report
                         </Button>
-                    ) : (
-                        <>
+                    );
+                }
+
+                // ── Case 2: V2 received, V3 not yet uploaded → Upload V3 (new modal) + View/Edit (existing modal) ──
+                if (v2Received && !record.file_path2) {
+                    return (
+                        <Space wrap>
+                            <Button
+                                type="primary"
+                                icon={<UploadOutlined />}
+                                onClick={() => openUploadModal(record, "v3")}
+                            >
+                                Upload V3 Report
+                            </Button>
+
                             <Button
                                 icon={<EyeOutlined />}
                                 onClick={() => {
-                                    setSelectedReport(record);
+                                    setSelectedReport(buildMappedRecord(record));
                                     setReportMode("view");
+                                    setDefaultTab("v2");
+                                    setVisibleTabs(["v1", "v2"]);
                                     setReportModalOpen(true);
                                 }}
                             >
@@ -497,17 +459,49 @@ const CollegeListAnalysis = () => {
                             <Button
                                 icon={<EditOutlined />}
                                 onClick={() => {
-                                    setSelectedReport(record);
+                                    setSelectedReport(buildMappedRecord(record));
                                     setReportMode("edit");
+                                    setDefaultTab("v2");
+                                    setVisibleTabs(["v1", "v2"]);
                                     setReportModalOpen(true);
                                 }}
                             >
                                 Edit
                             </Button>
-                        </>
-                    )}
-                </Space>
-            ),
+                        </Space>
+                    );
+                }
+
+                // ── Case 3: All other states → View / Edit only (existing modal) ──
+                return (
+                    <Space wrap>
+                        <Button
+                            icon={<EyeOutlined />}
+                            onClick={() => {
+                                setSelectedReport(buildMappedRecord(record));
+                                setReportMode("view");
+                                setDefaultTab("v1");
+                                setVisibleTabs(["v1", "v2", "v3"]);
+                                setReportModalOpen(true);
+                            }}
+                        >
+                            View
+                        </Button>
+                        <Button
+                            icon={<EditOutlined />}
+                            onClick={() => {
+                                setSelectedReport(buildMappedRecord(record));
+                                setReportMode("edit");
+                                setDefaultTab("v1");
+                                setVisibleTabs(["v1", "v2", "v3"]);
+                                setReportModalOpen(true);
+                            }}
+                        >
+                            Edit
+                        </Button>
+                    </Space>
+                );
+            },
         },
     ];
 
@@ -526,17 +520,11 @@ const CollegeListAnalysis = () => {
                     <Col xs={24} sm={12} md={12} lg={6} key={index}>
                         <Card
                             bordered={false}
-                            style={{
-                                height: 130,
-                                borderRadius: 12,
-                                boxShadow: token.boxShadow,
-                            }}
+                            style={{ height: 130, borderRadius: 12, boxShadow: token.boxShadow }}
                         >
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: "100%" }}>
                                 <div>
-                                    <Text style={{ color: token.colorTextSecondary , fontSize: 16}}>
-                                        {item.title}
-                                    </Text>
+                                    <Text style={{ color: token.colorTextSecondary, fontSize: 16 }}>{item.title}</Text>
                                     <Title level={3}>{item.value}</Title>
                                 </div>
                                 {item.icon}
@@ -549,7 +537,14 @@ const CollegeListAnalysis = () => {
             {/* TABS */}
             <Tabs
                 activeKey={activeTab}
-                onChange={setActiveTab}
+                onChange={(key) => {
+                    setActiveTab(key);
+                    setSearchText("");
+                    setStatusFilter(null);
+                    setPaymentFilter(null);
+                    setReportFilter(null);
+                    setCurrentPage(1);
+                }}
                 items={[
                     { key: "template", label: "Question Template" },
                     { key: "requests", label: "User Requests / Submission" },
@@ -560,25 +555,24 @@ const CollegeListAnalysis = () => {
             {/* TABLE */}
             <Card>
                 <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-
-                    {/* 🔍 SEARCH */}
+                    {/* SEARCH */}
                     <Col xs={24} sm={12} md={8}>
                         <Input
                             prefix={<SearchOutlined />}
                             placeholder="Search..."
+                            value={searchText}
                             style={{ width: "100%" }}
                             onChange={(e) => setSearchText(e.target.value)}
                         />
                     </Col>
 
-                    {/* 🔽 STATUS FILTER (ONLY FOR REQUEST TAB) */}
+                    {/* REQUESTS TAB FILTERS */}
                     {activeTab === "requests" && (
                         <>
-                            {/* PAYMENT FILTER */}
                             <Col xs={24} sm={12} md={5}>
                                 <Select
                                     value={paymentFilter}
-                                    onChange={(value) => setPaymentFilter(value)}
+                                    onChange={setPaymentFilter}
                                     style={{ width: "100%" }}
                                     placeholder="Payment Status"
                                     allowClear
@@ -590,27 +584,21 @@ const CollegeListAnalysis = () => {
                                 />
                             </Col>
 
-                            {/* ✅ REPORT STATUS FILTER */}
                             <Col xs={24} sm={12} md={5}>
                                 <Select
                                     value={reportFilter}
-                                    onChange={(value) => setReportFilter(value)}
+                                    onChange={setReportFilter}
                                     style={{ width: "100%" }}
                                     placeholder="Report Status"
                                     allowClear
-                                    options={[
-                                        { label: "Not Received", value: "not_received" },
-                                        { label: "Received & Unlocked", value: "received_unlocked" },
-                                        { label: "Received & Locked", value: "received_locked" },
-                                    ]}
+                                    options={REPORT_STATUS_OPTIONS}
                                 />
                             </Col>
 
-                            {/* STATUS FILTER */}
                             <Col xs={24} sm={12} md={5}>
                                 <Select
                                     value={statusFilter}
-                                    onChange={(value) => setStatusFilter(value)}
+                                    onChange={setStatusFilter}
                                     style={{ width: "100%" }}
                                     placeholder="Questionnaire Status"
                                     allowClear
@@ -624,14 +612,13 @@ const CollegeListAnalysis = () => {
                         </>
                     )}
 
+                    {/* ANALYSIS TAB FILTERS */}
                     {activeTab === "analysis" && (
                         <>
-
-                            {/* ✅ QUESTIONNAIRE STATUS */}
                             <Col xs={24} sm={12} md={6}>
                                 <Select
                                     value={statusFilter}
-                                    onChange={(value) => setStatusFilter(value)}
+                                    onChange={setStatusFilter}
                                     style={{ width: "100%" }}
                                     placeholder="Questionnaire Status"
                                     allowClear
@@ -643,35 +630,23 @@ const CollegeListAnalysis = () => {
                                 />
                             </Col>
 
-                            {/* REPORT STATUS */}
                             <Col xs={24} sm={12} md={6}>
                                 <Select
                                     value={reportFilter}
-                                    onChange={(value) => setReportFilter(value)}
+                                    onChange={setReportFilter}
                                     style={{ width: "100%" }}
                                     placeholder="Report Status"
                                     allowClear
-                                    options={[
-                                        { label: "Not Received", value: "not_received" },
-                                        { label: "Received & Unlocked", value: "received_unlocked" },
-                                        { label: "Received & Locked", value: "received_locked" },
-                                    ]}
+                                    options={REPORT_STATUS_OPTIONS}
                                 />
                             </Col>
-
-
                         </>
                     )}
 
-                    {/* ➕ ADD BUTTON */}
+                    {/* ADD BUTTON — template tab only */}
                     {activeTab === "template" && (
                         <Col xs={24} sm={12} md={8} style={{ marginLeft: "auto" }}>
-                            <div
-                                style={{
-                                    display: "flex",
-                                    justifyContent: screens.xs ? "flex-end" : "flex-end",
-                                }}
-                            >
+                            <div style={{ display: "flex", justifyContent: "flex-end" }}>
                                 <Button
                                     type="primary"
                                     icon={<PlusOutlined />}
@@ -701,6 +676,7 @@ const CollegeListAnalysis = () => {
                                 : filteredReports
                     }
                     rowKey="id"
+                    loading={activeTab === "template" ? loading : requestLoading}
                     pagination={{
                         current: currentPage,
                         pageSize: pageSize,
@@ -715,39 +691,44 @@ const CollegeListAnalysis = () => {
                 />
             </Card>
 
-            {/* MODAL */}
+            {/* ── MODALS ── */}
             <AddQuestionModal
                 open={isModalOpen}
                 onCancel={() => setIsModalOpen(false)}
                 editingRecord={editingRecord}
             />
 
-
             <ViewRequestModal
                 open={viewModalOpen}
                 onClose={() => {
                     setViewModalOpen(false);
-                    setIsEditMode(false); // reset
+                    setIsEditMode(false);
                 }}
                 data={selectedRequest}
                 isEditMode={isEditMode}
-                onSave={() => {
-                    dispatch(fetchCollegeAnalysis());
-                }}
+                onSave={() => dispatch(fetchCollegeAnalysis())}
             />
 
+            {/* Existing view/edit modal — untouched */}
             <ViewAnalyasisReportModal
                 open={reportModalOpen}
                 onCancel={() => setReportModalOpen(false)}
                 data={selectedReport}
                 mode={reportMode}
-                onSuccess={() => {
-                    dispatch(fetchCollegeAnalysis());
-                    dispatch(fetchCompletedReports());
-                }}
+                defaultTab={defaultTab}
+                visibleTabs={visibleTabs}
+                onSuccess={handleReportSuccess}
+            />
+
+            {/* NEW upload-only modal */}
+            <UploadAnalysisReportModal
+                open={uploadModalOpen}
+                onCancel={() => setUploadModalOpen(false)}
+                data={uploadTarget}
+                version={uploadVersion}
+                onSuccess={handleReportSuccess}
             />
         </div>
-
     );
 };
 

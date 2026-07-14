@@ -64,25 +64,66 @@ export const sendExamForApprovalApi = async (studentId) => {
 };
 
 // GET EXAM TRACK STATUS (Student)
-export const getExamTrackerApi = async (studentId) => {
+export const getExamTrackerApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
   const response = await axiosInstance.get(
-    `/exam/exam-tracker/student/${studentId}/`
+    `/exam/exam-tracker/student/${studentId}/`,
+    {
+      params: {
+        program_id: programId,
+        package_id: packageId,
+      },
+    }
   );
+
   return response.data;
 };
 
-// START EXAM (using studentId)
-export const startExamApi = async (studentId) => {
+// START EXAM
+export const startExamApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
   const response = await axiosInstance.post(
-    `/exam/start-exam/${studentId}/`
+    `/exam/start-exam/${studentId}/?program_id=${programId}&package_id=${packageId}`
   );
+
   return response.data;
 };
 
 // GET EXAM STATUS (Student)
-export const getExamStatusApi = async (studentId) => {
+export const getExamStatusApi = async (
+  studentId,
+  programId,
+  packageId
+) => {
+
   const response = await axiosInstance.get(
-    `/exam/exam-status/${studentId}/`
+    `/exam/exam-status/${studentId}/?program_id=${programId}&package_id=${packageId}`
   );
+
+  return response.data;
+};
+
+// SAVE CAREER FUTURA DETAILS
+export const saveExamRegisterApi = async (studentId, payload) => {
+  const response = await axiosInstance.post(
+    `/exam/save-career-futura-details/${studentId}/`,
+    payload
+  );
+
+  return response.data;
+};
+
+// LAUNCH TEST
+export const launchTestApi = async (studentId, type) => {
+  const response = await axiosInstance.get(
+    `/exam/launch-test/${studentId}/${type}/`
+  );
+
   return response.data;
 };

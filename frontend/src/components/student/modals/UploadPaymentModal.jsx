@@ -31,32 +31,36 @@ const UploadPaymentModal = ({ open, onClose, onSuccess, historyList, remainingAm
   const [form] = Form.useForm();
   const dispatch = useDispatch();
 
-const { submitLoading, submitSuccess, submitError, studentName, studentEmail } = useSelector((state) => state.payment);
+  const { submitLoading, submitSuccess, submitError, studentName, studentEmail } = useSelector((state) => state.payment);
 
   const [fileList, setFileList] = useState([]);
   const [previewUrl, setPreviewUrl] = useState("");
 
   const studentId = localStorage.getItem("studentId");
   const latestPayment = historyList?.[historyList.length - 1];
-const paymentStatus = latestPayment?.status;
+  const paymentStatus = latestPayment?.status;
 
-useEffect(() => {
-  if (studentName || studentEmail) {
-    form.setFieldsValue({
-      student_profile: `${studentName}\n${studentEmail}`,
-      package: historyList?.[0]?.package || "",
-    });
-  }
-}, [studentName, studentEmail, historyList, form]);
+  useEffect(() => {
+    if (studentName || studentEmail) {
+      form.setFieldsValue({
+        student_profile: `${studentName}\n${studentEmail}`,
 
+        package:
+          historyList?.[0]?.programs
+            ?.map((p) => p.package?.name)
+            .filter(Boolean)
+            .join("\n") || "",
+      });
+    }
+  }, [studentName, studentEmail, historyList, form]);
 
-useEffect(() => {
-  if (paymentStatus === "partial_paid") {
-    form.setFieldsValue({
-      amount: remainingAmount,
-    });
-  }
-}, [paymentStatus, remainingAmount]);
+  useEffect(() => {
+    if (paymentStatus === "partial_paid") {
+      form.setFieldsValue({
+        amount: remainingAmount,
+      });
+    }
+  }, [paymentStatus, remainingAmount]);
 
   /* ================= FILE PREVIEW ================= */
   useEffect(() => {
@@ -68,45 +72,49 @@ useEffect(() => {
   }, [fileList]);
 
   /* ================= SUBMIT ================= */
-const handleSubmit = (values) => {
-  const formData = new FormData();
+  const handleSubmit = (values) => {
+    const formData = new FormData();
 
-  // required fields
-  formData.append("package", historyList?.[0]?.package_id || historyList?.[0]?.package_id || 17);
-  formData.append("amount", values.amount);
-  formData.append("payment_type", values.payment_type);
-  formData.append("method", values.method);
+    // required fields
+    historyList?.[0]?.programs?.forEach((item) => {
+      if (item.package?.id) {
+        formData.append("package", item.package.id);
+      }
+    });
+    formData.append("amount", values.amount);
+    formData.append("payment_type", values.payment_type);
+    formData.append("method", values.method);
 
-  // date
-  formData.append(
-    "payment_date",
-    values.paymentDate
-      ? dayjs(values.paymentDate).format("YYYY-MM-DD")
-      : dayjs().format("YYYY-MM-DD")
-  );
+    // date
+    formData.append(
+      "payment_date",
+      values.paymentDate
+        ? dayjs(values.paymentDate).format("YYYY-MM-DD")
+        : dayjs().format("YYYY-MM-DD")
+    );
 
-  // optional transaction id
-  if (values.transactionId) {
-    formData.append("transaction_id", values.transactionId);
-  }
+    // optional transaction id
+    if (values.transactionId) {
+      formData.append("transaction_id", values.transactionId);
+    }
 
-  // file (IMPORTANT)
-  if (fileList.length && fileList[0].originFileObj) {
-    formData.append("proof_file", fileList[0].originFileObj);
-  }
+    // file (IMPORTANT)
+    if (fileList.length && fileList[0].originFileObj) {
+      formData.append("proof_file", fileList[0].originFileObj);
+    }
 
-  // 🔥 DEBUG (optional but recommended)
-  for (let pair of formData.entries()) {
-    console.log(pair[0], pair[1]);
-  }
+    // 🔥 DEBUG (optional but recommended)
+    for (let pair of formData.entries()) {
+      // console.log(pair[0], pair[1]);
+    }
 
-  dispatch(
-    submitStudentPayment({
-      studentId,
-      payload: formData,
-    })
-  );
-};
+    dispatch(
+      submitStudentPayment({
+        studentId,
+        payload: formData,
+      })
+    );
+  };
 
   /* ================= SUCCESS / ERROR ================= */
   useEffect(() => {
@@ -121,12 +129,12 @@ const handleSubmit = (values) => {
     }
 
     if (submitError) {
-      message.error(
-        typeof submitError === "string"
-          ? submitError
-          : JSON.stringify(submitError)
-      );
-    }
+  message.error(
+    submitError?.errors ||
+    submitError?.message ||
+    "Something went wrong"
+  );
+}
   }, [submitSuccess, submitError]);
 
   return (
@@ -139,18 +147,18 @@ const handleSubmit = (values) => {
       confirmLoading={submitLoading}
       width={650}
       centered
-      
+
     >
       <Form form={form} layout="vertical"
-       onFinish={handleSubmit}
+        onFinish={handleSubmit}
         onValuesChange={(changedValues) => {
-      if (changedValues.payment_type) {
-        form.setFieldsValue({
-          method: changedValues.payment_type === "online" ? "upi" : "cash",
-        });
-      }
-    }}
-       >
+          if (changedValues.payment_type) {
+            form.setFieldsValue({
+              method: changedValues.payment_type === "online" ? "upi" : "cash",
+            });
+          }
+        }}
+      >
 
         {/* ===== STUDENT ===== */}
         <Title level={5}>Student Details</Title>
@@ -169,12 +177,15 @@ const handleSubmit = (values) => {
 
           <Col xs={24} md={12}>
             <Form.Item
-              label="Counselling Service"
+              label="Counselling Services"
               name="package"
               rules={[{ required: true }]}
-
             >
-              <Input placeholder="Enter counselling service" disabled />
+              <Input.TextArea
+                rows={2}
+                disabled
+                style={{ resize: "none" }}
+              />
             </Form.Item>
           </Col>
         </Row>
@@ -199,53 +210,53 @@ const handleSubmit = (values) => {
 
         <Row gutter={16}>
           <Col span={12}>
-          <Form.Item
-  label="Amount Paid"
-  name="amount"
-  rules={[
-    { required: true, message: "Please enter the amount paid" },
-    {
-      validator: (_, value) => {
-        const numericValue = Number(value);
+            <Form.Item
+              label="Amount Paid"
+              name="amount"
+              rules={[
+                { required: true, message: "Please enter the amount paid" },
+                {
+                  validator: (_, value) => {
+                    const numericValue = Number(value);
 
-        if (!value && value !== 0) {
-          return Promise.resolve();
-        }
+                    if (!value && value !== 0) {
+                      return Promise.resolve();
+                    }
 
-        if (isNaN(numericValue)) {
-          return Promise.reject("Amount must be a valid number");
-        }
+                    if (isNaN(numericValue)) {
+                      return Promise.reject("Amount must be a valid number");
+                    }
 
-        if (numericValue < 0) {
-          return Promise.reject("Amount cannot be negative");
-        }
+                    if (numericValue < 0) {
+                      return Promise.reject("Amount cannot be negative");
+                    }
 
-        if (numericValue !== 0 && numericValue % 100 !== 0) {
-          return Promise.reject(
-            "Amount must be ₹0 or in multiples of ₹100"
-          );
-        }
+                    if (numericValue !== 0 && numericValue % 100 !== 0) {
+                      return Promise.reject(
+                        "Amount must be ₹0 or in multiples of ₹100"
+                      );
+                    }
 
-        if (numericValue > remainingAmount) {
-          return Promise.reject(
-            `Amount cannot exceed ₹${remainingAmount}`
-          );
-        }
+                    if (numericValue > remainingAmount) {
+                      return Promise.reject(
+                        `Amount cannot exceed ₹${remainingAmount}`
+                      );
+                    }
 
-        return Promise.resolve();
-      },
-    },
-  ]}
->
-  <Input
-    placeholder={
-      paymentStatus === "partial_paid"
-        ? "Remaining amount auto-filled"
-        : "₹ Enter amount"
-    }
-    disabled={paymentStatus === "partial_paid"}
-  />
-</Form.Item>
+                    return Promise.resolve();
+                  },
+                },
+              ]}
+            >
+              <Input
+                placeholder={
+                  paymentStatus === "partial_paid"
+                    ? "Remaining amount auto-filled"
+                    : "₹ Enter amount"
+                }
+                disabled={paymentStatus === "partial_paid"}
+              />
+            </Form.Item>
           </Col>
 
           <Col span={12}>
@@ -286,7 +297,12 @@ const handleSubmit = (values) => {
             <Form.Item shouldUpdate>
               {({ getFieldValue }) =>
                 getFieldValue("method") === "upi" ? (
-                  <Form.Item label="Transaction ID" name="transactionId">
+                  <Form.Item label="Transaction ID" name="transactionId" rules={[
+                    {
+                      required: true,
+                      message: "Please enter transaction ID",
+                    },
+                  ]}>
                     <Input placeholder="Enter transaction ID" />
                   </Form.Item>
                 ) : null

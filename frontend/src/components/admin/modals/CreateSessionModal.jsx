@@ -67,9 +67,9 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
   }, [visible, dispatch, isView]);
 
   // ================= PREFILL CREATE / EDIT / VIEW =================
-  useEffect(() => {
+  // Prefill immediately when modal is opened with `data`.
+   useEffect(() => {
     if (!visible || !data) return;
-    if (!students.length || !counsellors.length) return;
 
     const lead = data.counsellors?.find((c) => c.role === "lead");
     const assistant = data.counsellors?.find((c) => c.role === "assistant");
@@ -111,7 +111,7 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
     setPrimaryCounsellorId(lead?.counsellor?.id || null);
     setSelectedDate(data.date ? dayjs(data.date) : null);
     setSelectedSlot(data.slot || null);
-  }, [visible, data, students, counsellors, form]);
+  }, [visible, data, form]);
 
   // ================= FETCH SLOTS =================
   useEffect(() => {
@@ -185,6 +185,10 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
         return;
       }
 
+      const selectedStudent = students.find(
+  (s) => (s.student_id || s.id) === values.student.value
+);
+
       const payload = {
         student_id: values.student.value,
         date: values.date.format("YYYY-MM-DD"),
@@ -193,7 +197,11 @@ const CreateSessionModal = ({ visible, onClose, onSave, mode = "create", data })
           { counsellor_id: primaryCounsellorId, role: "lead" },
           ...(values.secondaryCounsellor ? [{ counsellor_id: values.secondaryCounsellor.value, role: "assistant" }] : []),
         ],
+    program: data?.program?.id,
+  package: data?.package?.id,
+  
       };
+      console.log("Modal Data", data);
 
       const action = mode === "edit"
         ? updateCounsellingBooking({ id: data.id, payload })

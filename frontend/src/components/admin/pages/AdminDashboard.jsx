@@ -25,6 +25,7 @@ const dispatch = useDispatch();
   const { profile } = useSelector((state) => state.profile);
 
   const [chartPeriod, setChartPeriod] = useState("monthly"); // Weekly / Monthly / Yearly
+    const role = localStorage.getItem("adminRole");
 
   
    
@@ -79,16 +80,20 @@ useEffect(() => {
       value: dashboardStats?.students?.registered_students || 0,
       icon: <TeamOutlined />,
     },
-    {
-      title: "Expected Revenue",
-      value: `₹${dashboardStats?.payments?.total_expected || 0}`,
-      icon: <CreditCardOutlined />,
-    },
-    {
-      title: "Total Collected",
-      value: `₹${dashboardStats?.payments?.total_collected || 0}`,
-      icon: <CreditCardOutlined />,
-    },
+   ...((role === "superadmin")
+    ? [
+        {
+          title: "Expected Revenue",
+          value: `₹${dashboardStats?.payments?.total_expected || 0}`,
+          icon: <CreditCardOutlined />,
+        },
+        {
+          title: "Total Collected",
+          value: `₹${dashboardStats?.payments?.total_collected || 0}`,
+          icon: <CreditCardOutlined />,
+        },
+      ]
+    : []),
     {
       title: "Today's Sessions",
       value: dashboardStats?.today_sessions?.total || 0,

@@ -34,7 +34,6 @@ export const getCounsellingSessionCountApi = async (period = "monthly") => {
   return response.data;
 };
 
-
 // Delete a counselling booking
 export const deleteCounsellingBookingApi = async (id) => {
   const response = await axiosInstance.delete(
@@ -68,7 +67,6 @@ export const cancelCounsellingBookingApi = async (id) => {
   );
   return response.data;
 };
-
 
 // Send reminder for counselling booking
 export const sendCounsellingReminderApi = async (id) => {

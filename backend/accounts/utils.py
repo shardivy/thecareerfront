@@ -35,7 +35,7 @@ If you did not request a password reset, please ignore this email. Your account 
 If you need any assistance, feel free to contact our support team.
 
 Best regards,  
-Career Counselling Team
+Abhinav Career Scope
 """
 
     send_mail(
@@ -66,7 +66,7 @@ Password: {password}
 If you have any questions or require assistance, please feel free to contact our support team.
 
 Best regards,  
-Career Counselling Team
+Abhinav Career Scope
 """
 
     send_mail(
@@ -218,7 +218,7 @@ ________________________________________
 Dashboard Access
 
 Login Link:
-https://staging.abhinavcareerscope.com/
+https://cms.abhinavcareerscope.com/
 
 Login Credentials:
 
@@ -352,7 +352,7 @@ Password: {password}
 If you did not perform this action, please contact support immediately.
 
 Regards,
-Career Counselling Team
+Abhinav Career Scope
 """
 
     send_mail(

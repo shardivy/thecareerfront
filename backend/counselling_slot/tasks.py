@@ -1,9 +1,13 @@
+import traceback
+
 from celery import shared_task
 from django.core.mail import send_mail
 from django.conf import settings
 
 from django.utils import timezone
 from accounts.models import User
+from counselling_slot.models import Booking
+from counselling_slot.utils import send_booking_created_email, send_booking_updated_email
 from notification.models import Notification, NotificationLog
 # from backend.celery import app
 
@@ -72,3 +76,67 @@ def create_system_notification(user_id, title, message):
         status="sent",
         sent_at=timezone.now()
     )
+    
+@shared_task
+def send_email_task(subject, message, recipient):
+    send_mail(
+        subject,
+        message,
+        settings.DEFAULT_FROM_EMAIL,
+        [recipient],
+        fail_silently=False
+    )
+
+    
+@shared_task
+def send_booking_created_email_task(booking_ids):
+
+    bookings = Booking.objects.filter(id__in=booking_ids)
+
+    for booking in bookings:
+        send_booking_created_email(
+            user=booking.student.user,
+            booking=booking,
+            booking_slots=[booking.slot],
+            booking_date=booking.date,
+            send_email_func=send_email_task   # 👈 PASS FUNCTION
+        )
+    
+# @shared_task
+# def send_booking_updated_email_task(booking_ids):
+
+#     bookings = Booking.objects.filter(id__in=booking_ids)
+
+#     for booking in bookings:
+#         send_booking_updated_email(
+#             user=booking.student.user,
+#             booking=booking,
+#             booking_slots=[booking.slot],
+#             booking_date=booking.date,
+#             send_email_func=send_email_task   # 👈 PASS FUNCTION
+#         )
+@shared_task
+def send_booking_updated_email_task(booking_ids):
+    try:
+        bookings = Booking.objects.filter(id__in=booking_ids)
+
+        for booking in bookings:
+            try:
+                send_booking_updated_email(
+                    user=booking.student.user,
+                    booking=booking,
+                    booking_slots=[booking.slot],
+                    booking_date=booking.date,
+                    send_email_func=send_email_task
+                )
+                print(f"✅ Email sent for booking {booking.id}")
+
+            except Exception as e:
+                print(f"❌ Email failed for booking {booking.id}")
+                print(str(e))
+                traceback.print_exc()
+
+    except Exception as e:
+        print("❌ Task failed")
+        print(str(e))
+        traceback.print_exc()

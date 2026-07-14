@@ -13,7 +13,7 @@ import {
   Select,
   DatePicker,
   theme,
-    message,
+  message,
   Empty,
   Modal,
   Tooltip,
@@ -36,7 +36,7 @@ import {
 import dayjs from "dayjs";
 import UploadContentModal from "../modals/UploadContentModal";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchContentList ,fetchContentCount, deleteContent} from "../../../adminSlices/contentSlice";
+import { fetchContentList, fetchContentCount, deleteContent } from "../../../adminSlices/contentSlice";
 
 
 const { Title, Text } = Typography;
@@ -55,64 +55,62 @@ const ContentManagement = () => {
 
 
   const dispatch = useDispatch();
-const { contentList, contentStats, loading } = useSelector(
-  (state) => state.content
-);
+  const { contentList, contentStats, loading } = useSelector(
+    (state) => state.content
+  );
 
   useEffect(() => {
     dispatch(fetchContentList());
-     dispatch(fetchContentCount());
+    dispatch(fetchContentCount());
   }, [dispatch]);
 
   const dataSource = Array.isArray(contentList)
     ? contentList
     : [];
 
- // ✅ Separate Draft & Published Content
-const draftData = dataSource.filter((item) => item.is_draft);
-const publishedData = dataSource.filter((item) => !item.is_draft);
+  const draftData = dataSource.filter((item) => item.is_draft);
+  const publishedData = dataSource.filter((item) => !item.is_draft);
 
   const { token } = theme.useToken();
 
-  // STATS
- const stats = [
-  {
-    title: "Total Content",
-    value: contentStats?.total_content || 0,
-    icon: <BookOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-  },
-  {
-    title: "Free Content",
-    value: contentStats?.free_content || 0,
-    subtitle: "Accessible to all users",
-    icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-  },
-  {
-    title: "Premium Content",
-    value: contentStats?.premium_content || 0,
-    subtitle: "Paid package only",
-    icon: <LockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-  },
-  {
-    title: "Total Downloads",
-    value: contentStats?.total_download || 0,
-    icon: <DownloadOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-  },
-  {
-    title: "Drafts",
-    value: contentStats?.draft_content || 0,
-    subtitle: "Unsaved content",
-    icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
-  },
-];
+  const stats = [
+    {
+      title: "Total Content",
+      value: contentStats?.total_content || 0,
+      icon: <BookOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+    },
+    {
+      title: "Free Content",
+      value: contentStats?.free_content || 0,
+      subtitle: "Accessible to all users",
+      icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+    },
+    {
+      title: "Premium Content",
+      value: contentStats?.premium_content || 0,
+      subtitle: "Paid package only",
+      icon: <LockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+    },
+    {
+      title: "Total Downloads",
+      value: contentStats?.total_download || 0,
+      icon: <DownloadOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+    },
+    {
+      title: "Drafts",
+      value: contentStats?.draft_content || 0,
+      subtitle: "Unsaved content",
+      icon: <UnlockOutlined style={{ fontSize: 20, color: token.colorPrimary }} />,
+    },
+  ];
 
   // FILTERED DATA
- const baseData =
-  activeTab === "drafts"
-    ? draftData
-    : publishedData;
+  const baseData =
+    activeTab === "drafts"
+      ? draftData
+      : publishedData;
 
-const filteredDataSource = baseData.filter((item) => {
+  const filteredDataSource = baseData.filter((item) => {
     const matchesTab =
       activeTab === "all"
         ? true
@@ -154,25 +152,25 @@ const filteredDataSource = baseData.filter((item) => {
     setViewMode(true);
   };
 
-const handleDelete = (record) => {
-  Modal.confirm({
-    title: "Delete Content",
-    content: `Are you sure you want to delete "${record.title}" Content ?`,
-    okText: "Yes, Delete",
-    okType: "danger",
-    cancelText: "Cancel",
+  const handleDelete = (record) => {
+    Modal.confirm({
+      title: "Delete Content",
+      content: `Are you sure you want to delete "${record.title}" Content ?`,
+      okText: "Yes, Delete",
+      okType: "danger",
+      cancelText: "Cancel",
 
-    onOk: async () => {
-      try {
-        await dispatch(deleteContent(record.id)).unwrap();
-        message.success("Content deleted successfully");
-        dispatch(fetchContentCount()); // refresh stats
-      } catch (error) {
-        message.error("Failed to delete content");
-      }
-    },
-  });
-};
+      onOk: async () => {
+        try {
+          await dispatch(deleteContent(record.id)).unwrap();
+          message.success("Content deleted successfully");
+          dispatch(fetchContentCount());
+        } catch (error) {
+          message.error("Failed to delete content");
+        }
+      },
+    });
+  };
 
   const handleSaveContent = (data) => {
     if (drafts.find((d) => d.key === data.key)) {
@@ -211,13 +209,9 @@ const handleDelete = (record) => {
 
 
   const handleSaveDraft = (values) => {
-    // ❌ Prevent draft save when in View mode
     if (viewMode) return;
-
-    // ❌ Prevent draft save when editing existing record
     if (editRecord) return;
 
-    // ✅ Allow draft save ONLY for new upload
     setDrafts((prev) => {
       if (values.key && prev.find((d) => d.key === values.key)) {
         return prev.map((d) =>
@@ -234,35 +228,50 @@ const handleDelete = (record) => {
     // message.success("Draft saved successfully");
   };
 
- 
-// Helper function to get program display
-const getProgramDisplay = (program_details) => {
-  // No program details at all (null or undefined)
-  if (!program_details) {
+  const getProgramDisplay = (program_details) => {
+  if (!program_details || program_details.length === 0) {
     return <Tag color="default">-</Tag>;
   }
-  
-  // Empty array - explicitly no programs assigned
-  if (program_details.length === 0) {
-    return <Tag color="default">-</Tag>;
-  }
-  
-  // Single program
+
+  // Single Program
   if (program_details.length === 1) {
     return <Tag color="blue">{program_details[0].name}</Tag>;
   }
-  
-  // Multiple programs - show count with tooltip
+
+  // Multiple Selected Programs
   return (
-    <Tooltip title={program_details.map(p => p.name).join(", ")}>
-      <Tag color="green">All Programs</Tag>
+    <Tooltip title={program_details.map((p) => p.name).join(", ")}>
+      <Tag color="green">
+        {program_details.length} Programs Selected
+      </Tag>
     </Tooltip>
   );
 };
 
 
+  // Helper function to get program display
+  // const getProgramDisplay = (program_details) => {
+  //   if (!program_details) {
+  //     return <Tag color="default">-</Tag>;
+  //   }
 
-  // TABLE COLUMNS
+  //   if (program_details.length === 0) {
+  //     return <Tag color="default">-</Tag>;
+  //   }
+
+  //   if (program_details.length === 1) {
+  //     return <Tag color="blue">{program_details[0].name}</Tag>;
+  //   }
+
+
+  //   return (
+  //     <Tooltip title={program_details.map(p => p.name).join(", ")}>
+  //       <Tag color="green">All Programs</Tag>
+  //     </Tooltip>
+  //   );
+  // };
+
+
   const columns = [
     {
       title: "Title",
@@ -290,9 +299,8 @@ const getProgramDisplay = (program_details) => {
         if (!value) return "-";
 
         return value
-          .replace(/_/g, " ")              // study_material → study material
+          .replace(/_/g, " ")
           .replace(/\b\w/g, char => char.toUpperCase());
-        // study material → Study Material
       },
     },
     {
@@ -325,16 +333,16 @@ const getProgramDisplay = (program_details) => {
         </Space>
       ),
     },
-   {
-  title: "Downloads",
-  dataIndex: "download_count", // ✅ use the correct API field
-  render: (count) => (
-    <Space>
-      <DownloadOutlined />
-      {count || 0} {/* fallback to 0 */}
-    </Space>
-  ),
-},
+    {
+      title: "Downloads",
+      dataIndex: "download_count",
+      render: (count) => (
+        <Space>
+          <DownloadOutlined />
+          {count || 0}
+        </Space>
+      ),
+    },
     {
       title: "Actions",
       render: (_, record) => (
@@ -347,13 +355,13 @@ const getProgramDisplay = (program_details) => {
             Edit
           </Button>
 
-         <Button
-  type="default"
-  icon={<DeleteOutlined />}
-    onClick={() => handleDelete(record)}
->
-  Delete
-</Button>
+          <Button
+            type="default"
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record)}
+          >
+            Delete
+          </Button>
         </Space>
       ),
     },
@@ -431,7 +439,7 @@ const getProgramDisplay = (program_details) => {
           { key: "study", label: "Study Material" },
           { key: "tutorial", label: "Tutorial" },
           { key: "guides", label: "Guides" },
-        { key: "drafts", label: `Drafts (${draftData.length})` }// NEW
+          { key: "drafts", label: `Drafts (${draftData.length})` }
         ]}
       />
 
@@ -526,7 +534,7 @@ const getProgramDisplay = (program_details) => {
           setViewMode(false);
         }}
         onSubmit={handleSaveContent}
-        onSaveDraft={handleSaveDraft} // NEW
+        onSaveDraft={handleSaveDraft}
       />
     </div>
   );

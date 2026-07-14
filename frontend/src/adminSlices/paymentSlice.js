@@ -320,11 +320,38 @@ const paymentSlice = createSlice({
 
         const formattedList = paymentList.map((payment) => {
 
-
           const formattedDate =
             payment.payment_date || payment.created_at
               ? new Date(payment.payment_date || payment.created_at)
               : null;
+
+          const programNames = Array.isArray(payment.programs)
+            ? payment.programs
+            : payment.program
+            ? [payment.program]
+            : payment.program_name
+            ? [payment.program_name]
+            : [];
+
+          const packageNames = Array.isArray(payment.packages)
+            ? payment.packages
+            : payment.package
+            ? [payment.package]
+            : payment.package_name
+            ? [payment.package_name]
+            : [];
+
+          const programIds = Array.isArray(payment.program_ids)
+            ? payment.program_ids
+            : payment.program_id
+            ? [payment.program_id]
+            : [];
+
+          const packageIds = Array.isArray(payment.package_ids)
+            ? payment.package_ids
+            : payment.package_id
+            ? [payment.package_id]
+            : [];
 
           return {
             key: payment.payment_id || payment.id,
@@ -338,12 +365,16 @@ const paymentSlice = createSlice({
             student_name: payment.user_name || "",
             email: payment.email || "",
 
-
             program_id: payment.program_id,
             program_name: payment.program || "",
             package_id: payment.package_id,
             package_name: payment.package || "",
             package_price: payment.package_price || 0,
+
+            programs: programNames,
+            packages: packageNames,
+            program_ids: programIds,
+            package_ids: packageIds,
 
             amount: payment.amount || 0,
             total_paid: payment.total_paid || 0,

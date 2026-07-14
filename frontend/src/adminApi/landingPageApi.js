@@ -21,13 +21,13 @@ export const getLandingPagesApi = async () => {
     "/program-package/landing-page/"
   );
 
-  return response.data.data; // 👈 important
+  return response.data.data; 
 };
 
 /* ---------------- UPDATE LANDING PAGE ---------------- */
 export const updateLandingPageApi = async (id, data) => {
   const response = await axiosInstance.put(
-    `/program-package/landing-page/${id}/`, // ✅ dynamic ID
+    `/program-package/landing-page/${id}/`, 
     data,
     {
       headers: {

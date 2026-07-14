@@ -34,10 +34,11 @@ import { bookCounsellingSlot, updateCounsellingBooking } from "../../../adminSli
 
 const { Title, Text } = Typography;
 
-const BookSessionModal = ({ rescheduleData, closeModal, onSave }) => {
+const BookSessionModal = ({ rescheduleData, closeModal, onSave, selectedProgramId,
+  selectedPackageId, }) => {
   const dispatch = useDispatch();
-const preferredMode = localStorage.getItem("preferredCounsellingMode") || "online";
-const [mode, setMode] = useState(preferredMode);
+  const preferredMode = localStorage.getItem("preferredCounsellingMode") || "online";
+  const [mode, setMode] = useState(preferredMode);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [selectedLeadCounsellor, setSelectedLeadCounsellor] = useState(null);
   const [selectedNormalCounsellor, setSelectedNormalCounsellor] = useState(null);
@@ -68,37 +69,37 @@ const [mode, setMode] = useState(preferredMode);
 
 
   // ================= PREFILL RESCHEDULE =================
-useEffect(() => {
-  if (!rescheduleData) return;
+  useEffect(() => {
+    if (!rescheduleData) return;
 
-  setMode(rescheduleData.mode);
-  setSelectedSlot(rescheduleData.slot || null);
+    setMode(rescheduleData.mode);
+    setSelectedSlot(rescheduleData.slot || null);
 
-  let parsedDate = null;
+    let parsedDate = null;
 
-  if (rescheduleData.date) {
-    // Try normal parsing first
-    parsedDate = dayjs(rescheduleData.date);
+    if (rescheduleData.date) {
+      // Try normal parsing first
+      parsedDate = dayjs(rescheduleData.date);
 
-    // If invalid → try known formats (WITHOUT changing backend)
-    if (!parsedDate.isValid()) {
-      parsedDate = dayjs(rescheduleData.date, "DD-MM-YYYY");
+      // If invalid → try known formats (WITHOUT changing backend)
+      if (!parsedDate.isValid()) {
+        parsedDate = dayjs(rescheduleData.date, "DD-MM-YYYY");
+      }
     }
-  }
 
-  // ✅ Final fallback → current date
-  if (!parsedDate || !parsedDate.isValid()) {
-    parsedDate = dayjs();
-  }
+    // ✅ Final fallback → current date
+    if (!parsedDate || !parsedDate.isValid()) {
+      parsedDate = dayjs();
+    }
 
-  setSelectedDate(parsedDate);
+    setSelectedDate(parsedDate);
 
-  const lead = rescheduleData.counsellors?.find((c) => c.role === "lead");
-  const assistant = rescheduleData.counsellors?.find((c) => c.role === "assistant");
+    const lead = rescheduleData.counsellors?.find((c) => c.role === "lead");
+    const assistant = rescheduleData.counsellors?.find((c) => c.role === "assistant");
 
-  setSelectedLeadCounsellor(lead?.counsellor.id || null);
-  setSelectedNormalCounsellor(assistant?.counsellor.id || null);
-}, [rescheduleData]);
+    setSelectedLeadCounsellor(lead?.counsellor.id || null);
+    setSelectedNormalCounsellor(assistant?.counsellor.id || null);
+  }, [rescheduleData]);
 
   // ================= FETCH SLOTS WHEN LEAD COUNSELLOR OR DATE CHANGES =================
   useEffect(() => {
@@ -119,51 +120,51 @@ useEffect(() => {
   //   return true;
   // });
 
-  
-const isSlotExpired = (slot) => {
-  if (!selectedDate) return false;
 
-  const today = dayjs().format("YYYY-MM-DD");
-  const selected = dayjs(selectedDate).format("YYYY-MM-DD");
+  const isSlotExpired = (slot) => {
+    if (!selectedDate) return false;
 
-  // Only check expiry if selected date is today
-  if (today !== selected) return false;
+    const today = dayjs().format("YYYY-MM-DD");
+    const selected = dayjs(selectedDate).format("YYYY-MM-DD");
 
-  const now = dayjs();
+    // Only check expiry if selected date is today
+    if (today !== selected) return false;
 
-  const slotStart = dayjs(
-    `${selected} ${slot.start_time}`,
-    "YYYY-MM-DD hh:mm A"
-  );
+    const now = dayjs();
 
-  return now.isAfter(slotStart);
-};
+    const slotStart = dayjs(
+      `${selected} ${slot.start_time}`,
+      "YYYY-MM-DD hh:mm A"
+    );
 
-const filteredSlots = slotsByDate.filter((slot) => {
-  const expired = isSlotExpired(slot);
+    return now.isAfter(slotStart);
+  };
 
-  const isAvailableLike =
-    (slot.status === "available" || slot.status === "pending") &&
-    slot.is_available;
+  const filteredSlots = slotsByDate.filter((slot) => {
+    const expired = isSlotExpired(slot);
 
-  const isBookedLike =
-    slot.status === "booked" ||
-    slot.status === "rescheduled" ||
-    slot.status === "completed" ||
-    !slot.is_available;
+    const isAvailableLike =
+      (slot.status === "available" || slot.status === "pending") &&
+      slot.is_available;
 
-  if (slotFilter === "all") return true;
+    const isBookedLike =
+      slot.status === "booked" ||
+      slot.status === "rescheduled" ||
+      slot.status === "completed" ||
+      !slot.is_available;
 
-  if (slotFilter === "available") {
-    return isAvailableLike && !expired;
-  }
+    if (slotFilter === "all") return true;
 
-  if (slotFilter === "booked") {
-    return isBookedLike || expired;
-  }
+    if (slotFilter === "available") {
+      return isAvailableLike && !expired;
+    }
 
-  return true;
-});
+    if (slotFilter === "booked") {
+      return isBookedLike || expired;
+    }
+
+    return true;
+  });
 
   // ================= CONFIRM BOOKING =================
   const handleConfirm = () => {
@@ -182,7 +183,7 @@ const filteredSlots = slotsByDate.filter((slot) => {
 
     const payload = {
       // student_id: rescheduleData?.student_id || null,
-     student_id: Number(studentId),
+      student_id: Number(studentId),
       date: dayjs(selectedDate).format("YYYY-MM-DD"),
       slots: [selectedSlot.id ?? selectedSlot.time],
       counsellors_data: [
@@ -190,6 +191,9 @@ const filteredSlots = slotsByDate.filter((slot) => {
         selectedNormalCounsellor ? { counsellor_id: selectedNormalCounsellor, role: "assistant" } : null,
       ].filter(Boolean),
       mode,
+
+      program: selectedProgramId,
+      package: selectedPackageId,
     };
 
     const action = rescheduleData
@@ -228,25 +232,25 @@ const filteredSlots = slotsByDate.filter((slot) => {
             <Card style={{ borderRadius: 16 }}>
               <Text strong>Session Mode</Text>
               <br />
-             <Radio.Group
-  value={mode}
-  onChange={(e) => setMode(e.target.value)}
-  style={{ marginTop: 12, display: "flex", gap: 8 }}
->
-  <Radio.Button
-    value="online"
-    disabled={preferredMode === "offline"}
-  >
-    <VideoCameraOutlined /> Online
-  </Radio.Button>
+              <Radio.Group
+                value={mode}
+                onChange={(e) => setMode(e.target.value)}
+                style={{ marginTop: 12, display: "flex", gap: 8 }}
+              >
+                <Radio.Button
+                  value="online"
+                  disabled={preferredMode === "offline"}
+                >
+                  <VideoCameraOutlined /> Online
+                </Radio.Button>
 
-  <Radio.Button
-    value="offline"
-    disabled={preferredMode === "online"}
-  >
-    <EnvironmentOutlined /> Offline
-  </Radio.Button>
-</Radio.Group>
+                <Radio.Button
+                  value="offline"
+                  disabled={preferredMode === "online"}
+                >
+                  <EnvironmentOutlined /> Offline
+                </Radio.Button>
+              </Radio.Group>
             </Card>
 
             {/* Date + Counsellor */}
@@ -305,18 +309,18 @@ const filteredSlots = slotsByDate.filter((slot) => {
                       <Button
                         block
                         size="large"
-                        disabled={slot.status === "booked" ||  slot.status === "rescheduled" ||   slot.status === "completed" || !slot.is_available ||  isSlotExpired(slot)}
+                        disabled={slot.status === "booked" || slot.status === "rescheduled" || slot.status === "completed" || !slot.is_available || isSlotExpired(slot)}
                         type={selectedSlot?.id === slot.id ? "primary" : "default"} // compare objects by id
                         onClick={() => {
-if (
-  (slot.status === "available" ||
-    slot.status === "pending") &&
-  slot.status !== "completed" &&
-  !isSlotExpired(slot) &&
-  slot.is_available
-) {
-  setSelectedSlot(slot);
-}
+                          if (
+                            (slot.status === "available" ||
+                              slot.status === "pending") &&
+                            slot.status !== "completed" &&
+                            !isSlotExpired(slot) &&
+                            slot.is_available
+                          ) {
+                            setSelectedSlot(slot);
+                          }
                         }}
                         style={{
                           borderRadius: 10,
@@ -324,7 +328,7 @@ if (
                         }}
                       >
                         {slot.start_time}
-                       
+
                       </Button>
                     </Col>
                   ))
@@ -395,7 +399,7 @@ if (
                   </Text>
                 </div>
 
-{/* 
+                {/* 
                 <div>
                   <Text type="colorTextSecondary">Duration</Text><br />
                   <Text strong>60 Minutes</Text>
@@ -406,49 +410,49 @@ if (
                   block
                   disabled={!selectedSlot || !selectedLeadCounsellor}
                   loading={bookingLoading}
-                 onClick={() => setConfirmModalOpen(true)}
+                  onClick={() => setConfirmModalOpen(true)}
                 >
                   {/* {rescheduleData ? "Confirm Reschedule" : "Confirm Booking"} */}
-                   {rescheduleData ? "Confirm Booking" : "Confirm Booking"}
+                  {rescheduleData ? "Confirm Booking" : "Confirm Booking"}
                 </Button>
               </Space>
             </Card>
           </Col>
         </Row>
 
-<Modal
-  open={confirmModalOpen}
-  onCancel={() => setConfirmModalOpen(false)}
-  onOk={() => {
-    setConfirmModalOpen(false);
-    handleConfirm();
-  }}
-  okText="Yes, I Understand"
-  cancelText="Cancel"
-  // title={rescheduleData ? "Confirm Reschedule" : "Confirm Booking"}
-    title={rescheduleData ? "Confirm Booking" : "Confirm Booking"}
->
-  <div style={{ lineHeight: 1.6 }}>
-    <p style={{ fontWeight: "bold", color: "#cf1322" }}>
-      🛑🛑 Important 🛑🛑
-    </p>
+        <Modal
+          open={confirmModalOpen}
+          onCancel={() => setConfirmModalOpen(false)}
+          onOk={() => {
+            setConfirmModalOpen(false);
+            handleConfirm();
+          }}
+          okText="Yes, I Understand"
+          cancelText="Cancel"
+          // title={rescheduleData ? "Confirm Reschedule" : "Confirm Booking"}
+          title={rescheduleData ? "Confirm Booking" : "Confirm Booking"}
+        >
+          <div style={{ lineHeight: 1.6 }}>
+            <p style={{ fontWeight: "bold", color: "#cf1322" }}>
+              🛑🛑 Important 🛑🛑
+            </p>
 
-    <p>
-      <b>Please note 👇</b>
-    </p>
+            <p>
+              <b>Please note 👇</b>
+            </p>
 
-    <p>
-      If you cancel your existing counselling slot which is booked by you for
-      any reason, it will be treated as a fresh appointment booking. You will
-      likely get a later appointment after <b>8 to 10 days</b>, and timing will
-      depend on availability 😊.
-    </p>
+            <p>
+              If you cancel your existing counselling slot which is booked by you for
+              any reason, it will be treated as a fresh appointment booking. You will
+              likely get a later appointment after <b>8 to 10 days</b>, and timing will
+              depend on availability 😊.
+            </p>
 
-    <p>
-      We request your support and cooperation for the same.
-    </p>
-  </div>
-</Modal>
+            <p>
+              We request your support and cooperation for the same.
+            </p>
+          </div>
+        </Modal>
       </div>
     </ConfigProvider>
   );

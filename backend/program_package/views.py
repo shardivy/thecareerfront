@@ -10,7 +10,7 @@ from accounts.permissions import IsAdmin, IsSuperAdmin
 from report.models import Report
 from lead_registration.models import StudentProfile
 from program_package.models import Answer, CollegeListAnalysis, LandingPage, Package, PackageFeature, Program, QuestionAnswer, UserProgramPackage
-from program_package.serializers import CollegeListAnalysisSerializer, LandingPageSerializer, PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer, ProgramWithPackagesSerializer, QuestionAnswerSerializer
+from program_package.serializers import CollegeListAnalysisSerializer, LandingPageSerializer, MultipleProgramsWithPackagesSerializer, PackageCreateSerializer, PackageListSerializer, PackageSerializer, ProgramListSerializer, ProgramSerializer, ProgramWithPackagesSerializer, QuestionAnswerSerializer
 from django.db.models import Count, Sum
 
 
@@ -39,6 +39,17 @@ class ActiveProgramListAPIView(APIView):
 
     def get(self, request):
         programs = Program.objects.filter(is_active=True).order_by("-created_at")
+        serializer = ProgramSerializer(programs, many=True)
+
+        return Response({
+            "count": programs.count(),
+            "data": serializer.data
+        })
+        
+class ExcludeHandholdingProgramListAPIView(APIView):
+    
+    def get(self, request):
+        programs = Program.objects.filter(is_active=True).exclude(package__is_handholding=True).distinct()
         serializer = ProgramSerializer(programs, many=True)
 
         return Response({
@@ -335,6 +346,33 @@ class ProgramPackagesAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
+        
+class MultipleProgramPackagesAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+
+        program_ids = request.data.get("program_ids", [])
+
+        programs = Program.objects.filter(
+            id__in=program_ids,
+            is_active=True
+        )
+
+        serializer = MultipleProgramsWithPackagesSerializer(
+            programs,
+            many=True
+        )
+
+        return Response(
+            {
+                "message": "Programs fetched successfully",
+                "count": programs.count(),
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
 
 class ProgramPackageDetailAPIView(APIView):
     """
@@ -406,6 +444,8 @@ class CollegeListAnalysisListAPIView(APIView):
 
         tab = request.GET.get("tab")
         student_id = request.GET.get("student_id")
+        program_id = request.GET.get("program_id")
+        package_id = request.GET.get("package_id")
 
         analyses = CollegeListAnalysis.objects.select_related(
             "user", "program", "package"
@@ -419,6 +459,12 @@ class CollegeListAnalysisListAPIView(APIView):
         if student_id:
             student = get_object_or_404(StudentProfile, id=student_id)
             analyses = analyses.filter(user=student.user)
+            
+        if program_id:
+            analyses = analyses.filter(program_id=program_id)
+            
+        if package_id:
+             analyses = analyses.filter(package_id=package_id)
 
         serializer = CollegeListAnalysisSerializer(analyses, many=True)
 
@@ -429,11 +475,16 @@ class CollegeListAnalysisListAPIView(APIView):
         }
 
         # Draft question + answers
-        if tab == "draft" and student_id:
+        if tab == "draft" and student_id and program_id and package_id:
 
             questions = QuestionAnswer.objects.all()
 
-            answers = Answer.objects.filter(student=student, is_draft=True)
+            answers = Answer.objects.filter(
+                student=student,
+                program_id=program_id,
+                package_id=package_id,
+                is_draft=True
+            )
 
             answer_map = {
                 ans.question_id: ans.answer_text
@@ -548,6 +599,17 @@ class StartQuestionAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request, student_id):
+        
+        program_id = request.GET.get("program_id")
+        package_id = request.GET.get("package_id")
+
+        if not program_id or not package_id:
+            return Response(
+                {
+                    "message": "program_id and package_id are required"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Get student profile
         student = get_object_or_404(StudentProfile, id=student_id)
@@ -555,7 +617,11 @@ class StartQuestionAPIView(APIView):
         # Get latest college analysis for that student
         analysis = (
             CollegeListAnalysis.objects
-            .filter(user=student.user)
+            .filter(
+                user=student.user,
+                program_id=program_id,
+                package_id=package_id
+            )
             .order_by("-created_at")
             .first()
         )
@@ -576,6 +642,8 @@ class StartQuestionAPIView(APIView):
                     "message": "Status updated successfully",
                     "data": {
                         "student_id": student_id,
+                        "program_id": program_id,
+                        "package_id": package_id,
                         "analysis_id": analysis.id,
                         "status": analysis.status
                     }
@@ -590,8 +658,8 @@ class StartQuestionAPIView(APIView):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
-        
-                    
+    
+
 # class SubmitMultipleAnswersAPIView(APIView):
 
 #     permission_classes = [IsAuthenticated]
@@ -600,83 +668,13 @@ class StartQuestionAPIView(APIView):
 
 #         student_id = request.data.get("student_id")
 #         answers_data = request.data.get("answers", [])
+#         is_final_submit = request.data.get("is_final_submit", False)  # ✅ NEW
 
 #         student = get_object_or_404(StudentProfile, id=student_id)
 
 #         created_answers = []
 
-#         for item in answers_data:
-
-#             answer = Answer.objects.create(
-#                 student=student,
-#                 question_id=item.get("question_id"),
-#                 answer_text=item.get("answer_text")
-#             )
-
-#             created_answers.append({
-#                 "id": answer.id,
-#                 "question_id": answer.question.id,
-#                 "answer_text": answer.answer_text
-#             })
-
-#         # Find student's college analysis
-#         analysis = CollegeListAnalysis.objects.filter(user=student.user).first()
-
-#         report_created = False
-#         report = None
-
-#         if analysis:
-#             analysis.status = "completed"
-#             analysis.save(update_fields=["status"])
-
-#             report, report_created = Report.objects.get_or_create(
-#                 user=student.user,
-#                 defaults={
-#                     "exam": None,
-#                     "report_status": "not_received",
-#                 }
-#             )
-
-#             # ✅ If report already existed, update status
-#             if not report_created:
-#                 report.report_status = "not_received"
-#                 report.save(update_fields=["report_status"])
-
-#         return Response(
-#             {
-#                 "message": "Answers submitted successfully",
-#                 "analysis_status": analysis.status if analysis else None,
-#                 "report_created": report_created,
-#                 "report_id": report.id if report else None,
-#                 "report_status": report.report_status if report else None,
-#                 "data": created_answers
-#             },
-#             status=status.HTTP_201_CREATED
-#         )
-        
-  
-  
-# class SubmitMultipleAnswersAPIView(APIView):
-
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request):
-
-#         student_id = request.data.get("student_id")
-#         answers_data = request.data.get("answers", [])
-
-#         student = get_object_or_404(StudentProfile, id=student_id)
-
-#         created_answers = []
-
-#         # ✅ Total questions in system
-#         total_questions = QuestionAnswer.objects.count()
-
-#         # ✅ Answers submitted now
-#         answered_questions = len([a for a in answers_data if a.get("answer_text")])
-
-#         # ✅ Draft logic
-#         is_draft = answered_questions < total_questions
+#         is_draft = not is_final_submit   # ✅ FIXED LOGIC
 
 #         for item in answers_data:
 
@@ -696,7 +694,6 @@ class StartQuestionAPIView(APIView):
 #                 "is_draft": answer.is_draft
 #             })
 
-#         # Find student's college analysis
 #         analysis = CollegeListAnalysis.objects.filter(user=student.user).first()
 
 #         report_created = False
@@ -704,12 +701,14 @@ class StartQuestionAPIView(APIView):
 
 #         if analysis:
 
-#             if is_draft:
+#             if is_final_submit:
+#                 analysis.status = "completed"
+#             else:
 #                 analysis.status = "in_progress"
 
-#             else:
-#                 analysis.status = "completed"
+#             analysis.save(update_fields=["status"])
 
+#             if is_final_submit:
 #                 report, report_created = Report.objects.get_or_create(
 #                     user=student.user,
 #                     defaults={
@@ -722,20 +721,15 @@ class StartQuestionAPIView(APIView):
 #                     report.report_status = "not_received"
 #                     report.save(update_fields=["report_status"])
 
-#             analysis.save(update_fields=["status"])
-
-#         return Response(
-#             {
-#                 "message": "Draft saved successfully" if is_draft else "Answers submitted successfully",
-#                 "analysis_status": analysis.status if analysis else None,
-#                 "report_created": report_created,
-#                 "report_id": report.id if report else None,
-#                 "report_status": report.report_status if report else None,
-#                 "data": created_answers
-#             },
-#             status=status.HTTP_201_CREATED
-#         )
-
+#         return Response({
+#             "message": "Draft saved successfully" if not is_final_submit else "Answers submitted successfully",
+#             "analysis_status": analysis.status if analysis else None,
+#             "report_created": report_created,
+#             "report_id": report.id if report else None,
+#             "report_status": report.report_status if report else None,
+#             "data": created_answers
+#         }, status=status.HTTP_201_CREATED)
+ 
 class SubmitMultipleAnswersAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -744,6 +738,8 @@ class SubmitMultipleAnswersAPIView(APIView):
 
         student_id = request.data.get("student_id")
         answers_data = request.data.get("answers", [])
+        program_id = request.data.get("program_id")
+        package_id = request.data.get("package_id")
         is_final_submit = request.data.get("is_final_submit", False)  # ✅ NEW
 
         student = get_object_or_404(StudentProfile, id=student_id)
@@ -756,6 +752,8 @@ class SubmitMultipleAnswersAPIView(APIView):
 
             answer = Answer.objects.update_or_create(
                 student=student,
+                program_id=program_id,
+                package_id=package_id,
                 question_id=item.get("question_id"),
                 defaults={
                     "answer_text": item.get("answer_text"),
@@ -770,13 +768,17 @@ class SubmitMultipleAnswersAPIView(APIView):
                 "is_draft": answer.is_draft
             })
 
-        analysis = CollegeListAnalysis.objects.filter(user=student.user).first()
+        # analysis = CollegeListAnalysis.objects.filter(user=student.user).first()
+        analysis = CollegeListAnalysis.objects.filter(
+            user=student.user,
+            program_id=program_id,
+            package_id=package_id
+        ).first()
 
         report_created = False
         report = None
 
         if analysis:
-
             if is_final_submit:
                 analysis.status = "completed"
             else:
@@ -784,18 +786,40 @@ class SubmitMultipleAnswersAPIView(APIView):
 
             analysis.save(update_fields=["status"])
 
-            if is_final_submit:
-                report, report_created = Report.objects.get_or_create(
-                    user=student.user,
-                    defaults={
-                        "exam": None,
-                        "report_status": "not_received",
-                    }
-                )
 
-                if not report_created:
-                    report.report_status = "not_received"
-                    report.save(update_fields=["report_status"])
+        # ✅ CREATE REPORT ON FINAL SUBMIT
+        if is_final_submit:
+            print("Student id:", student.user.id)
+            user_program = CollegeListAnalysis.objects.filter(
+                user=student.user,
+                program_id=program_id,
+                package_id=package_id
+            ).select_related(
+                "program",
+                "package"
+            ).first()
+            
+            print("User program:", user_program)
+            if user_program:
+                print("Program:", analysis.program)
+                print("Package:", analysis.package)
+
+            report, report_created = Report.objects.get_or_create(
+                user=student.user,
+                program=user_program.program if analysis else None,
+                package=user_program.package if analysis else None,
+                exam=None,
+                defaults={
+                    "report_status": "v1_not_received",
+                    "review_required": False
+                }
+            )
+
+            report_created = True
+
+            if not report_created:
+                report.report_status = "v1_not_received"
+                report.save(update_fields=["report_status"])
 
         return Response({
             "message": "Draft saved successfully" if not is_final_submit else "Answers submitted successfully",
@@ -805,6 +829,8 @@ class SubmitMultipleAnswersAPIView(APIView):
             "report_status": report.report_status if report else None,
             "data": created_answers
         }, status=status.HTTP_201_CREATED)
+     
+ 
         
 class UpdateMultipleAnswersAPIView(APIView):
 
@@ -848,19 +874,68 @@ class UpdateMultipleAnswersAPIView(APIView):
         )
 
         
+# class CollegeListAnalysisStatusAPIView(APIView):
+
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, student_id):
+
+#         # Get student profile
+#         student = get_object_or_404(StudentProfile, id=student_id)
+
+#         # Get college analysis
+#         analysis = (
+#             CollegeListAnalysis.objects
+#             .filter(user=student.user)
+#             .order_by("-created_at")
+#             .first()
+#         )
+
+#         if not analysis:
+#             return Response(
+#                 {
+#                     "student_id": student_id,
+#                     "analysis_status": None,
+#                     "message": "College list analysis not found"
+#                 },
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         return Response(
+#             {
+#                 "student_id": student_id,
+#                 # "college_analysis_id": analysis.id,
+#                 "analysis_status": analysis.status
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
 class CollegeListAnalysisStatusAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, student_id):
 
-        # Get student profile
         student = get_object_or_404(StudentProfile, id=student_id)
 
-        # Get college analysis
+        program_id = request.query_params.get("program_id")
+        package_id = request.query_params.get("package_id")
+
+        if not program_id or not package_id:
+            return Response(
+                {
+                    "message": "program_id and package_id are required"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         analysis = (
             CollegeListAnalysis.objects
-            .filter(user=student.user)
+            .filter(
+                user=student.user,
+                program_id=program_id,
+                package_id=package_id
+            )
             .order_by("-created_at")
             .first()
         )
@@ -869,6 +944,8 @@ class CollegeListAnalysisStatusAPIView(APIView):
             return Response(
                 {
                     "student_id": student_id,
+                    "program_id": program_id,
+                    "package_id": package_id,
                     "analysis_status": None,
                     "message": "College list analysis not found"
                 },
@@ -878,12 +955,12 @@ class CollegeListAnalysisStatusAPIView(APIView):
         return Response(
             {
                 "student_id": student_id,
-                # "college_analysis_id": analysis.id,
+                "program_id": program_id,
+                "package_id": package_id,
                 "analysis_status": analysis.status
             },
             status=status.HTTP_200_OK
         )
-
 
 class EngineeringAnalysisDashboardAPIView(APIView):
 

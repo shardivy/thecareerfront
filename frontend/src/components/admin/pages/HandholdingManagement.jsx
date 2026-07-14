@@ -40,11 +40,14 @@ import CertificateTemplateModal from "../modals/CertificateTemplateModal";
 import HHSessionBookingModal from "../modals/HHSessionBookingModal";
 import GenerateCertificateModal from "../modals/GenerateCertificateModal";
 import { deleteHHSession, getHHSession } from "../../../hhSlices/handholdingSessionSlice";
-import { getSessionBookings, cancelSession, sendHandholdingReminder,  markSessionCompleted,  } from "../../../hhSlices/sessionBookingSlice";
+import { getSessionBookings, cancelSession, sendHandholdingReminder, markSessionCompleted, } from "../../../hhSlices/sessionBookingSlice";
 import { getHandholdingParticipants, getCardStats, updateHandholdingParticipant } from "../../../hhSlices/handholdingUsersSlice";
 import { getCertificateTemplates, getIssuedCertificates, getCertificateStats } from "../../../hhSlices/certificateSlice";
 import UploadCertificateTemplateModal from "../modals/UploadCertificateTemplateModal.jsx";
 import dayjs from "dayjs";
+import AddHHUserModal from "../modals/AddHHUserModal.jsx";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -83,7 +86,7 @@ const HandholdingManagement = () => {
   const [previewTemplate, setPreviewTemplate] = useState(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [reminderModalOpen, setReminderModalOpen] = useState(false);
-const [selectedReminder, setSelectedReminder] = useState(null);
+  const [selectedReminder, setSelectedReminder] = useState(null);
 
 
   /* ================= PAGINATION STATE ================= */
@@ -97,6 +100,7 @@ const [selectedReminder, setSelectedReminder] = useState(null);
   const { templates, loading: templateLoading } = useSelector((state) => state.certificate);
   const { issuedCertificates, issuedLoading, issuedTotal } = useSelector((state) => state.certificate);
   const { certificateStats, statsLoading } = useSelector((state) => state.certificate);
+  const [addHHUserModalOpen, setAddHHUserModalOpen] = useState(false);
 
   useEffect(() => {
     if (activeTab === "bookings") {
@@ -151,7 +155,7 @@ const [selectedReminder, setSelectedReminder] = useState(null);
       session: `Session ${item.session_no}`,
       session_no: item.session_no,
       date: item.session_date?.split("T")[0],
-     time: item.start_time || "-",
+      time: item.start_time || "-",
       status: statusMap[item.status] || "not_booked",
       preferred_counselling_mode: item.preferred_counselling_mode
         ? item.preferred_counselling_mode.charAt(0).toUpperCase() + item.preferred_counselling_mode.slice(1)
@@ -242,37 +246,85 @@ const [selectedReminder, setSelectedReminder] = useState(null);
   };
 
 
-//   const handleSendReminder = (record) => {
-//   setSelectedReminder(record);
-//   setReminderModalOpen(true);
-// };
+  //   const handleSendReminder = (record) => {
+  //   setSelectedReminder(record);
+  //   setReminderModalOpen(true);
+  // };
 
-const handleSendReminder = (record) => {
-  Modal.confirm({
-    title: "Send Reminder?",
-    content: `Send reminder to ${record.name}?`,
-    okText: "Yes",
-    cancelText: "No",
-    centered: true,
+  const handleSendReminder = (record) => {
+    Modal.confirm({
+      title: "Send Reminder?",
+      content: `Send reminder to ${record.name}?`,
+      okText: "Yes",
+      cancelText: "No",
+      centered: true,
 
-    async onOk() {
-      try {
-        const res = await dispatch(
-          sendHandholdingReminder({
-            participantId: record.participant_id,
-            sessionNo: record.session_no,
-          })
-        ).unwrap();
+      async onOk() {
+        try {
+          const res = await dispatch(
+            sendHandholdingReminder({
+              participantId: record.participant_id,
+              sessionNo: record.session_no,
+            })
+          ).unwrap();
 
-        message.success(res?.message || "Reminder sent successfully");
-      } catch (err) {
-        message.error(err?.message || "Failed to send reminder");
-        throw err; // important so modal knows it failed
-      }
-    },
-  });
-};
+          message.success(res?.message || "Reminder sent successfully");
+        } catch (err) {
+          message.error(err?.message || "Failed to send reminder");
+          throw err; // important so modal knows it failed
+        }
+      },
+    });
+  };
 
+  const handleExportUsers = () => {
+    const exportData = filteredUsers.map((user, index) => ({
+      "Sr No": index + 1,
+      Name: user.name,
+      Email: user.email,
+      Mobile: user.mobile,
+      City: user.city,
+      Program: user.program_name,
+      Package: user.package_name,
+      "Package Price": user.package_price,
+      "Paid Amount": user.total_paid_amount,
+      "Remaining Amount": user.remaining_amount,
+      "Progress %": user.progressPercent,
+      "Completed Sessions": user.progressLabel,
+      "Session Status": user.sessionStatus,
+      "Payment Status": user.paymentStatus,
+      "Certification Status": user.certificationStatus,
+      "Preferred Counselling Mode":
+        user.preferred_counselling_mode || "-",
+    }));
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ["Handholding Users Report"],
+      [],
+      ["Export On:", dayjs().format("DD-MM-YYYY HH:mm")],
+      ["Total Records:", filteredUsers.length],
+
+      [],
+    ]);
+
+    XLSX.utils.sheet_add_json(worksheet, exportData, {
+      origin: "A7", // start table from row 7
+      skipHeader: false,
+    });
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Handholding Users"
+    );
+
+    XLSX.writeFile(
+      workbook,
+      `Handholding_Users_${dayjs().format("YYYY-MM-DD")}.xlsx`
+    );
+  };
   /* ================= STATS ================= */
   const stats = [
     {
@@ -650,33 +702,33 @@ const handleSendReminder = (record) => {
   );
 
   const handleMarkCompleted = (record) => {
-  Modal.confirm({
-    title: "Mark Session as Completed",
-    content: `Are you sure you want to mark session for ${record.name} as completed?`,
-    okText: "Yes",
-    cancelText: "No",
-    centered: true,
+    Modal.confirm({
+      title: "Mark Session as Completed",
+      content: `Are you sure you want to mark session for ${record.name} as completed?`,
+      okText: "Yes",
+      cancelText: "No",
+      centered: true,
 
-    onOk: async () => {
-      try {
-        await dispatch(
-          markSessionCompleted({
-            participant_id: record.participant_id,
-            session_no: record.session_no,
-          })
-        ).unwrap();
+      onOk: async () => {
+        try {
+          await dispatch(
+            markSessionCompleted({
+              participant_id: record.participant_id,
+              session_no: record.session_no,
+            })
+          ).unwrap();
 
-        message.success("Session marked as completed");
+          message.success("Session marked as completed");
 
-        // ✅ refresh table
-        dispatch(getSessionBookings());
+          // ✅ refresh table
+          dispatch(getSessionBookings());
 
-      } catch (err) {
-        message.error(err?.message || "Failed to mark session completed");
-      }
-    },
-  });
-};
+        } catch (err) {
+          message.error(err?.message || "Failed to mark session completed");
+        }
+      },
+    });
+  };
 
 
   const bookingColumns = React.useMemo(() => {
@@ -794,69 +846,69 @@ const handleSendReminder = (record) => {
             );
           }
 
-      if (["booked", "rescheduled"].includes(record.status)) {
+          if (["booked", "rescheduled"].includes(record.status)) {
 
-  const sessionDate = dayjs(record.date).format("YYYY-MM-DD");
+            const sessionDate = dayjs(record.date).format("YYYY-MM-DD");
 
-  const slotStart = dayjs(
-    `${sessionDate} ${record.time}`,
-    "YYYY-MM-DD hh:mm A"
-  );
+            const slotStart = dayjs(
+              `${sessionDate} ${record.time}`,
+              "YYYY-MM-DD hh:mm A"
+            );
 
-  const fifteenMinutesBefore = slotStart.subtract(15, "minute");
+            const fifteenMinutesBefore = slotStart.subtract(15, "minute");
 
-  const markCompletedEnabled =
-    dayjs().isAfter(fifteenMinutesBefore);
+            const markCompletedEnabled =
+              dayjs().isAfter(fifteenMinutesBefore);
 
-  return (
-    <Space wrap>
-      <Button
-        type="primary"
-        icon={<EditOutlined />}
-        onClick={() => handleEditBooking(record)}
-      >
-        Reschedule
-      </Button>
+            return (
+              <Space wrap>
+                <Button
+                  type="primary"
+                  icon={<EditOutlined />}
+                  onClick={() => handleEditBooking(record)}
+                >
+                  Reschedule
+                </Button>
 
-      {/* ✅ MARK COMPLETED */}
-      <Button
-        type="primary"
-        disabled={!markCompletedEnabled}
-        style={{
-          backgroundColor: markCompletedEnabled
-            ? "#349304"
-            : "#d9d9d9",
-          borderColor: markCompletedEnabled
-            ? "#349304"
-            : "#d9d9d9",
-          color: markCompletedEnabled
-            ? "#fff"
-            : "rgba(0,0,0,0.25)",
-        }}
-        icon={<CheckCircleOutlined />}
-        onClick={() => handleMarkCompleted(record)}
-      >
-        Mark Completed
-      </Button>
+                {/* ✅ MARK COMPLETED */}
+                <Button
+                  type="primary"
+                  disabled={!markCompletedEnabled}
+                  style={{
+                    backgroundColor: markCompletedEnabled
+                      ? "#349304"
+                      : "#d9d9d9",
+                    borderColor: markCompletedEnabled
+                      ? "#349304"
+                      : "#d9d9d9",
+                    color: markCompletedEnabled
+                      ? "#fff"
+                      : "rgba(0,0,0,0.25)",
+                  }}
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => handleMarkCompleted(record)}
+                >
+                  Mark Completed
+                </Button>
 
-      <Button
-        icon={<BellOutlined />}
-        onClick={() => handleSendReminder(record)}
-        disabled={!canBookSession(record)}
-      >
-        Send Reminder
-      </Button>
+                <Button
+                  icon={<BellOutlined />}
+                  onClick={() => handleSendReminder(record)}
+                  disabled={!canBookSession(record)}
+                >
+                  Send Reminder
+                </Button>
 
-      <Button
-        danger
-        icon={<DeleteOutlined />}
-        onClick={() => handleCancel(record)}
-      >
-        Cancel
-      </Button>
-    </Space>
-  );
-}
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleCancel(record)}
+                >
+                  Cancel
+                </Button>
+              </Space>
+            );
+          }
 
           if (record.status === "completed") {
             return (
@@ -962,7 +1014,7 @@ const handleSendReminder = (record) => {
             window.URL.revokeObjectURL(url);
 
           } catch (err) {
-            console.error(err);
+            // console.error(err);
           }
         };
 
@@ -1028,11 +1080,33 @@ const handleSendReminder = (record) => {
   return (
     <div>
       {/* HEADER */}
+      {/* HEADER */}
       <Row justify="space-between" align="middle" style={{ marginBottom: 20 }}>
-        <Col span={24}>
+        <Col>
           <Title level={3} style={{ marginBottom: 0 }}>
             Handholding Management
           </Title>
+        </Col>
+
+        <Col>
+          <Space>
+            <Button
+              icon={<DownOutlined />}
+              onClick={handleExportUsers}
+            >
+              Export to Excel
+            </Button>
+
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setAddHHUserModalOpen(true)}
+            >
+              Add HH User
+            </Button>
+
+
+          </Space>
         </Col>
       </Row>
 
@@ -1522,6 +1596,16 @@ const handleSendReminder = (record) => {
           setSelectedUser(null);
         }}
         user={selectedUser}
+      />
+
+      <AddHHUserModal
+        open={addHHUserModalOpen}
+        onCancel={() => setAddHHUserModalOpen(false)}
+        onSuccess={() => {
+          setAddHHUserModalOpen(false);      // ✅ close modal
+          dispatch(getHandholdingParticipants()); // ✅ refresh table
+          dispatch(getCardStats()); // ✅ refresh stats cards
+        }}
       />
 
       <EditHHUserModal

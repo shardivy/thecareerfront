@@ -49,53 +49,52 @@ const ExamList = () => {
   }, [dispatch]);
 
   /* ---------- CONFIRM STATUS TOGGLE ---------- */
-const handleStatusToggle = (record) => {
-  confirm({
-    title: "Confirmation",
-    icon: <ExclamationCircleOutlined />,
-    centered: true,
-    okText: "Yes",
-    cancelText: "No",
+  const handleStatusToggle = (record) => {
+    confirm({
+      title: "Confirmation",
+      icon: <ExclamationCircleOutlined />,
+      centered: true,
+      okText: "Yes",
+      cancelText: "No",
 
-   content: (
-  <div>
-    <p>
-      Are you sure you want to{" "}
-      <strong>
-        {record.is_active ? "inactivate" : "activate"}
-      </strong>{" "}
-      the exam{" "}
-      <Text strong type="colorTextSecondary">
-        {record.exam_name}
-      </Text>
-      ?
-    </p>
-  </div>
-),
+      content: (
+        <div>
+          <p>
+            Are you sure you want to{" "}
+            <strong>
+              {record.is_active ? "inactivate" : "activate"}
+            </strong>{" "}
+            the exam{" "}
+            <Text strong type="colorTextSecondary">
+              {record.exam_name}
+            </Text>
+            ?
+          </p>
+        </div>
+      ),
 
 
-    onOk: async () => {
-      try {
-        await dispatch(
-          updateExam({
-            id: record.id,
-            payload: { is_active: !record.is_active },
-          })
-        ).unwrap();
+      onOk: async () => {
+        try {
+          await dispatch(
+            updateExam({
+              id: record.id,
+              payload: { is_active: !record.is_active },
+            })
+          ).unwrap();
 
-        message.success(
-          `Exam ${
-            record.is_active ? "inactivated" : "activated"
-          } successfully`
-        );
+          message.success(
+            `Exam ${record.is_active ? "inactivated" : "activated"
+            } successfully`
+          );
 
-        dispatch(fetchExams());
-      } catch (err) {
-        message.error("Failed to update exam status");
-      }
-    },
-  });
-};
+          dispatch(fetchExams());
+        } catch (err) {
+          message.error("Failed to update exam status");
+        }
+      },
+    });
+  };
 
 
 
@@ -114,8 +113,8 @@ const handleStatusToggle = (record) => {
 
     const matchesDate = filterDate
       ? exam.created_at &&
-        dayjs(exam.created_at).format("YYYY-MM-DD") ===
-          dayjs(filterDate).format("YYYY-MM-DD")
+      dayjs(exam.created_at).format("YYYY-MM-DD") ===
+      dayjs(filterDate).format("YYYY-MM-DD")
       : true;
 
     const matchesProgram = filterProgram ? exam.program === filterProgram : true;
@@ -258,7 +257,7 @@ const handleStatusToggle = (record) => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-               disabled={true}
+            disabled={true}
             onClick={() => {
               setEditingExam(null);
               setModalMode("create");
@@ -271,13 +270,13 @@ const handleStatusToggle = (record) => {
       </Row>
 
       <Card style={{ marginTop: 16 }}>
-           <Col>
-  <Title level={5} style={{ margin: 10 }}>
-    Exam Records ({filteredExams.length})
-  </Title>
-</Col>
+        <Col>
+          <Title level={5} style={{ margin: 10 }}>
+            Exam Records ({filteredExams.length})
+          </Title>
+        </Col>
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          
+
           <Col md={6}>
             <Input
               placeholder="Search..."

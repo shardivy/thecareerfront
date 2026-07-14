@@ -20,19 +20,20 @@ import {
   QuestionCircleOutlined,
   LaptopOutlined,
 } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import adminTheme from "../../../theme/adminTheme";
 import StatusTrackingModal from "../modals/StatusTrackingModal";
 import InstructionsModal from "../modals/InstructionsModal";
 import { useDispatch, useSelector } from "react-redux";
 import {
   sendExamForApproval,
-  startExam,
   fetchExamStatus
 } from "../../../adminSlices/examSlice";
 
 const { Title, Text } = Typography;
 
 const ExamManagement = () => {
+  const navigate = useNavigate();
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [instructionsModalVisible, setInstructionsModalVisible] = useState(false);
   const [instructionsMode, setInstructionsMode] = useState("view");
@@ -42,12 +43,40 @@ const ExamManagement = () => {
   const { tracker } = useSelector((state) => state.exam);
   const dispatch = useDispatch();
   const studentId = localStorage.getItem("studentId");
+  const reduxProgramId = useSelector(
+    (state) => state.student?.selectedProgramId
+  );
+
+  const reduxPackageId = useSelector(
+    (state) => state.student?.selectedPackageId
+  );
+
+  const { profile } = useSelector((state) => state.profile);
+
+  // Fallback to localStorage
+  const selectedProgramId =
+    reduxProgramId || localStorage.getItem("selectedProgramId");
+
+  const selectedPackageId =
+    reduxPackageId || localStorage.getItem("selectedPackageId");
+
 
   useEffect(() => {
-    if (studentId) {
-      dispatch(fetchExamStatus(studentId));
+    if (studentId && selectedProgramId && selectedPackageId) {
+      dispatch(
+        fetchExamStatus({
+          studentId,
+          programId: selectedProgramId,
+          packageId: selectedPackageId,
+        })
+      );
     }
-  }, [dispatch, studentId]);
+  }, [
+    dispatch,
+    studentId,
+    selectedProgramId,
+    selectedPackageId,
+  ]);
 
   useEffect(() => {
     if (tracker?.status) {
@@ -56,25 +85,24 @@ const ExamManagement = () => {
   }, [tracker]);
 
   // START EXAM
+  // Note: the startExam API call no longer happens here. It now fires when
+  // the student clicks "Begin Test" on the registration page. Here we just
+  // route them to that page (prefilled with whatever profile data we have).
   const handleStartExam = () => {
     setInstructionsMode("start");
 
-    setOnInstructionsConfirm(() => async () => {
-      try {
-        await dispatch(startExam(studentId)).unwrap();
-
-        window.open(
-          "https://www.careerfutura.com/ba/business-associate#",
-          "_blank"
-        );
-
-        // 👇 immediately refetch status
-        dispatch(fetchExamStatus(studentId));
-        message.success("Exam started successfully!");
-
-      } catch (error) {
-        message.error("Failed to start exam");
-      }
+    setOnInstructionsConfirm(() => () => {
+      navigate("/student/exam-register", {
+        state: {
+          // first_name: profile?.first_name,
+          first_name: profile?.first_name?.split("-").pop().trim(),
+          last_name: profile?.last_name,
+          email: profile?.email,
+          phone: profile?.phone,
+          password: profile?.password,
+          qualification: profile?.study_class,
+        },
+      });
     });
 
     setInstructionsModalVisible(true);
@@ -198,18 +226,6 @@ const ExamManagement = () => {
 
               <Divider style={{ margin: "12px 0" }} />
 
-
-              {/* <Button
-                type="primary"
-                onClick={() => {
-                  setInstructionsMode("view");
-                  setInstructionsModalVisible(true);
-                }}
-              >
-                View Full Instructions
-              </Button> */}
-
-
               {isCompleted && (
                 <Text
                   type="colorTextSecondary"
@@ -261,9 +277,6 @@ const ExamManagement = () => {
               </div>
             )}
           </Col>
-
-
-
 
           {/* RIGHT SIDE CARD */}
           <Col xs={24} md={8}>

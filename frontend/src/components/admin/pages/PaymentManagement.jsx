@@ -15,7 +15,8 @@ import {
   DatePicker,
   Tabs,
   Modal,
-  message
+  message,
+  Tooltip
 } from "antd";
 import {
   EyeOutlined,
@@ -70,6 +71,8 @@ const PaymentManagement = () => {
     (state) => state.packages
   );
 
+  const role = localStorage.getItem("adminRole");
+
   useEffect(() => {
     dispatch(fetchPaymentStats());
     dispatch(fetchPayments());
@@ -104,39 +107,81 @@ const PaymentManagement = () => {
     setSelectedPayment(record);
     setIsModalOpen(true);
   };
+
   const statsCards = [
-    {
-      title: "Expected Revenue",
-      amount: stats?.total_expected_collection?.expected_amount ?? 0,
-      users: stats?.total_expected_collection?.total_users ?? 0,
-      icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#722ed1" }} />,
-    },
-    {
-      title: "Total Collected",
-      amount: stats?.total_collected ?? 0,
-      users:
-        (stats?.partial_paid?.total_users ?? 0) +
-        (stats?.fully_paid?.total_users ?? 0),
-      icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#52c41a" }} />,
-    },
-    {
-      title: "Partial Payments",
-      amount: stats?.partial_paid?.total_amount ?? 0,
-      users: stats?.partial_paid?.total_users ?? 0,
-      icon: <PayCircleOutlined style={{ fontSize: 28, color: "#faad14" }} />,
-    },
-    {
-      title: "Fully Paid",
-      amount: stats?.fully_paid?.total_amount ?? 0,
-      users: stats?.fully_paid?.total_users ?? 0,
-      icon: <CheckCircleOutlined style={{ fontSize: 28, color: "#13c2c2" }} />,
-    },
-    {
-      title: "Pending Verification",
-      amount: stats?.verification_pending?.total_amount ?? 0,
-      users: stats?.verification_pending?.total_users ?? 0,
-      icon: <FileTextOutlined style={{ fontSize: 28, color: "#fa541c" }} />,
-    },
+    ...((role === "superadmin")
+      ? [
+        {
+          title: "Expected Revenue",
+          amount: stats?.total_expected_collection?.expected_amount ?? 0,
+          users: stats?.total_expected_collection?.total_users ?? 0,
+          icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#722ed1" }} />,
+        },
+        {
+          title: "Total Collected",
+          amount: stats?.total_collected ?? 0,
+          users:
+            (stats?.partial_paid?.total_users ?? 0) +
+            (stats?.fully_paid?.total_users ?? 0),
+          icon: <DollarCircleOutlined style={{ fontSize: 28, color: "#52c41a" }} />,
+        },
+
+
+        {
+          title: "Partial Payments",
+          amount: stats?.partial_paid?.total_amount ?? 0,
+          users: stats?.partial_paid?.total_users ?? 0,
+          icon: <PayCircleOutlined style={{ fontSize: 28, color: "#faad14" }} />,
+        },
+        {
+          title: "Fully Paid",
+          amount: stats?.fully_paid?.total_amount ?? 0,
+          users: stats?.fully_paid?.total_users ?? 0,
+          icon: <CheckCircleOutlined style={{ fontSize: 28, color: "#13c2c2" }} />,
+        },
+        {
+          title: "Pending Verification",
+          amount: stats?.verification_pending?.total_amount ?? 0,
+          users: stats?.verification_pending?.total_users ?? 0,
+          icon: <FileTextOutlined style={{ fontSize: 28, color: "#fa541c" }} />,
+        },
+      ]
+      : []),
+
+    ...((role === "admin")
+      ? [
+        {
+          title: "Partial Payments",
+          amount: null,
+          users: stats?.partial_paid?.total_users ?? 0,
+          icon: (
+            <PayCircleOutlined
+              style={{ fontSize: 28, color: "#faad14" }}
+            />
+          ),
+        },
+        {
+          title: "Fully Paid",
+          amount: null,
+          users: stats?.fully_paid?.total_users ?? 0,
+          icon: (
+            <CheckCircleOutlined
+              style={{ fontSize: 28, color: "#13c2c2" }}
+            />
+          ),
+        },
+        {
+          title: "Pending Verification",
+          amount: null,
+          users: stats?.verification_pending?.total_users ?? 0,
+          icon: (
+            <FileTextOutlined
+              style={{ fontSize: 28, color: "#fa541c" }}
+            />
+          ),
+        },
+      ]
+      : []),
   ];
 
 
@@ -195,9 +240,23 @@ const PaymentManagement = () => {
       // console.log(`📋 Processing payment ${idx} for table:`, p);
 
       // const cleanName = extractName(p.user_name);
-      const packageName = p.package_name || p.package || "N/A";
-      const programName = p.program_name || p.program || "N/A";
+      const packageName = Array.isArray(p.packages)
+        ? p.packages.join(", ")
+        : p.package_name || p.package || "N/A";
+      const programName = Array.isArray(p.programs)
+        ? p.programs.join(", ")
+        : p.program_name || p.program || "N/A";
 
+      const programIds = Array.isArray(p.program_ids)
+        ? p.program_ids
+        : p.program_id
+        ? [p.program_id]
+        : [];
+      const packageIds = Array.isArray(p.package_ids)
+        ? p.package_ids
+        : p.package_id
+        ? [p.package_id]
+        : [];
 
       // ✅ Paid + Total
       const paidAmount = Number(p.total_paid || 0);
@@ -208,15 +267,39 @@ const PaymentManagement = () => {
       const date = p.date || p.payment_date || "-";
       const txn = p.transaction_id || p.txn || "-";
 
+      // Prefer arrays from the formatted item, otherwise fall back to the raw API payload
+      const programsArr = Array.isArray(p.programs)
+        ? p.programs
+        : Array.isArray(p.originalData?.programs)
+        ? p.originalData.programs
+        : p.program_name
+        ? [p.program_name]
+        : [];
+
+      const packagesArr = Array.isArray(p.packages)
+        ? p.packages
+        : Array.isArray(p.originalData?.packages)
+        ? p.originalData.packages
+        : p.package_name
+        ? [p.package_name]
+        : [];
+
+      // debug first few rows to help trace missing backend fields
+      if (idx < 3) {
+        // eslint-disable-next-line no-console
+        // console.debug("payment-row-debug", { idx, programsArr, packagesArr, raw: p });
+      }
+
       return {
         key: p.payment_id || p.id || `payment-${idx}`,
         id: p.payment_id || p.id,
         name: p.user_name || "N/A",   // ✅ Keep full name with PE26
         email: p.email || "-",
-        programId: p.program_id || null,
-        program: programName,
-        packageId: p.package_id || null,
-        package: packageName,
+        programIds,
+        packageIds,
+        package_id: packageIds[0] || p.package_id,  // ✅ Add singular package_id for modal
+        programs: programsArr,
+        packages: packagesArr,
 
         // ✅ Store both separately (better than merging string)
         paidAmount,
@@ -245,9 +328,17 @@ const PaymentManagement = () => {
 
     const matchesStatus = statusFilter ? item.status === statusFilter : true;
 
-    const matchesProgram = programFilter ? item.programId === programFilter : true;
+    const matchesProgram = programFilter
+      ? Array.isArray(item.programIds)
+        ? item.programIds.includes(programFilter)
+        : item.programId === programFilter
+      : true;
 
-    const matchesService = serviceFilter ? item.packageId === serviceFilter : true;
+    const matchesService = serviceFilter
+      ? Array.isArray(item.packageIds)
+        ? item.packageIds.includes(serviceFilter)
+        : item.packageId === serviceFilter
+      : true;
 
     const matchesPaymentMethod = paymentMethodFilter
       ? item.paymentMethod === paymentMethodFilter
@@ -429,21 +520,46 @@ const PaymentManagement = () => {
       width: 140,
     },
 
-    {
-      title: "Program / Counselling Service",
-      width: 200,
-      render: (_, record) => (
-        <div>
-          <Text strong>{record.program || "N/A"}</Text>
-          <br />
-          <Text
-            type="colortextSecondary"
+   {
+  title: "Program / Counselling Service",
+  width: 300,
+  render: (_, record) => {
+    const programs = record.programs || [];
+    const packages = record.packages || [];
+
+    if (!programs.length) {
+      return <Text type="colorTextSecondary">N/A</Text>;
+    }
+
+    return (
+      <div>
+        {programs.map((program, index) => (
+          <div
+            key={index}
+            style={{
+              marginBottom: 10,
+              borderBottom:
+                index !== programs.length - 1
+                  ? "1px solid #f0f0f0"
+                  : "none",
+              paddingBottom: 6,
+            }}
           >
-            {record.package || "-"}
-          </Text>
-        </div>
-      ),
-    },
+            <Text strong>
+              {index + 1}. {program}
+            </Text>
+
+            <br />
+
+            <Text type="colorTextSecondary">
+              {packages[index] || "-"}
+            </Text>
+          </div>
+        ))}
+      </div>
+    );
+  },
+},
 
     {
       title: "Fees Paid",
@@ -504,7 +620,7 @@ const PaymentManagement = () => {
             displayDate = new Date(date).toISOString().split('T')[0];
           }
         } catch (e) {
-          console.error("❌ Error formatting display date:", date, e);
+          // console.error("❌ Error formatting display date:", date, e);
         }
 
         return (
@@ -528,25 +644,29 @@ const PaymentManagement = () => {
         if (record.status === "Not Paid") {
           return (
             <Space>
-              <Button
-                size="large"
-                type="primary"
-                icon={<UploadOutlined />}
-                onClick={() => {
-                  setSelectedPayment({ ...record, type: activeTab });
-                  setIsUploadModalOpen(true);
-                }}
-              >
-                {/* Upload Payment */}
-              </Button>
+              <Tooltip title="Upload">
+                <Button
+                  size="large"
+                  type="primary"
+                  icon={<UploadOutlined />}
+                  onClick={() => {
+                    setSelectedPayment({ ...record, type: activeTab });
+                    setIsUploadModalOpen(true);
+                  }}
+                >
+                  {/* Upload Payment */}
+                </Button>
+              </Tooltip>
 
-              <Button
-                size="large"
-                icon={<BellOutlined />}
-                disabled={!id}
-                loading={reminderLoadingId === id}
-                onClick={() => handleSendReminder(record)}
-              />
+              <Tooltip title="Send Reminder">
+                <Button
+                  size="large"
+                  icon={<BellOutlined />}
+                  disabled={!id}
+                  loading={reminderLoadingId === id}
+                  onClick={() => handleSendReminder(record)}
+                />
+              </Tooltip>
             </Space>
           );
         }
@@ -555,26 +675,90 @@ const PaymentManagement = () => {
         if (record.status === "Partial Paid") {
           return (
             <Space>
+              <Tooltip title="Upload">
+                <Button
+                  size="large"
+                  type="primary"
+                  icon={<UploadOutlined />}
+                  onClick={() => {
+                    setSelectedPayment({ ...record, type: activeTab });
+                    setIsUploadModalOpen(true);
+                  }}
+                >
+                  {/* Upload Payment */}
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="Send Reminder">
+                <Button
+                  size="large"
+                  icon={<BellOutlined />}
+                  onClick={() => handleSendReminder(record)}
+                >
+                  {/* Send Reminder */}
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="View">
+                <Button
+                  size="large"
+                  icon={<EyeOutlined />}
+                  onClick={() => {
+                    setSelectedPayment({
+                      ...record,
+                      mode: "view",
+                      type: activeTab, // ✅ ADD THIS
+                    });
+                    setIsModalOpen(true);
+                  }}
+                >
+                  {/* View */}
+                </Button>
+              </Tooltip>
+
+              <Tooltip title="Edit">
+                <Button
+                  size="large"
+                  icon={<EditOutlined />}
+                  onClick={() => {
+                    setSelectedPayment({ ...record, mode: "edit" });
+                    setIsModalOpen(true);
+                  }}
+                >
+                  {/* Edit */}
+                </Button>
+              </Tooltip>
+            </Space>
+          );
+        }
+
+        // ✅ Verification Pending → Verify
+        if (record.status === "Verification Pending") {
+          return (
+            <Tooltip title="Verify Payment">
               <Button
                 size="large"
                 type="primary"
-                icon={<UploadOutlined />}
+                icon={<CheckCircleOutlined />}
                 onClick={() => {
-                  setSelectedPayment({ ...record, type: activeTab });
-                  setIsUploadModalOpen(true);
+                  setSelectedPayment({
+                    ...record,
+                    mode: "verify",
+                    paymentDate: record.date !== "-" ? record.date : null,
+                  });
+                  setIsModalOpen(true);
                 }}
               >
-                {/* Upload Payment */}
+                Verify
               </Button>
+            </Tooltip>
+          );
+        }
 
-              <Button
-                size="large"
-                icon={<BellOutlined />}
-                onClick={() => handleSendReminder(record)}
-              >
-                {/* Send Reminder */}
-              </Button>
-
+        // ✅ Other statuses → View + Edit
+        return (
+          <Space>
+            <Tooltip title="View">
               <Button
                 size="large"
                 icon={<EyeOutlined />}
@@ -589,7 +773,9 @@ const PaymentManagement = () => {
               >
                 {/* View */}
               </Button>
+            </Tooltip>
 
+            <Tooltip title="Edit">
               <Button
                 size="large"
                 icon={<EditOutlined />}
@@ -600,59 +786,7 @@ const PaymentManagement = () => {
               >
                 {/* Edit */}
               </Button>
-            </Space>
-          );
-        }
-
-        // ✅ Verification Pending → Verify
-        if (record.status === "Verification Pending") {
-          return (
-            <Button
-              size="large"
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              onClick={() => {
-                setSelectedPayment({
-                  ...record,
-                  mode: "verify",
-                  paymentDate: record.date !== "-" ? record.date : null,
-                });
-                setIsModalOpen(true);
-              }}
-            >
-              Verify
-            </Button>
-          );
-        }
-
-        // ✅ Other statuses → View + Edit
-        return (
-          <Space>
-            <Button
-              size="large"
-              icon={<EyeOutlined />}
-              onClick={() => {
-                setSelectedPayment({
-                  ...record,
-                  mode: "view",
-                  type: activeTab, // ✅ ADD THIS
-                });
-                setIsModalOpen(true);
-              }}
-            >
-              {/* View */}
-            </Button>
-
-            <Button
-              size="large"
-              icon={<EditOutlined />}
-              onClick={() => {
-                setSelectedPayment({ ...record, mode: "edit" });
-                setIsModalOpen(true);
-              }}
-            >
-              {/* Edit */}
-            </Button>
+            </Tooltip>
           </Space>
         );
       },
@@ -840,13 +974,28 @@ const PaymentManagement = () => {
                   {stat.title}
                 </Text>
 
-                <Title level={3} style={{ margin: "6px 0" }}>
+                {/* <Title level={3} style={{ margin: "6px 0" }}>
                   ₹ {stat.amount.toLocaleString()}
-                </Title>
+                </Title> */}
 
-                <Text type="colorTextSecondary" style={{ fontSize: 12 }}>
-                  {stat.users} Users
-                </Text>
+                {stat.amount !== null && stat.amount !== undefined ? (
+                  // SUPERADMIN VIEW → SHOW AMOUNT BIG
+                  <Title level={3} style={{ margin: "6px 0" }}>
+                    ₹ {Number(stat.amount).toLocaleString("en-IN")}
+                  </Title>
+                ) : (
+                  // ADMIN VIEW → SHOW USERS BIG
+                  <Title level={3} style={{ margin: "6px 0" }}>
+                    {stat.users} Users
+                  </Title>
+                )}
+
+
+                {stat.amount !== null && stat.amount !== undefined && (
+                  <Text type="colorTextSecondary" style={{ fontSize: 12 }}>
+                    {stat.users} Users
+                  </Text>
+                )}
               </Card>
             </Col>
           ))}

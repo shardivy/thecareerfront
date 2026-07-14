@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from exam.models import Exam, UserExam
+from exam.models import CareerFuturaTest, Exam, UserExam
 
 
 
@@ -20,3 +20,11 @@ class UserExamAdmin(admin.ModelAdmin):
     autocomplete_fields = ("user", "exam", "approved_by")
     readonly_fields = ("completed_at",)
     ordering = ("-completed_at",)
+    
+@admin.register(CareerFuturaTest)
+class CareerFuturaTestAdmin(admin.ModelAdmin):
+    list_display = ("id", "student", "created_at")
+    list_filter = ("created_at",)
+    search_fields = ("student__user__first_name", "student__user__last_name", "student__user__email")
+    autocomplete_fields = ("student",)
+    readonly_fields = ("created_at",)

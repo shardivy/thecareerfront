@@ -1,5 +1,6 @@
 import traceback
 
+from django.db.migrations import serializer
 from django.shortcuts import get_object_or_404, render
 from backend import settings
 from payment.models import Payment
@@ -7,7 +8,7 @@ from payment.views import PaymentCreateAPIView
 from report.models import Report
 from counselling_slot.utils import generate_counselling_reminder, send_booking_created_email, send_booking_updated_email
 from lead_registration.models import StudentProfile
-from counselling_slot.tasks import create_system_notification, send_booking_cancel_notification
+from counselling_slot.tasks import create_system_notification, send_booking_cancel_notification, send_booking_created_email_task, send_booking_updated_email_task
 from django.db.transaction import on_commit
 from counselling_slot.services import get_counsellor_slots_by_date
 from rest_framework.views import APIView
@@ -1258,23 +1259,47 @@ class BookingCreateAPIView(APIView):
         serializer.is_valid(raise_exception=True)
 
         student = serializer.validated_data["student_id"]
+        program = serializer.validated_data["program"]
+        package = serializer.validated_data["package"]
         date = serializer.validated_data["date"]
         slots = serializer.validated_data["slots"]
         counsellors = serializer.validated_data["counsellors_data"]
 
         created_bookings = []
+        booking_ids = []
 
         with transaction.atomic():
 
             for slot in slots:
+# =========================================================================================================
+                # Lock slot row
+                locked_slot = Slot.objects.select_for_update().get(id=slot.id)
+
+                # Check whether slot already booked/rescheduled
+                already_booked = Booking.objects.filter(
+                    slot=locked_slot,
+                    status__in=["booked", "rescheduled"]
+                ).exists()
+
+                if already_booked:
+                    return Response(
+                        {
+                            "message": f"Slot {locked_slot.date} {locked_slot.start_time} is already booked."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+# ================================================================================================================================
                 for item in counsellors:
 
                     booking = Booking.objects.create(
                         student=student,
+                        program=program,
+                        package=package,
                         slot=slot,
                         date=date,
                         status="booked"
                     )
+                    booking_ids.append(booking.id)
 
                     BookingCounsellor.objects.create(
                         booking=booking,
@@ -1296,7 +1321,23 @@ class BookingCreateAPIView(APIView):
                     })
 
             # send email once
-            send_booking_created_email(student.user, slots, date)
+            # send_booking_created_email(student.user, slots, date)
+            # send_booking_created_email(
+            #     user=student.user,
+            #     booking=booking,
+            #     booking_slots=slots,
+            #     booking_date=date
+            # )
+            booking_ids_copy = booking_ids.copy()
+
+            def send_email():
+                try:
+                    send_booking_created_email_task.delay(booking_ids_copy)
+                    print("✅ Booking created email task queued successfully")
+                except Exception as e:
+                    print(f"❌ Error while queueing booking created email task: {str(e)}")
+
+            transaction.on_commit(send_email)
 
             student_name = f"{student.user.first_name} {student.user.last_name}"
 
@@ -1466,6 +1507,7 @@ class BookingCreateAPIView(APIView):
             )
 
         created_bookings = []
+        updated_booking_ids = []
 
         with transaction.atomic():
 
@@ -1489,6 +1531,7 @@ class BookingCreateAPIView(APIView):
                         counsellor=item["counsellor_id"],
                         role=item["role"]
                     )
+                    
 
                 created_bookings.append({
                     "booking_id": base_booking.id,
@@ -1501,12 +1544,30 @@ class BookingCreateAPIView(APIView):
                         "mode": slot.mode,
                     }
                 })
+                updated_booking_ids.append(base_booking.id)
 
-                send_booking_updated_email(
-                    student.user,
-                    slots,
-                    date
-                )
+                # send_booking_updated_email(
+                #     student.user,
+                #     slots,
+                #     date
+                # )
+                # send_booking_updated_email(
+                #     user=student.user,
+                #     booking_slots=slots,
+                #     booking_date=date
+                # )
+                
+
+                updated_booking_ids_copy = updated_booking_ids.copy()
+
+                def send_update_email():
+                    try:
+                        send_booking_updated_email_task.delay(updated_booking_ids_copy)
+                        print("✅ Booking update email task queued successfully")
+                    except Exception as e:
+                        print("❌ Error while sending booking update email:", str(e))
+
+                transaction.on_commit(send_update_email)
 
                 return Response(
                     {
@@ -1566,6 +1627,7 @@ class BookingCreateAPIView(APIView):
                         "mode": slot.mode,
                     }
                 })
+                updated_booking_ids.append(base_booking.id)
 
             # =====================================
             # BOOKED/COMPLETED → CANCEL + NEW ENTRY
@@ -1575,10 +1637,29 @@ class BookingCreateAPIView(APIView):
                 # old booking cancelled
                 base_booking.status = "cancelled"
                 base_booking.save(update_fields=["status"])
+# =========================================================================================================
+                locked_slot = Slot.objects.select_for_update().get(id=slot.id)
 
+                already_booked = Booking.objects.filter(
+                    slot=locked_slot,
+                    status__in=["booked", "rescheduled"]
+                ).exclude(
+                    id=booking_id
+                ).exists()
+
+                if already_booked:
+                    return Response(
+                        {
+                            "message": "This slot is already booked by another student."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+# ==========================================================================================================
                 # new rescheduled booking
                 new_booking = Booking.objects.create(
                     student=student,
+                    program=base_booking.program,
+                    package=base_booking.package,
                     slot=slot,
                     date=date,
                     status="rescheduled"
@@ -1601,6 +1682,7 @@ class BookingCreateAPIView(APIView):
                         "mode": slot.mode,
                     }
                 })
+                updated_booking_ids.append(new_booking.id)
                 
             else:
                 # Only counsellor changed → keep same booking
@@ -1630,11 +1712,15 @@ class BookingCreateAPIView(APIView):
                     }
                 })
 
-            send_booking_updated_email(
-                student.user,
-                slots,
-                date
-            )
+            updated_booking_ids_copy = updated_booking_ids.copy()
+
+            def send_update_email():
+                try:
+                    send_booking_updated_email_task.delay(updated_booking_ids_copy)
+                except Exception as e:
+                    print("Queue Error:", str(e))
+
+            transaction.on_commit(send_update_email)
 
         return Response(
             {
@@ -2024,7 +2110,7 @@ class BookingCreateAPIView(APIView):
 
         if booking_id:
             booking = get_object_or_404(
-                Booking.objects.select_related("student", "slot")
+                Booking.objects.select_related("student", "slot", "program", "package")
                 .prefetch_related(
                     "bookingcounsellor_set__counsellor__user"
                 ),
@@ -2046,7 +2132,7 @@ class BookingCreateAPIView(APIView):
         # =============================
 
         bookings = Booking.objects.select_related(
-            "student", "slot"
+            "student", "slot", "program", "package"
         ).prefetch_related(
             "bookingcounsellor_set__counsellor__user"
         ).order_by("-created_at")
@@ -2193,6 +2279,8 @@ class CancelBookingAPIView(APIView):
                 # =========================
                 cancelled_booking = Booking.objects.create(
                     student=booking.student,
+                    program=booking.program,
+                    package=booking.package,
                     slot=booking.slot,
                     date=booking.date,
                     status="cancelled"
@@ -2207,6 +2295,25 @@ class CancelBookingAPIView(APIView):
                         counsellor=counsellor.counsellor,
                         role=counsellor.role
                     )
+                    
+                # =========================
+                # 🔹 DELETE COUNSELLING NOTES & FILES
+                # =========================
+                notes = CounsellingNote.objects.filter(booking=booking)
+
+                for note in notes:
+                    if note.file1:
+                        note.file1.delete(save=False)
+                    if note.file2:
+                        note.file2.delete(save=False)
+                    if note.file3:
+                        note.file3.delete(save=False)
+                    if note.file4:
+                        note.file4.delete(save=False)
+                    if note.file5:
+                        note.file5.delete(save=False)
+
+                notes.delete()
 
                 # =========================
                 # 🔹 FREE SLOT
@@ -2734,53 +2841,6 @@ class StudentBookingListAPIView(APIView):
 class CounsellorStudentBookingListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
-    # def auto_complete_bookings(self):
-    #     now = timezone.now()
-
-    #     bookings = Booking.objects.filter(
-    #         status="booked",
-    #         slot__isnull=False
-    #     ).select_related("slot")
-
-    #     for booking in bookings:
-
-    #         end_time = booking.slot.end_time
-
-    #         # convert string → time safely
-    #         if isinstance(end_time, str):
-    #             try:
-    #                 end_time = datetime.strptime(
-    #                     end_time,
-    #                     "%I:%M %p"
-    #                 ).time()
-    #             except ValueError:
-    #                 end_time = datetime.strptime(
-    #                     end_time,
-    #                     "%H:%M:%S"
-    #                 ).time()
-
-    #         # combine date + time
-    #         end_datetime = datetime.combine(
-    #             booking.date,
-    #             end_time
-    #         )
-
-    #         # timezone safe
-    #         end_datetime = timezone.make_aware(
-    #             end_datetime,
-    #             timezone.get_current_timezone()
-    #         )
-
-    #         if timezone.is_naive(now):
-    #             now = timezone.make_aware(
-    #                 now,
-    #                 timezone.get_current_timezone()
-    #             )
-
-    #         if now >= (end_datetime - timedelta(minutes=30)):
-    #             booking.status = "completed"
-    #             booking.save(update_fields=["status"])
-
     def auto_complete_bookings(self):
         now = timezone.now()
 
@@ -2856,7 +2916,9 @@ class CounsellorStudentBookingListAPIView(APIView):
             status__in=["booked", "completed", "rescheduled"]
         ).select_related(
             "student__user",
-            "slot"
+            "slot",
+            "program",
+            "package"
         ).prefetch_related(
             "bookingcounsellor_set__counsellor__user"
         ).distinct().order_by("-date")
@@ -2922,7 +2984,7 @@ class CounsellorStudentBookingListAPIView(APIView):
             file_url = None
             file_name = None
 
-            if report.file_path:
+            if report and report.file_path:
                 try:
                     # ✅ Actual uploaded file name
                     file_name = os.path.basename(report.file_path.name)
@@ -2954,7 +3016,9 @@ class CounsellorCompletedStudentBookingListAPIView(APIView):
             status="completed"
         ).select_related(
             "student__user",
-            "slot"
+            "slot",
+            "program",
+            "package"
         ).prefetch_related(
             "bookingcounsellor_set__counsellor__user"
         ).distinct().order_by("-date")
@@ -3092,6 +3156,28 @@ class CounsellingNoteCreateView(APIView):
             )
 
         return Response(serializer.errors, status=400)
+    
+class StudentCounsellingNoteAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, student_id):
+
+        student = get_object_or_404(StudentProfile, id=student_id)
+
+        notes = (
+            CounsellingNote.objects
+            .filter(booking__student=student)
+            .select_related("booking", "counsellor", "program", "package")
+            .order_by("-created_at")
+        )
+
+        serializer = CounsellingNoteSerializer(
+            notes,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 @method_decorator(xframe_options_exempt, name="dispatch")
 class CounsellingNoteFileView(APIView):
@@ -3590,89 +3676,227 @@ class CreateSlotAPIView(APIView):
         
 # views.py
 
-class SendReminderAPIView(APIView):
-    """
-    Send reminder email using provided booking_id,
-    but always fetch FIRST booking entry of that student
-    """
+# class SendReminderAPIView(APIView):
+#     """
+#     Send reminder email using provided booking_id,
+#     but always fetch FIRST booking entry of that student
+#     """
 
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request, booking_id):
+
+#         # ==========================================
+#         # 🔹 GET CURRENT BOOKING
+#         # ==========================================
+#         current_booking = get_object_or_404(
+#             Booking,
+#             id=booking_id
+#         )
+
+#         student_profile = current_booking.student
+#         user = student_profile.user
+
+#         # ==========================================
+#         # 🔹 EMAIL CHECK
+#         # ==========================================
+#         if not user.email:
+#             return Response(
+#                 {
+#                     "message": "Student email not found"
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # ==========================================
+#         # 🔹 GET FIRST BOOKING ENTRY OF STUDENT
+#         # ==========================================
+#         booking = (
+#             Booking.objects
+#             .filter(
+#                 student=student_profile
+#             )
+#             .select_related("slot")
+#             .order_by("id")   # ✅ FIRST booking entry
+#             .first()
+#         )
+
+#         if not booking:
+#             return Response(
+#                 {
+#                     "message": "No booking found for this student"
+#                 },
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         booking_status = booking.status
+
+#         # ==========================================
+#         # 🔹 SLOT VALIDATION
+#         # ==========================================
+#         slot = booking.slot if booking.slot else None
+
+#         if booking_status in ["booked", "rescheduled"]:
+
+#             if not slot or slot.is_deleted:
+#                 return Response(
+#                     {
+#                         "message": "Valid slot not found for booked/rescheduled status"
+#                     },
+#                     status=status.HTTP_404_NOT_FOUND
+#                 )
+
+#         # ==========================================
+#         # 🔹 GENERATE REMINDER
+#         # ==========================================
+#         reminder_data = generate_counselling_reminder(
+#             slot,
+#             student_profile,
+#             booking_status
+#         )
+
+#         # ==========================================
+#         # 🔹 SEND EMAIL
+#         # ==========================================
+#         try:
+#             email = EmailMessage(
+#                 subject=reminder_data["subject"],
+#                 body=reminder_data["message"],
+#                 from_email=settings.DEFAULT_FROM_EMAIL,
+#                 to=[user.email],
+#             )
+
+#             email.send(fail_silently=False)
+
+#             print("========== REMINDER EMAIL SENT ==========")
+#             print("Requested Booking ID:", booking_id)
+#             print("First Booking ID:", booking.id)
+#             print("Student ID:", student_profile.id)
+#             print("Booking Status:", booking_status)
+#             print("Recipient:", user.email)
+#             print("=========================================")
+
+#         except Exception as e:
+#             print("EMAIL ERROR:", str(e))
+
+#             return Response(
+#                 {
+#                     "message": "Failed to send reminder email",
+#                     "error": str(e)
+#                 },
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#             )
+
+#         # ==========================================
+#         # 🔹 RESPONSE
+#         # ==========================================
+#         return Response(
+#             {
+#                 "message": "Reminder email sent successfully",
+#                 "requested_booking_id": booking_id,
+#                 "first_booking_id": booking.id,
+#                 "booking_status": booking.status,
+#                 "student_id": student_profile.id,
+#                 "student_name": f"{user.first_name} {user.last_name}",
+#                 "email": user.email,
+#                 "phone": user.phone,
+#                 "preferred_counselling_mode": (
+#                     student_profile.preferred_counselling_mode
+#                 ),
+#                 "slot_id": slot.id if slot else None,
+#                 "slot_date": slot.date if slot else None,
+#                 "slot_start_time": slot.start_time if slot else None,
+#                 "slot_end_time": slot.end_time if slot else None,
+#                 "slot_mode": slot.mode if slot else None,
+#                 "subject": reminder_data["subject"],
+#                 "reminder_text": reminder_data["message"]
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
+class SendReminderAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, booking_id):
-
-        # ==========================================
-        # 🔹 GET CURRENT BOOKING
-        # ==========================================
-        current_booking = get_object_or_404(
-            Booking,
-            id=booking_id
-        )
-
-        student_profile = current_booking.student
-        user = student_profile.user
-
-        # ==========================================
-        # 🔹 EMAIL CHECK
-        # ==========================================
-        if not user.email:
-            return Response(
-                {
-                    "message": "Student email not found"
-                },
-                status=status.HTTP_400_BAD_REQUEST
+        try:
+            # ==========================================
+            # GET CURRENT BOOKING
+            # ==========================================
+            current_booking = get_object_or_404(
+                Booking.objects.select_related("student__user"),
+                id=booking_id
             )
 
-        # ==========================================
-        # 🔹 GET FIRST BOOKING ENTRY OF STUDENT
-        # ==========================================
-        booking = (
-            Booking.objects
-            .filter(
-                student=student_profile
-            )
-            .select_related("slot")
-            .order_by("id")   # ✅ FIRST booking entry
-            .first()
-        )
+            student_profile = current_booking.student
+            user = student_profile.user
 
-        if not booking:
-            return Response(
-                {
-                    "message": "No booking found for this student"
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        booking_status = booking.status
-
-        # ==========================================
-        # 🔹 SLOT VALIDATION
-        # ==========================================
-        slot = booking.slot if booking.slot else None
-
-        if booking_status in ["booked", "rescheduled"]:
-
-            if not slot or slot.is_deleted:
+            if not user.email:
                 return Response(
-                    {
-                        "message": "Valid slot not found for booked/rescheduled status"
-                    },
-                    status=status.HTTP_404_NOT_FOUND
+                    {"message": "Student email not found"},
+                    status=status.HTTP_400_BAD_REQUEST
                 )
 
-        # ==========================================
-        # 🔹 GENERATE REMINDER
-        # ==========================================
-        reminder_data = generate_counselling_reminder(
-            slot,
-            student_profile,
-            booking_status
-        )
+            # ==========================================
+            # GET FIRST BOOKING OF STUDENT
+            # ==========================================
+            # booking = (
+            #     Booking.objects
+            #     .filter(student=student_profile)
+            #     .select_related("slot")
+            #     .order_by("id")
+            #     .first()
+            # )
 
-        # ==========================================
-        # 🔹 SEND EMAIL
-        # ==========================================
-        try:
+            # if not booking:
+            #     return Response(
+            #         {"message": "No booking found"},
+            #         status=status.HTTP_404_NOT_FOUND
+            #     )
+            
+            booking = current_booking
+            booking_status = booking.status
+            slot = booking.slot
+            program = booking.program
+            package = booking.package
+
+            booking_status = booking.status
+            slot = booking.slot
+
+            # ==========================================
+            # SLOT VALIDATION
+            # ==========================================
+            if booking_status in ["booked", "rescheduled"]:
+                if not slot:
+                    return Response(
+                        {"message": "Slot not assigned"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if slot.is_deleted:
+                    return Response(
+                        {"message": "Slot is deleted"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            # ==========================================
+            # GENERATE REMINDER
+            # ==========================================
+            # reminder_data = generate_counselling_reminder(
+            #     slot,
+            #     student_profile,
+            #     booking_status
+            # )
+            reminder_data = generate_counselling_reminder(
+                slot=slot,
+                student_profile=student_profile,
+                booking_status=booking_status,
+                program=booking.program,
+                package=booking.package,
+            )
+
+            # ==========================================
+            # SEND EMAIL
+            # ==========================================
             email = EmailMessage(
                 subject=reminder_data["subject"],
                 body=reminder_data["message"],
@@ -3682,52 +3906,23 @@ class SendReminderAPIView(APIView):
 
             email.send(fail_silently=False)
 
-            print("========== REMINDER EMAIL SENT ==========")
-            print("Requested Booking ID:", booking_id)
-            print("First Booking ID:", booking.id)
-            print("Student ID:", student_profile.id)
-            print("Booking Status:", booking_status)
-            print("Recipient:", user.email)
-            print("=========================================")
+            return Response(
+                {
+                    "message": "Reminder email sent successfully"
+                },
+                status=status.HTTP_200_OK
+            )
 
         except Exception as e:
-            print("EMAIL ERROR:", str(e))
+            print(traceback.format_exc())
 
             return Response(
                 {
-                    "message": "Failed to send reminder email",
+                    "message": "Failed to send reminder",
                     "error": str(e)
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-        # ==========================================
-        # 🔹 RESPONSE
-        # ==========================================
-        return Response(
-            {
-                "message": "Reminder email sent successfully",
-                "requested_booking_id": booking_id,
-                "first_booking_id": booking.id,
-                "booking_status": booking.status,
-                "student_id": student_profile.id,
-                "student_name": f"{user.first_name} {user.last_name}",
-                "email": user.email,
-                "phone": user.phone,
-                "preferred_counselling_mode": (
-                    student_profile.preferred_counselling_mode
-                ),
-                "slot_id": slot.id if slot else None,
-                "slot_date": slot.date if slot else None,
-                "slot_start_time": slot.start_time if slot else None,
-                "slot_end_time": slot.end_time if slot else None,
-                "slot_mode": slot.mode if slot else None,
-                "subject": reminder_data["subject"],
-                "reminder_text": reminder_data["message"]
-            },
-            status=status.HTTP_200_OK
-        )
-
 
 
 

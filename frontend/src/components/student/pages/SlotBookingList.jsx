@@ -61,12 +61,55 @@ const SlotBookingList = () => {
       : []
   );
 
+  // Read selected program/package from localStorage to filter displayed slots
+  const selectedProgramId = Number(localStorage.getItem("selectedProgramId")) || null;
+  const selectedPackageId = Number(localStorage.getItem("selectedPackageId")) || null;
+
+  // Filter sessions so student only sees slots for the selected program/package (if provided)
+  const sessionsFilteredBySelection = Array.isArray(sessions)
+    ? sessions.filter((s) => {
+      const progId = s?.program_detail?.id ? Number(s.program_detail.id) : null;
+      const packId = s?.package_detail?.id ? Number(s.package_detail.id) : null;
+
+      // If both selected, require exact match on both
+      if (selectedProgramId && selectedPackageId) {
+        return progId === selectedProgramId && packId === selectedPackageId;
+      }
+
+      // If only program selected
+      if (selectedProgramId) return progId === selectedProgramId;
+
+      // If only package selected
+      if (selectedPackageId) return packId === selectedPackageId;
+
+      // No selection → show all
+      return true;
+    })
+    : [];
+
   const loading = useSelector((state) => state.counsellingBooking.loading);
   const { journey } = useSelector((state) => state.users);
 
-const isReportAvailable =
-  journey?.progress?.report === "received_locked" ||
-  journey?.progress?.report === "received_unlocked";
+  // const isReportAvailable =
+  //   journey?.progress?.report === "received_locked" ||
+  //   journey?.progress?.report === "received_unlocked";
+
+
+  const matchedJourney = journey?.journeys?.find(
+    (item) =>
+      Number(item.program_id) === selectedProgramId &&
+      Number(item.package_id) === selectedPackageId
+  );
+
+  const reportStatus = matchedJourney?.progress?.report;
+
+  const isReportAvailable =
+    reportStatus === "received_locked" ||
+    reportStatus === "received_unlocked";
+
+
+  const shouldDisableBookSession =
+    aptitudeTestCompleted && !isReportAvailable;
 
   useEffect(() => {
     if (studentId) {
@@ -83,7 +126,7 @@ const isReportAvailable =
     return () => clearInterval(timer);
   }, []);
 
-  const mappedSessions = sessions.map((s) => ({
+  const mappedSessions = sessionsFilteredBySelection.map((s) => ({
     ...s,
     key: s.id,
     // counsellorsList: Array.isArray(s.counsellors)
@@ -95,23 +138,23 @@ const isReportAvailable =
     //   : [],
 
     counsellorsList: Array.isArray(s.counsellors)
-  ? s.counsellors
-      .filter((c) => c.role !== "assistant") // hide assistant counsellor
-      .map((c) => ({
-        id: c.counsellor?.id,
-        name: `${c.counsellor?.first_name || ""} ${c.counsellor?.last_name || ""}`,
-        role: c.role,
-      }))
-  : [],
+      ? s.counsellors
+        .filter((c) => c.role !== "assistant") // hide assistant counsellor
+        .map((c) => ({
+          id: c.counsellor?.id,
+          name: `${c.counsellor?.first_name || ""} ${c.counsellor?.last_name || ""}`,
+          role: c.role,
+        }))
+      : [],
     mode: s.preferred_counselling_mode
       ? s.preferred_counselling_mode.charAt(0).toUpperCase() + s.preferred_counselling_mode.slice(1)
       : "N/A",
     rawMode: s.preferred_counselling_mode || "offline",
     // time: s.start_time && s.end_time ? `${s.start_time} - ${s.end_time}` : "N/A",
     time: s.start_time || "N/A",
-     date: s.slot_date
-    ? dayjs(s.slot_date).format("DD MMM YYYY")
-    : "N/A",
+    date: s.slot_date
+      ? dayjs(s.slot_date).format("DD MMM YYYY")
+      : "N/A",
     status: s.status || "not_booked",
     zoomLink: s.meeting_link || "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
   }));
@@ -142,9 +185,9 @@ const isReportAvailable =
   //   !isReportUnlocked;
 
   const shouldBlockBookingUntilReportUnlock =
-  isNotBooked &&
-  (aptitudeTestCompleted || engineeringTestAnalysisEnabled) &&
-  !isReportAvailable;
+    isNotBooked &&
+    (aptitudeTestCompleted) &&
+    !isReportAvailable;
 
   const formatStatus = (status) => {
     if (!status) return "";
@@ -208,7 +251,7 @@ const isReportAvailable =
 
   const notBookedMessage = shouldBlockBookingUntilReportUnlock ? (
     <>
-      Your Analysis report is not unlocked yet.
+      Your Analysis report is not uploaded yet.
       <br />
       <b>You will be able to book a session once your report is uploaded.</b>
     </>
@@ -218,6 +261,7 @@ const isReportAvailable =
       <b> Book Session </b> button below.
     </>
   );
+
 
   return (
     <div style={{ padding: screens.md ? 24 : 12 }}>
@@ -287,12 +331,21 @@ const isReportAvailable =
         </div>
       ) : showBookUI ? (
         <div style={{ textAlign: "center", padding: 40 }}>
-          <Empty
+          {/* <Empty
             description={
-              <Text type="secondary">
+              <Text type="colorTextSecondary">
                 No sessions found.
                 <br />
                 You can book your counselling session now.
+              </Text>
+            }
+          /> */}
+          <Empty
+            description={
+              <Text type="colorTextSecondary">
+                Counselling sessions are currently unavailable.
+                <br />
+                You will be able to book a slot once your report is uploaded.
               </Text>
             }
           />
@@ -302,6 +355,7 @@ const isReportAvailable =
               type="primary"
               icon={<PlusOutlined />}
               size="large"
+              disabled
               onClick={() => {
                 setRescheduleData(null);
                 setIsModalOpen(true);
@@ -593,6 +647,8 @@ const isReportAvailable =
       >
         <BookSessionModal
           rescheduleData={rescheduleData}
+          selectedProgramId={selectedProgramId}
+          selectedPackageId={selectedPackageId}
           closeModal={() => setIsModalOpen(false)}
           onSave={() => dispatch(fetchStudentCounsellingBookings(studentId))}
         />

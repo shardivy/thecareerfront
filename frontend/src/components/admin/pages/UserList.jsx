@@ -13,6 +13,7 @@ import {
   Modal,
   message,
   Space,
+  Divider,
 } from "antd";
 import {
   EyeOutlined,
@@ -26,6 +27,10 @@ import {
   DeleteOutlined,
   CloseCircleOutlined,
   MinusCircleOutlined,
+  DownOutlined,
+  CalendarOutlined,
+  SyncOutlined,
+
 } from "@ant-design/icons";
 import adminTheme from "../../../theme/adminTheme";
 import UserProfileModal from "../modals/UserProfileModal";
@@ -71,12 +76,22 @@ const UserList = () => {
   const filteredData = users.filter((user) => {
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
-    const program = typeof user.program === "string"
-      ? user.program
-      : user.program?.name || "";
-    const packageName = typeof user.package === "string"
-      ? user.package
-      : user.package?.name || "";
+    const program = Array.isArray(user.programs) && user.programs.length > 0
+      ? user.programs
+        .map((item) => item.program_name || item.program?.name)
+        .filter(Boolean)
+        .join(", ")
+      : typeof user.program === "string"
+        ? user.program
+        : user.program?.name || "";
+    const packageName = Array.isArray(user.programs) && user.programs.length > 0
+      ? user.programs
+        .map((item) => item.package?.name || item.package_name)
+        .filter(Boolean)
+        .join(", ")
+      : typeof user.package === "string"
+        ? user.package
+        : user.package?.name || "";
     const email = user.email || "";
 
     const fullName = `${firstName} ${lastName}`.toLowerCase();
@@ -117,53 +132,114 @@ const UserList = () => {
   const handleExportUsers = () => {
     if (!filteredData.length) return;
 
-    const exportData = filteredData.map((user, index) => ({
-      "Sr. No": index + 1,
-      "Name": `${user.first_name || ""} ${user.last_name || ""}`,
-      "Email": user.email,
-      "Program": user.program,
-      "Counselling Service": user.package,
-      "Preferred Counselling Mode": user.preferred_counselling_mode,
-      "Payment Status": user.paymentStatus,
-      "Payment Amount": user.total_paid_amount,
-      "Exam Status": user.examStatus,
-      "Report Status": user.reportStatus,
-      // "Review": user.review || "-",
-      "Slot Status": user.slotStatus || "-",
-      "Journey Status": user.journeyStatus || "-",
-      "Questionnaire Status": user.analysis_status || "-",
+    const exportData = [];
 
-    }));
+    filteredData.forEach((user, userIndex) => {
+      if (user.programs?.length > 0) {
+        user.programs.forEach((program, programIndex) => {
+          exportData.push({
+            "User Sr No": userIndex + 1,
+            "Name": `${user.first_name || ""} ${user.last_name || ""}`,
+            "Email": user.email || "",
+            "Program":
+              program.program_name ||
+              program.program?.name ||
+              "-",
+            "Counselling Service":
+              program.package?.name ||
+              program.package_name ||
+              "-",
+            "Preferred Counselling Mode":
+              user.preferred_counselling_mode || "-",
+            "Payment Status": user.paymentStatus || "-",
+            "Payment Amount": user.total_paid_amount || "-",
+            "Exam Status": (() => {
+              const exam = program.exam_status;
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData, { origin: "A3" });
+              if (!exam) return "-";
 
-    // 🔥 Add Export Date (12hr AM/PM format)
+              if (typeof exam === "object") {
+                if (Number(exam.completed) > 0) return "Completed";
+                if (Number(exam.in_progress) > 0) return "In Progress";
+                if (Number(exam.pending_approval) > 0) return "Pending Approval";
+                if (Number(exam.not_started) > 0) return "Not Started";
+
+                const values = Object.values(exam);
+                if (values.every(v => v === "not_applicable")) {
+                  return "Not Applicable";
+                }
+              }
+
+              return exam;
+            })(),
+            "Report Status":
+              typeof program.report_status === "object"
+                ? Object.values(program.report_status).join(", ")
+                : program.report_status || "-",
+            "Questionnaire Status":
+              program.analysis_status || "-",
+            "Counselling Booking Status":
+              program.slot_status || "-",
+            "Journey Status":
+              program.journey_status || "-",
+            "Created At":
+              user.created_at
+                ? dayjs(user.created_at).format(
+                  "DD MMM YYYY hh:mm A"
+                )
+                : "-",
+          });
+        });
+      } else {
+        exportData.push({
+          "User Sr No": userIndex + 1,
+          "Name": `${user.first_name || ""} ${user.last_name || ""}`,
+          "Email": user.email || "",
+          "Program": "-",
+          "Counselling Service": "-",
+          "Preferred Counselling Mode":
+            user.preferred_counselling_mode || "-",
+        });
+      }
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData, {
+      origin: "A4",
+    });
+
     XLSX.utils.sheet_add_aoa(
       worksheet,
       [
-        [`Exported On: ${dayjs().format("YYYY-MM-DD hh:mm A")}`],
-        [`Total Records: ${filteredData.length}`],
+        [`Exported On: ${dayjs().format("DD MMM YYYY hh:mm A")}`],
+        [`Total Users: ${filteredData.length}`],
+        [`Total Program Records: ${exportData.length}`],
         [],
       ],
       { origin: "A1" }
     );
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "User List");
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Students Report"
+    );
 
     const excelBuffer = XLSX.write(workbook, {
       bookType: "xlsx",
       type: "array",
     });
 
-    const fileData = new Blob([excelBuffer], {
-      type:
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
-    });
-
-    saveAs(fileData, `User List Report.xlsx`);
+    saveAs(
+      new Blob([excelBuffer], {
+        type:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8",
+      }),
+      `Students_Report_${dayjs().format(
+        "YYYYMMDD_HHmm"
+      )}.xlsx`
+    );
   };
-
 
 
 
@@ -190,14 +266,35 @@ const UserList = () => {
     },
 
     {
-      title: "Program / Counselling Service ",
-      width: 180,
+      title: "Program / Counselling Service",
+      width: 240,
       key: "program",
       render: (_, record) => (
         <div>
-          <Text strong>{record.program}</Text>
-          <br />
-          <Text type="colorTextSecondary">{record.package}</Text>
+          {Array.isArray(record.programs) && record.programs.length > 0 ? (
+            record.programs.map((item, idx) => (
+              <div key={idx}>
+                <div style={{ marginBottom: 10 }}>
+                  <Text strong>
+                    {`${idx + 1}. ${item.program_name || item.program?.name || "-"}`}
+                  </Text>
+                  <br />
+                  <Text type="colorTextSecondary">
+                    {item.package?.name || item.package_name || "-"}
+                  </Text>
+                </div>
+                {idx !== record.programs.length - 1 && (
+                  <Divider style={{ margin: "10px 0" }} />
+                )}
+              </div>
+            ))
+          ) : (
+            <>
+              <Text strong>{record.program || "N/A"}</Text>
+              <br />
+              <Text type="colorTextSecondary">{record.package || "N/A"}</Text>
+            </>
+          )}
         </div>
       ),
     },
@@ -243,153 +340,250 @@ const UserList = () => {
     },
     {
       title: "Exam Status",
-      dataIndex: "examStatus",
       key: "examStatus",
-      render: (status) => {
-        const formattedStatus =
-          status === "Not Applicable"
-            ? (
-              <>
-                Not <br />
-                Applicable
-              </>
-            )
-            : status;
+      render: (_, record) => (
+        <>
+          {record.programs?.map((item, idx) => {
+            const exam = item.exam_status;
 
-        return (
-          <Tag
-            icon={
-              status === "Completed" ? (
-                <CheckCircleOutlined />
-              ) : status === "Not Applicable" ? (
-                <CloseCircleOutlined />
-              ) : (
-                <ClockCircleOutlined />
-              )
+            let status = "Not Started";
+
+            if (exam === "not_applicable") {
+              status = "Not Applicable";
+            } else if (typeof exam === "object") {
+              if (Number(exam.completed) > 0) {
+                status = "Completed";
+              } else if (Number(exam.in_progress) > 0) {
+                status = "In Progress";
+              } else if (Number(exam.pending_approval) > 0) {
+                status = "Pending Approval";
+              } else if (Number(exam.not_started) > 0) {
+                status = "Not Started";
+              }
             }
-            color={
-              status === "Completed"
-                ? "success"
-                : status === "Not Applicable"
-                  ? "error"
-                  : "warning"
-            }
-            style={{ textAlign: "center", lineHeight: "16px" }}
-          >
-            {formattedStatus}
-          </Tag>
-        );
-      },
+
+            return (
+              <React.Fragment key={idx}>
+                {idx > 0 && (
+                  <Divider dashed style={{ margin: "8px 0" }} />
+                )}
+
+                <Tag
+                  icon={
+                    status === "Completed" ? (
+                      <CheckCircleOutlined />
+                    ) : status === "Not Applicable" ? (
+                      <CloseCircleOutlined />
+                    ) : (
+                      <ClockCircleOutlined />
+                    )
+                  }
+                  color={
+                    status === "Completed"
+                      ? "success"
+                      : status === "Not Applicable"
+                        ? "error"
+                        : status === "Pending Approval"
+                          ? "warning"
+                          : status === "In Progress"
+                            ? "processing"
+                            : "default"
+                  }
+                  style={{
+                    textAlign: "center",
+                    lineHeight: "16px",
+                  }}
+                >
+                  {status === "Not Applicable" ? (
+                    <>
+                      Not <br />
+                      Applicable
+                    </>
+                  ) : (
+                    status
+                  )}
+                </Tag>
+              </React.Fragment>
+            );
+          })}
+        </>
+      ),
     },
+ 
     {
       title: "Report Status",
-      dataIndex: "reportStatus",
-      key: "report",
-      render: (status) => {
-        const normalizedStatus = status?.toLowerCase()?.trim();
-
-        let color = "default";
-        let icon = <LockOutlined />;
-        let label = status;
-
-        if (normalizedStatus === "received_unlocked") {
-          color = "success";
-          icon = <UnlockOutlined />;
-          label = "Received & Unlocked";
-        }
-        else if (normalizedStatus === "received_locked") {
-          color = "processing";
-          icon = <LockOutlined />;
-          label = "Received & Locked";
-        }
-        else if (normalizedStatus === "not_received") {
-          color = "error";
-          icon = <CloseCircleOutlined />;
-          label = "Not Received";
-        }
-         else if (normalizedStatus === "not_applicable") {
-    color = "default";
-    icon = <MinusCircleOutlined />;
-    label = (
-      <>
-        Not <br />
-        Applicable
-      </>
-    );
-  }
-
-        return (
-          <Tag
-            icon={icon}
-            color={color}
-            style={{
-              textAlign: "center",
-              whiteSpace: "normal",
-              lineHeight: "16px",
-              padding: "4px 8px",
-            }}
-          >
-            {label}
-          </Tag>
-        );
-      },
-    },
-{
-  title: "Questionnaire Status",
-  width: 150,
-  dataIndex: "analysis_status",
-  key: "analysis_status",
-  render: (status, record) => {
-    console.log("analysis_status:", record.analysis_status);
-
-    const normalized = status?.toLowerCase()?.trim();
-
-    let color = "default";
-    let icon = <ClockCircleOutlined />;
-    let label = "—";
-
-    if (normalized === "completed") {
-      color = "success";
-      icon = <CheckCircleOutlined />;
-      label = "Completed";
-    } 
-    else if (normalized === "not_started") {
-      color = "default"; // ⚪ neutral
-      icon = <MinusCircleOutlined />; // ⭕ different icon
-      label = "Not Started";
-    } 
-    else if (normalized === "in_progress") {
-      color = "processing"; // 🔵 different from warning
-      icon = <ClockCircleOutlined />;
-      label = "In Progress";
-    } 
-    // else if (normalized === "not_completed") {
-    //   color = "warning"; // 🟡 separate meaning
-    //   icon = <CloseCircleOutlined />;
-    //   label = "Not Completed";
-    // } 
-    else if (normalized === "not_applicable") {
-      color = "default";
-      icon = <MinusCircleOutlined />;
-      label = (
+      key: "reportStatus",
+      render: (_, record) => (
         <>
-          Not <br />
-          Applicable
-        </>
-      );
-    }
+          {record.programs?.map((item, idx) => {
+            const reportStatus = item.report_status;
 
-    return (
-      <Tag
-        icon={icon}
-        color={color}
-        style={{ textAlign: "center", lineHeight: "16px" }}
-      >
-        {label}
-      </Tag>
-    );
-  },
-},
+            const renderReportTag = (status) => {
+              const normalizedStatus = status?.toLowerCase()?.trim();
+
+              let color = "default";
+              let icon = <LockOutlined />;
+              let label = status;
+
+              if (normalizedStatus === "received_unlocked") {
+                color = "success";
+                icon = <UnlockOutlined />;
+                label = "Received & Unlocked";
+              } else if (normalizedStatus === "received_locked") {
+                color = "processing";
+                icon = <LockOutlined />;
+                label = "Received & Locked";
+              } else if (normalizedStatus === "not_received") {
+                color = "default";
+                icon = <CloseCircleOutlined />;
+                label = "Not Received";
+              } else if (normalizedStatus === "all_received") {
+                color = "success";
+                icon = <UnlockOutlined />;
+                label = "All Received";
+              }  else if (normalizedStatus === "v1_received") {
+  color = "success";
+  icon = <CheckCircleOutlined />;
+  label = "V1 Received";
+} else if (normalizedStatus === "v2_received") {
+  color = "success";
+  icon = <CheckCircleOutlined />;
+  label = "V2 Received";
+} else if (normalizedStatus === "v3_received") {
+  color = "success";
+  icon = <CheckCircleOutlined />;
+  label = "V3 Received";
+} else if (normalizedStatus === "in_progress") {
+  color = "processing";
+  icon = <ClockCircleOutlined />;
+  label = "In Progress";
+} 
+              
+              else if (normalizedStatus === "v1_not_received") {
+                color = "error";
+                icon = <CloseCircleOutlined />;
+                label = "V1 Not Received";
+              } else if (normalizedStatus === "v2_not_received") {
+                color = "error";
+                icon = <CloseCircleOutlined />;
+                label = "V2 Not Received";
+              } else if (normalizedStatus === "v3_not_received") {
+                color = "error";
+                icon = <CloseCircleOutlined />;
+                label = "V3 Not Received";
+              } else if (normalizedStatus === "not_applicable") {
+                color = "default";
+                icon = <MinusCircleOutlined />;
+                label = (
+                  <>
+                    Not <br />
+                    Applicable
+                  </>
+                );
+              }
+
+              return (
+                <Tag
+                  icon={icon}
+                  color={color}
+                  style={{
+                    marginBottom: 4,
+                    whiteSpace: "normal",
+                    lineHeight: "16px",
+                  }}
+                >
+                  {label}
+                </Tag>
+              );
+            };
+
+            return (
+              <div key={idx}>
+                {idx > 0 && (
+                  <Divider dashed style={{ margin: "8px 0" }} />
+                )}
+
+                {typeof reportStatus === "object" ? (
+                  <>
+                    {renderReportTag(reportStatus.v1)}
+                    <br />
+                    {renderReportTag(reportStatus.v2)}
+                    <br />
+                    {renderReportTag(reportStatus.v3)}
+                  </>
+                ) : (
+                  renderReportTag(reportStatus)
+                )}
+              </div>
+            );
+          })}
+        </>
+      ),
+    },
+
+    {
+      title: "Questionnaire Status",
+      key: "analysis_status",
+      render: (_, record) => (
+        <>
+          {record.programs?.map((item, idx) => {
+            const status = item.analysis_status;
+            const normalized = status?.toLowerCase()?.trim();
+
+            let color = "default";
+            let icon = <ClockCircleOutlined />;
+            let label = "—";
+
+            if (normalized === "completed") {
+              color = "success";
+              icon = <CheckCircleOutlined />;
+              label = "Completed";
+            } else if (normalized === "not_started") {
+              color = "default";
+              icon = <MinusCircleOutlined />;
+              label = "Not Started";
+            } else if (normalized === "in_progress") {
+              color = "processing";
+              icon = <ClockCircleOutlined />;
+              label = "In Progress";
+            } else if (normalized === "not_applicable") {
+              color = "error";
+              icon = <CloseCircleOutlined />;
+              label = (
+                <>
+                  Not <br />
+                  Applicable
+                </>
+              );
+            } else {
+              color = "default";
+              icon = <MinusCircleOutlined />;
+              label = status || "—";
+            }
+
+
+            return (
+              <div key={idx}>
+                {idx > 0 && (
+                  <Divider dashed style={{ margin: "8px 0" }} />
+                )}
+
+                <Tag
+                  icon={icon}
+                  color={color}
+                  style={{
+                    textAlign: "center",
+                    lineHeight: "16px",
+                  }}
+                >
+                  {label}
+                </Tag>
+              </div>
+            );
+          })}
+        </>
+      ),
+    },
     // {
     //   title: "Review",
     //   dataIndex: "review",
@@ -398,55 +592,124 @@ const UserList = () => {
     // },
     {
       title: "Counselling Booking Status",
-      dataIndex: "slotStatus",
       key: "slotStatus",
-      width: 100,
-      render: (status) => {
-        let color = "default";
+      render: (_, record) => (
+        <>
+          {record.programs?.map((item, idx) => {
+            const status = item.slot_status;
 
-        if (status === "Booked") color = "processing";
-        else if (status === "Pending") color = "warning";
-        else if (status === "Rescheduled") color = "purple";
-        else if (status === "Completed") color = "success";
-        else if (status === "Not Booked") color = "default";
+            const label = status
+              ? status
+                .split("_")
+                .map(
+                  word =>
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                )
+                .join(" ")
+              : "—";
 
-        return <Tag color={color}>{status || "—"}</Tag>;
-      },
+            let color = "default";
+            let icon = <MinusCircleOutlined />;
+
+            if (status === "booked") {
+              color = "processing";
+              icon = <CalendarOutlined />;
+            } else if (status === "pending") {
+              color = "warning";
+              icon = <ClockCircleOutlined />;
+            } else if (status === "rescheduled") {
+              color = "purple";
+              icon = <SyncOutlined spin />;
+            } else if (status === "completed") {
+              color = "success";
+              icon = <CheckCircleOutlined />;
+            } else if (status === "not_booked") {
+              color = "default";
+              icon = <MinusCircleOutlined />;
+            }
+
+            return (
+              <div key={idx}>
+                {idx > 0 && (
+                  <Divider dashed style={{ margin: "8px 0" }} />
+                )}
+
+                <Tag
+                  icon={icon}
+                  color={color}
+                  style={{
+                    textAlign: "center",
+                    lineHeight: "16px",
+                  }}
+                >
+                  {label}
+                </Tag>
+              </div>
+            );
+          })}
+        </>
+      ),
     },
-
     {
       title: "Journey Status",
-      dataIndex: "journeyStatus",
       key: "journeyStatus",
-      render: (status) => {
-        let color = "default";
+      render: (_, record) => (
+        <>
+          {record.programs?.map((item, idx) => {
+            const status = item.journey_status;
 
-        if (status === "Full Access") color = "success";
-        else if (status === "Counselling Slot Booking") color = "processing";
-        else if (status === "Exam") color = "warning";
-        else if (status === "Payment") color = "#722ed1";
-        else if (status === "Counselling Service Selection") color = "cyan"; // new status color
+            let color = "default";
+            let icon = <MinusCircleOutlined />;
 
-        // Format multi-word statuses: split each word into <br />
-        const formattedStatus =
-          status && typeof status === "string" && status.includes(" ")
-            ? status.split(" ").map((word, idx) => (
-              <React.Fragment key={idx}>
-                {word}
-                <br />
-              </React.Fragment>
-            ))
-            : status;
+            const normalized = (status || "").toLowerCase();
 
-        return (
-          <Tag
-            color={color}
-            style={{ textAlign: "center", lineHeight: "16px" }}
-          >
-            {formattedStatus || "—"}
-          </Tag>
-        );
-      },
+            if (normalized === "full access") {
+              color = "success";
+              icon = <CheckCircleOutlined />;
+            } else if (normalized === "counselling slot booking") {
+              color = "processing";
+              icon = <CalendarOutlined />;
+            } else if (normalized === "exam") {
+              color = "warning";
+              icon = <ClockCircleOutlined />;
+            } else if (normalized === "payment") {
+              color = "purple";
+              icon = <LockOutlined />;
+            } else if (
+              normalized === "counselling service selection"
+            ) {
+              color = "cyan";
+              icon = <EditOutlined />;
+            }
+
+            return (
+              <div key={idx}>
+                {idx > 0 && (
+                  <Divider
+                    dashed
+                    style={{
+                      margin: "8px 0",
+                      borderColor: "#d9d9d9",
+                    }}
+                  />
+                )}
+
+                <Tag
+                  icon={icon}
+                  color={color}
+                  style={{
+                    minWidth: 200,
+                    textAlign: "center",
+                    marginBottom: 4,
+                  }}
+                >
+                  {status || "Payment"}
+                </Tag>
+              </div>
+            );
+          })}
+        </>
+      ),
     },
     {
       title: "Actions",
@@ -488,13 +751,13 @@ const UserList = () => {
       ),
     },
     {
-  title: "Created At",
-  dataIndex: "created_at",
-  key: "created_at",
-  width: 150,
-  render: (date) =>
-    date ? dayjs(date).format("DD MMM YYYY, hh:mm A") : "—",
-},
+      title: "Created At",
+      dataIndex: "created_at",
+      key: "created_at",
+      width: 150,
+      render: (date) =>
+        date ? dayjs(date).format("DD MMM YYYY, hh:mm A") : "—",
+    },
   ];
 
   // ADD USER HANDLER
@@ -535,7 +798,7 @@ const UserList = () => {
         </Col>
         <Col>
           <Space>
-            <Button onClick={handleExportUsers}>
+            <Button onClick={handleExportUsers} icon={<DownOutlined />} >
               Export to Excel
             </Button>
 

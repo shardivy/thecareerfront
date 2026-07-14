@@ -16,6 +16,8 @@ import {
   Empty,
   Spin,
   Input,
+  Tabs,
+  Badge,
 } from "antd";
 import {
   TeamOutlined,
@@ -37,6 +39,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchMyStudentsNew, fetchCounsellorDashboardCount, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
 import { getStudentProfile } from "../../../adminSlices/profileSlice";
 import { markCounsellingBookingCompleted } from "../../../adminSlices/counsellingBookingSlice";
+import { stream } from "xlsx";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -59,6 +62,7 @@ const CounsellorDashboard = () => {
   const [locationModal, setLocationModal] = useState(false);
   const [reportLoading, setReportLoading] = useState(true); // Add this state
   const [searchText, setSearchText] = useState("");
+  const [activeReportTab, setActiveReportTab] = useState("V1");
   const dispatch = useDispatch();
 
   const { students, studentsLoading, notes } = useSelector(
@@ -71,9 +75,6 @@ const CounsellorDashboard = () => {
   const { dashboardStats, dashboardLoading } = useSelector(
     (state) => state.counsellors
   );
-
-  // Remove or comment out this line if not needed
-  // const { reports } = useSelector((state) => state.reports);
 
   useEffect(() => {
     dispatch(fetchMyStudentsNew());
@@ -102,8 +103,15 @@ const CounsellorDashboard = () => {
       status: item.status,
       preferredMode: item.preferred_counselling_mode === "online" ? "Online" : "Offline",
       report_file: item.report_file,
+      file_path: item.file_path || null,
+      file_name: item.file_name || null,
       aptitude_test: item.aptitude_test,
       engineering_test_analysis: item.engineering_test_analysis,
+
+      programId: item.program?.id || null,
+      programName: item.program?.name || "-",
+      packageId: item.package?.id || null,
+      packageName: item.package?.name || "-",
 
     };
   });
@@ -140,7 +148,7 @@ const CounsellorDashboard = () => {
     setDownloading(true);
 
     try {
-      const response = await fetch(selectedReport.report_file);
+      const response = await fetch(reportUrl);
       const blob = await response.blob();
 
       const fileNameFromApi = selectedReport.file_name || "";
@@ -175,7 +183,7 @@ const CounsellorDashboard = () => {
       setReportModal(false);
       setSelectedReport(null);
     } catch (error) {
-      console.error(error);
+      // console.error(error);
       message.error("Failed to download report");
     } finally {
       setDownloading(false);
@@ -205,27 +213,60 @@ const CounsellorDashboard = () => {
     }
   };
 
-  const fileType = selectedReport?.report_file
-    ? getFileType(selectedReport.report_file)
+  const reportItems = Array.isArray(selectedReport?.report_file)
+    ? selectedReport.report_file
+    : null;
+
+  const reportUrl = reportItems
+    ? reportItems.find((r) => r.version === activeReportTab)?.url || reportItems[0]?.url
+    : selectedReport?.report_file || selectedReport?.file_path;
+
+  const hasReportData = Array.isArray(selectedReport?.report_file)
+    ? selectedReport.report_file.length > 0
+    : Boolean(selectedReport?.report_file || selectedReport?.file_path);
+
+  const fileType = reportUrl
+    ? getFileType(reportUrl)
     : null;
 
   const canPreview = fileType === "pdf";
+
+
 
   const columns = [
     {
       title: "Sr No",
       key: "serial",
-      width: 80,
+      width: 70,
       render: (_, __, index) =>
         (pagination.current - 1) * pagination.pageSize + index + 1,
     },
     {
       title: "User Name",
       dataIndex: "studentName",
+      width: 100,
       render: (text, record) => (
         <div>
           <div style={{ fontWeight: 600 }}>{record.studentName}</div>
           <div>{record.studentEmail}</div>
+        </div>
+      ),
+    },
+    {
+      title: "Program / Counselling Service",
+      key: "programService",
+      width: 250,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 600 }}>
+            {record.programName}
+          </div>
+
+          <div
+            type="colorTextSecondary"
+          >
+            {record.packageName}
+          </div>
         </div>
       ),
     },
@@ -235,10 +276,10 @@ const CounsellorDashboard = () => {
       render: (date) => dayjs(date).format("DD-MM-YYYY"),
       width: 120,
     },
-  {
-  title: "Slot Time",
-  dataIndex: "startTime",
-},
+    {
+      title: "Slot Time",
+      dataIndex: "startTime",
+    },
     {
       title: "Preferred Counselling Mode",
       dataIndex: "preferredMode",
@@ -263,13 +304,12 @@ const CounsellorDashboard = () => {
           "YYYY-MM-DD hh:mm A"
         );
 
-        const sessionEnd = dayjs(
-          `${record.date} ${record.endTime}`,
-          "YYYY-MM-DD hh:mm A"
-        );
+        const sessionEnd = sessionStart.add(90, "minute");
 
         const isJoinEnabled =
-          now.isAfter(sessionStart.subtract(5, "minute")) &&
+          record.status !== "completed" &&
+          (now.isAfter(sessionStart.subtract(15, "minute")) ||
+            now.isSame(sessionStart.subtract(15, "minute"))) &&
           now.isBefore(sessionEnd);
 
         const showCompleteButton =
@@ -307,18 +347,26 @@ const CounsellorDashboard = () => {
               <Button
                 icon={<EyeOutlined />}
                 onClick={() => {
-                  // Use report_file directly from the record
-                  if (record.report_file) {
+                  const reportEntries = Array.isArray(record.report_file) && record.report_file.length > 0
+                    ? record.report_file
+                    : null;
+                  const reportSource = reportEntries || record.file_path || null;
+
+                  if (reportSource) {
                     setSelectedReport({
-                      report_file: record.report_file,
+                      report_file: reportSource,
+                      file_path: record.file_path || null,
+                      file_name: record.file_name || null,
                       studentName: record.studentName,
                       studentEmail: record.studentEmail,
-                      studentId: record.student_id,
+                      engineering: record.engineering_test_analysis,
+                      aptitude: record.aptitude_test,
                     });
+
+                    setActiveReportTab("V1");
                     setReportModal(true);
-                    setReportLoading(true); // Reset loading state
                   } else {
-                    message.warning("No report available for this student");
+                    message.warning("No report available");
                   }
                 }}
               >
@@ -505,7 +553,7 @@ const CounsellorDashboard = () => {
                 dataSource={filteredSessions}
                 loading={studentsLoading}
                 rowKey="id"
-                scroll={{ x: 1150 }}
+                scroll={{ x: 1200 }}
                 pagination={{
                   ...pagination,
                   total: filteredSessions.length,
@@ -600,11 +648,27 @@ const CounsellorDashboard = () => {
         width={screens.xs ? "95%" : 900}
       >
         <SessionNotesModal
+          onClick={() => {
+            dispatch(fetchCounsellingNote(record.id)).then(() => {
+              setSelectedSession({
+                ...record,
+                student_id: record.student_id,
+                programId: record.programId,
+                programName: record.programName,
+                packageId: record.packageId,
+                packageName: record.packageName,
+
+              });
+              setNotesModal(true);
+            });
+          }}
           session={selectedSession}
           onClose={() => setNotesModal(false)}
           isViewMode={!!notes?.[selectedSession?.id]}
         />
       </Modal>
+
+
 
       {/* PROFILE MODAL */}
       <StudentProfileModal
@@ -614,7 +678,9 @@ const CounsellorDashboard = () => {
         loading={profileLoading}
       />
 
-      {/* REPORT MODAL - WITHOUT PAGE CONTROLS */}
+
+
+      {/* REPORT MODAL */}
       <Modal
         title={`Report - ${selectedReport?.studentName || ""}`}
         open={reportModal}
@@ -623,80 +689,150 @@ const CounsellorDashboard = () => {
           setReportModal(false);
           setSelectedReport(null);
           setReportLoading(true);
+          setActiveReportTab("V1");
         }}
+        width={screens.xs ? "95%" : 900}
+        style={{ top: 20 }}
         footer={[
-          // Show Download ONLY when preview is NOT available
-          canPreview && (
-            <Button
-              key="download"
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={handleDownloadReport}
-              disabled={!selectedReport?.report_file || downloading}
-              loading={downloading}
-            >
-              {downloading ? "Downloading..." : "Download"}
-            </Button>
-          ),
-
+          <Button
+            key="download"
+            type="primary"
+            icon={<DownloadOutlined />}
+            loading={downloading}
+            onClick={handleDownloadReport}
+          >
+            Download
+          </Button>,
           <Button
             key="close"
             onClick={() => {
               setReportModal(false);
               setSelectedReport(null);
               setReportLoading(true);
+              setActiveReportTab("V1");
             }}
           >
             Close
           </Button>,
         ]}
-        width={screens.xs ? "95%" : 800}
-        style={{ top: 20 }}
       >
-        {selectedReport?.report_file ? (
+        {!hasReportData ? (
           <div
             style={{
-              minHeight: "500px",
+              minHeight: 300,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Empty description="No report available" />
+          </div>
+        ) : Array.isArray(selectedReport.report_file) ? (
+          // ================= ENGINEERING REPORT =================
+          <Tabs
+            activeKey={activeReportTab}
+            onChange={setActiveReportTab}
+            type="card"
+            items={selectedReport.report_file.map((report) => ({
+              key: report.version,
+              label: (
+                <span>
+                  {report.version} - Report
+                  {/* <Tag
+              color="blue"
+              style={{ marginLeft: 8 }}
+            >
+              {report.status}
+            </Tag> */}
+                </span>
+              ),
+              children: (
+                <div
+                  style={{
+                    background: "#f5f5f5",
+                    padding: 10,
+                    borderRadius: 6,
+                  }}
+                >
+                  {getFileType(report.url) === "pdf" ? (
+                    <iframe
+                      src={`${report.url}#toolbar=0`}
+                      title={report.version}
+                      width="100%"
+                      height="550px"
+                      style={{
+                        border: "none",
+                        borderRadius: 6,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        height: 500,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 16,
+                      }}
+                    >
+                      <FileTextOutlined style={{ fontSize: 55, color: "#999" }} />
+                      <Text strong>Preview is not available for this file type.</Text>
+                      <Button
+                        type="primary"
+                        icon={<DownloadOutlined />}
+                        onClick={handleDownloadReport}
+                      >
+                        Download File
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ),
+            }))}
+          />
+        ) : (
+          // ================= SINGLE REPORT =================
+          <div
+            style={{
+              minHeight: 500,
               width: "100%",
-              backgroundColor: "#f5f5f5",
-              borderRadius: 4,
+              background: "#f5f5f5",
+              borderRadius: 6,
               padding: 10,
             }}
           >
-            {/* PDF VIEW */}
-            {fileType === "pdf" && (
+            {fileType === "pdf" ? (
               <iframe
                 src={`${selectedReport.report_file}#toolbar=0`}
                 title="Report Preview"
                 width="100%"
-                height="500px"
-                style={{ border: "none" }}
+                height="550px"
+                style={{
+                  border: "none",
+                }}
                 onLoad={() => setReportLoading(false)}
               />
-            )}
-
-            {/* WORD / EXCEL VIEW (Fallback UI) */}
-            {(fileType === "word" || fileType === "excel") && (
+            ) : (
               <div
                 style={{
-                  height: "500px",
+                  height: 500,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 12,
+                  gap: 16,
                 }}
               >
-                <FileTextOutlined style={{ fontSize: 50 }} />
+                <FileTextOutlined
+                  style={{
+                    fontSize: 55,
+                    color: "#999",
+                  }}
+                />
 
                 <Text strong>
-                  {fileType === "word"
-                    ? "Word Document Preview not available"
-                    : "Excel File Preview not available"}
-                </Text>
-
-                <Text type="colorTextSecondary">
-                  Please download to view this file
+                  Preview is not available for this file type.
                 </Text>
 
                 <Button
@@ -709,15 +845,6 @@ const CounsellorDashboard = () => {
               </div>
             )}
           </div>
-        ) : (
-          <div style={{
-            minHeight: "300px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}>
-            <Empty description="No report available for this student" />
-          </div>
         )}
       </Modal>
     </div>
@@ -726,489 +853,3 @@ const CounsellorDashboard = () => {
 
 export default CounsellorDashboard;
 
-
-// // src/pages/CounsellorDashboard.jsx
-// import React, { useState, useEffect } from "react";
-// import {
-//   Row,
-//   Col,
-//   Card,
-//   Typography,
-//   Select,
-//   Table,
-//   Button,
-//   Modal,
-//   Tag,
-//   message,
-//   Grid,
-//   Divider,
-// } from "antd";
-// import {
-//   TeamOutlined,
-//   CalendarOutlined,
-//   UserOutlined,
-//   VideoCameraOutlined,
-//   EnvironmentOutlined,
-//   CheckCircleOutlined,
-//   FileTextOutlined,
-// } from "@ant-design/icons";
-// import dayjs from "dayjs";
-// import adminTheme from "../../../theme/adminTheme";
-// import SessionNotesModal from "../../counsellor/modals/SessionNotesModal";
-// import StudentProfileModal from "../modals/StudentProfileModal";
-// import { useDispatch, useSelector } from "react-redux";
-// import { fetchMyStudentsNew, fetchCounsellorDashboardCount, fetchCounsellingNote } from "../../../adminSlices/counsellorSlice";
-// import { getStudentProfile } from "../../../adminSlices/profileSlice";
-// import { markCounsellingBookingCompleted } from "../../../adminSlices/counsellingBookingSlice";
-
-// const { Title, Text } = Typography;
-// const { useBreakpoint } = Grid;
-
-// const CounsellorDashboard = () => {
-//   const screens = useBreakpoint();
-
-//   const [period, setPeriod] = useState("monthly");
-//   const [notesModal, setNotesModal] = useState(false);
-//   const [confirmModal, setConfirmModal] = useState(false);
-//   const [selectedSession, setSelectedSession] = useState(null);
-//   const [profileModal, setProfileModal] = useState(false);
-//   const [pagination, setPagination] = useState({
-//     current: 1,
-//     pageSize: 5,
-//   });
-//   const [locationModal, setLocationModal] = useState(false);
-//   const dispatch = useDispatch();
-
-//   const { students, studentsLoading, notes } = useSelector(
-//     (state) => state.counsellors
-//   );
-
-//   const { profile, loading: profileLoading } = useSelector(
-//     (state) => state.profile
-//   );
-
-//   const { dashboardStats, dashboardLoading } = useSelector(
-//     (state) => state.counsellors
-//   );
-
-//   useEffect(() => {
-//       dispatch(fetchMyStudentsNew());
-//   }, [dispatch]);
-
-//   useEffect(() => {
-//     dispatch(fetchCounsellorDashboardCount(period));
-//   }, [dispatch, period]);
-
-
-
-//   const upcomingSessions = (students || []).map((item) => {
-//     const [startTime, endTime] = item.slot_time.split(" - ");
-
-//     return {
-//       id: item.id,
-//       key: item.id,
-//       student_id: item.student_id,
-//       studentName: item.student_name,
-//       studentEmail: item.student_email,
-//       studentPhone: item.student_phone,       // ✅ Add this
-//       counsellorName: item.counsellor_name,
-//       date: item.date,
-//       startTime,
-//       endTime,
-//       mode: item.mode === "online" ? "Online" : "Offline",
-//       status: item.status,
-//       preferredMode: item.preferred_counselling_mode === "online" ? "Online" : "Offline",
-//     };
-//   });
-
-//   const columns = [
-//     {
-//       title: "Sr No",
-//       key: "serial",
-//       width: 80,
-//       render: (_, __, index) =>
-//         (pagination.current - 1) * pagination.pageSize + index + 1,
-//     },
-//     {
-//       title: "User Name",
-//       dataIndex: "studentName",
-//       render: (text, record) => (
-//         <div>
-//           <div style={{ fontWeight: 600 }}>{record.studentName}</div>
-//           <div>{record.studentEmail}</div>
-//         </div>
-//       ),
-//     },
-//     {
-//       title: "Date",
-//       dataIndex: "date",
-//       render: (date) => dayjs(date).format("DD-MM-YYYY"),
-//       width: 120,
-//     },
-//     {
-//       title: "Slot Time",
-//       render: (_, record) => `${record.startTime} - ${record.endTime}`,
-//     },
-//     {
-//       title: "Preferred Counselling Mode",
-//       dataIndex: "preferredMode",
-//       width: 140,
-//       render: (mode) => (
-//         <div style={{ whiteSpace: "normal", lineHeight: "18px" }}>
-//           {mode === "Online" ? (
-//             <Tag color="green">Online</Tag>
-//           ) : (
-//             <Tag color="blue">Offline</Tag>
-//           )}
-//         </div>
-//       ),
-//     },
-//     {
-//       title: "Actions",
-//       render: (_, record) => {
-
-//         const now = dayjs();
-
-//         const sessionStart = dayjs(
-//           `${record.date} ${record.startTime}`,
-//           "YYYY-MM-DD hh:mm A"
-//         );
-
-//         const sessionEnd = dayjs(
-//           `${record.date} ${record.endTime}`,
-//           "YYYY-MM-DD hh:mm A"
-//         );
-
-//         const isJoinEnabled =
-//           now.isAfter(sessionStart.subtract(5, "minute")) &&
-//           now.isBefore(sessionEnd);
-
-//         const showCompleteButton =
-//           record.status !== "completed" &&
-//           now.isAfter(sessionStart.subtract(15, "minute"));
-
-//         const isSessionOver = now.isAfter(sessionEnd);
-
-//         return (
-//           <div
-//             style={{
-//               display: "flex",
-//               gap: 8,
-//               flexWrap: "wrap",
-//               flexDirection: screens.xs ? "column" : "row",
-//             }}
-//           >
-
-//             {/* ALWAYS SHOW PROFILE BUTTON */}
-//             <Button
-//               icon={<UserOutlined />}
-//               onClick={() => {
-//                 dispatch(getStudentProfile(record.student_id))
-//                   .unwrap()
-//                   .then(() => setProfileModal(true))
-//                   .catch(() =>
-//                     message.error("Failed to load student profile")
-//                   );
-//               }}
-//             >
-//               View Profile
-//             </Button>
-
-//             {/* ONLINE SESSION */}
-//             {record.preferredMode === "Online" && !isSessionOver && (
-//               <Button
-//                 type="primary"
-//                 icon={<VideoCameraOutlined />}
-//                 disabled={!isJoinEnabled}
-//                 onClick={() => {
-//                   window.open(
-//                     "https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09",
-//                     "_blank"
-//                   );
-//                 }}
-//               >
-//                 Join
-//               </Button>
-//             )}
-
-//             {/* OFFLINE SESSION */}
-//             {record.preferredMode === "Offline" && !isSessionOver && (
-//               <Button
-//                 type="primary"
-//                 icon={<EnvironmentOutlined />}
-//                 onClick={() => {
-//                   setSelectedSession({
-//                     ...record,
-//                     location: staticLocation,
-//                   });
-//                   setLocationModal(true);
-//                 }}
-//               >
-//                 Location Details
-//               </Button>
-//             )}
-
-//             {/* SESSION COMPLETED */}
-//             {record.status === "completed" && (
-//               <Button
-//                 type="primary"
-//                 icon={<CheckCircleOutlined />}
-//                 disabled
-//               >
-//                 Completed
-//               </Button>
-//             )}
-
-//             {/* MARK COMPLETE */}
-//             {record.status !== "completed" && showCompleteButton && (
-//               <Button
-//                 type="primary"
-//                 icon={<CheckCircleOutlined />}
-//                 style={{
-//                   backgroundColor: "#52c41a",
-//                   borderColor: "#52c41a",
-//                 }}
-//                 onClick={() => {
-//                   setSelectedSession(record);
-//                   setConfirmModal(true);
-//                 }}
-//               >
-//                 Mark as Complete
-//               </Button>
-//             )}
-
-//             {/* ADD NOTES */}
-//             {/* {(isSessionOver || record.status === "completed") && ( */}
-//             <Button
-//               icon={<FileTextOutlined />}
-//               onClick={() => {
-//                 dispatch(fetchCounsellingNote(record.id)).then(() => {
-//                   setSelectedSession(record);
-//                   setNotesModal(true);
-//                 });
-//               }}
-//             >
-//               View / Add Notes
-//             </Button>
-//             {/* )} */}
-
-//           </div>
-//         );
-//       },
-//     }
-//   ];
-
-//   const stats = [
-//     {
-//       title: "Assigned Students",
-//       value: dashboardStats.assignedStudents,
-//       icon: <TeamOutlined />,
-//     },
-//     {
-//       title: "Upcoming Sessions",
-//       value: dashboardStats.upcomingSessions,
-//       icon: <CalendarOutlined />,
-//     },
-//     {
-//       title: "Completed Sessions",
-//       value: dashboardStats.completedSessions,
-//       icon: <CalendarOutlined />,
-//     },
-//   ];
-
-//   const staticLocation = {
-//     officeName: "Abhinav Career Scope",
-//     building: "Bhagwati Maestros, Miller 403",
-//     landmarkLine1: "LMD Chowk, Above Indian Smart Bazaar",
-//     area: "Bavdhan",
-//     city: "Pune",
-//     state: "Maharashtra",
-//     pincode: "411021",
-//     nearby: "Near Chandani Chowk, Bavdhan",
-//     instructions: "Start 20 minutes earlier due to traffic",
-//     parking: "Parking available outside the building gate"
-//   };
-
-//   return (
-//     <div style={{ padding: screens.xs ? 12 : 20 }}>
-//       {/* HEADER */}
-//       <Row gutter={[16, 16]} justify="space-between">
-//         <Col xs={24} md={12}>
-//           <Title level={3}>Dashboard</Title>
-//         </Col>
-//         <Col xs={24} md={6}>
-//           <Select
-//             value={period}
-//             onChange={setPeriod}
-//             style={{ width: "100%" }}
-//             options={[
-//               { label: "Weekly", value: "weekly" },
-//               { label: "Monthly", value: "monthly" },
-//               { label: "Yearly", value: "yearly" },
-//             ]}
-//           />
-//         </Col>
-//       </Row>
-
-//       {/* STATS */}
-//       <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
-//         {stats.map((item, index) => (
-//           <Col xs={24} sm={12} md={8} key={index}>
-//             <Card
-//               loading={dashboardLoading}
-//               style={{
-//                 borderRadius: adminTheme.token.borderRadius,
-//                 boxShadow: adminTheme.token.boxShadow,
-//               }}
-//             >
-//               <div style={{ display: "flex", gap: 10 }}>
-//                 <span style={{ fontSize: 24 }}>
-//                   {item.icon}
-//                 </span>
-//                 <Text>{item.title}</Text>
-//               </div>
-//               <Title level={2}>{item.value}</Title>
-//             </Card>
-//           </Col>
-//         ))}
-//       </Row>
-
-//       {/* TABLE */}
-//       <Row style={{ marginTop: 30 }}>
-//         <Col span={24}>
-//           <Card title={`All Sessions (${upcomingSessions.length})`}>
-//             <div style={{ overflowX: "auto" }}>
-//               <Table
-//                 columns={columns}
-//                 dataSource={upcomingSessions}
-//                 loading={studentsLoading}
-//                 rowKey="id"
-//                 scroll={{ x: 1150 }}
-//                 pagination={{
-//                   ...pagination,
-//                   total: upcomingSessions.length,
-//                   showSizeChanger: true,
-//                   pageSizeOptions: ["5", "10", "20", "50"],
-//                 }}
-//                 onChange={(pag) => {
-//                   setPagination(pag);
-//                 }}
-//               />
-//             </div>
-//           </Card>
-//         </Col>
-//       </Row>
-
-
-//       {/* COMPLETE MODAL */}
-//       <Modal
-//         title="Confirm Completion"
-//         open={confirmModal}
-//         onCancel={() => {
-//           setConfirmModal(false);
-//           setSelectedSession(null);
-//         }}
-//       onOk={async () => {
-//   if (!selectedSession?.id) return;
-
-//   try {
-//     await dispatch(
-//       markCounsellingBookingCompleted(selectedSession.id)
-//     ).unwrap();
-
-//     message.success("Session marked as completed!");
-
-//     // ✅ Refresh sessions list
-//     dispatch(fetchMyStudentsNew());
-
-//     // ✅ Refresh notes for that session
-//     dispatch(fetchCounsellingNote(selectedSession.id));
-
-//     setConfirmModal(false);
-//   } catch (error) {
-//     message.error(error || "Failed to mark session as completed");
-//   }
-// }}
-//         okText="Yes, Complete"
-//         cancelText="Cancel"
-//         okButtonProps={{
-//           style: {
-//             backgroundColor: "#52c41a",
-//             borderColor: "#52c41a",
-//             color: "#fff",
-//           },
-//         }}
-//       >
-//         <p>
-//           Are you sure you want to mark session{" "}
-//           <strong>{selectedSession?.studentName}</strong> as completed?
-//         </p>
-//       </Modal>
-
-
-//       {/* LOCATION MODAL */}
-//       <Modal
-//         title={`Location Details`}
-//         open={locationModal}
-//         onCancel={() => setLocationModal(false)}
-//         footer={[
-//           <Button key="close" onClick={() => setLocationModal(false)}>
-//             Close
-//           </Button>,
-//           // <Button key="map" type="primary" onClick={() => {
-//           //   const address = `${selectedSession.location.officeName}, ${selectedSession.location.area}, ${selectedSession.location.city}`;
-//           //   window.open(
-//           //     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`,
-//           //     "_blank"
-//           //   );
-//           // }}>
-//           //   Open in Google Maps
-//           // </Button>,
-
-//         ]}
-//       >
-//         {selectedSession?.location && (
-//           <div style={{ lineHeight: "1.8" }}>
-//             {/* <h3>{selectedSession.location.counselorName}</h3> */}
-//             <p><strong>{selectedSession.location.officeName}</strong></p>
-//             <p>{selectedSession.location.building}</p>
-//             <p>{selectedSession.location.landmarkLine1}</p>
-//             <p>{selectedSession.location.area}, {selectedSession.location.city} – {selectedSession.location.pincode}</p>
-//             <p>{selectedSession.location.state}</p>
-
-//             <Divider />
-
-//             <h4>📌 Important Notes</h4>
-//             <p>• {selectedSession.location.nearby}</p>
-//             <p>• {selectedSession.location.instructions}</p>
-//             <p>• {selectedSession.location.parking}</p>
-//           </div>
-//         )}
-//       </Modal>
-//       {/* NOTES MODAL */}
-//       <Modal
-//         title={`Session Notes - ${selectedSession?.studentName || ""}`}
-//         open={notesModal}
-//         onCancel={() => setNotesModal(false)}
-//         footer={null}
-//         width={screens.xs ? "95%" : 900}
-//       >
-//         <SessionNotesModal
-//           session={selectedSession}
-//           onClose={() => setNotesModal(false)}
-//           isViewMode={!!notes?.[selectedSession?.id]}
-//         />
-//       </Modal>
-
-//       {/* PROFILE MODAL */}
-//       <StudentProfileModal
-//         open={profileModal}
-//         onClose={() => setProfileModal(false)}
-//         student={profile}
-//         loading={profileLoading}
-//       />
-//     </div>
-//   );
-// };
-
-// export default CounsellorDashboard;

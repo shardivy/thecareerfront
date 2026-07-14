@@ -15,9 +15,24 @@ class CompletedExamReportSerializer(serializers.Serializer):
     package = serializers.CharField()
     exam_status = serializers.CharField()
     booking_status = serializers.CharField(allow_null=True)
+    
     report_status = serializers.CharField(allow_null=True)
     file_path = serializers.CharField(allow_null=True)
     file_name = serializers.CharField(allow_null=True)
+    file_path_count = serializers.IntegerField(allow_null=True)
+    
+    report_status_v2 = serializers.CharField(allow_null=True)
+    file_path1 = serializers.CharField(allow_null=True)
+    file_name1 = serializers.CharField(allow_null=True)
+    file_path1_count = serializers.IntegerField(allow_null=True)
+    
+    report_status_v3 = serializers.CharField(allow_null=True)
+    file_path2 = serializers.CharField(allow_null=True)
+    file_name2 = serializers.CharField(allow_null=True)
+    file_path2_count = serializers.IntegerField(allow_null=True)
+    
+    
+    
     uploaded_at = serializers.DateTimeField(allow_null=True)
     payment_status = serializers.CharField(allow_null=True)
     
@@ -42,9 +57,24 @@ class EngineeringTestAnalysisReportSerializer(serializers.Serializer):
     analysis_status = serializers.CharField(allow_null=True)
 
     report_status = serializers.CharField(allow_null=True)
-    booking_status = serializers.CharField(allow_null=True)
     file_path = serializers.CharField(allow_null=True)
     file_name = serializers.CharField(allow_null=True)
+    file_path_count = serializers.IntegerField(allow_null=True)
+    
+    report_status_v2 = serializers.CharField(allow_null=True)
+    file_path1 = serializers.CharField(allow_null=True)
+    file_name1 = serializers.CharField(allow_null=True)
+    file_path1_count = serializers.IntegerField(allow_null=True)
+    
+    report_status_v3 = serializers.CharField(allow_null=True)
+    file_path2 = serializers.CharField(allow_null=True)
+    file_name2 = serializers.CharField(allow_null=True)
+    file_path2_count = serializers.IntegerField(allow_null=True)
+    
+    booking_status = serializers.CharField(allow_null=True)
+    
+    
+    
     uploaded_at = serializers.DateTimeField(allow_null=True)
 
     payment_status = serializers.CharField(allow_null=True)

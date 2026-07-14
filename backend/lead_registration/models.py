@@ -27,12 +27,19 @@ class Lead(models.Model):
     study_class = models.CharField(max_length=200, null=True, blank=True)
     specialization = models.CharField(max_length=100, blank=True, null=True)
     stream = models.CharField(max_length=100, blank=True, null=True)
-    program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
-    # programs = models.ManyToManyField(
-    #     Program,
-    #     blank=True,
-    #     related_name="leads"
-    # )
+    # program = models.ForeignKey(Program, on_delete=models.CASCADE, null=True, blank=True)
+    program = models.ManyToManyField(
+        Program,
+        blank=True,
+        related_name="leads"
+    )
+    parent = models.ForeignKey(
+        "lead_registration.ParentProfile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leads"
+    )
     source = models.CharField(max_length=20, blank=True, null=True, choices=SOURCE_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='enquiry')
     date = models.DateField(blank=True, null=True)
@@ -124,9 +131,12 @@ class StudentProfile(models.Model):
     specialization = models.CharField(max_length=100, blank=True, null=True)
     stream = models.CharField(max_length=100, blank=True, null=True)
     preferred_counselling_mode = models.CharField(max_length=50, blank=True, null=True,choices=MODECHOICES) 
+    suggested_stream = models.CharField(max_length=250, blank=True, null=True)
 
     school_college = models.CharField(max_length=200, blank=True, null=True)
     city = models.CharField(max_length=200, blank=True, null=True)
+    qualification_status = models.CharField(max_length=100, blank=True, null=True)
+    type = models.CharField(max_length=100, blank=True, null=True)
     is_profile_complete = models.BooleanField(default=False)
     
     previous_class_percentage = models.DecimalField(
@@ -139,9 +149,35 @@ class StudentProfile(models.Model):
     board_exam_year = models.CharField(max_length=10, blank=True, null=True)
 
     improvement_areas = models.TextField(blank=True, null=True)
+    
+    otp = models.CharField(max_length=6, blank=True, null=True)
+    # otp_verified = models.BooleanField(default=False)
+    otp_created_at = models.DateTimeField(blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def set_otp(self, otp):
+        self.otp = otp
+        self.otp_created_at = timezone.now()
+        self.save(update_fields=["otp", "otp_created_at"])
+
+    def verify_otp(self, otp):
+        if not self.otp:
+            return False, "OTP not generated"
+
+        if self.otp != otp:
+            return False, "Invalid OTP"
+
+        if timezone.now() > self.otp_created_at + timedelta(minutes=10):
+            return False, "OTP expired"
+
+        # Clear OTP after successful verification
+        self.otp = None
+        self.otp_created_at = None
+        self.save(update_fields=["otp", "otp_created_at"])
+
+        return True, "OTP verified successfully"
     
     def update_profile_completion(self):
         has_subjects = StudentSubjectPreference.objects.filter(
@@ -177,7 +213,15 @@ class StudentAcademicHistory(models.Model):
         return f"AcademicHistory of {self.student_profile.user.email} - {self.academic_stage}"
     
 class Stream(models.Model):
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    programs = models.ManyToManyField(
+        Program,
+        related_name="streams",
+        blank=True
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return self.name
@@ -229,6 +273,16 @@ class StudentHobby(models.Model):
     
     def __str__(self):
         return f"{self.student_profile.user.email} - {self.hobby.name}"
+    
+from django.db import models
+
+class EmailOTP(models.Model):
+    email = models.EmailField(unique=True)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.email
 
     
     

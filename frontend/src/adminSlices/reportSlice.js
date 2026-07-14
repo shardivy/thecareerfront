@@ -5,6 +5,9 @@ import {
   getReportStatusCountApi,
   getCompletedExamReportsByStudentApi,
   updateReportApi,
+  uploadStudentV2ReportApi,
+  updateStudentV2ReportApi,
+
 } from "../adminApi/reportApi";
 
 /* ----------------- ASYNC THUNKS ----------------- */
@@ -66,6 +69,48 @@ export const updateReport = createAsyncThunk(
   }
 );
 
+export const uploadStudentV2Report = createAsyncThunk(
+  "reports/uploadStudentV2Report",
+  async (
+    { studentId, programId, packageId, formData },
+    { rejectWithValue }
+  ) => {
+    try {
+      return await uploadStudentV2ReportApi(
+        studentId,
+        programId,
+        packageId,
+        formData
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to upload V2 report"
+      );
+    }
+  }
+);
+
+export const updateStudentV2Report = createAsyncThunk(
+  "reports/updateStudentV2Report",
+  async (
+    { studentId, programId, packageId, formData },
+    { rejectWithValue }
+  ) => {
+    try {
+      return await updateStudentV2ReportApi(
+        studentId,
+        programId,
+        packageId,
+        formData
+      );
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || "Failed to update V2 report"
+      );
+    }
+  }
+);
+
 
 
 /* ----------------- SLICE ----------------- */
@@ -74,6 +119,7 @@ const reportSlice = createSlice({
   initialState: {
     reports: [],
     stats: null, // <-- Add stats here
+      uploadingReportId: null,
     loading: false,
     error: null,
   },
@@ -104,20 +150,20 @@ const reportSlice = createSlice({
       })
 
       // FETCH COMPLETED EXAM REPORTS BY STUDENT
-.addCase(fetchCompletedExamReportsByStudent.pending, (state) => {
-  state.loading = true;
-  state.error = null;
-})
-.addCase(fetchCompletedExamReportsByStudent.fulfilled, (state, action) => {
-  state.loading = false;
-  state.reports = Array.isArray(action.payload?.data)
-    ? action.payload.data
-    : [];
-})
-.addCase(fetchCompletedExamReportsByStudent.rejected, (state, action) => {
-  state.loading = false;
-  state.error = action.payload;
-})
+      .addCase(fetchCompletedExamReportsByStudent.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchCompletedExamReportsByStudent.fulfilled, (state, action) => {
+        state.loading = false;
+        state.reports = Array.isArray(action.payload?.data)
+          ? action.payload.data
+          : [];
+      })
+      .addCase(fetchCompletedExamReportsByStudent.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
 
 
       // FETCH REPORT STATS
@@ -147,16 +193,45 @@ const reportSlice = createSlice({
       })
 
       // UPDATE REPORT
-.addCase(updateReport.pending, (state) => {
-  state.loading = true;
+      .addCase(updateReport.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(updateReport.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(updateReport.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // STUDENT V2 REPORT UPLOAD
+   .addCase(uploadStudentV2Report.pending, (state, action) => {
+  state.uploadingReportId = action.meta.arg.studentId;
 })
-.addCase(updateReport.fulfilled, (state) => {
-  state.loading = false;
+
+.addCase(uploadStudentV2Report.fulfilled, (state) => {
+  state.uploadingReportId = null;
 })
-.addCase(updateReport.rejected, (state, action) => {
-  state.loading = false;
+
+.addCase(uploadStudentV2Report.rejected, (state, action) => {
+  state.uploadingReportId = null;
   state.error = action.payload;
-});
+})
+
+     .addCase(updateStudentV2Report.pending, (state, action) => {
+  state.uploadingReportId = action.meta.arg.studentId;
+})
+
+.addCase(updateStudentV2Report.fulfilled, (state) => {
+  state.uploadingReportId = null;
+})
+
+.addCase(updateStudentV2Report.rejected, (state, action) => {
+  state.uploadingReportId = null;
+  state.error = action.payload;
+})
+      
+
 
   },
 });

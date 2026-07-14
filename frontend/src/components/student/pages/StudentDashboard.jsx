@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -29,30 +29,49 @@ const StudentDashboard = () => {
   const dispatch = useDispatch();
   const { token } = theme.useToken();
 
+
+
+  // Initialize selectedProgramId from localStorage and listen for changes
+  const [selectedProgramId, setSelectedProgramId] = useState(() => {
+    const storedProgramId = localStorage.getItem("selectedProgramId");
+    return storedProgramId ? parseInt(storedProgramId) : null;
+  });
+
+  const [selectedPackageId, setSelectedPackageId] = useState(() => {
+    const storedPackageId = localStorage.getItem("selectedPackageId");
+    return storedPackageId ? parseInt(storedPackageId) : null;
+  });
+
   const { journey, journeyLoading } = useSelector(
     (state) => state.users
   );
 
   const { profile } = useSelector((state) => state.profile);
 
-  /* ================= FREE USER CHECK ================= */
-  const isFreeUser = !profile?.package_id;
+  const profileRole = String(profile?.role || "").toLowerCase();
+  const isStudentUser = profileRole === "student";
+  const isFreeUser =
+    profileRole === "basic_user" ||
+    (!profileRole && !profile?.package_id);
 
   /* ================= SAVE PROGRAM & PACKAGE IN LOCAL STORAGE ================= */
   useEffect(() => {
     if (!profile) return;
 
-    if (profile.program) {
+    if (!localStorage.getItem("selectedProgram") && profile.program) {
       localStorage.setItem("selectedProgram", profile.program);
-      localStorage.setItem("program_id", profile.program_id);
     }
 
-    if (profile.package_id) {
-      localStorage.setItem("selectedPackage", profile.package_id);
+    if (!localStorage.getItem("selectedProgramId") && profile.program_id) {
+      localStorage.setItem("selectedProgramId", profile.program_id);
     }
 
-    if (profile.package) {
-      localStorage.setItem("selectedPackageName", profile.package);
+    if (!localStorage.getItem("selectedPackageId") && profile.package_id) {
+      localStorage.setItem("selectedPackageId", profile.package_id);
+    }
+
+    if (!localStorage.getItem("selectedPackage") && profile.package) {
+      localStorage.setItem("selectedPackage", profile.package);
     }
 
     if (profile.student_id) {
@@ -79,22 +98,112 @@ const StudentDashboard = () => {
   // Read aptitude_test from localStorage
   const aptitudeTestFromStorage = localStorage.getItem("aptitude_test");
 
-  // Show exam & report only if aptitude_test = true
-  const showExamAndReport = aptitudeTestFromStorage === "true";
+  const programJourneys = useMemo(() => {
+    if (!journey) return [];
+    if (Array.isArray(journey)) return journey;
+    if (Array.isArray(journey.journeys)) return journey.journeys;
+    if (Array.isArray(journey.programs)) return journey.programs;
+    return [];
+  }, [journey]);
+
+  useEffect(() => {
+    if (programJourneys.length === 0) {
+      setSelectedProgramId(null);
+      setSelectedPackageId(null);
+      return;
+    }
+
+    const programExists = programJourneys.some(
+      (item) => String(item.program_id) === String(selectedProgramId)
+    );
+
+    const packageExists = programJourneys.some(
+      (item) => String(item.package_id) === String(selectedPackageId)
+    );
+
+    if (!selectedProgramId || !programExists) {
+      setSelectedProgramId(programJourneys[0].program_id);
+    }
+
+    if (!selectedPackageId || !packageExists) {
+      const defaultPackage = programJourneys.find(
+        (item) => String(item.program_id) === String(selectedProgramId)
+      ) || programJourneys[0];
+      setSelectedPackageId(defaultPackage?.package_id || null);
+    }
+  }, [programJourneys, selectedProgramId, selectedPackageId]);
+
+  const selectedJourney = useMemo(() => {
+    if (!programJourneys.length) return {};
+
+    const matchByBoth = programJourneys.find(
+      (item) =>
+        String(item.program_id) === String(selectedProgramId) &&
+        String(item.package_id) === String(selectedPackageId)
+    );
+
+    const matchByProgram = programJourneys.find(
+      (item) => String(item.program_id) === String(selectedProgramId)
+    );
+
+    return matchByBoth || matchByProgram || programJourneys[0] || {};
+  }, [programJourneys, selectedProgramId, selectedPackageId]);
+
+  const programPackages =
+    profile?.program_packages ||
+    JSON.parse(localStorage.getItem("programPackages")) ||
+    [];
+
+  const selectedProgramPackage =
+    programPackages.find(
+      (item) =>
+        String(item.program_id) === String(selectedProgramId) &&
+        String(item.package_id) === String(selectedPackageId)
+    ) ||
+    programPackages.find(
+      (item) => String(item.program_id) === String(selectedProgramId)) ||
+    {};
+
+  // Show exam & report only if the selected package enables it
+  const showExamAndReport =
+    selectedProgramPackage?.aptitude_test === true ||
+    selectedProgramPackage?.aptitude_test === "true" ||
+    selectedJourney?.aptitude_test === true ||
+    aptitudeTestFromStorage === "true";
 
   const engineeringTestAnalysis =
+    selectedProgramPackage?.engineering_test_analysis === true ||
+    selectedProgramPackage?.engineering_test_analysis === "true" ||
+    selectedJourney?.engineering_test_analysis === true ||
     localStorage.getItem("engineering_test_analysis") === "true";
 
-  /* ================= FETCH JOURNEY (ONLY FOR PAID USERS) ================= */
+  /* ================= FETCH JOURNEY (ONLY FOR STUDENT ROLE AND PAID USERS) ================= */
   useEffect(() => {
-    if (!isFreeUser && profile?.student_id) {
+    if (isStudentUser && !isFreeUser && profile?.student_id) {
       dispatch(fetchStudentJourney(profile.student_id));
     }
-  }, [dispatch, profile?.student_id, isFreeUser]);
+  }, [dispatch, isStudentUser, profile?.student_id, isFreeUser]);
+
+  useEffect(() => {
+    const handleProgramChanged = (event) => {
+      const { programId, packageId } = event.detail || {};
+      if (programId) {
+        setSelectedProgramId(parseInt(programId));
+      }
+      if (packageId) {
+        setSelectedPackageId(parseInt(packageId));
+      }
+    };
+
+    window.addEventListener("programChanged", handleProgramChanged);
+    return () => window.removeEventListener("programChanged", handleProgramChanged);
+  }, []);
 
 
   /* ================= JOURNEY DATA ================= */
-  const progressData = journey?.progress || {};
+  const progressData = selectedJourney?.progress || {};
+  const historyData = selectedJourney?.history || [];
+  const paymentSummary = selectedJourney?.payment_summary || {};
 
   let currentStep =
     progressData?.current_step !== undefined
@@ -252,7 +361,7 @@ const StudentDashboard = () => {
 
     if (
       engineeringTestAnalysis &&
-      progressData.report !== "received_unlocked"
+      progressData.report !== "all_received"
     ) {
       return {
         label: "View Analysis Report →",
@@ -338,16 +447,21 @@ const StudentDashboard = () => {
       {/* ===================== PROGRESS STEPS ===================== */}
       <div style={{ overflowX: "auto", paddingBottom: 10 }}>
         {isFreeUser ? (
-          <JourneySteps isFreeUser={true} />
+          <JourneySteps role="basic_user" />
         ) : journeyLoading ? (
           <Spin />
         ) : (
           <JourneySteps
+            role={profileRole}
             currentStep={currentStep}
             showExamAndReport={showExamAndReport}
             engineeringTestAnalysis={engineeringTestAnalysis}
             progressData={progressData}
+            paymentSummary={paymentSummary}
+            programName={selectedJourney?.program_name || selectedJourney?.program || ""}
+            packageName={selectedJourney?.package_name || selectedJourney?.package || ""}
             journeyLoading={journeyLoading}
+            showHistory={false}
           />
         )}
       </div>

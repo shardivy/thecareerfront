@@ -84,7 +84,7 @@ const AddExamModal = ({ open, mode, editingExam, onCancel, onSuccess }) => {
       form.resetFields();
       onSuccess?.();
     } catch (err) {
-      console.log("Error:", err);
+      // console.log("Error:", err);
       message.error(err.message || "Failed to save exam");
     }
   };

@@ -6,7 +6,7 @@ from lead_registration.views import (
     ConvertLeadAPIView,
     HobbyAPIView,
     LeadListAPIView,
-    SendParentOTPAPIView,
+    SendStudentOTPAPIView,
     StreamAPIView,
     StudentAcademicHistoryAPIView,
     StudentAcademicHistoryDetailAPIView,
@@ -19,13 +19,13 @@ from lead_registration.views import (
     StudentSubjectPreferenceDetailAPIView,
     SubjectAPIView,
     UserJourneyAPIView,
-    VerifyParentOTPAPIView
+    VerifyStudentOTPAPIView
 )
 
 urlpatterns = [
     path('student/register/', StudentRegistrationAPIView.as_view(), name='student-registration'),
-    path("send-parent-otp/", SendParentOTPAPIView.as_view()),
-    path("verify-parent-otp/", VerifyParentOTPAPIView.as_view()),
+    path("send-parent-otp/", SendStudentOTPAPIView.as_view()),
+    path("verify-parent-otp/", VerifyStudentOTPAPIView.as_view()),
     
     path('add-enquiry/', AddEnquiryAPIView.as_view(), name='add-enquiry'),
     path('leads/', AddEnquiryAPIView.as_view(), name='delete-lead'),
@@ -44,6 +44,7 @@ urlpatterns = [
     
     # ==================== Stream URLs ====================
     path("streams/", StreamAPIView.as_view()),
+    path("streams/<int:stream_id>/", StreamAPIView.as_view()),
     path("students/<int:student_id>/streams/", StudentStreamAPIView.as_view()),
     path("students/<int:student_id>/streams/<int:stream_id>/", StudentStreamDetailAPIView.as_view()),
 
@@ -61,6 +62,7 @@ urlpatterns = [
     # path("student/journey/", UserJourneyAPIView.as_view(), name="student-journey")
     
     path('student/<int:student_id>/journey/', UserJourneyAPIView.as_view(), name='student-journey'),
+    
 
     
     

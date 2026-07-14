@@ -209,7 +209,7 @@ const handleSubmit = () => {
     };
 
     let action;
-console.log("Selected User:", selectedUser);
+// console.log("Selected User:", selectedUser);
     if (mode === "edit") {
       // ✅ RESCHEDULE API
       action = rescheduleSession({
