@@ -362,19 +362,19 @@ DATABASES = {
 # MEDIA / STATIC
 # =========================
 
-STORAGES = {
-    "default": {
-        "BACKEND": "backend.storage.MediaStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
+# STORAGES = {
+#     "default": {
+#         "BACKEND": "backend.storage.MediaStorage",
+#     },
+#     "staticfiles": {
+#         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+#     },
+# }
 
 STATIC_URL = 'static/'
 
-# MEDIA_URL = '/media/'
-MEDIA_URL = f"https://abhinavcareerscope-media-staging.s3.ap-south-1.amazonaws.com/"
+MEDIA_URL = '/media/'
+# MEDIA_URL = f"https://abhinavcareerscope-media-staging.s3.ap-south-1.amazonaws.com/"
 MEDIA_ROOT = BASE_DIR / 'media'
 
 
@@ -464,4 +464,4 @@ MSG91_WHATSAPP_NUMBER = config('MSG91_WHATSAPP_NUMBER')
 MSG91_OTP_TEMPLATE_NAME = config('MSG91_OTP_TEMPLATE_NAME')
 
 TIME_ZONE = "Asia/Kolkata"
-USE_TZ = False
+# USE_TZ = False

@@ -399,6 +399,11 @@ class AddHandHoldingRegisterAPIView(APIView):
 
             user.set_password(password)
             user.save()
+            
+            # =================================
+            # TOTAL HANDHOLDING SESSIONS
+            # =================================
+            total_sessions = HandHoldingSession.objects.count()
 
             # =================================
             # HANDHOLDING PARTICIPANT
@@ -417,7 +422,8 @@ class AddHandHoldingRegisterAPIView(APIView):
                 show_profile=request.data.get(
                     "show_profile",
                     False
-                )
+                ),
+                total_sessions=total_sessions
             )
 
             # =================================
@@ -677,6 +683,8 @@ class AddHandHoldingRegisterAPIView(APIView):
                     participant.photo = request.FILES.get(
                         "photo"
                     )
+                    
+                participant.total_sessions = HandHoldingSession.objects.count()
 
                 participant.save()
 
@@ -2149,42 +2157,84 @@ class HandHoldingSessionListAPIView(APIView):
         # 🔥 AUTO COMPLETE LOGIC (FINAL FIX)
         # =========================
 
-        now = timezone.now()   # ✅ ALWAYS use this (safe)
+        now = timezone.localtime(timezone.now())   # ✅ ALWAYS use this (safe)
+        
+        print("UTC Now:", timezone.now())
+        print("Local Now:", timezone.localtime())
+        print("Current Date:", now.date())
+        
+        # print("========== ALL SESSIONS ==========")
+        # sessions = HandHoldingParticipantSession.objects.all()
+
+        # for s in sessions:
+        #     print(
+        #         "ID:", s.id,
+        #         "Session Date:", s.session_date,
+        #         "Status:", s.status
+        #     )
+
+        today = timezone.localdate()
+
+        start_of_day = timezone.make_aware(
+            datetime.combine(today, datetime.min.time())
+        )
+
+        end_of_day = start_of_day + timedelta(days=1)
 
         today_sessions = HandHoldingParticipantSession.objects.select_related("slot").filter(
-            session_date__date=now.date(),
+            session_date__gte=start_of_day,
+            session_date__lt=end_of_day,
             status__in=["booked", "rescheduled", "in_progress"]
         )
 
+        print("Today's Sessions:", today_sessions.count())
+
         for session in today_sessions:
+            
+            print("Session Date:", session.session_date)
+            print("Slot Time:", session.slot.start_time)
+            print("Current Status:", session.status)
+            print("Now:", now)
+            
             if session.slot and session.slot.start_time:
 
-                # ✅ convert string → time
-                start_time_obj = datetime.strptime(
+                start_time = datetime.strptime(
                     session.slot.start_time,
                     "%I:%M %p"
                 ).time()
 
-                # ✅ combine date + start time
-                session_start_datetime = datetime.combine(
+                session_start = datetime.combine(
                     session.session_date.date(),
-                    start_time_obj
+                    start_time
                 )
 
-                # ✅ auto complete after 1 hour 30 minutes
-                auto_complete_time = session_start_datetime + timedelta(
-                    hours=1,
-                    minutes=30
+                # Make aware
+                session_start = timezone.make_aware(
+                    session_start,
+                    timezone.get_current_timezone()
                 )
 
-                # ✅ compare safely
-                now_naive = now.replace(tzinfo=None)
+                auto_complete_time = session_start + timedelta(hours=1, minutes=30)
+                
 
-                if now_naive >= auto_complete_time:
+                if now >= auto_complete_time:
                     session.status = "completed"
                     session.completed_at = now
                     session.save(update_fields=["status", "completed_at"])
+                    print("STATUS :", session.status)
                     
+                    participant = session.handholding_participant
+
+                    completed_count = participant.sessions.filter(
+                        status="completed"
+                    ).count()
+
+                    participant.completed_sessions = completed_count
+                    participant.save(update_fields=["completed_sessions"])
+
+                    print("Session Status:", session.status)
+                    print("Completed Sessions:", participant.completed_sessions)
+                            
         sessions = HandHoldingParticipantSession.objects.select_related(
             "handholding_participant__user", "slot"
         )

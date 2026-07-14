@@ -1318,14 +1318,33 @@ class ReportStatusCountAPIView(APIView):
         ).values_list("user_id", flat=True)
 
         # Exclude those users' reports
-        reports = Report.objects.exclude(user_id__in=excluded_users)
+        reports = Report.objects.exclude(package__engineering_test_analysis=True)
+        
+        print("Total reports:", Report.objects.count())
+        print("After exclusion:", reports.count())
+
+        print(
+            reports.values("report_status")
+            .annotate(count=Count("id"))
+            .order_by("report_status")
+        )
 
         stats = reports.aggregate(
-            total_reports=Count("id"),
+            total_reports=Count(
+                "id",
+                filter=Q(
+                    report_status__in=[
+                        "received_locked",
+                        "received_unlocked",
+                        "not_received",
+                    ]
+                ),
+            ),
             received_locked=Count("id", filter=Q(report_status="received_locked")),
             received_unlocked=Count("id", filter=Q(report_status="received_unlocked")),
             not_received=Count("id", filter=Q(report_status="not_received")),
         )
+        print("Report Status Count Stats:", stats)
 
         return Response(stats)
         
