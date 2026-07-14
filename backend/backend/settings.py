@@ -407,6 +407,17 @@ AWS_QUERYSTRING_AUTH = False
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
 }
+AWS_S3_ADDRESSING_STYLE = "virtual"
+
+AWS_S3_VERIFY = True
+
+AWS_S3_USE_SSL = True
+
+AWS_S3_CUSTOM_DOMAIN = (
+    f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+)
+
+MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
 
 
 STORAGES = {
@@ -421,8 +432,13 @@ STORAGES = {
 # STATIC_URL = 'static/'
 
 # MEDIA_URL = '/media/'
-MEDIA_URL = f"https://abhinavcareerscope-media-staging.s3.ap-south-1.amazonaws.com/"
+# MEDIA_URL = f"https://abhinavcareerscope-media-staging.s3.ap-south-1.amazonaws.com/"
 # MEDIA_ROOT = BASE_DIR / 'media'
+
+MEDIA_URL = (
+    f"https://{AWS_STORAGE_BUCKET_NAME}.s3."
+    f"{AWS_S3_REGION_NAME}.amazonaws.com/"
+)
 
 
 # =========================
