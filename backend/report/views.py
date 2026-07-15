@@ -25,6 +25,7 @@ from django.utils import timezone
 from openpyxl import Workbook
 from django.http import HttpResponse
 from django.db.models import Count, Q, Sum
+from backend.common.s3 import generate_presigned_url
 
 from report.serializers import CompletedExamReportSerializer, EngineeringTestAnalysisReportSerializer
 from exam.models import UserExam
@@ -334,9 +335,10 @@ class CompletedExamReportAPIView(APIView):
                         file_name = os.path.basename(report.file_path.name)
 
                         # ✅ ALL FILE TYPES use same API
-                        file_url = request.build_absolute_uri(
-                            f"/api/report/report/pdf/{report.id}/"
-                        )
+                        # file_url = request.build_absolute_uri(
+                        #     f"/api/report/report/pdf/{report.id}/"
+                        # )
+                        file_url = generate_presigned_url(report.file_path.name)
 
                     except Exception:
                         file_url = None
@@ -607,21 +609,24 @@ class CompletedExamReportStudentIDAPIView(APIView):
             try:
                 if report.file_path:
                     main_file_name = os.path.basename(report.file_path.name)
-                    main_file_url = request.build_absolute_uri(
-                        f"/api/report/report/pdf/{report.id}/?type=v1"
-                    )
+                    # main_file_url = request.build_absolute_uri(
+                    #     f"/api/report/report/pdf/{report.id}/?type=v1"
+                    # )
+                    main_file_url = generate_presigned_url(report.file_path.name)
 
                 if report.file_path1:
                     v1_file_name = os.path.basename(report.file_path1.name)
-                    v1_file_url = request.build_absolute_uri(
-                        f"/api/report/report/pdf/{report.id}/?type=v2"
-                    )
+                    # v1_file_url = request.build_absolute_uri(
+                    #     f"/api/report/report/pdf/{report.id}/?type=v2"
+                    # )
+                    v1_file_url = generate_presigned_url(report.file_path1.name)
 
                 if report.file_path2:
                     v2_file_name = os.path.basename(report.file_path2.name)
-                    v2_file_url = request.build_absolute_uri(
-                        f"/api/report/report/pdf/{report.id}/?type=v3"
-                    )
+                    # v2_file_url = request.build_absolute_uri(
+                    #     f"/api/report/report/pdf/{report.id}/?type=v3"
+                    # )
+                    v2_file_url = generate_presigned_url(report.file_path2.name)
 
             except Exception:
                 pass
@@ -855,7 +860,10 @@ class ReportPDFView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        return redirect(file_obj.url)
+        # return redirect(file_obj.url)
+        url = generate_presigned_url(file_obj.name)
+
+        return redirect(url)
 
 # class UploadReportAPIView(APIView):
 #     """
@@ -1639,21 +1647,24 @@ class EngineeringTestAnalysisReportAPIView(APIView):
             try:
                 if report.file_path:
                     main_file_name = os.path.basename(report.file_path.name)
-                    main_file_url = request.build_absolute_uri(
-                        f"/api/report/report/pdf/{report.id}/?type=v1"
-                    )
+                    # main_file_url = request.build_absolute_uri(
+                    #     f"/api/report/report/pdf/{report.id}/?type=v1"
+                    # )
+                    main_file_url = generate_presigned_url(report.file_path.name)
 
                 if report.file_path1:
                     v1_file_name = os.path.basename(report.file_path1.name)
-                    v1_file_url = request.build_absolute_uri(
-                        f"/api/report/report/v1/pdf/{report.id}/?type=v2"
-                    )
+                    # v1_file_url = request.build_absolute_uri(
+                    #     f"/api/report/report/v1/pdf/{report.id}/?type=v2"
+                    # )
+                    v1_file_url = generate_presigned_url(report.file_path1.name)
 
                 if report.file_path2:
                     v2_file_name = os.path.basename(report.file_path2.name)
-                    v2_file_url = request.build_absolute_uri(
-                        f"/api/report/report/v2/pdf/{report.id}/?type=v3"
-                    )
+                    # v2_file_url = request.build_absolute_uri(
+                    #     f"/api/report/report/v2/pdf/{report.id}/?type=v3"
+                    # )
+                    v2_file_url = generate_presigned_url(report.file_path2.name)
 
             except Exception:
                 pass
