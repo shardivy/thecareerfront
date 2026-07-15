@@ -15,6 +15,7 @@ def generate_presigned_url(file_name, expiration=600):
         Params={
             "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
             "Key": file_name,
+            "ResponseContentDisposition": "attachment",
         },
         ExpiresIn=expiration,
     )
