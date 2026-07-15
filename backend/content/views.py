@@ -8,6 +8,7 @@ from rest_framework import status
 from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.db.models import Q
+from backend.common.s3 import generate_presigned_url
 
 from lead_registration.models import Stream, StudentProfile, StudentStream
 from content.serializers import AssignStreamContentSerializer, ContentListSerializer, ContentUploadSerializer
@@ -114,7 +115,9 @@ class ContentUploadAPIView(APIView):
                     print(f"Title      : {content.title}")
                     print(f"File URL   : {content.file_url.url}")
 
-                    return redirect(content.file_url.url)
+                    url = generate_presigned_url(content.file_url.name)
+
+                    return redirect(url)
     
             # =========================
             # CONTENT LIST MODE
@@ -335,7 +338,9 @@ class ContentFileView(APIView):
         if not content.file_url:
             raise Http404("File not found")
 
-        return redirect(content.file_url.url)
+        url = generate_presigned_url(content.file_url.name)
+
+        return redirect(url)
     
     
 class ContentDashboardAPIView(APIView):
