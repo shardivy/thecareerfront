@@ -1,7 +1,7 @@
 import mimetypes
 import os
 
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from django.http import FileResponse
 from django.urls import reverse
@@ -740,36 +740,55 @@ class CompletedExamReportStudentIDAPIView(APIView):
 #         return response
 
 
+
 # class ReportPDFView(APIView):
 #     authentication_classes = []
 #     permission_classes = [AllowAny]
 
 #     def get(self, request, report_id):
+
 #         report = get_object_or_404(Report, id=report_id)
 
-#         if not report.file_path:
+#         # v1 | v2 | v3
+#         report_type = request.GET.get("type", "v1")
+
+#         if report_type == "v1":
+#             file_obj = report.file_path
+
+#         elif report_type == "v2":
+#             file_obj = report.file_path1
+
+#         elif report_type == "v3":
+#             file_obj = report.file_path2
+
+#         else:
+#             return Response(
+#                 {"error": "Invalid report type"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         if not file_obj:
 #             return Response(
 #                 {
 #                     "error": "File path not found",
-#                     "message": f"No file path associated with report {report_id}"
+#                     "message": f"{report_type} file not uploaded"
 #                 },
 #                 status=status.HTTP_404_NOT_FOUND
 #             )
 
-#         if not os.path.exists(report.file_path.path):
+#         if not os.path.exists(file_obj.path):
 #             return Response(
 #                 {
 #                     "error": "File not found",
-#                     "message": f"The file for report {report_id} could not be found on the server"
+#                     "message": "The file could not be found on the server"
 #                 },
 #                 status=status.HTTP_404_NOT_FOUND
 #             )
 
 #         try:
-#             file_path = report.file_path.path
+#             file_path = file_obj.path
 #             file_name = os.path.basename(file_path)
 
-#             # ✅ Detect correct content type
 #             content_type, _ = mimetypes.guess_type(file_path)
 
 #             if not content_type:
@@ -780,18 +799,16 @@ class CompletedExamReportStudentIDAPIView(APIView):
 #                 content_type=content_type
 #             )
 
-#             # ==========================================
-#             # 🔹 PDF → Preview
-#             # ==========================================
 #             if content_type == "application/pdf":
-#                 response["Content-Disposition"] = f'inline; filename="{file_name}"'
+#                 response["Content-Disposition"] = (
+#                     f'inline; filename="{file_name}"'
+#                 )
 #                 response["X-Frame-Options"] = "ALLOWALL"
 
-#             # ==========================================
-#             # 🔹 Other files → Download
-#             # ==========================================
 #             else:
-#                 response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+#                 response["Content-Disposition"] = (
+#                     f'attachment; filename="{file_name}"'
+#                 )
 
 #             return response
 
@@ -799,10 +816,10 @@ class CompletedExamReportStudentIDAPIView(APIView):
 #             return Response(
 #                 {
 #                     "error": "File access error",
-#                     "message": f"Unable to access file: {str(e)}"
+#                     "message": str(e)
 #                 },
 #                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#             ) 
+#             )
 
 class ReportPDFView(APIView):
     authentication_classes = []
@@ -812,7 +829,6 @@ class ReportPDFView(APIView):
 
         report = get_object_or_404(Report, id=report_id)
 
-        # v1 | v2 | v3
         report_type = request.GET.get("type", "v1")
 
         if report_type == "v1":
@@ -839,50 +855,7 @@ class ReportPDFView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        if not os.path.exists(file_obj.path):
-            return Response(
-                {
-                    "error": "File not found",
-                    "message": "The file could not be found on the server"
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        try:
-            file_path = file_obj.path
-            file_name = os.path.basename(file_path)
-
-            content_type, _ = mimetypes.guess_type(file_path)
-
-            if not content_type:
-                content_type = "application/octet-stream"
-
-            response = FileResponse(
-                open(file_path, "rb"),
-                content_type=content_type
-            )
-
-            if content_type == "application/pdf":
-                response["Content-Disposition"] = (
-                    f'inline; filename="{file_name}"'
-                )
-                response["X-Frame-Options"] = "ALLOWALL"
-
-            else:
-                response["Content-Disposition"] = (
-                    f'attachment; filename="{file_name}"'
-                )
-
-            return response
-
-        except (FileNotFoundError, IOError, OSError) as e:
-            return Response(
-                {
-                    "error": "File access error",
-                    "message": str(e)
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return redirect(file_obj.url)
 
 # class UploadReportAPIView(APIView):
 #     """
