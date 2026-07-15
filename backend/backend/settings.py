@@ -512,5 +512,7 @@ MSG91_AUTH_KEY = os.environ.get("MSG91_AUTH_KEY")
 MSG91_WHATSAPP_NUMBER = os.environ.get("MSG91_WHATSAPP_NUMBER")
 MSG91_OTP_TEMPLATE_NAME = os.environ.get("MSG91_OTP_TEMPLATE_NAME")
 
+TIME_ZONE = "Asia/Kolkata"
+# USE_TZ = False
 
 

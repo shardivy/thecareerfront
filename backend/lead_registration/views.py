@@ -2619,6 +2619,8 @@ class ConvertLeadAPIView(APIView):
 
         # 🔹 Check existing user
         existing_user = User.objects.filter(email=lead.email).first()
+        
+        total_sessions = HandHoldingSession.objects.count()
 
         # ==========================
         # Handle multiple programs/packages
@@ -2813,6 +2815,7 @@ class ConvertLeadAPIView(APIView):
                         participant.user = user
                         participant.mobile = user.phone
                         participant.email = user.email
+                        participant.total_sessions = total_sessions
                         
                         participant.full_address = full_address
                         participant.city = city
@@ -2841,7 +2844,8 @@ class ConvertLeadAPIView(APIView):
                             preferred_counselling_mode=serializer.validated_data.get("preferred_counselling_mode"),
                             resume_file=resume_file,  # This should work
                             photo=photo,  # This should work
-                            show_profile=serializer.validated_data.get("show_profile")
+                            show_profile=serializer.validated_data.get("show_profile"),
+                            total_sessions=total_sessions
                         )
 
                     # =================================

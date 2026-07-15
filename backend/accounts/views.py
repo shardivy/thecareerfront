@@ -6,7 +6,7 @@ from django.contrib.auth.hashers import check_password
 from event.models import HandHoldingParticipant, HandHoldingParticipantSession
 from content.models import Content
 from exam.models import UserExam
-from django.db.models.functions import TruncMonth
+from django.db.models.functions import ExtractMonth, TruncMonth
 from datetime import datetime
 from payment.models import Payment
 from report.models import Report
@@ -3800,9 +3800,31 @@ class AdminDashboardAPIView(APIView):
         # =====================================
         # 🔹 8. REPORT NOT RECEIVED
         # =====================================
-        report_not_received = Report.objects.filter(
-            report_status='not_received'
-        ).count()
+        # report_not_received = Report.objects.filter(
+        #     report_status='not_received'
+        # ).count()
+        excluded_users = UserProgramPackage.objects.filter(
+            package__engineering_test_analysis=True
+        ).values_list("user_id", flat=True)
+
+        reports = Report.objects.exclude(package__engineering_test_analysis=True)
+
+        report_counts = reports.aggregate(
+            total_reports=Count(
+                            "id",
+                            filter=Q(
+                                report_status__in=[
+                                    "received_locked",
+                                    "received_unlocked",
+                                    "not_received",
+                                ]
+                            ),
+                        ),
+            report_not_received=Count(
+                "id",
+                filter=Q(report_status="not_received")
+            ),
+        )
 
         # =====================================
         # 🔹 9. CONTENT (Free vs Premium)
@@ -3848,7 +3870,8 @@ class AdminDashboardAPIView(APIView):
             },
 
             "reports": {
-                "not_received": report_not_received
+                "total": report_counts.get('total_reports', 0),
+                "not_received": report_counts.get('report_not_received', 0)
             },
 
             "content": {
@@ -3905,7 +3928,7 @@ class LeadStatsAPIView(APIView):
         # 🔹 MONTHLY DATA (Last 12 Months)
         # ======================================
 
-        today = datetime.now().replace(day=1)
+        today = timezone.localtime().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         monthly_result = {}
         months_list = []
@@ -3915,34 +3938,31 @@ class LeadStatsAPIView(APIView):
             months_list.append(month_start)
 
             label = f"{month_abbr[month_start.month]} {month_start.year}"
-
             monthly_result[label] = {
                 "enquiry": 0,
-                "converted": 0
+                "converted": 0,
             }
 
         start_month = months_list[0]
 
-        monthly_counts = leads.filter(
-            created_at__gte=start_month
-        ).annotate(
-            month=TruncMonth("created_at")
-        ).values(
-            "month",
-            "status"
-        ).annotate(
-            count=Count("id")
-        )
+        month_leads = leads.filter(created_at__gte=start_month)
 
-        for entry in monthly_counts:
-            month_date = entry["month"]
-            label = f"{month_abbr[month_date.month]} {month_date.year}"
+        for lead in month_leads:
+            local_date = timezone.localtime(lead.created_at)
 
-            monthly_result[label][entry["status"]] = entry["count"]
-            
+            label = f"{month_abbr[local_date.month]} {local_date.year}"
+
+            if label in monthly_result:
+                if lead.status == "enquiry":
+                    monthly_result[label]["enquiry"] += 1
+                elif lead.status == "converted":
+                    monthly_result[label]["converted"] += 1
+
         for month in monthly_result:
-            data = monthly_result[month]
-            data["total"] = data["enquiry"] + data["converted"]
+            monthly_result[month]["total"] = (
+                monthly_result[month]["enquiry"]
+                + monthly_result[month]["converted"]
+            )
 
         # ======================================
         # 🔹 WEEKLY DATA (Current Month)
