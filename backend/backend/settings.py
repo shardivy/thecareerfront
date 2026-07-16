@@ -400,51 +400,60 @@ DATABASES = {
 # AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 # AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
 
+# AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
+# AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
+# AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
+# AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME")
+
+
+# AWS_S3_CUSTOM_DOMAIN = (
+#     f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+# )
+
+# MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+
+
 AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
 AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME")
+AWS_PUBLIC_BUCKET_NAME = config("AWS_PUBLIC_BUCKET_NAME")
+AWS_PRIVATE_BUCKET_NAME = config("AWS_PRIVATE_BUCKET_NAME")
+AWS_ENVIRONMENT = config("AWS_ENVIRONMENT")
 
-AWS_S3_SIGNATURE_VERSION = "s3v4"
-AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = True
+AWS_S3_FILE_OVERWRITE = False
+AWS_S3_SIGNATURE_VERSION = "s3v4"
 
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
 }
+
 AWS_S3_ADDRESSING_STYLE = "virtual"
 
 AWS_S3_VERIFY = True
 
 AWS_S3_USE_SSL = True
 
-AWS_S3_CUSTOM_DOMAIN = (
-    f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
-)
-
-MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
-
 
 STORAGES = {
     "default": {
-        "BACKEND": "backend.storage.MediaStorage",
+        "BACKEND": "backend.storage.PrivateMediaStorage",
     },
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-
 # STATIC_URL = 'static/'
 
 # MEDIA_URL = '/media/'
 # MEDIA_URL = f"https://abhinavcareerscope-media-staging.s3.ap-south-1.amazonaws.com/"
 # MEDIA_ROOT = BASE_DIR / 'media'
 
-MEDIA_URL = (
-    f"https://{AWS_STORAGE_BUCKET_NAME}.s3."
-    f"{AWS_S3_REGION_NAME}.amazonaws.com/"
-)
+# MEDIA_URL = (
+#     f"https://{AWS_STORAGE_BUCKET_NAME}.s3."
+#     f"{AWS_S3_REGION_NAME}.amazonaws.com/"
+# )
 
 
 # =========================
