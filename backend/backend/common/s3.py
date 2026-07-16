@@ -31,8 +31,22 @@ def generate_presigned_url(file_name, expiration=600):
     )
 
     ext = os.path.splitext(file_name)[1].lower()
+    
+    # File types that should open in browser
+    inline_extensions = {
+        ".pdf",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".svg",
+        ".bmp",
+        ".tif",
+        ".tiff",
+    }
 
-    disposition = "inline" if ext == ".pdf" else "attachment"
+    disposition = "inline" if ext in inline_extensions else "attachment"
 
     return client.generate_presigned_url(
         "get_object",
