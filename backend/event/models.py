@@ -4,6 +4,7 @@ from django.conf import settings
 from accounts.models import User
 from counselling_slot.models import Slot
 from payment.models import Payment
+from backend.storage import PrivateMediaStorage, PublicMediaStorage
 
 class Event(models.Model):
     EVENT_TYPE_CHOICES = (
@@ -88,8 +89,8 @@ class HandHoldingParticipant(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
     payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True)
 
-    resume_file = models.FileField(upload_to='handholding/resumes/', blank=True, null=True)
-    photo = models.ImageField(upload_to='handholding/photos/', blank=True, null=True)
+    resume_file = models.FileField(storage=PrivateMediaStorage(), upload_to='handholding/resumes/', blank=True, null=True)
+    photo = models.ImageField(storage=PublicMediaStorage(), upload_to='handholding/photos/', blank=True, null=True)
 
     mobile = models.CharField(max_length=15, null=True, blank=True)
     email = models.EmailField(null=True, blank=True)
@@ -157,7 +158,7 @@ class HandHoldingParticipantSession(models.Model):
 class CertificateTemplate(models.Model):
     name = models.CharField(max_length=255)
 
-    template_file = models.ImageField(upload_to="certificate_templates/")
+    template_file = models.ImageField(storage=PublicMediaStorage(), upload_to="certificate_templates/")
 
     # positions (customizable per template)
     name_x = models.IntegerField(default=0)
@@ -191,7 +192,7 @@ class Certificate(models.Model):
         related_name="certificates"
     )
     program_type = models.CharField(max_length=50, choices=PROGRAM_TYPE_CHOICES, null=True, blank=True)
-    certificate_file = models.FileField(upload_to='certificates/', null=True, blank=True)
+    certificate_file = models.FileField(storage=PublicMediaStorage(), upload_to='certificates/', null=True, blank=True)
     certificate_status = models.CharField(max_length=20, choices=(
         ('pending', 'Pending'),
         ('issued', 'Issued'),

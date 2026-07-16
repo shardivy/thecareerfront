@@ -4,6 +4,7 @@ from accounts.models import User
 from backend import settings
 from lead_registration.models import StudentProfile
 from program_package.models import Package, Program
+from backend.storage import PrivateMediaStorage, PublicMediaStorage
 
 class Content(models.Model):
     CONTENT_TYPE_CHOICES = (
@@ -23,9 +24,9 @@ class Content(models.Model):
     category = models.CharField(max_length=100, choices=CONTENT_CATEGORY_CHOICES, null=True, blank=True)
     description = models.TextField(null=True, blank=True)
     # program = models.ManyToManyField(Program, blank=True) 
-    file_url = models.FileField(upload_to='contents/', null=True, blank=True)
+    file_url = models.FileField(storage=PrivateMediaStorage(), upload_to='content_files/', null=True, blank=True)
     video_link = models.URLField(null=True, blank=True)
-    image = models.ImageField(upload_to='content_images/', null=True, blank=True)
+    image = models.ImageField(storage=PublicMediaStorage(), upload_to='content_images/', null=True, blank=True)
     is_draft = models.BooleanField(default=True)
     download_count = models.PositiveIntegerField(default=0)
     is_student_visible = models.BooleanField(default=True)

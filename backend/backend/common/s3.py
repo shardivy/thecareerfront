@@ -2,6 +2,7 @@ import os
 
 import boto3
 from django.conf import settings
+from botocore.config import Config
 
 
 # def generate_presigned_url(file_name, expiration=600):
@@ -28,30 +29,29 @@ def generate_presigned_url(file_name, expiration=600):
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         region_name=settings.AWS_S3_REGION_NAME,
+        config=Config(signature_version="s3v4"),
     )
 
-    ext = os.path.splitext(file_name)[1].lower()
-    
-    # File types that should open in browser
-    inline_extensions = {
-        ".pdf",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".gif",
-        ".webp",
-        ".svg",
-        ".bmp",
-        ".tif",
-        ".tiff",
-    }
+    # prepend staging if missing
+    location = settings.AWS_ENVIRONMENT.strip("/")
 
-    disposition = "inline" if ext in inline_extensions else "attachment"
+    if location and not file_name.startswith(location + "/"):
+        file_name = f"{location}/{file_name}"
+
+    print("Signing key:", file_name)
+
+    ext = os.path.splitext(file_name)[1].lower()
+
+    disposition = (
+        "inline"
+        if ext in {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".tif", ".tiff"}
+        else "attachment"
+    )
 
     return client.generate_presigned_url(
         "get_object",
         Params={
-            "Bucket": settings.AWS_STORAGE_BUCKET_NAME,
+            "Bucket": settings.AWS_PRIVATE_BUCKET_NAME,
             "Key": file_name,
             "ResponseContentDisposition": disposition,
         },
