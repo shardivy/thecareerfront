@@ -2,6 +2,7 @@ from django.db import models
 
 from accounts.models import User
 from program_package.models import Package
+from backend.storage import PrivateMediaStorage
 
 class Payment(models.Model):
     METHOD_CHOICE = (
@@ -34,7 +35,7 @@ class Payment(models.Model):
     status = models.CharField(max_length=50, choices=STATUS_CHOICE, default='verification_pending')
     payment_date = models.DateField(blank=True, null=True)
     transaction_id = models.CharField(max_length=100, blank=True, null=True)
-    proof_file = models.FileField(upload_to='payments/', blank=True, null=True)
+    proof_file = models.FileField(storage=PrivateMediaStorage(), upload_to='payments/', blank=True, null=True)
     verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='verified_payments')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

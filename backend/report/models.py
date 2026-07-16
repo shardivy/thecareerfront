@@ -3,6 +3,7 @@ from django.db import models
 from accounts.models import User
 from program_package.models import Package, Program, UserProgramPackage
 from exam.models import Exam
+from backend.storage import PrivateMediaStorage
 
 class Report(models.Model):
     STATUSCHOICES = (
@@ -39,9 +40,9 @@ class Report(models.Model):
         blank=True
     )
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, null=True, blank=True)
-    file_path = models.FileField(upload_to='reports/', blank=True, null=True)
-    file_path1 = models.FileField(upload_to='reports/', blank=True, null=True)
-    file_path2 = models.FileField(upload_to='reports/', blank=True, null=True)
+    file_path = models.FileField(storage=PrivateMediaStorage(), upload_to='reports/', blank=True, null=True)
+    file_path1 = models.FileField(storage=PrivateMediaStorage(), upload_to='reports/', blank=True, null=True)
+    file_path2 = models.FileField(storage=PrivateMediaStorage(), upload_to='reports/', blank=True, null=True)
     file_path_count = models.PositiveIntegerField(default=0)
     file_path1_count = models.PositiveIntegerField(default=0)
     file_path2_count = models.PositiveIntegerField(default=0)
