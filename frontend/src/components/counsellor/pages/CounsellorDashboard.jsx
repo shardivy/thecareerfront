@@ -139,56 +139,96 @@ const CounsellorDashboard = () => {
     }
   };
 
-  const handleDownloadReport = async () => {
-    if (!selectedReport?.report_file) {
-      message.warning("No report file available");
+  const handleDownloadReport = () => {
+    let url = "";
+    let fileName = "";
+
+    if (Array.isArray(selectedReport?.report_file)) {
+      const selectedVersion =
+        selectedReport.report_file.find(
+          (item) => item.version === activeReportTab
+        ) || selectedReport.report_file[0];
+
+      url = selectedVersion.url;
+
+      fileName = url
+        .split("?")[0]
+        .split("/")
+        .pop();
+    } else {
+      url = selectedReport?.file_path;
+
+      fileName =
+        selectedReport?.file_name ||
+        url.split("?")[0].split("/").pop();
+    }
+
+    if (!url) {
+      message.warning("No report available");
       return;
     }
 
-    setDownloading(true);
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";          // Opens in a new tab
+    link.rel = "noopener noreferrer";
+    link.download = fileName;
 
-    try {
-      const response = await fetch(reportUrl);
-      const blob = await response.blob();
-
-      const fileNameFromApi = selectedReport.file_name || "";
-
-      let extension = "";
-
-      if (fileType === "pdf") {
-        extension = ".pdf";   // ✅ FORCE PDF
-      } else if (fileNameFromApi.includes(".")) {
-        extension = fileNameFromApi.substring(fileNameFromApi.lastIndexOf("."));
-      } else {
-        extension = getExtensionFromUrl(selectedReport.report_file);
-      }
-
-      const fileName = selectedReport.studentName
-        ? `${selectedReport.studentName.replace(/\s+/g, "_")}_Report${extension}`
-        : `Report${extension}`;
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      link.href = url;
-      link.download = fileName; // ✅ correct extension guaranteed
-
-      document.body.appendChild(link);
-      link.click();
-
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-      message.success("Report downloaded successfully");
-      setReportModal(false);
-      setSelectedReport(null);
-    } catch (error) {
-      // console.error(error);
-      message.error("Failed to download report");
-    } finally {
-      setDownloading(false);
-    }
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
+
+  // const handleDownloadReport = async () => {
+  //   if (!selectedReport?.report_file) {
+  //     message.warning("No report file available");
+  //     return;
+  //   }
+
+  //   setDownloading(true);
+
+  //   try {
+  //     const response = await fetch(reportUrl);
+  //     const blob = await response.blob();
+
+  //     const fileNameFromApi = selectedReport.file_name || "";
+
+  //     let extension = "";
+
+  //     if (fileType === "pdf") {
+  //       extension = ".pdf";   // ✅ FORCE PDF
+  //     } else if (fileNameFromApi.includes(".")) {
+  //       extension = fileNameFromApi.substring(fileNameFromApi.lastIndexOf("."));
+  //     } else {
+  //       extension = getExtensionFromUrl(selectedReport.report_file);
+  //     }
+
+  //     const fileName = selectedReport.studentName
+  //       ? `${selectedReport.studentName.replace(/\s+/g, "_")}_Report${extension}`
+  //       : `Report${extension}`;
+
+  //     const url = window.URL.createObjectURL(blob);
+  //     const link = document.createElement("a");
+
+  //     link.href = url;
+  //     link.download = fileName; // ✅ correct extension guaranteed
+
+  //     document.body.appendChild(link);
+  //     link.click();
+
+  //     document.body.removeChild(link);
+  //     window.URL.revokeObjectURL(url);
+
+  //     message.success("Report downloaded successfully");
+  //     setReportModal(false);
+  //     setSelectedReport(null);
+  //   } catch (error) {
+  //     // console.error(error);
+  //     message.error("Failed to download report");
+  //   } finally {
+  //     setDownloading(false);
+  //   }
+  // };
 
 
   const getFileType = (url = "") => {
@@ -631,7 +671,7 @@ const CounsellorDashboard = () => {
             <Divider />
 
             <h4>📌 Important Notes</h4>
-            <p>• {selectedSession.location.nearby}</p>
+            {/* <p>• {selectedSession.location.nearby}</p> */}
             <p>• {selectedSession.location.instructions}</p>
             <p>• {selectedSession.location.parking}</p>
           </div>

@@ -16,25 +16,25 @@ const { Option } = Select;
 const AdminDashboard = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
-const [pageSize, setPageSize] = useState(5);
-  
-const dispatch = useDispatch();
- const { stats: dashboardStats, leadStats, activities, loading, error } =
-  useSelector((state) => state.dashboard);
+  const [pageSize, setPageSize] = useState(5);
+
+  const dispatch = useDispatch();
+  const { stats: dashboardStats, leadStats, activities, loading, error } =
+    useSelector((state) => state.dashboard);
 
   const { profile } = useSelector((state) => state.profile);
 
   const [chartPeriod, setChartPeriod] = useState("monthly"); // Weekly / Monthly / Yearly
-    const role = localStorage.getItem("adminRole");
+  const role = localStorage.getItem("adminRole");
 
-  
-   
-useEffect(() => {
-  dispatch(fetchDashboardStats());
-  dispatch(fetchLeadStats(chartPeriod));
-    dispatch(fetchActivityLogs()); 
-  dispatch(getProfile());
-}, [dispatch, chartPeriod]);
+
+
+  useEffect(() => {
+    dispatch(fetchDashboardStats());
+    dispatch(fetchLeadStats(chartPeriod));
+    dispatch(fetchActivityLogs());
+    dispatch(getProfile());
+  }, [dispatch, chartPeriod]);
 
   // Loading state
   if (loading) {
@@ -80,8 +80,8 @@ useEffect(() => {
       value: dashboardStats?.students?.registered_students || 0,
       icon: <TeamOutlined />,
     },
-   ...((role === "superadmin")
-    ? [
+    ...((role === "superadmin")
+      ? [
         {
           title: "Expected Revenue",
           value: `₹${dashboardStats?.payments?.total_expected || 0}`,
@@ -93,7 +93,7 @@ useEffect(() => {
           icon: <CreditCardOutlined />,
         },
       ]
-    : []),
+      : []),
     {
       title: "Today's Sessions",
       value: dashboardStats?.today_sessions?.total || 0,
@@ -109,9 +109,9 @@ useEffect(() => {
       icon: <CalendarOutlined />,
     },
     {
-      title: "Reports",
-      value: dashboardStats?.reports?.pending_uploaded || 0,
-      uploadPending: dashboardStats?.reports?.pending_uploaded || 0,
+      title: "Aptitude Test Reports",
+      value: dashboardStats?.reports?.total || 0,
+      uploadPending: dashboardStats?.reports?.not_received || 0,
       icon: <FileTextOutlined />,
     },
     {
@@ -144,67 +144,67 @@ useEffect(() => {
     ],
   };
 
-const getEnquiriesData = () => {
-  if (!leadStats) {
-    return {
-      labels: [],
-      datasets: [],
-    };
-  }
+  const getEnquiriesData = () => {
+    if (!leadStats) {
+      return {
+        labels: [],
+        datasets: [],
+      };
+    }
 
-  return {
-    labels: leadStats.labels || [],
+    return {
+      labels: leadStats.labels || [],
+      datasets: [
+        {
+          label: "Total Enquiries",
+          data: leadStats.total || [],
+          backgroundColor: adminTheme.token.colorPrimary,
+          barPercentage: 0.4,       // ✅ controls bar width
+          categoryPercentage: 0.6,  // ✅ controls group spacing
+        },
+        {
+          label: "Total Converted",
+          data: leadStats.converted || [],
+          backgroundColor: adminTheme.token.colorSuccess,
+          barPercentage: 0.4,
+          categoryPercentage: 0.6,
+        },
+      ],
+    };
+  };
+
+  const barOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: "top" },
+    },
+    scales: {
+      x: {
+        stacked: false, // ❌ make sure not stacked
+      },
+      y: {
+        beginAtZero: true,
+      },
+    },
+  };
+
+  const collectedRevenue = dashboardStats?.payments?.total_collected || 0;
+  const pendingRevenue = dashboardStats?.payments?.total_pending || 0;
+  const paymentComparison = {
+    labels: ["Collected Revenue", "Pending Revenue"],
     datasets: [
       {
-        label: "Total Enquiries",
-        data: leadStats.total || [],
-        backgroundColor: adminTheme.token.colorPrimary,
-        barPercentage: 0.4,       // ✅ controls bar width
-        categoryPercentage: 0.6,  // ✅ controls group spacing
-      },
-      {
-        label: "Total Converted",
-        data: leadStats.converted || [],
-        backgroundColor: adminTheme.token.colorSuccess,
-        barPercentage: 0.4,
-        categoryPercentage: 0.6,
+        data: [
+          collectedRevenue,
+          pendingRevenue,
+        ],
+        backgroundColor: [
+          adminTheme.token.colorSuccess,
+          adminTheme.token.colorPrimary,
+        ],
       },
     ],
   };
-};
-
-const barOptions = {
-  responsive: true,
-  plugins: {
-    legend: { position: "top" },
-  },
-  scales: {
-    x: {
-      stacked: false, // ❌ make sure not stacked
-    },
-    y: {
-      beginAtZero: true,
-    },
-  },
-};
-
-const collectedRevenue = dashboardStats?.payments?.total_collected || 0;
-const pendingRevenue = dashboardStats?.payments?.total_pending || 0;
-const paymentComparison = {
-  labels: ["Collected Revenue", "Pending Revenue"],
-  datasets: [
-    {
-      data: [
-        collectedRevenue,
-        pendingRevenue,
-      ],
-      backgroundColor: [
-        adminTheme.token.colorSuccess,
-        adminTheme.token.colorPrimary,
-      ],
-    },
-  ],
-};
 
   const paymentChartOptions = {
     cutout: "50%",
@@ -216,72 +216,72 @@ const paymentComparison = {
   };
 
   const breakAfterWords = (text = "", count = 8) => {
-  const words = text.split(" ");
-  let lines = [];
+    const words = text.split(" ");
+    let lines = [];
 
-  for (let i = 0; i < words.length; i += count) {
-    lines.push(words.slice(i, i + count).join(" "));
-  }
+    for (let i = 0; i < words.length; i += count) {
+      lines.push(words.slice(i, i + count).join(" "));
+    }
 
-  return lines.join("\n");
-};
+    return lines.join("\n");
+  };
 
   // =================== RECENT ACTIVITIES ===================
-const formatTime = (dateString) => {
-  if (!dateString) return "-";
+  const formatTime = (dateString) => {
+    if (!dateString) return "-";
 
-  const now = new Date();
-  const past = new Date(dateString);
-  const diff = Math.floor((now - past) / 1000);
+    const now = new Date();
+    const past = new Date(dateString);
+    const diff = Math.floor((now - past) / 1000);
 
-  if (diff < 60) return "Just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+    if (diff < 60) return "Just now";
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
 
-  return `${Math.floor(diff / 86400)} day ago`;
-};
+    return `${Math.floor(diff / 86400)} day ago`;
+  };
 
-const recentActivities = (activities || []).map((item) => ({
-  key: item.id,
+  const recentActivities = (activities || []).map((item) => ({
+    key: item.id,
 
-  // ✅ Proper readable activity
-activity:
-  item.description ||
-  `${item.action?.toUpperCase()} ${item.model_name} (ID: ${item.object_id})`,
+    // ✅ Proper readable activity
+    activity:
+      item.description ||
+      `${item.action?.toUpperCase()} ${item.model_name} (ID: ${item.object_id})`,
 
-  // ✅ formatted time
-  time: formatTime(item.created_at),
+    // ✅ formatted time
+    time: formatTime(item.created_at),
 
-  // ✅ status
-  status: item.action ? item.action.toUpperCase() : "UNKNOWN",
-}));
+    // ✅ status
+    status: item.action ? item.action.toUpperCase() : "UNKNOWN",
+  }));
 
   const activityColumns = [
-   {
-  title: "Activity",
-  dataIndex: "activity",
-  key: "activity",
-  width:500,
-  render: (text) => (
-    <div style={{ whiteSpace: "pre-line" }}>
-      {breakAfterWords(text, 8)}
-    </div>
-  ),
-},
+    {
+      title: "Activity",
+      dataIndex: "activity",
+      key: "activity",
+      width: 500,
+      render: (text) => (
+        <div style={{ whiteSpace: "pre-line" }}>
+          {breakAfterWords(text, 8)}
+        </div>
+      ),
+    },
     { title: "Time", dataIndex: "time", key: "time" },
     {
       title: "Status",
       dataIndex: "status",
       key: "status",
-     render: (status) => {
-  let color = "default";
+      render: (status) => {
+        let color = "default";
 
-  if (status.includes("CREATE")) color = "green";
-  else if (status.includes("DELETE")) color = "red";
-  else if (status.includes("UPDATE")) color = "blue";
+        if (status.includes("CREATE")) color = "green";
+        else if (status.includes("DELETE")) color = "red";
+        else if (status.includes("UPDATE")) color = "blue";
 
-  return <Tag color={color}>{status}</Tag>;
-},
+        return <Tag color={color}>{status}</Tag>;
+      },
     },
   ];
 
@@ -361,13 +361,13 @@ activity:
                 </Space>
               )}
 
-              {item.title === "Reports" && (
-  <Space size="large" style={{ marginTop: 6 }}>
-    <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
-      Pending Upload: {item.uploadPending}
-    </Text>
-  </Space>
-)}
+              {item.title === "Aptitude Test Reports" && (
+                <Space size="large" style={{ marginTop: 6 }}>
+                  <Text style={{ fontSize: 12, color: adminTheme.token.colorSuccess }}>
+                    Pending Upload: {item.uploadPending}
+                  </Text>
+                </Space>
+              )}
             </Card>
           </Col>
         ))}
@@ -395,7 +395,7 @@ activity:
             }
             style={{ borderRadius: adminTheme.token.borderRadius, boxShadow: adminTheme.token.boxShadow }}
           >
-            <Bar data={getEnquiriesData()} options={barOptions}/>
+            <Bar data={getEnquiriesData()} options={barOptions} />
           </Card>
         </Col>
 
@@ -423,16 +423,16 @@ activity:
             <Table
               columns={activityColumns}
               dataSource={recentActivities}
-             pagination={{
-    current: currentPage,
-    pageSize: pageSize,
-    showSizeChanger: true,
-    pageSizeOptions: [5, 10, 20, 50],
-    onChange: (page, size) => {
-      setCurrentPage(page);
-      setPageSize(size);
-    },
-  }}
+              pagination={{
+                current: currentPage,
+                pageSize: pageSize,
+                showSizeChanger: true,
+                pageSizeOptions: [5, 10, 20, 50],
+                onChange: (page, size) => {
+                  setCurrentPage(page);
+                  setPageSize(size);
+                },
+              }}
               scroll={{ x: "max-content" }}
               style={{ borderColor: adminTheme.token.colorBorder }}
             />

@@ -120,26 +120,39 @@ const VersionPanel = ({
         onFileChange(null);
     };
 
-    const handleDownload = async () => {
-        const url = data?.file_path;
-        if (!url) return;
-        try {
-            const response = await fetch(url);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const blob = await response.blob();
-            const blobUrl = window.URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = blobUrl;
-            link.download = getDisplayFileName(data);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(blobUrl);
-            message.success("Report downloaded successfully");
-        } catch {
-            message.error("Failed to download report");
-        }
-    };
+    // const handleDownload = async () => {
+    //     const url = data?.file_path;
+    //     if (!url) return;
+    //     try {
+    //         const response = await fetch(url);
+    //         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    //         const blob = await response.blob();
+    //         const blobUrl = window.URL.createObjectURL(blob);
+    //         const link = document.createElement("a");
+    //         link.href = blobUrl;
+    //         link.download = getDisplayFileName(data);
+    //         document.body.appendChild(link);
+    //         link.click();
+    //         document.body.removeChild(link);
+    //         window.URL.revokeObjectURL(blobUrl);
+    //         message.success("Report downloaded successfully");
+    //     } catch {
+    //         message.error("Failed to download report");
+    //     }
+    // };
+
+     const handleDownload = () => {
+  if (!previewUrl) return;
+
+  const link = document.createElement("a");
+  link.href = previewUrl;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
     const hasExistingFile = !!data?.file_path;
     const hasNewFile = !!stagedFile;

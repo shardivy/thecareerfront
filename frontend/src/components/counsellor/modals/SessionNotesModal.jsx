@@ -812,7 +812,7 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
           deleteCounsellingFile({
             bookingId: session.id,
             noteId: existingNote.id,
-            fileKey: file.key, 
+            fileKey: file.key,
           })
         ).unwrap();
 
@@ -1099,12 +1099,18 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
 
                     <Space wrap>
 
-                      <Button
-                        size="small"
-                        onClick={() => window.open(file.url)}
-                      >
-                        Preview
-                      </Button>
+                      {(
+                        file.type === "application/pdf" ||
+                        file.name?.toLowerCase().endsWith(".pdf") ||
+                        file.url?.toLowerCase().endsWith(".pdf")
+                      ) && (
+                          <Button
+                            size="small"
+                            onClick={() => window.open(file.url, "_blank")}
+                          >
+                            Preview
+                          </Button>
+                        )}
 
                       {/* <Button
                       size="small"
@@ -1140,7 +1146,7 @@ const SessionNotesModal = ({ session, onClose, isViewMode = false, hideSessionDe
               </div>
 
               {/* ACTIONS */}
-                     <div style={{ marginTop: 24, textAlign: "right" }}>
+              <div style={{ marginTop: 24, textAlign: "right" }}>
                 {(!isViewMode || editMode || !noteExists) && (
                   <Button type="primary" onClick={handleSave} style={{ marginRight: 8 }}>
                     {noteExists ? "Update Notes" : "Add Notes"}

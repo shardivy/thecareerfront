@@ -173,17 +173,19 @@ export default function StudentLayout() {
     dispatch(getProfile());
   }, [dispatch]);
 
-  useEffect(() => {
-  const disableRightClick = (e) => {
-    e.preventDefault();
-  };
+  // Disable right-click context menu
 
-  document.addEventListener("contextmenu", disableRightClick);
+//   useEffect(() => {
+//   const disableRightClick = (e) => {
+//     e.preventDefault();
+//   };
 
-  return () => {
-    document.removeEventListener("contextmenu", disableRightClick);
-  };
-}, []);
+//   document.addEventListener("contextmenu", disableRightClick);
+
+//   return () => {
+//     document.removeEventListener("contextmenu", disableRightClick);
+//   };
+// }, []);
 
   useEffect(() => {
     if (profile?.role) {
