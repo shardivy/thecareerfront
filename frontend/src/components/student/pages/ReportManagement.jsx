@@ -273,17 +273,11 @@ const ReportManagement = () => {
 
   /* ---------------- HANDLERS ---------------- */
 
-  const handleDownload = (url) => {
-    if (!url) return;
+const handleDownload = (url) => {
+  if (!url) return;
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "");
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  window.location.href = url;
+};
 
   // const handleDownload = async (url, fileName) => {
   //   try {
