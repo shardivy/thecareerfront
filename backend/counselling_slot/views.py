@@ -23,6 +23,7 @@ from calendar import monthrange
 from django.db.models import Count
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage, get_connection
+from backend.common.s3 import generate_presigned_url
 
 from datetime import datetime
 from django.utils import timezone
@@ -2990,9 +2991,10 @@ class CounsellorStudentBookingListAPIView(APIView):
                     file_name = os.path.basename(report.file_path.name)
 
                     # ✅ ALL FILE TYPES use same API
-                    file_url = request.build_absolute_uri(
-                        f"/api/report/report/pdf/{report.id}/"
-                    )
+                    # file_url = request.build_absolute_uri(
+                    #     f"/api/report/report/pdf/{report.id}/"
+                    # )
+                    file_url = generate_presigned_url(report.file_path.name)
 
                 except Exception:
                     file_url = None

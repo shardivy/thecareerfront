@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 import os
 import uuid
 from django.conf import settings
+from backend.common.s3 import generate_presigned_url
 
 from counselling_slot.models import Booking, BookingCounsellor, CounsellingNote, Counsellor, Slot
 from datetime import date, datetime, timedelta
@@ -413,9 +414,10 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             reports.append({
                 "version": "V1",
                 "status": report.report_status,
-                "url": request.build_absolute_uri(
-                    f"/api/report/report/pdf/{report.id}/"
-                )
+                # "url": request.build_absolute_uri(
+                #     f"/api/report/report/pdf/{report.id}/"
+                # )
+                "url": generate_presigned_url(report.file_path.name)
             })
 
         # V2 Report
@@ -423,9 +425,10 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             reports.append({
                 "version": "V2",
                 "status": report.report_status_v2,
-                "url": request.build_absolute_uri(
-                    f"/api/report/report/v1/pdf/{report.id}/"
-                )
+                # "url": request.build_absolute_uri(
+                #     f"/api/report/report/v1/pdf/{report.id}/"
+                # )
+                "url": generate_presigned_url(report.file_path1.name)
             })
 
         # V3 Report
@@ -433,9 +436,10 @@ class CounsellorStudentBookingSerializer(serializers.ModelSerializer):
             reports.append({
                 "version": "V3",
                 "status": report.report_status_v3,
-                "url": request.build_absolute_uri(
-                    f"/api/report/report/v2/pdf/{report.id}/"
-                )
+                # "url": request.build_absolute_uri(
+                #     f"/api/report/report/v2/pdf/{report.id}/"
+                # )
+                "url": generate_presigned_url(report.file_path2.name)
             })
 
         return reports
@@ -534,6 +538,12 @@ class CounsellingNoteSerializer(serializers.ModelSerializer):
     package = serializers.PrimaryKeyRelatedField(
         queryset=Package.objects.all()
     )
+    
+    file1 = serializers.FileField(required=False, allow_null=True)
+    file2 = serializers.FileField(required=False, allow_null=True)
+    file3 = serializers.FileField(required=False, allow_null=True)
+    file4 = serializers.FileField(required=False, allow_null=True)
+    file5 = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
         model = CounsellingNote
@@ -550,6 +560,41 @@ class CounsellingNoteSerializer(serializers.ModelSerializer):
             "created_at"
         ]
         read_only_fields = ["id", "created_at"]
+        
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+
+        for field in ["file1", "file2", "file3", "file4", "file5"]:
+            file = getattr(instance, field)
+
+            if file:
+                data[field] = generate_presigned_url(file.name)
+            else:
+                data[field] = None
+
+        return data
+        
+    # def _get_signed_url(self, file):
+
+    #     if not file:
+    #         return None
+
+    #     return generate_presigned_url(file.name)
+    
+    # def get_file1(self, obj):
+    #     return self._get_signed_url(obj.file1)
+
+    # def get_file2(self, obj):
+    #     return self._get_signed_url(obj.file2)
+
+    # def get_file3(self, obj):
+    #     return self._get_signed_url(obj.file3)
+
+    # def get_file4(self, obj):
+    #     return self._get_signed_url(obj.file4)
+
+    # def get_file5(self, obj):
+    #     return self._get_signed_url(obj.file5)
 
     def create(self, validated_data):
         booking = self.context["booking"]
