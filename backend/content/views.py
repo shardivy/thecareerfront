@@ -809,9 +809,13 @@ class StudentAssignedContentAPIView(APIView):
                 "type": content.type,
                 "category": content.category,
                 "description": content.description,
-                "file_url": request.build_absolute_uri(
-                    f"/api/content-file/{content.id}/"
-                ) if content.file_url else None,
+                # "file_url": request.build_absolute_uri(
+                #     f"/api/content-file/{content.id}/"
+                # ) if content.file_url else None,
+                "file_url": (
+                    generate_presigned_url(content.file_url.name)
+                    if content.file_url else None
+                ),
                 "file_name": (
                     os.path.basename(content.file_url.name)
                     if content.file_url else None

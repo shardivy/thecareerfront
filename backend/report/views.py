@@ -862,6 +862,7 @@ class ReportPDFView(APIView):
 
         # return redirect(file_obj.url)
         url = generate_presigned_url(file_obj.name)
+        print(f"Redirecting to presigned URL: {url}")
 
         return redirect(url)
 
