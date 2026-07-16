@@ -661,20 +661,11 @@ const V1Card = ({ report, reviewSubmitted, onReviewRedirect }) => {
   // locked when V1 has NOT been received/unlocked yet
   const locked = !isV1Received(report?.report_status);
 
-  const handleDownload = () => {
-    if (!report.file_path) {
-      message.error("File not available");
-      return;
-    }
+const handleDownload = () => {
+  if (!report.file_path) return;
 
-    const link = document.createElement("a");
-    link.href = report.file_path;
-    link.download = report.file_name;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  window.open(report.file_path, "_blank");
+};
 
   // const handleDownload = async () => {
   //   try {
@@ -943,17 +934,11 @@ const V3Card = ({ report }) => {
   // new: "v3_received" = unlocked; old "v3_received_locked" = locked
   const locked = isV3Locked(report?.report_status_v3);
 
-  const handleDownload = () => {
-    if (!report.file_path2) return;
+const handleDownload = () => {
+  if (!report.file_path2) return;
 
-    const link = document.createElement("a");
-    link.href = report.file_path2;
-    link.download = report.file_name2;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  window.open(report.file_path2, "_blank");
+};
 
   // const handleDownload = async () => {
   //   try {

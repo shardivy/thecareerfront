@@ -276,7 +276,7 @@ const ReportManagement = () => {
 const handleDownload = (url) => {
   if (!url) return;
 
-  window.location.href = url;
+  window.open(url, "_blank");
 };
 
   // const handleDownload = async (url, fileName) => {
