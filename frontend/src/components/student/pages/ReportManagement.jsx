@@ -273,26 +273,38 @@ const ReportManagement = () => {
 
   /* ---------------- HANDLERS ---------------- */
 
-  const handleDownload = async (url, fileName) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
+  const handleDownload = (url) => {
+    if (!url) return;
 
-      const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "");
 
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.download = fileName || "report"; // ✅ use backend filename
-
-      document.body.appendChild(a);
-      a.click();
-
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (err) {
-      // console.error("Download error:", err);
-    }
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
+
+  // const handleDownload = async (url, fileName) => {
+  //   try {
+  //     const response = await fetch(url);
+  //     const blob = await response.blob();
+
+  //     const downloadUrl = window.URL.createObjectURL(blob);
+
+  //     const a = document.createElement("a");
+  //     a.href = downloadUrl;
+  //     a.download = fileName || "report"; // ✅ use backend filename
+
+  //     document.body.appendChild(a);
+  //     a.click();
+
+  //     a.remove();
+  //     window.URL.revokeObjectURL(downloadUrl);
+  //   } catch (err) {
+  //     // console.error("Download error:", err);
+  //   }
+  // };
 
   const getFileType = (fileName = "") => {
     const ext = fileName.split(".").pop()?.toLowerCase();
