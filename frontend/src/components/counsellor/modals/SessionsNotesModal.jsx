@@ -154,7 +154,7 @@ type:
   const link = document.createElement("a");
   link.href = url;
   link.setAttribute("download", name || "file");
-  link.setAttribute("target", "_self");
+  link.setAttribute("target", "_blank");
 
   document.body.appendChild(link);
   link.click();
