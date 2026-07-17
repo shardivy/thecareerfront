@@ -425,7 +425,7 @@ AWS_PRIVATE_BUCKET_NAME = config(
 )
 AWS_ENVIRONMENT = config(
     "AWS_ENVIRONMENT",
-    default="staging",
+    default="production",
 )
 
 AWS_DEFAULT_ACL = None
