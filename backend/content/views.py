@@ -1,6 +1,6 @@
 import os
 
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,6 +8,7 @@ from rest_framework import status
 from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.db.models import Q
+from backend.common.s3 import generate_presigned_url
 
 from lead_registration.models import Stream, StudentProfile, StudentStream
 from content.serializers import AssignStreamContentSerializer, ContentListSerializer, ContentUploadSerializer
@@ -24,73 +25,130 @@ import mimetypes
 class ContentUploadAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
+    # def get(self, request, content_id=None):
+
+    #     # =========================
+    #     # FILE DOWNLOAD MODE
+    #     # =========================
+    #     if content_id:
+    #         content = get_object_or_404(Content, id=content_id)
+
+    #         if not content.file_url:
+    #             raise Http404("File not found")
+
+    #         file_path = content.file_url.path
+
+    #         if not os.path.exists(file_path):
+    #             raise Http404("File does not exist")
+
+    #         filename = os.path.basename(content.file_url.name)
+
+    #         # ✅ Terminal log
+    #         print(f"📥 Download Requested:")
+    #         print(f"   Content ID: {content.id}")
+    #         print(f"   Title: {content.title}")
+    #         print(f"   File Name: {filename}")
+    #         print(f"   File Path: {file_path}")
+
+    #         mime_type, _ = mimetypes.guess_type(file_path)
+
+    #         response = FileResponse(
+    #             open(file_path, "rb"),
+    #             as_attachment=True,
+    #             filename=filename
+    #         )
+
+    #         response["Content-Type"] = mime_type or "application/octet-stream"
+
+    #         return response
+
+    #     # =========================
+    #     # CONTENT LIST MODE
+    #     # =========================
+    #     contents = Content.objects.filter(is_active=True)
+
+    #     tab = request.GET.get("tab")
+
+    #     if tab == "study_material":
+    #         contents = contents.filter(category="study_material", is_draft=False)
+
+    #     elif tab == "tutorial":
+    #         contents = contents.filter(category="tutorial", is_draft=False)
+
+    #     elif tab == "guide":
+    #         contents = contents.filter(category="guide", is_draft=False)
+
+    #     elif tab == "draft":
+    #         contents = contents.filter(is_draft=True)
+
+    #     serializer = ContentUploadSerializer(
+    #         contents,
+    #         many=True,
+    #         context={"request": request}
+    #     )
+
+    #     return Response({
+    #         "success": True,
+    #         "count": contents.count(),
+    #         "data": serializer.data
+    #     })
+    
     def get(self, request, content_id=None):
+    
+            # =========================
+            # FILE DOWNLOAD MODE
+            # =========================
+            if content_id:
+                content = get_object_or_404(Content, id=content_id)
+    
+                if not content.file_url:
+                    raise Http404("File not found")
+    
+                if content_id:
+                    content = get_object_or_404(Content, id=content_id)
 
-        # =========================
-        # FILE DOWNLOAD MODE
-        # =========================
-        if content_id:
-            content = get_object_or_404(Content, id=content_id)
+                    if not content.file_url:
+                        raise Http404("File not found")
 
-            if not content.file_url:
-                raise Http404("File not found")
+                    print("📥 Download Requested")
+                    print(f"Content ID : {content.id}")
+                    print(f"Title      : {content.title}")
+                    print(f"File URL   : {content.file_url.url}")
 
-            file_path = content.file_url.path
+                    url = generate_presigned_url(content.file_url.name)
 
-            if not os.path.exists(file_path):
-                raise Http404("File does not exist")
-
-            filename = os.path.basename(content.file_url.name)
-
-            # ✅ Terminal log
-            print(f"📥 Download Requested:")
-            print(f"   Content ID: {content.id}")
-            print(f"   Title: {content.title}")
-            print(f"   File Name: {filename}")
-            print(f"   File Path: {file_path}")
-
-            mime_type, _ = mimetypes.guess_type(file_path)
-
-            response = FileResponse(
-                open(file_path, "rb"),
-                as_attachment=True,
-                filename=filename
+                    return redirect(url)
+    
+            # =========================
+            # CONTENT LIST MODE
+            # =========================
+            contents = Content.objects.filter(is_active=True)
+    
+            tab = request.GET.get("tab")
+    
+            if tab == "study_material":
+                contents = contents.filter(category="study_material", is_draft=False)
+    
+            elif tab == "tutorial":
+                contents = contents.filter(category="tutorial", is_draft=False)
+    
+            elif tab == "guide":
+                contents = contents.filter(category="guide", is_draft=False)
+    
+            elif tab == "draft":
+                contents = contents.filter(is_draft=True)
+    
+            serializer = ContentUploadSerializer(
+                contents,
+                many=True,
+                context={"request": request}
             )
-
-            response["Content-Type"] = mime_type or "application/octet-stream"
-
-            return response
-
-        # =========================
-        # CONTENT LIST MODE
-        # =========================
-        contents = Content.objects.filter(is_active=True)
-
-        tab = request.GET.get("tab")
-
-        if tab == "study_material":
-            contents = contents.filter(category="study_material", is_draft=False)
-
-        elif tab == "tutorial":
-            contents = contents.filter(category="tutorial", is_draft=False)
-
-        elif tab == "guide":
-            contents = contents.filter(category="guide", is_draft=False)
-
-        elif tab == "draft":
-            contents = contents.filter(is_draft=True)
-
-        serializer = ContentUploadSerializer(
-            contents,
-            many=True,
-            context={"request": request}
-        )
-
-        return Response({
-            "success": True,
-            "count": contents.count(),
-            "data": serializer.data
-        })
+    
+            return Response({
+                "success": True,
+                "count": contents.count(),
+                "data": serializer.data
+            })
 
     # =========================
     # CREATE CONTENT (POST)
@@ -229,41 +287,60 @@ class ContentUploadAPIView(APIView):
             "message": "Content deleted permanently"
         }, status=200)
     
+# @method_decorator(xframe_options_exempt, name="dispatch")
+# class ContentFileView(APIView):
+#     authentication_classes = []   # remove if JWT needed
+#     permission_classes = [AllowAny]
+
+#     def get(self, request, content_id):
+#         content = get_object_or_404(Content, id=content_id, is_active=True)
+
+#         if not content.file_url:
+#             raise Http404("File not found")
+
+#         file_path = content.file_url.path
+
+#         if not os.path.exists(file_path):
+#             raise Http404("File does not exist")
+
+#         file = open(file_path, "rb")
+
+#         mime_type, _ = mimetypes.guess_type(file_path)
+
+#         filename = os.path.basename(file_path)
+
+#         response = FileResponse(
+#             file,
+#             content_type=mime_type or "application/octet-stream",
+#             # as_attachment=True,   # Force download
+#             filename=filename
+#         )
+#         response["Content-Disposition"] = (
+#             f'inline; filename="{filename}"'
+#         )
+
+#         response["X-Frame-Options"] = "ALLOWALL"
+
+#         return response
+
 @method_decorator(xframe_options_exempt, name="dispatch")
 class ContentFileView(APIView):
-    authentication_classes = []   # remove if JWT needed
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request, content_id):
-        content = get_object_or_404(Content, id=content_id, is_active=True)
+        content = get_object_or_404(
+            Content,
+            id=content_id,
+            is_active=True
+        )
 
         if not content.file_url:
             raise Http404("File not found")
 
-        file_path = content.file_url.path
+        url = generate_presigned_url(content.file_url.name)
 
-        if not os.path.exists(file_path):
-            raise Http404("File does not exist")
-
-        file = open(file_path, "rb")
-
-        mime_type, _ = mimetypes.guess_type(file_path)
-
-        filename = os.path.basename(file_path)
-
-        response = FileResponse(
-            file,
-            content_type=mime_type or "application/octet-stream",
-            # as_attachment=True,   # Force download
-            filename=filename
-        )
-        response["Content-Disposition"] = (
-            f'inline; filename="{filename}"'
-        )
-
-        response["X-Frame-Options"] = "ALLOWALL"
-
-        return response
+        return redirect(url)
     
     
 class ContentDashboardAPIView(APIView):
@@ -732,9 +809,13 @@ class StudentAssignedContentAPIView(APIView):
                 "type": content.type,
                 "category": content.category,
                 "description": content.description,
-                "file_url": request.build_absolute_uri(
-                    f"/api/content-file/{content.id}/"
-                ) if content.file_url else None,
+                # "file_url": request.build_absolute_uri(
+                #     f"/api/content-file/{content.id}/"
+                # ) if content.file_url else None,
+                "file_url": (
+                    generate_presigned_url(content.file_url.name)
+                    if content.file_url else None
+                ),
                 "file_name": (
                     os.path.basename(content.file_url.name)
                     if content.file_url else None

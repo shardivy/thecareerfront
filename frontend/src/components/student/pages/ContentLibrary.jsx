@@ -383,30 +383,45 @@ const ContentLibrary = () => {
     localStorage.getItem("paymentCompleted") === "true";
 
 
-  const handleDownload = async (url, fileName) => {
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-      });
 
-      if (!response.ok) throw new Error("Failed to fetch file");
+    const handleDownload = (url) => {
+  if (!url) return;
 
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
 
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.setAttribute("download", fileName || "downloaded_file"); // Use passed filename or default
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
-      // Clean up URL object
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (err) {
-      // console.error("Download error:", err);
-    }
-  };
+
+  // const handleDownload = async (url, fileName) => {
+  //   try {
+  //     const response = await fetch(url, {
+  //       method: "GET",
+  //     });
+
+  //     if (!response.ok) throw new Error("Failed to fetch file");
+
+  //     const blob = await response.blob();
+  //     const downloadUrl = window.URL.createObjectURL(blob);
+
+  //     const a = document.createElement("a");
+  //     a.href = downloadUrl;
+  //     a.setAttribute("download", fileName || "downloaded_file"); // Use passed filename or default
+  //     document.body.appendChild(a);
+  //     a.click();
+  //     a.remove();
+
+  //     // Clean up URL object
+  //     window.URL.revokeObjectURL(downloadUrl);
+  //   } catch (err) {
+  //     // console.error("Download error:", err);
+  //   }
+  // };
 
   // ====================== handleDownloadClick ======================
   const handleDownloadClick = (item) => {

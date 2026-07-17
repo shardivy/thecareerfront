@@ -3,6 +3,7 @@ from django.db import models
 from accounts.models import User
 from program_package.models import Package, Program
 from lead_registration.models import StudentProfile
+from backend.storage import PrivateMediaStorage
 
 class Counsellor(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="counsellor")
@@ -122,11 +123,11 @@ class CounsellingNote(models.Model):
         blank=True
     )
     notes = models.TextField(null=True, blank=True)
-    file1 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
-    file2 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
-    file3 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
-    file4 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)
-    file5 = models.FileField(upload_to="counselling_notes/", null=True, blank=True)  
+    file1 = models.FileField(storage=PrivateMediaStorage(), upload_to="counselling_notes/", null=True, blank=True)
+    file2 = models.FileField(storage=PrivateMediaStorage(), upload_to="counselling_notes/", null=True, blank=True)
+    file3 = models.FileField(storage=PrivateMediaStorage(), upload_to="counselling_notes/", null=True, blank=True)
+    file4 = models.FileField(storage=PrivateMediaStorage(), upload_to="counselling_notes/", null=True, blank=True)
+    file5 = models.FileField(storage=PrivateMediaStorage(), upload_to="counselling_notes/", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

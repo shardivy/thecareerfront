@@ -138,7 +138,7 @@ const HandholdingManagement = () => {
 
   const formattedBookings = bookingsData.map((item) => {
     const statusMap = {
-      not_started: "not_booked",  // 👈 temporary backend mismatch fix
+      not_started: "not_booked",  
       not_booked: "not_booked",
       booked: "booked",
       rescheduled: "rescheduled",
@@ -985,38 +985,50 @@ const HandholdingManagement = () => {
     {
       title: "Action",
       render: (_, record) => {
-        const handleDownload = async () => {
-          try {
-            const response = await fetch(record.certificate_file);
+        const handleDownload = () => {
+          if (!record.certificate_file) return;
 
-            if (!response.ok) throw new Error("Download failed");
+          const link = document.createElement("a");
+          link.href = record.certificate_file;
+          link.target = "_blank";
 
-            const blob = await response.blob();
-
-            // ✅ Detect correct file type
-            const contentType = blob.type; // e.g. image/png or image/jpeg
-
-            let extension = "png"; // default
-
-            if (contentType.includes("jpeg")) extension = "jpg";
-            if (contentType.includes("png")) extension = "png";
-
-            const url = window.URL.createObjectURL(blob);
-
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `${record.name}_Certificate.${extension}`; // ✅ correct extension
-
-            document.body.appendChild(link);
-            link.click();
-
-            link.remove();
-            window.URL.revokeObjectURL(url);
-
-          } catch (err) {
-            // console.error(err);
-          }
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         };
+
+        // const handleDownload = async () => {
+        //   try {
+        //     const response = await fetch(record.certificate_file);
+
+        //     if (!response.ok) throw new Error("Download failed");
+
+        //     const blob = await response.blob();
+
+        //     // ✅ Detect correct file type
+        //     const contentType = blob.type; // e.g. image/png or image/jpeg
+
+        //     let extension = "png"; // default
+
+        //     if (contentType.includes("jpeg")) extension = "jpg";
+        //     if (contentType.includes("png")) extension = "png";
+
+        //     const url = window.URL.createObjectURL(blob);
+
+        //     const link = document.createElement("a");
+        //     link.href = url;
+        //     link.download = `${record.name}_Certificate.${extension}`; // ✅ correct extension
+
+        //     document.body.appendChild(link);
+        //     link.click();
+
+        //     link.remove();
+        //     window.URL.revokeObjectURL(url);
+
+        //   } catch (err) {
+        //     // console.error(err);
+        //   }
+        // };
 
         return (
           <Space>

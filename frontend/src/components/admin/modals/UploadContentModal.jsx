@@ -384,38 +384,52 @@ const UploadContentModal = ({
   };
 
   /* ---------------- DOWNLOAD ---------------- */
-  const handleDownload = async () => {
-    // console.log("⬇️ Download initiated");
-    if (!previewUrl) {
-      // console.log("❌ No file to download");
-      return;
-    }
+  // const handleDownload = async () => {
+  //   // console.log("⬇️ Download initiated");
+  //   if (!previewUrl) {
+  //     // console.log("❌ No file to download");
+  //     return;
+  //   }
 
-    try {
-      const response = await fetch(previewUrl);
-      const blob = await response.blob();
+  //   try {
+  //     const response = await fetch(previewUrl);
+  //     const blob = await response.blob();
 
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const existingName = initialValues?.file_name || fileList?.[0]?.name || getFileNameFromUrl(previewUrl);
-      const extension = getFileExtension(existingName || previewUrl, isPdfFile ? "pdf" : "file");
-      const baseName =
-        existingName?.replace(/\.[^.]+$/, "") ||
-        (form.getFieldValue("title") || initialValues?.title || "Content").trim();
-      link.download = existingName || `${baseName}.${extension}`;
-      document.body.appendChild(link);
-      link.click();
+  //     const url = window.URL.createObjectURL(blob);
+  //     const link = document.createElement("a");
+  //     link.href = url;
+  //     const existingName = initialValues?.file_name || fileList?.[0]?.name || getFileNameFromUrl(previewUrl);
+  //     const extension = getFileExtension(existingName || previewUrl, isPdfFile ? "pdf" : "file");
+  //     const baseName =
+  //       existingName?.replace(/\.[^.]+$/, "") ||
+  //       (form.getFieldValue("title") || initialValues?.title || "Content").trim();
+  //     link.download = existingName || `${baseName}.${extension}`;
+  //     document.body.appendChild(link);
+  //     link.click();
 
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      // console.log("✅ Download successful");
-       message.success("File downloaded successfully");
-    } catch (error) {
-      // console.error("❌ Download failed:", error);
-      message.error("Failed to download file");
-    }
-  };
+  //     document.body.removeChild(link);
+  //     window.URL.revokeObjectURL(url);
+  //     // console.log("✅ Download successful");
+  //      message.success("File downloaded successfully");
+  //   } catch (error) {
+  //     // console.error("❌ Download failed:", error);
+  //     message.error("Failed to download file");
+  //   }
+  // };
+
+
+       const handleDownload = () => {
+  if (!previewUrl) return;
+
+  const link = document.createElement("a");
+  link.href = previewUrl;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
   const beforeUpload = (file) => {
     const allowedTypes = [

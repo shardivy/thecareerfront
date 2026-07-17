@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.db.models import Sum
 
+from backend.common.s3 import generate_presigned_url
 from counselling_slot.models import Booking
 from program_package.models import UserProgramPackage
 from payment.models import Payment
@@ -269,8 +270,10 @@ class CertificateTemplateSerializer(serializers.ModelSerializer):
 
         request = self.context.get("request")
 
-        if instance.template_file and request:
-            data["template_file"] = request.build_absolute_uri(instance.template_file.url)
+        if instance.template_file:
+            data["template_file"] = generate_presigned_url(
+                instance.template_file.name
+            )
 
         return data
     

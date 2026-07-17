@@ -218,6 +218,7 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -394,51 +395,74 @@ DATABASES = {
 # MEDIA / STATIC
 # =========================
 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
+# AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+# AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+# AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+# AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
 
-AWS_S3_SIGNATURE_VERSION = "s3v4"
-AWS_S3_FILE_OVERWRITE = False
+# AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
+# AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
+# AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME")
+# AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME")
+
+
+# AWS_S3_CUSTOM_DOMAIN = (
+#     f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+# )
+
+# MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+
+AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="")
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="ap-south-1")
+AWS_PUBLIC_BUCKET_NAME = config(
+    "AWS_PUBLIC_BUCKET_NAME",
+    default="abhinavcareerscope-public",
+)
+AWS_PRIVATE_BUCKET_NAME = config(
+    "AWS_PRIVATE_BUCKET_NAME",
+    default="abhinavcareerscope-private",
+)
+AWS_ENVIRONMENT = config(
+    "AWS_ENVIRONMENT",
+    default="staging",
+)
+
 AWS_DEFAULT_ACL = None
-AWS_QUERYSTRING_AUTH = False
+AWS_QUERYSTRING_AUTH = True
+AWS_S3_FILE_OVERWRITE = False
+AWS_S3_SIGNATURE_VERSION = "s3v4"
 
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
 }
+
+AWS_S3_ENDPOINT_URL = f"https://s3.{AWS_S3_REGION_NAME}.amazonaws.com"
 AWS_S3_ADDRESSING_STYLE = "virtual"
 
 AWS_S3_VERIFY = True
 
 AWS_S3_USE_SSL = True
 
-AWS_S3_CUSTOM_DOMAIN = (
-    f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
-)
-
-MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
-
 
 STORAGES = {
     "default": {
-        "BACKEND": "backend.storage.MediaStorage",
+        "BACKEND": "backend.storage.PrivateMediaStorage",
     },
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-
 # STATIC_URL = 'static/'
 
 # MEDIA_URL = '/media/'
 # MEDIA_URL = f"https://abhinavcareerscope-media-staging.s3.ap-south-1.amazonaws.com/"
 # MEDIA_ROOT = BASE_DIR / 'media'
 
-MEDIA_URL = (
-    f"https://{AWS_STORAGE_BUCKET_NAME}.s3."
-    f"{AWS_S3_REGION_NAME}.amazonaws.com/"
-)
+# MEDIA_URL = (
+#     f"https://{AWS_STORAGE_BUCKET_NAME}.s3."
+#     f"{AWS_S3_REGION_NAME}.amazonaws.com/"
+# )
 
 
 # =========================
@@ -452,6 +476,7 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS") == "True"
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
+
 
 
 # =========================
@@ -483,6 +508,27 @@ USE_I18N = True
 USE_TZ = True
 
 
+# =========================
+# CELERY
+# =========================
+
+CELERY_BROKER_URL = os.getenv(
+    "REDIS_URL",
+    "redis://redis:6379/0"
+)
+
+CELERY_RESULT_BACKEND = os.getenv(
+    "REDIS_URL",
+    "redis://redis:6379/0"
+)
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+
+CELERY_TIMEZONE = TIME_ZONE
+
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
@@ -512,5 +558,7 @@ MSG91_AUTH_KEY = os.environ.get("MSG91_AUTH_KEY")
 MSG91_WHATSAPP_NUMBER = os.environ.get("MSG91_WHATSAPP_NUMBER")
 MSG91_OTP_TEMPLATE_NAME = os.environ.get("MSG91_OTP_TEMPLATE_NAME")
 
+TIME_ZONE = "Asia/Kolkata"
+# USE_TZ = False
 
 

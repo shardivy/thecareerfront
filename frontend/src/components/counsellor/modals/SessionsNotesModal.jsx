@@ -150,26 +150,16 @@ type:
 
   /* FILE DOWNLOAD */
 
-  const handleDownloadFile = async (url, name) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
+ const handleDownloadFile = (url, name) => {
+  const link = document.createElement("a");
+  link.href = url;
+  link.setAttribute("download", name || "file");
+  link.setAttribute("target", "_blank");
 
-      const downloadUrl = window.URL.createObjectURL(blob);
-
-      const link = document.createElement("a");
-      link.href = downloadUrl;
-      link.download = name || "file";
-
-      document.body.appendChild(link);
-      link.click();
-
-      link.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch {
-      message.error("Failed to download file");
-    }
-  };
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
   /* FILE UPLOAD */
 
@@ -427,12 +417,14 @@ type:
 
                     <Space wrap>
 
-                      <Button
-                        size="small"
-                        onClick={() => window.open(file.url)}
-                      >
-                        Preview
-                      </Button>
+                     {file.type === "application/pdf" && (
+  <Button
+    size="small"
+    onClick={() => window.open(file.url, "_blank")}
+  >
+    Preview
+  </Button>
+)}
 
                       <Button
                         size="small"

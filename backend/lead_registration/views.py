@@ -2619,6 +2619,8 @@ class ConvertLeadAPIView(APIView):
 
         # 🔹 Check existing user
         existing_user = User.objects.filter(email=lead.email).first()
+        
+        total_sessions = HandHoldingSession.objects.count()
 
         # ==========================
         # Handle multiple programs/packages
@@ -2813,6 +2815,7 @@ class ConvertLeadAPIView(APIView):
                         participant.user = user
                         participant.mobile = user.phone
                         participant.email = user.email
+                        participant.total_sessions = total_sessions
                         
                         participant.full_address = full_address
                         participant.city = city
@@ -2841,7 +2844,8 @@ class ConvertLeadAPIView(APIView):
                             preferred_counselling_mode=serializer.validated_data.get("preferred_counselling_mode"),
                             resume_file=resume_file,  # This should work
                             photo=photo,  # This should work
-                            show_profile=serializer.validated_data.get("show_profile")
+                            show_profile=serializer.validated_data.get("show_profile"),
+                            total_sessions=total_sessions
                         )
 
                     # =================================
@@ -4924,8 +4928,20 @@ class UserJourneyAPIView(APIView):
             # ================================
             # FULL ACCESS (FIXED)
             # ================================
+
+            # Check report completion based on package type
+            if aptitude_test_status:
+                report_completed = report_status == "received_unlocked"
+
+            elif engineering_analysis_status:
+                report_completed = report_status == "all_received"
+
+            else:
+                report_completed = True
+
+            # No aptitude test and no engineering analysis
             if not aptitude_test_status and not engineering_analysis_status:
-                # ✅ No exam / analysis required
+
                 full_access = (
                     registration_completed
                     and counselling_selected
@@ -4933,17 +4949,20 @@ class UserJourneyAPIView(APIView):
                     and slot_status in ["booked", "rescheduled", "completed"]
                     and review_status not in ["not_submitted", None]
                 )
+
+            # Aptitude / Engineering flow
             else:
-                # ✅ Normal flow
+
                 full_access = (
                     registration_completed
                     and counselling_selected
                     and payment_status in ["partial_paid", "fully_paid"]
                     and (
-                        (aptitude_test_status and exam_status == "completed") or
+                        (aptitude_test_status and exam_status == "completed")
+                        or
                         (engineering_analysis_status and analysis_status == "completed")
                     )
-                    and report_status in ["received_unlocked"]
+                    and report_completed
                     and slot_status in ["booked", "rescheduled", "completed"]
                     and review_status not in ["not_submitted", None]
                 )

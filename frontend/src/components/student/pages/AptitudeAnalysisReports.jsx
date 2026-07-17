@@ -661,22 +661,28 @@ const V1Card = ({ report, reviewSubmitted, onReviewRedirect }) => {
   // locked when V1 has NOT been received/unlocked yet
   const locked = !isV1Received(report?.report_status);
 
-  const handleDownload = async () => {
-    try {
-      const res = await fetch(report.file_path);
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = report.file_name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      message.error("Download failed");
-    }
-  };
+const handleDownload = () => {
+  if (!report.file_path) return;
+
+  window.open(report.file_path, "_blank");
+};
+
+  // const handleDownload = async () => {
+  //   try {
+  //     const res = await fetch(report.file_path);
+  //     const blob = await res.blob();
+  //     const url = window.URL.createObjectURL(blob);
+  //     const a = document.createElement("a");
+  //     a.href = url;
+  //     a.download = report.file_name;
+  //     document.body.appendChild(a);
+  //     a.click();
+  //     a.remove();
+  //     window.URL.revokeObjectURL(url);
+  //   } catch {
+  //     message.error("Download failed");
+  //   }
+  // };
 
   const lockReason =
     report?.booking_status !== "completed" ? "counselling" : "review";
@@ -763,8 +769,8 @@ const V2Card = ({ report, v1Received }) => {
 
   const handleFileChange = async (e) => {
     const studentId = localStorage.getItem("studentId");
-const programId = localStorage.getItem("selectedProgramId");
-const packageId = localStorage.getItem("selectedPackageId");
+    const programId = localStorage.getItem("selectedProgramId");
+    const packageId = localStorage.getItem("selectedPackageId");
 
     const file = e.target.files?.[0];
     if (!file) return;
@@ -928,22 +934,28 @@ const V3Card = ({ report }) => {
   // new: "v3_received" = unlocked; old "v3_received_locked" = locked
   const locked = isV3Locked(report?.report_status_v3);
 
-  const handleDownload = async () => {
-    try {
-      const res = await fetch(report.file_path2);
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = report.file_name2;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      message.error("Download failed");
-    }
-  };
+const handleDownload = () => {
+  if (!report.file_path2) return;
+
+  window.open(report.file_path2, "_blank");
+};
+
+  // const handleDownload = async () => {
+  //   try {
+  //     const res = await fetch(report.file_path2);
+  //     const blob = await res.blob();
+  //     const url = window.URL.createObjectURL(blob);
+  //     const a = document.createElement("a");
+  //     a.href = url;
+  //     a.download = report.file_name2;
+  //     document.body.appendChild(a);
+  //     a.click();
+  //     a.remove();
+  //     window.URL.revokeObjectURL(url);
+  //   } catch {
+  //     message.error("Download failed");
+  //   }
+  // };
 
   if (!hasFile) {
     return (

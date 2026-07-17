@@ -8,6 +8,7 @@ from rest_framework import serializers
 from lead_registration.models import Stream
 from program_package.models import Package, Program
 from .models import Content, ContentPackage
+from backend.common.s3 import generate_presigned_url
 
 class ProgramSerializer(serializers.ModelSerializer):
     class Meta:
@@ -92,8 +93,11 @@ class ContentUploadSerializer(serializers.ModelSerializer):
 
         if instance.file_url and request:
             # ✅ Public file preview/download route
-            representation["file_url"] = request.build_absolute_uri(
-                f"/api/content/content-file/{instance.id}/"
+            # representation["file_url"] = request.build_absolute_uri(
+            #     f"/api/content/content-file/{instance.id}/"
+            # )
+            representation["file_url"] = generate_presigned_url(
+                instance.file_url.name
             )
             
             # ✅ Show proper uploaded file name

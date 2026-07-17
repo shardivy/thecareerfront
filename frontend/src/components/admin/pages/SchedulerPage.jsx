@@ -288,7 +288,7 @@ const SchedulerPage = () => {
 
                                 }}
                               >
-                                {slot.start_time} - {slot.end_time}
+                                {slot.start_time}
                               </Tag>
 
                               {/* STUDENT DETAILS */}

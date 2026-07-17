@@ -134,36 +134,18 @@ const fileName = getDisplayFileName(data);
   };
 
   /* ---------------- DOWNLOAD ---------------- */
-  const handleDownload = async () => {
-    if (!previewUrl) {
-          return;
-    }
+ const handleDownload = () => {
+  if (!previewUrl) return;
 
-    try {
-      const response = await fetch(previewUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.status}`);
-      }
-      const blob = await response.blob();
+  const link = document.createElement("a");
+  link.href = previewUrl;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
 
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-
-      // Use the actual filename from the file_path
-const fileName = getDisplayFileName(data);
-      link.download = fileName;
-
-      document.body.appendChild(link);
-      link.click();
-
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      message.success("Report downloaded successfully");
-    } catch (error) {
-          message.error("Failed to download report");
-    }
-  };
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 
   /* ---------------- UPLOAD / UPDATE ---------------- */

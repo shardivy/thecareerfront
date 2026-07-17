@@ -273,26 +273,32 @@ const ReportManagement = () => {
 
   /* ---------------- HANDLERS ---------------- */
 
-  const handleDownload = async (url, fileName) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
+const handleDownload = (url) => {
+  if (!url) return;
 
-      const downloadUrl = window.URL.createObjectURL(blob);
+  window.open(url, "_blank");
+};
 
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.download = fileName || "report"; // ✅ use backend filename
+  // const handleDownload = async (url, fileName) => {
+  //   try {
+  //     const response = await fetch(url);
+  //     const blob = await response.blob();
 
-      document.body.appendChild(a);
-      a.click();
+  //     const downloadUrl = window.URL.createObjectURL(blob);
 
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (err) {
-      // console.error("Download error:", err);
-    }
-  };
+  //     const a = document.createElement("a");
+  //     a.href = downloadUrl;
+  //     a.download = fileName || "report"; // ✅ use backend filename
+
+  //     document.body.appendChild(a);
+  //     a.click();
+
+  //     a.remove();
+  //     window.URL.revokeObjectURL(downloadUrl);
+  //   } catch (err) {
+  //     // console.error("Download error:", err);
+  //   }
+  // };
 
   const getFileType = (fileName = "") => {
     const ext = fileName.split(".").pop()?.toLowerCase();
