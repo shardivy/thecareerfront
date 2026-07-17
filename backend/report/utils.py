@@ -55,36 +55,54 @@ def get_completed_exam_report_data():
 
     return data
 
-
 # def send_report_uploaded_email(user, report):
 #     """
 #     Send email notification when report is uploaded
 #     """
-
+    
 #     subject = "Your Report Has Been Uploaded"
 
+#     # ==========================================
+#     # REPORT STATUS TEXT
+#     # ==========================================
+#     if report.report_status == "received_unlocked":
+#         status_text = "Received & Unlocked"
+
+#         status_message = """
+# The report is now available and unlocked.
+
+# Please log in to the student portal to view your report.
+# """
+
+#     else:
+#         status_text = "Received & Locked"
+
+#         status_message = """
+# The report is currently locked and will be accessible after completion of your counselling session.
+
+# Please log in to the student portal to view the report once the counselling session is completed.
+# """
+
+#     # ==========================================
+#     # EMAIL MESSAGE
+#     # ==========================================
 #     message = f"""
-# Dear {user.first_name},
+# Dear Student,
 
 # Your report has been successfully uploaded.
 
-# Report Details:
-# Report ID: {report.id}
-# Upload Date: {report.uploaded_at.strftime('%d %B %Y')}
-# Report Status: {report.report_status}
-# """
+# ________________________________________
+# Report Details
 
-#     if report.report_status == "received_unlocked":
-#         message += "\nYour report is now available and unlocked."
-#     else:
-#         message += "\nYour report has been uploaded but is locked until payment is completed."
-
-#     message += """
-
-# Please login to the student portal to view your report.
+# Report ID:{report.id}
+# Upload Date:{report.uploaded_at.strftime('%d %B %Y')}
+# Status:{status_text}
+# ________________________________________
+# {status_message}
+# ________________________________________
 
 # Best Regards,
-# Support Team
+# Abhinav Career Scope
 # """
 
 #     send_mail(
@@ -98,30 +116,54 @@ def get_completed_exam_report_data():
 
 def send_report_uploaded_email(user, report):
     """
-    Send email notification when report is uploaded
+    Send email notification when report is uploaded.
+    Aptitude reports: Locked/Unlocked.
+    Engineering reports: Always available.
     """
-    
+
     subject = "Your Report Has Been Uploaded"
 
     # ==========================================
-    # REPORT STATUS TEXT
+    # ENGINEERING REPORT
     # ==========================================
-    if report.report_status == "received_unlocked":
+    if report.package and getattr(report.package, "engineering_test_analysis", False):
+
+        status_text = "Available"
+
+        status_message = """
+Your Engineering Test Analysis report has been uploaded successfully.
+
+You can log in to the student portal and view your report.
+
+Further, please log in to book your slot for the session using this link:
+https://cms.abhinavcareerscope.com/student/slot-booking
+"""
+
+    # ==========================================
+    # APTITUDE REPORT
+    # ==========================================
+    elif report.report_status == "received_unlocked":
+
         status_text = "Received & Unlocked"
 
         status_message = """
 The report is now available and unlocked.
 
 Please log in to the student portal to view your report.
+
+Further, please log in to book your slot for the session using this link:
+https://cms.abhinavcareerscope.com/student/slot-booking
 """
 
     else:
+
         status_text = "Received & Locked"
 
         status_message = """
 The report is currently locked and will be accessible after completion of your counselling session.
 
 Please log in to the student portal to view the report once the counselling session is completed.
+
 """
 
     # ==========================================
@@ -133,18 +175,11 @@ Dear Student,
 Your report has been successfully uploaded.
 
 ________________________________________
-
 Report Details
 
-Report ID:
-{report.id}
-
-Upload Date:
-{report.uploaded_at.strftime('%d %B %Y')}
-
-Status:
-{status_text}
-
+Report ID: {report.id}
+Upload Date: {report.uploaded_at.strftime('%d %B %Y')}
+Status: {status_text}
 ________________________________________
 
 {status_message}
@@ -162,4 +197,3 @@ Abhinav Career Scope
         [user.email],
         fail_silently=True
     )
-
