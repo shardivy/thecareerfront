@@ -109,7 +109,7 @@ const SchedulerPage = () => {
       >
         {/* LEFT: TITLE */}
         <Title level={3} style={{ margin: 0 }}>
-          📅 Scheduler
+          📅 Calendar
         </Title>
 
         {/* RIGHT: BOOKING STATUS */}

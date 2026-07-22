@@ -164,7 +164,7 @@ const AdminLayout = () => {
     "/s-admin/paymentmanagement": "Payment Management",
     "/s-admin/slotbooking": "Counselling Bookings",
     "/s-admin/createslot": "Create Counselling Slot ",
-    "/s-admin/scheduler": "Scheduler",
+    "/s-admin/calendar": "Calendar",
     "/s-admin/followupManagement": "Follow Up Management",
     "/s-admin/contentManagement": "Content Management",
     "/s-admin/examManagements": "User Request List",

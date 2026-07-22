@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
     Form,
@@ -11,6 +11,7 @@ import {
     message,
     ConfigProvider,
     theme,
+    Modal,
 } from "antd";
 import {
     UserOutlined,
@@ -48,6 +49,12 @@ const ExamRegistration = () => {
     const location = useLocation();
     const { token } = useToken();
 
+    // ---- Confirmation + countdown modal state ----
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [countdown, setCountdown] = useState(null); // null = not counting
+    const pendingValuesRef = useRef(null);
+    const timerRef = useRef(null);
+
     // Data passed from ExamManagement's navigate("/student/exam-register", { state: {...} })
     const {
         first_name,
@@ -82,11 +89,20 @@ const ExamRegistration = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [location.state]);
 
+    // Clean up the countdown interval if the component unmounts mid-countdown
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) clearInterval(timerRef.current);
+        };
+    }, []);
+
     const goToExam = () => {
         // window.open("https://www.careerfutura.com/ba/business-associate#", "_blank");
         navigate("/student/exam-management");
     };
 
+    // Actual submission logic — now triggered after the countdown finishes,
+    // not directly from the form's onFinish.
     const handleFinish = async (values) => {
         if (beginTestDisabled) return;
 
@@ -113,17 +129,8 @@ const ExamRegistration = () => {
                 package_id: selectedPackageId,
             };
 
-            // 1. Start Exam (fires now, on "Begin Test", instead of on the
-            // exam-management page's "Start Exam" button)
-            await dispatch(
-                startExam({
-                    studentId,
-                    programId: selectedProgramId,
-                    packageId: selectedPackageId,
-                })
-            ).unwrap();
 
-            // 2. Save Registration
+            // 1. Save Registration
             const registerResponse = await dispatch(
                 saveExamRegister({
                     studentId,
@@ -133,7 +140,7 @@ const ExamRegistration = () => {
 
             console.log("Registration Response:", registerResponse);
 
-            // 3. Get test_id from response
+            // 2. Get test_id from registration response
             const testId =
                 registerResponse?.test_id ||
                 registerResponse?.data?.test_id;
@@ -143,18 +150,27 @@ const ExamRegistration = () => {
                 return;
             }
 
-            // 4. Launch Test
+            // 3. Mark the exam as started
+            await dispatch(
+                startExam({
+                    studentId,
+                    programId: selectedProgramId,
+                    packageId: selectedPackageId,
+                })
+            ).unwrap();
+
+            // 4. Launch the test
             const launchResponse = await dispatch(
                 launchTest({
                     studentId,
                     type: testId,
                 })
             ).unwrap();
-
             message.success("Registration completed successfully.");
 
             if (launchResponse?.url) {
-                window.location.href = launchResponse.url;
+                // Navigate the CURRENT tab (not a new one) to the test URL.
+                window.location.assign(launchResponse.url);
             } else {
                 message.error("Launch URL not found.");
             }
@@ -198,6 +214,40 @@ const ExamRegistration = () => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    // Form's onFinish now just stashes the validated values and opens
+    // the confirmation modal — it does NOT submit anything yet.
+    const handleFormFinish = (values) => {
+        pendingValuesRef.current = values;
+        setConfirmOpen(true);
+    };
+
+    // User confirmed on the modal — close it, start the 10s countdown,
+    // then run the real submission once it hits zero.
+    const handleConfirmYes = () => {
+        setConfirmOpen(false);
+        setCountdown(10);
+
+        timerRef.current = setInterval(() => {
+            setCountdown((prev) => {
+                if (prev <= 1) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                    const values = pendingValuesRef.current;
+                    pendingValuesRef.current = null;
+                    // Defer to next tick so the modal can close cleanly first
+                    setTimeout(() => handleFinish(values), 0);
+                    return null;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    };
+
+    const handleConfirmNo = () => {
+        setConfirmOpen(false);
+        pendingValuesRef.current = null;
     };
 
     const handleLater = () => {
@@ -295,6 +345,36 @@ const ExamRegistration = () => {
 
                 {/* ============ FORM ============ */}
                 <div style={{ maxWidth: 640, margin: "0 auto", padding: "20px 24px" }}>
+                    {/* Important instruction note */}
+                    {/* <div
+                        style={{
+                            background: tint(token.colorWarning, "14"),
+                            border: `1px solid ${tint(token.colorWarning, "40")}`,
+                            borderRadius: token.borderRadius,
+                            padding: "10px 14px",
+                            marginBottom: 16,
+                        }}
+                    >
+                        <Text style={{ fontSize: 13.5, color: token.colorTextSecondary }}>
+                            <Text strong style={{ color: token.colorWarning }}>
+                                Note:
+                            </Text>{" "}
+                            If you already clicked{" "}
+                            <Text strong>Begin Test</Text> but were unable to complete it, you can
+                            start again by logging in with your previous credentials.{" "}
+                            <a
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    navigate("https://www.careerfutura.com/login");
+                                }}
+                                style={{ color: token.colorPrimary, fontWeight: 600, cursor: "pointer" }}
+                            >
+                                Click here
+                            </a>
+                            .
+                        </Text>
+                    </div> */}
+
                     <Row justify="center">
                         {/* Registration card (New User only, no tabs) */}
                         <Col xs={24}>
@@ -343,7 +423,7 @@ const ExamRegistration = () => {
                                         </Text>
                                     </div>
 
-                                    <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark={false}>
+                                    <Form form={form} layout="vertical" onFinish={handleFormFinish} requiredMark={false}>
                                         <Row gutter={12}>
                                             <Col xs={24} sm={12}>
                                                 <Form.Item
@@ -500,7 +580,7 @@ const ExamRegistration = () => {
                                                     size="large"
                                                     icon={<PlayCircleOutlined />}
                                                     loading={submitting}
-                                                    disabled={beginTestDisabled}
+                                                    disabled={beginTestDisabled || countdown !== null}
                                                     style={{
                                                         background: token.colorSuccess,
                                                         borderColor: token.colorSuccess,
@@ -518,6 +598,43 @@ const ExamRegistration = () => {
                         </Col>
                     </Row>
                 </div>
+
+                {/* ============ CONFIRMATION MODAL ============ */}
+                <Modal
+                    open={confirmOpen}
+                    onOk={handleConfirmYes}
+                    onCancel={handleConfirmNo}
+                    okText="Begin Test"
+                    cancelText="Cancel"
+                    centered
+                >
+                    <Title level={4} style={{ marginTop: 0 }}>
+                        Ready to Start Your Test?
+                    </Title>
+
+                    <Paragraph style={{ marginBottom: 0 }}>
+                        Please ensure you have a stable internet connection and are ready to complete
+                        the test before proceeding.
+                    </Paragraph>
+                </Modal>
+
+                {/* ============ COUNTDOWN MODAL ============ */}
+                <Modal
+                    open={countdown !== null}
+                    closable={false}
+                    maskClosable={false}
+                    footer={null}
+                    centered
+                >
+                    <div style={{ textAlign: "center", padding: "24px 0" }}>
+                        <Title level={2} style={{ color: token.colorPrimary, marginBottom: 8 }}>
+                            {countdown}
+                        </Title>
+                        <Text>
+                            Your test is starting in {countdown} second{countdown === 1 ? "" : "s"}...
+                        </Text>
+                    </div>
+                </Modal>
             </div>
         </ConfigProvider>
     );

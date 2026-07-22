@@ -123,6 +123,7 @@ const AddEmployeeModal = ({
                 <Select>
                   <Option value="counsellor">Counsellor</Option>
                   <Option value="ui_ux">UI/UX</Option>
+                  <Option value="admin">Admin</Option>
                 </Select>
               )}
             </Form.Item>

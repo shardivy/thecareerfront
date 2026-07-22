@@ -382,26 +382,37 @@ const ExamManagement = () => {
                       >
                         Mark as Completed
                       </Button>
+                 
 
-                      {/* New Text Link */}
-                      <Text
+                      {/* Important instruction note */}
+                      <div
                         style={{
-                          display: "block",
-                          marginTop: 10,
-                          fontSize: 13,
-                          textAlign: "center",
+                          background: "#fffbe6",
+                          border: "1px solid #ffe58f",
+                          borderRadius: token.borderRadius,
+                          padding: "10px 12px",
+                          marginTop: 12,
                         }}
                       >
-                        Visit the site to know more:{" "}
-                        <a
-                          href="https://abhinavcareerscope.com/"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontWeight: 600 }}
-                        >
-                          Click Here
-                        </a>
-                      </Text>
+                        <Text style={{ fontSize: 12.5, color: token.colorTextSecondary }}>
+                          <Text strong style={{ color: token.colorWarning }}>
+                            Note:
+                          </Text>{" "}
+
+                          If you <Text strong>Logged Out</Text>{" "} before completing your test, you can resume it by logging in again. Click here to continue.
+                          <a
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // External site — navigate the current tab (same tab, not a new one)
+                              window.location.href = "https://www.careerfutura.com/login";
+                            }}
+                            style={{ color: token.colorPrimary, fontWeight: 600, cursor: "pointer" }}
+                          >
+                            Click here
+                          </a>
+                          .
+                        </Text>
+                      </div>
                     </>
                   )}
 
