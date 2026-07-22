@@ -488,7 +488,7 @@ class AdminStaffRegisterAPIView(APIView):
     # =====================================
     def get(self, request):
 
-        allowed_roles = ["counsellor", "ui_ux"]
+        allowed_roles = ["counsellor", "ui_ux", "admin"]
 
         users = User.objects.select_related("role").filter(
             role__name__in=allowed_roles
