@@ -190,7 +190,7 @@ const App = () => {
           <Route path="examlist" element={<ExamList />} />
           <Route path="collegeListAnalysis" element={<CollegeListAnalysis />} />
           <Route path="hhManagement" element={<HandholdingManagement />} />
-          <Route path="scheduler" element={<SchedulerPage />} />
+          <Route path="calendar" element={<SchedulerPage />} />
 
           <Route path="eventOutreach" element={<SeminarWebinarManagement />} />
           <Route path="advertisement" element={<Advertisement />} />

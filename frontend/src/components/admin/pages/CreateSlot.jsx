@@ -214,9 +214,9 @@ const CreateSlot = () => {
 
           <Button
             icon={<CalendarOutlined />}
-            onClick={() => navigate("/s-admin/scheduler")}
+            onClick={() => navigate("/s-admin/calendar")}
           >
-            {/* View Scheduler */}
+            View Calender
           </Button>
 
           <DatePicker

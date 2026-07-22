@@ -139,6 +139,7 @@ const EmployeeList = () => {
       render: (role) => {
         if (role === "ui_ux") return "UI/UX";
         if (role === "counsellor") return "Counsellor";
+         if (role === "admin") return "Admin";
         return role;
       },
     },

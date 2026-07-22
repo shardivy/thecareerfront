@@ -652,44 +652,108 @@ class UpdateExamToPendingApprovalAPIView(APIView):
         
      
         
+# class StartExamAPIView(APIView):
+#     """
+#     Update student's latest exam status to 'in_progress'
+#     if current status is 'not_started'.
+#     """
+
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request, student_id):
+
+#         # 🔹 Get student profile
+#         student = get_object_or_404(StudentProfile, id=student_id)
+#         user = student.user
+        
+#         program_id = request.query_params.get("program_id")
+#         package_id = request.query_params.get("package_id")
+
+#         if not program_id or not package_id:
+#             return Response(
+#                 {"message": "program_id and package_id are required"},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         # 🔹 Get latest exam with allowed statuses
+#         user_exam = UserExam.objects.filter(
+#             user=user,
+#             program_id=program_id,
+#             package_id=package_id,
+#             status__in=["not_started"]
+#         ).order_by("-created_at").first()
+
+#         if not user_exam:
+#             return Response(
+#                 {"message": "No not_started exam found for this student"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         # 🔹 Update status
+#         user_exam.status = "in_progress"
+#         user_exam.save()
+
+#         return Response(
+#             {
+#                 "message": "Exam started successfully",
+#                 "student_id": student.id,
+#                 "exam_id": user_exam.id,
+#                 "status": user_exam.status
+#             },
+#             status=status.HTTP_200_OK
+#         )
+
 class StartExamAPIView(APIView):
     """
     Update student's latest exam status to 'in_progress'
-    if current status is 'not_started'.
+    only if CareerFuturaTest entry exists.
     """
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request, student_id):
 
-        # 🔹 Get student profile
+        # Get student profile
         student = get_object_or_404(StudentProfile, id=student_id)
         user = student.user
-        
+
         program_id = request.query_params.get("program_id")
         package_id = request.query_params.get("package_id")
 
         if not program_id or not package_id:
             return Response(
                 {"message": "program_id and package_id are required"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # 🔹 Get latest exam with allowed statuses
+        # Check CareerFutura entry exists
+        career_futura_exists = CareerFuturaTest.objects.filter(
+            student=student
+        ).exists()
+
+        if not career_futura_exists:
+            return Response(
+                {
+                    "message": "Career Futura test details not found. Please complete Career Futura registration first."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get latest not_started exam
         user_exam = UserExam.objects.filter(
             user=user,
             program_id=program_id,
             package_id=package_id,
-            status__in=["not_started"]
+            status="not_started",
         ).order_by("-created_at").first()
 
         if not user_exam:
             return Response(
                 {"message": "No not_started exam found for this student"},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 🔹 Update status
+        # Update status
         user_exam.status = "in_progress"
         user_exam.save()
 
@@ -698,10 +762,11 @@ class StartExamAPIView(APIView):
                 "message": "Exam started successfully",
                 "student_id": student.id,
                 "exam_id": user_exam.id,
-                "status": user_exam.status
+                "status": user_exam.status,
             },
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
+
         
 class FetchStudentExamStatusAPIView(APIView):
     """
