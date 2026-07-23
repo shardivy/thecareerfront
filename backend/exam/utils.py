@@ -64,15 +64,11 @@ Dear Student,
 Congratulations! Your exam has been successfully reviewed and approved.
 
 ________________________________________
-
 Exam Details
 
-Completion Date:
-{completed_at.strftime('%d %B %Y')}
+Completion Date:{completed_at.strftime('%d %B %Y')}
 
-Reviewer Remarks:
-{description_text}
-
+Reviewer Remarks:{description_text}
 ________________________________________
 
 Our team will now prepare your detailed report based on your exam results.
@@ -84,10 +80,10 @@ ________________________________________
 For any queries or assistance, feel free to contact:
 
 Call / WhatsApp:
-+91 99226 95424 | +91 82080 30557
++91 84849 05526 | +91 84849 06643
 
 Best Regards,
-Abhinav Career Scope
+TheCareerFront Team
 """
 
     send_mail(
@@ -129,10 +125,10 @@ This usually happens if:
 
 Please log in to your student portal and complete the remaining steps for your exam.
 
-If you need assistance, feel free to contact our support team.
+If you need assistance, feel free to contact our TheCareerFront team.
 
 Best Regards  
-Support Team
+TheCareerFront Team
 """
 
     send_mail(

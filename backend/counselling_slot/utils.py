@@ -74,7 +74,7 @@ Session Details:
 {slot_details}
 
 Best Regards
-Abhinav Career Scope
+TheCareerFront Team
 """,
         user.email
     )
@@ -107,7 +107,7 @@ Session Details:
 {slot_details}
 
 Best Regards
-Abhinav Career Scope
+TheCareerFront Team
 """,
             email
         )
@@ -180,7 +180,7 @@ Session Details:
 {slot_details}
 
 Best Regards
-Abhinav Career Scope
+TheCareerFront Team
 """,
         user.email
     )
@@ -210,7 +210,7 @@ Updated Session Details:
 {slot_details}
 
 Best Regards
-Abhinav Career Scope
+TheCareerFront Team
 """,
             email
         )
@@ -239,16 +239,16 @@ def generate_counselling_reminder(slot, student_profile, booking_status, program
     # ==========================================
     if booking_status in ["not_booked", "pending"]:
         return {
-            "subject": "Slot Booking Reminder | Abhinav Career Scope",
+            "subject": "Slot Booking Reminder | TheCareerFront Team",
             "message": f"""
-Greetings from Abhinav Career Scope.
+Greetings from TheCareerFront Team.
 
 You have not booked your counselling slot yet.
 
 Please book your slot as soon as possible to continue your counselling process.
 
 Regards,
-Abhinav Career Scope.
+TheCareerFront Team.
 """.strip()
         }
 
@@ -256,10 +256,10 @@ Abhinav Career Scope.
     # 🔹 BOOKED / RESCHEDULED SUBJECT
     # ==========================================
     if booking_status == "rescheduled":
-        subject = "Rescheduled Counselling Session Reminder | Abhinav Career Scope"
+        subject = "Rescheduled Counselling Session Reminder | TheCareerFront Team"
         session_label = "Your rescheduled session"
     else:
-        subject = "Counselling Session Reminder | Abhinav Career Scope"
+        subject = "Counselling Session Reminder | TheCareerFront Team"
         session_label = "Your session"
 
     # ==========================================
@@ -268,7 +268,7 @@ Abhinav Career Scope.
     if preferred_mode == "online":
 
         message = f"""
-Greetings from Abhinav Career Scope.
+Greetings from TheCareerFront Team.
 
 Program : {program_name}
 Package : {package_name}
@@ -285,10 +285,10 @@ Instructions for Online:
 For any queries or assistance:
 
 Call / WhatsApp:
-+91 99226 95424 | +91 82080 30557
++91 84849 05526 | +91 84849 06643
 
 Regards,
-Abhinav Career Scope.
+TheCareerFront Team.
 """.strip()
 
     # ==========================================
@@ -297,7 +297,7 @@ Abhinav Career Scope.
     else:
 
         message = f"""
-Greetings from Abhinav Career Scope.
+Greetings from TheCareerFront Team.
 
 Program : {program_name}
 Package : {package_name}
@@ -314,10 +314,10 @@ Instructions for Offline:
 For any queries or assistance:
 
 Call / WhatsApp:
-+91 99226 95424 | +91 82080 30557
++91 84849 05526 | +91 84849 06643
 
 Regards,
-Abhinav Career Scope.
+TheCareerFront Team.
 """.strip()
 
     return {
