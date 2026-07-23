@@ -674,7 +674,7 @@ const AdminLayout = () => {
               >
                 {/* LOGO */}
                 <img
-                  src="/Abhinav-logo.jpg"
+                  src="/cfront_logo_full.png"
                   alt="Career Counselling"
                   style={{
                     width: 120,
@@ -770,7 +770,7 @@ const AdminLayout = () => {
                 }}
               >
                 <img
-                  src="/Abhinav-logo.jpg"
+                  src="/cfront_logo_full.png"
                   alt="Career Counselling"
                   style={{
                     width: 66,

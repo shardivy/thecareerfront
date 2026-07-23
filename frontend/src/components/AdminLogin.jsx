@@ -203,26 +203,38 @@ const AdminLogin = () => {
               }}
             >
               {/* LOGO */}
-              <div style={{ marginBottom: 20 }}>
+              <div
+                style={{
+                  marginBottom: 20,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0,
+                  flexWrap: "wrap",
+                }}
+              >
                 <img
-                  src="/Abhinav-logo.jpg"
+                  src="/logoo.png"
                   alt="Career Counselling"
                   style={{
                     width: 150,
                     height: "auto",
                     objectFit: "contain",
-                    marginBottom: 6,
                   }}
                 />
 
                 <div
                   style={{
-                    fontSize: 28,   // bigger like Title
+                    fontSize: "clamp(21px, 3vw, 30px)",
                     fontWeight: 700,
-                    color: "#1E40AF",
+                    lineHeight: 1.2,
+                    display: "flex",
+                    alignItems: "center",
+                    flexWrap: "wrap",
                   }}
                 >
-                  Career Counselling Platform
+                  <span style={{ color: "#1E40AF" }}>The</span>
+                  <span style={{ color: "#eb6e25" }}>Career</span>
+                  <span style={{ color: "#0F766E" }}>Front</span>
                 </div>
               </div>
 
@@ -311,8 +323,8 @@ const AdminLogin = () => {
 
                 <Divider style={{ margin: "28px 0" }} />
 
-                <Text style={{ textAlign: "center", display: "block" }}>
-                  Want to watch video?{" "}
+               <Text style={{ textAlign: "center", display: "block" }}>
+                  Want to Know More?{" "}
                   <Text
                     type="primary"
                     style={{

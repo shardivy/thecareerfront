@@ -367,25 +367,39 @@ const StudentRegister = () => {
             <Col xs={24} md={14} style={{ padding: "48px 40px", background: "#fff", borderRadius: "0 24px 24px 0" }}>
               {/* LOGO + TITLE */}
               <div style={{ marginBottom: 16 }}>
-                <img
-                  src="/Abhinav-logo.jpg"
-                  alt="Career Counselling"
-                  style={{
-                    width: 150,
-                    height: "auto",
-                    objectFit: "contain",
-                    marginBottom: 6,
-                  }}
-                />
-
                 <div
                   style={{
-                    fontSize: 28,
-                    fontWeight: 700,
-                    color: "#1E40AF",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 0,
+                    flexWrap: "wrap",
+                    marginBottom: 12,
                   }}
                 >
-                  Career Counselling Platform
+                  <img
+                    src="/logoo.png"
+                    alt="Career Counselling"
+                    style={{
+                      width: 150,
+                      height: "auto",
+                      objectFit: "contain",
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      fontSize: "clamp(21px, 3vw, 30px)",
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      display: "flex",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span style={{ color: "#1E40AF" }}>The</span>
+                    <span style={{ color: "#eb6e25" }}>Career</span>
+                    <span style={{ color: "#0F766E" }}>Front</span>
+                  </div>
                 </div>
 
                 <Title

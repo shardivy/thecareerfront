@@ -489,53 +489,7 @@ const Programs = () => {
       render: (t) => t || "-",
     },
 
-    // {
-    //   title: "Registration",
-    //   dataIndex: "registration_details",
-    //   ellipsis: true,
-    // },
-
-    // {
-    //   title: "Instructions",
-    //   dataIndex: "instructions",
-    //   ellipsis: true,
-    // },
-
-    // {
-    //   title: "URL",
-    //   dataIndex: "url",
-    //   render: (url) =>
-    //     url ? (
-    //       <a href={url} target="_blank" rel="noreferrer">
-    //         {url}
-    //       </a>
-    //     ) : "-",
-    // },
-
-    // {
-    //   title: "Image",
-    //   dataIndex: "thumbnail_url",
-    //   render: (img) =>
-    //     img ? (
-    //       <img
-    //         src={img}
-    //         alt="thumb"
-    //         style={{ width: 50, height: 40, objectFit: "cover" }}
-    //       />
-    //     ) : "-",
-    // },
-
-    // {
-    //   title: "Status",
-    //   render: (_, record) => (
-    //     <Switch
-    //       checked={record.is_active}
-    //       checkedChildren="Active"
-    //       unCheckedChildren="Inactive"
-    //     />
-    //   ),
-    // },
-
+   
     {
       title: "Actions",
       render: (_, record) => (
@@ -712,8 +666,6 @@ const Programs = () => {
   const finalFilteredData = filteredData.filter((i) =>
     JSON.stringify(i).toLowerCase().includes(searchText.toLowerCase())
   );
-
-
 
 
 

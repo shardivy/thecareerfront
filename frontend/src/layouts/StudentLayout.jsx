@@ -248,26 +248,7 @@ export default function StudentLayout() {
     !showSlotBookingAfterExam &&
     !showSlotBookingAfterEngineering;
 
-  // const prevConverted = localStorage.getItem("prev_converted_lead");
 
-  // useEffect(() => {
-  //   if (profile?.is_converted_lead !== undefined) {
-  //     const prev = localStorage.getItem("prev_converted_lead");
-  //     const handled = localStorage.getItem("conversionHandled");
-
-  //     // Show modal only if just converted (false → true) and not already handled
-  //     if (prev === "false" && profile.is_converted_lead === true && !handled) {
-  //       setShowModal(true);
-  //       localStorage.setItem("showConversionModal", "true");
-  //     }
-
-  //     // update previous state
-  //     localStorage.setItem(
-  //       "prev_converted_lead",
-  //       profile.is_converted_lead
-  //     );
-  //   }
-  // }, [profile]);
 
   /* ===================== NOTIFICATIONS ===================== */
   const [notifications, setNotifications] = useState([
@@ -720,7 +701,7 @@ export default function StudentLayout() {
 
                 {/* LOGO */}
                 <img
-                  src="/Abhinav-logo.jpg"
+                  src="/cfront_logo_full.png"
                   alt="Student Panel"
                   style={{
                     width: 120,
@@ -800,7 +781,7 @@ export default function StudentLayout() {
               >
                 {/* LOGO */}
                 <img
-                  src="/Abhinav-logo.jpg"
+                 src="/cfront_logo_full.png"
                   alt="Career Counselling"
                   style={{
                     width: 60,
@@ -991,62 +972,6 @@ export default function StudentLayout() {
             </Header>
           )}
 
-
-
-          {/* <Modal
-            open={showModal}
-            centered
-            closable={false}
-            maskClosable={false}
-            footer={null}
-          >
-            <div style={{ textAlign: "center", padding: "10px 5px" }}>
-
-
-              <ExclamationCircleFilled
-                style={{
-                  fontSize: 48,
-                  color: "#faad14",
-                  marginBottom: 12,
-                }}
-              />
-
-
-              <h2 style={{ marginBottom: 8, fontWeight: 600 }}>
-                Profile Updated
-              </h2>
-
-
-              <p
-                style={{
-                  color: "#555",
-                  fontSize: 14,
-                  lineHeight: "22px",
-                  marginBottom: 24,
-                }}
-              >
-                Your profile has been updated by admin. <br />
-                Please logout and login again to access your dashboard.
-              </p>
-
-
-              <Button
-                type="primary"
-                danger
-                size="large"
-                icon={<LogoutOutlined />}
-                onClick={handleLogout}
-                style={{
-                  borderRadius: 6,
-                  padding: "0 30px",
-                  height: 42,
-                  fontWeight: 500,
-                }}
-              >
-                Logout Now
-              </Button>
-            </div>
-          </Modal> */}
 
           <Content
             style={{

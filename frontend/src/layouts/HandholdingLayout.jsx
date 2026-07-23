@@ -203,7 +203,7 @@ useEffect(() => {
                 onClick={() => navigate("/handholding/dashboard")}
               >
                 <img
-                  src="/Abhinav-logo.jpg"
+                 src="/cfront_logo_full.png"
                   alt="Handholding"
                   style={{ width: 110, marginBottom: 8 }}
                 />
@@ -269,7 +269,7 @@ useEffect(() => {
                   setDrawerVisible(false);
                 }}
               >
-                <img src="/Abhinav-logo.jpg" width={60} />
+                <img src="/cfront_logo_full.png" width={60} />
                 <div>
                   <div style={{ fontWeight: 700, color: "#fff" }}>
                     Career Counselling
@@ -389,57 +389,7 @@ useEffect(() => {
             </Header>
           )}
 
-          {/* <Modal
-  open={showModal}
-  centered
-  closable={false}
-  maskClosable={false}
-  footer={null}
->
-  <div style={{ textAlign: "center", padding: "10px 5px" }}>
-    
-    <ExclamationCircleFilled
-      style={{
-        fontSize: 48,
-        color: "#faad14",
-        marginBottom: 12,
-      }}
-    />
-
-    <h2 style={{ marginBottom: 8, fontWeight: 600 }}>
-      Profile Updated
-    </h2>
-
-    <p
-      style={{
-        color: "#555",
-        fontSize: 14,
-        lineHeight: "22px",
-        marginBottom: 24,
-      }}
-    >
-      Your profile has been updated by admin. <br />
-      Please logout and login again to access your dashboard.
-    </p>
-
-    <Button
-      type="primary"
-      danger
-      size="large"
-      icon={<LogoutOutlined />}
-      onClick={handleLogout}
-      style={{
-        borderRadius: 6,
-        padding: "0 30px",
-        height: 42,
-        fontWeight: 500,
-      }}
-    >
-      Logout Now
-    </Button>
-  </div>
-</Modal> */}
-
+        
           {/* CONTENT */}
           <Content
             style={{
