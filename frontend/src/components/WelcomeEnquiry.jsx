@@ -72,65 +72,65 @@ const WelcomeEnquiry = () => {
 
   const serviceRouteMap = {
     "Engineering-Paid Whatsapp Group":
-      "/engineering-paid-group-service",
+      "/default",
 
     "Engineering-Admission Counselling":
-      "/admission-counselling",
+      "/default",
 
     "Engineering-OCI/NRI/CIWG/PIO Paid Whatsapp Group":
-      "/engineering-oci-nri-paid-group-service",
+      "/default",
 
     // "Engineering-OCI/NRI/CIWG/PIO Engineering Admission End-to-End Guidance":
     //   "/oci-nri-end-to-end-counselling",
 
     "Engineering-CET-Engineering Admission One-on-One Guidance":
-      "/cet-one-on-one-guidance",
+      "/default",
 
     "Engineering-JEE-Engineering Admission One-on-One Guidance":
-      "/jee-one-on-one-guidance",
+      "/default",
 
     "Medical-Paid Whatsapp Group":
-      "/medical-paid-group-service",
+      "/default",
 
     "Medical-End to End Medical Counselling":
-      "/medical-end-to-end-counselling",
+      "/default",
 
     "Law-Paid Whatsapp Group":
-      "/law-service",
+      "/default",
 
     "11th Admission-Free Whatsapp Group":
-      "/11th-admission-free-group-service",
+      "/default",
 
     "Abroad Counselling-Expert Abroad Counselling Service":
-      "/abroad-counselling-service",
+      "/default",
 
     // "Admission Counselling-Expert Engineering Online Session":
     //   "/admission-counselling-service",
 
     "Commerce (BBA  & MBA)-Paid Whatsapp Group":
-      "/bba-paid-group-service",
+      "/default",
 
     "Hand Holding Program-Hand Holding":
-      "/handholding-program-service",
+      "/default",
 
     "Design & Architecture-Paid Whatsapp Group":
-      "/design-arch-paid-group-service",
+      "/default",
 
     "Aptitude Test Counselling-Aptitude Test For 8th-9th std":
-      "/8-9-aptitude-service",
+      "/default",
 
     "Aptitude Test Counselling-Aptitude Test Of 10th STD":
-      "/10th-aptitude-service",
+      "/default",
 
     "Aptitude Test Counselling-Aptitude Test Of 11th-12th STD":
-      "/11-12-aptitude-service",
+      "/default",
 
-        "Aptitude Test Counselling-PG Counselling":
-      "/pg-counselling-service",
+    "Aptitude Test Counselling-PG Counselling":
+      "/default",
 
 
     "Seminar / Webinar-Seminar / Webinar":
-      "/seminar-webinar-session",
+      "/default",
 
   };
 
@@ -148,7 +148,6 @@ const WelcomeEnquiry = () => {
         Choose Your Program
       </Title>
 
-      {/* PROGRAM GRID */}
       {/* PROGRAM GRID */}
       {programLoading ? (
         <div style={{ textAlign: "center" }}>
@@ -356,8 +355,54 @@ const WelcomeEnquiry = () => {
           <div style={{ textAlign: "center", padding: 40 }}>
             <Spin size="large" />
           </div>
-        ) : packages.length === 0 ? (
-          <Empty description="No services found" />
+         ) : packages.length === 0 ? (
+  <div
+    style={{
+      textAlign: "center",
+      padding: "50px 20px",
+      background: "#fff",
+      borderRadius: 16,
+      border: "1px solid #E5E7EB",
+      maxWidth: 600,
+      margin: "0 auto",
+    }}
+  >
+    <Empty
+      description={
+        <div>
+          <h3
+            style={{
+              marginBottom: 8,
+              color: "#111827",
+              fontWeight: 600,
+            }}
+          >
+            No Services Available
+          </h3>
+
+          <p
+            style={{
+              color: "#6B7280",
+              lineHeight: 1.6,
+              marginBottom: 16,
+            }}
+          >
+            There are currently no services available for{" "}
+            <strong>{activeProgramName}</strong>.
+            <br />
+            Please contact the administrator for assistance.
+          </p>
+
+          <p style={{ margin: 0 , color: "#6B7280", lineHeight: 1.6 }}>
+            <strong>📞 Contact Number:</strong>{" "}
+            <a href="tel:+918484905526">+91 8484905526</a>
+          </p>
+
+         
+        </div>
+      }
+    />
+  </div>
         ) : (
           <Row gutter={[24, 24]} align="stretch">
             {packages.map((pkg) => (
