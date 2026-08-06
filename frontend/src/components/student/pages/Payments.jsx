@@ -100,26 +100,14 @@ const Payments = () => {
 
   const formattedHistory = historyList.map((item, index) => {
     const rawDate = item.payment_date || item.created_at;
-    const savedProgram = localStorage.getItem("selectedProgram");
-    const savedPackageName = localStorage.getItem("selectedPackageName");
-    const savedPackage = savedPackageName || localStorage.getItem("selectedPackage");
+
     return {
       key: item.id || index,
       studentId: item.student_id,
       srNo: index + 1,
       // program: item.program_name || item.program || "N/A",
       // package: item.package_name || item.package || "-",
-      program:
-        item.program_name ||
-        item.program ||
-        savedProgram ||
-        "N/A",
-
-      package:
-        item.package_name ||
-        item.package ||
-        savedPackage ||
-        "-",
+      programs: item.programs || [],
       paidAmount: item.amount || 0,
       packagePrice: item.package_price || Number(localStorage.getItem("packagePrice")) || 0,
       status:
@@ -129,9 +117,9 @@ const Payments = () => {
           ? "fully_paid"
           : item.status === "partial_paid"
             ? "partial_paid"
-             : item.status === "verification_pending"
-        ? "verification_pending"
-            : "not_paid",
+            : item.status === "verification_pending"
+              ? "verification_pending"
+              : "not_paid",
       paymentMethod: item.method || "-",
       date: rawDate
         ? new Date(rawDate).toLocaleDateString("en-IN")
@@ -150,16 +138,31 @@ const Payments = () => {
     },
     {
       title: "Program / Counselling Service",
-      width: 220,
+      width: 280,
       render: (_, record) => (
         <div>
-          <Text strong>{record.program || "N/A"}</Text>
-          <br />
-          <Text
-            type="colortextSecondary"
-          >
-            {record.package || "-"}
-          </Text>
+          {(record.programs || []).length > 0 ? (
+            record.programs.map((item, index) => (
+              <div
+                key={index}
+                style={{
+                  marginBottom: index !== record.programs.length - 1 ? 10 : 0,
+                }}
+              >
+                <Text strong>{item.program_name}</Text>
+                <br />
+                <Text type="colorTextSecondary">
+                  {item.package?.name || "-"}
+                </Text>
+              </div>
+            ))
+          ) : (
+            <>
+              <Text strong>N/A</Text>
+              <br />
+              <Text type="secondary">-</Text>
+            </>
+          )}
         </div>
       ),
     },
@@ -209,12 +212,12 @@ const Payments = () => {
           );
         }
 
-         if (status === "verification_pending")
+        if (status === "verification_pending")
           return (
-        <Tag color="orange">Verification Pending</Tag>
+            <Tag color="orange">Verification Pending</Tag>
           );
 
-    
+
         return <Tag>{status}</Tag>;
       },
     },
@@ -240,33 +243,33 @@ const Payments = () => {
       title: "Action",
       key: "action",
       render: (_, record) => {
-     if (record.status === "not_paid") {
-      return (
-        <Button
-          type="primary"
-          size={isMobile ? "small" : "middle"}
-          icon={<CreditCardOutlined />}
-          onClick={() => navigate("/student/payment-page")}
-          disabled={record.status === "verification_pending"} // safety
-        >
-          Pay Now
-        </Button>
-      );
-    }
+        if (record.status === "not_paid") {
+          return (
+            <Button
+              type="primary"
+              size={isMobile ? "small" : "middle"}
+              icon={<CreditCardOutlined />}
+              onClick={() => navigate("/student/payment-page")}
+              disabled={record.status === "verification_pending"} // safety
+            >
+              Pay Now
+            </Button>
+          );
+        }
 
-    // 🟠 VERIFICATION PENDING → DISABLED PAY NOW
-    if (record.status === "verification_pending") {
-      return (
-        <Button
-          type="primary"
-          size={isMobile ? "small" : "middle"}
-          icon={<ClockCircleOutlined />}
-          disabled
-        >
-          Verification Pending
-        </Button>
-      );
-    }
+        // 🟠 VERIFICATION PENDING → DISABLED PAY NOW
+        if (record.status === "verification_pending") {
+          return (
+            <Button
+              type="primary"
+              size={isMobile ? "small" : "middle"}
+              icon={<ClockCircleOutlined />}
+              disabled
+            >
+              Verification Pending
+            </Button>
+          );
+        }
 
         // 🟢 FULLY PAID → View Invoice (ENABLED ✅)
         if (record.status === "fully_paid") {
