@@ -319,21 +319,19 @@ const InstructionsModal = ({
           <List
             dataSource={[
               <>
-                Watch the instructional video before starting.{" "}
+                {/* Watch the instructional video before starting.{" "}
                 <Link
                   href="https://www.youtube.com/watch?v=32FdMJBfRy4"
                   target="_blank"
                 >
                   Click here to watch
-                </Link>
+                </Link> */}
               </>,
-              "For technical help call Mr. Shah Sir: 9503140404",
-
-              "WhatsApp Mr. Ketan Sir: 8087466154",
+              "For technical help call:  8484905526",
 
               "After completing all sections, call or WhatsApp to confirm your test submission",
 
-              "For any difficulty, WhatsApp Abhinav Career Scope: 9922695424",
+              "For any difficulty, WhatsApp TheCareerFront:  8484905526",
             ]}
             renderItem={(item, index) => (
               <List.Item key={index} style={{ padding: "4px 0" }}>
@@ -361,7 +359,7 @@ const InstructionsModal = ({
         >
           <Title level={5} style={{ marginBottom: 6 }}>
             <GlobalOutlined style={{ marginRight: 8 }} />
-            About Abhinav Career Scope
+            About TheCareerFront
           </Title>
 
           <Text>
@@ -370,13 +368,13 @@ const InstructionsModal = ({
 
           <Divider style={{ margin: "10px 0" }} />
 
-          <Text strong>📱 Contact:</Text> 9922695424 <br />
+          <Text strong>📱 Contact:</Text>  8484905526 | 8484906643 <br />
 
           <Text strong>📧 Email:</Text>{" "}
-          abhinavcareerscope@gmail.com <br />
+         thecareerfront@gmail.com <br />
 
-          <Text strong>🌐 Website:</Text>{" "}
-          www.abhinavcareerscope.com
+          {/* <Text strong>🌐 Website:</Text>{" "}
+          www.abhinavcareerscope.com */}
         </Card>
       </div>
     </Modal>

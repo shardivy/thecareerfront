@@ -84,7 +84,7 @@ const RegisterDetails = () => {
               }}
             >
               <Title level={4} style={{ color: "#1677ff", margin: 0 }}>
-                📱 99226 95424
+                📱 84849 05526
               </Title>
             </div>
 
@@ -191,7 +191,7 @@ const RegisterDetails = () => {
               }}
               onClick={() => {
                 window.open(
-                  "https://wa.me/919922695424?text=I want to register for aptitude test",
+                  "https://wa.me/918484905526?text=I want to register for aptitude test",
                   "_blank"
                 );
               }}

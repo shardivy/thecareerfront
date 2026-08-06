@@ -55,15 +55,15 @@ const EngineeringInstructionsModal = ({ open, onClose }) => {
       >
         <Title level={5} style={{ marginBottom: 6 }}>
           <GlobalOutlined style={{ marginRight: 8 }} />
-          About Abhinav Career Scope
+          About TheCareerFront
         </Title>
         <Text>Career guidance company based in Bavdhan, Pune.</Text>
 
         <Divider style={{ margin: "10px 0" }} />
 
-        <Text strong>📱 Contact:</Text> 9922695424 <br />
-        <Text strong>📧 Email:</Text> abhinavcareerscope@gmail.com <br />
-        <Text strong>🌐 Website:</Text> www.abhinavcareerscope.com
+        <Text strong>📱 Contact:</Text>  8484905526 | 8484906643<br />
+        <Text strong>📧 Email:</Text> thecareerfront@gmail.com <br />
+        {/* <Text strong>🌐 Website:</Text> www.abhinavcareerscope.com */}
       </div>
 
       {/* Confirmation Button */}
