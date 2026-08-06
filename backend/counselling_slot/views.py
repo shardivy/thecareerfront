@@ -103,7 +103,7 @@ class ReenaCounsellorAPIView(APIView):
         counsellors = Counsellor.objects.select_related("user").filter(
             (Q(user__first_name__icontains="Priti") & Q(user__last_name__icontains="Borse"))
         )
-
+        #=============
         serializer = CounsellorListSerializer(
             counsellors,
             many=True
