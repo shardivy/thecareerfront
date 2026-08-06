@@ -417,11 +417,11 @@ AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", default="")
 AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", default="ap-south-1")
 AWS_PUBLIC_BUCKET_NAME = config(
     "AWS_PUBLIC_BUCKET_NAME",
-    default="abhinavcareerscope-public",
+    default="careerfront-public",
 )
 AWS_PRIVATE_BUCKET_NAME = config(
     "AWS_PRIVATE_BUCKET_NAME",
-    default="abhinavcareerscope-private",
+    default="careerfront-private",
 )
 AWS_ENVIRONMENT = config(
     "AWS_ENVIRONMENT",
