@@ -11,6 +11,7 @@ import {
   Input,
   Button,
   message,
+  Tooltip
 } from "antd";
 import { UserOutlined, MailOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -97,6 +98,12 @@ const ViewRequestModal = ({
     }
   };
 
+  console.log({
+    isEditMode,
+    status: data?.status,
+    answersLength: answers.length,
+  });
+
   return (
     <Modal
       open={open}
@@ -109,20 +116,28 @@ const ViewRequestModal = ({
       width={1400}
       centered
       footer={
-        isEditMode &&
-        data?.status !== "not_started" &&
-        answers?.length > 0 && (
+        isEditMode && answers?.length > 0 && (
           <div style={{ textAlign: "right" }}>
             <Button onClick={onClose} style={{ marginRight: 8 }}>
               Cancel
             </Button>
-            <Button
-              type="primary"
-              onClick={handleSave}
-              loading={updateLoading}
+
+            <Tooltip
+              title={
+                data?.status === "not_started"
+                  ? "Responses cannot be edited until the assessment has been started."
+                  : ""
+              }
             >
-              Save Changes
-            </Button>
+              <Button
+                type="primary"
+                onClick={handleSave}
+                loading={updateLoading}
+                disabled={data?.status === "not_started"}
+              >
+                Save Changes
+              </Button>
+            </Tooltip>
           </div>
         )
       }
