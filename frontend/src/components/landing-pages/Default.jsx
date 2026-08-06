@@ -44,7 +44,7 @@ export default function Default() {
 
   const contactOnWhatsApp = () => {
     const message =
-      "Hello CareerFront, I would like to know more about your career guidance services.";
+      "Hello TheCareerFront, I would like to know more about your career guidance services.";
 
     window.open(
       `https://wa.me/${phone.replace(
@@ -64,7 +64,7 @@ export default function Default() {
         <div className="law-image-card">
           <img
             src="/Ram-Flayer.png"
-            alt="CareerFront Flyer"
+            alt="TheCareerFront Flyer"
           />
         </div>
 
@@ -74,7 +74,7 @@ export default function Default() {
           <div className="law-scroll">
 
             <h1 className="law-title">
-              Welcome to CareerFront
+              Welcome to TheCareerFront
             </h1>
 
             <p className="law-tagline">
@@ -106,7 +106,7 @@ export default function Default() {
             </div>
 
             <div className="sec-head">
-              Why Choose CareerFront?
+              Why Choose TheCareerFront?
             </div>
 
             <div className="mentor-card">
@@ -163,7 +163,7 @@ export default function Default() {
                   </span>
 
                   <span className="contact-value">
-                    +91 8484905526
+                    +91 8484905526 | 8484906643
                   </span>
 
                 </div>
@@ -207,7 +207,7 @@ export default function Default() {
             </div>
 
             <div className="footer-brand">
-              🚀 <strong>CareerFront</strong> — Your Future, Our Guidance
+              🚀 <strong>TheCareerFront</strong> — Your Future, Our Guidance
             </div>
 
           </div>
