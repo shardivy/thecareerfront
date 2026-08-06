@@ -303,7 +303,7 @@ def generate_receipt_pdf(name, service_name, amount, date=None):
 
     # Company address line
     address_line1 = (
-        "Bhagwati Maestros, Miller 403, LMD Chowk, Bavdhan, Pune, Maharashtra 411021, India"
+        "Golden Arch, B1 Flat No. 4, 1st Floor, Bavdhan, Pune, Maharashtra 411021"
     )
 
     # Contact details line
