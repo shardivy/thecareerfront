@@ -237,20 +237,20 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.environ.get(
+ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS",
     "127.0.0.1,localhost"
 ).split(",")
 
 
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
 
-USE_X_FORWARDED_HOST = True
+# USE_X_FORWARDED_HOST = True
 
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = False
 
 CSRF_TRUSTED_ORIGINS = [
     origin for origin in os.environ.get(
@@ -364,7 +364,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
             ],
         },
-    },
+    },  
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
@@ -377,11 +377,11 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DATABASE_NAME'),
-        'USER': os.environ.get('DATABASE_USER'),
-        'PASSWORD': os.environ.get('DATABASE_PASSWORD'),
-        'HOST': os.environ.get('DATABASE_HOST', 'db'),
-        'PORT': os.environ.get('DATABASE_PORT', '3306'),
+        'NAME': config('DATABASE_NAME'),
+        'USER': config('DATABASE_USER'),
+        'PASSWORD': config('DATABASE_PASSWORD'),
+        'HOST': config('DATABASE_HOST'),
+        'PORT': config('DATABASE_PORT'),
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         },
@@ -469,13 +469,14 @@ STORAGES = {
 # EMAIL
 # =========================
 
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND")
-EMAIL_HOST = os.environ.get("EMAIL_HOST")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
-EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS") == "True"
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT', cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 
@@ -554,9 +555,9 @@ SIMPLE_JWT = {
 
 # settings.py
 
-MSG91_AUTH_KEY = os.environ.get("MSG91_AUTH_KEY")
-MSG91_WHATSAPP_NUMBER = os.environ.get("MSG91_WHATSAPP_NUMBER")
-MSG91_OTP_TEMPLATE_NAME = os.environ.get("MSG91_OTP_TEMPLATE_NAME")
+MSG91_AUTH_KEY = config('MSG91_AUTH_KEY')
+MSG91_WHATSAPP_NUMBER = config('MSG91_WHATSAPP_NUMBER')
+MSG91_OTP_TEMPLATE_NAME = config('MSG91_OTP_TEMPLATE_NAME')
 
 TIME_ZONE = "Asia/Kolkata"
 # USE_TZ = False

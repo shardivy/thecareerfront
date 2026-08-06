@@ -20,7 +20,7 @@ from collections import defaultdict
 from datetime import timedelta
 from django.utils.timezone import now
 from calendar import monthrange
-from django.db.models import Count
+from django.db.models import Q, Count
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.mail import EmailMessage, get_connection
 from backend.common.s3 import generate_presigned_url
@@ -81,8 +81,8 @@ class CounsellorListAPIView(APIView):
     def get(self, request):
         # counsellors = Counsellor.objects.select_related("user").all()
         counsellors = Counsellor.objects.select_related("user").exclude(
-            user__first_name__icontains="Reena",
-            user__last_name__icontains="Bhutada"
+            user__first_name__icontains="Priti",
+            user__last_name__icontains="Borse"
         )
         serializer = CounsellorListSerializer(counsellors, many=True)
         return Response(serializer.data)
@@ -101,10 +101,9 @@ class ReenaCounsellorAPIView(APIView):
     def get(self, request):
 
         counsellors = Counsellor.objects.select_related("user").filter(
-            user__first_name__icontains="Reena",
-            user__last_name__icontains="Bhutada"
+            (Q(user__first_name__icontains="Priti") & Q(user__last_name__icontains="Borse"))
         )
-
+        
         serializer = CounsellorListSerializer(
             counsellors,
             many=True

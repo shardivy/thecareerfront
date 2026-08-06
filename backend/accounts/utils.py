@@ -35,7 +35,7 @@ If you did not request a password reset, please ignore this email. Your account 
 If you need any assistance, feel free to contact our support team.
 
 Best regards,  
-Abhinav Career Scope
+TheCareerFront Team
 """
 
     send_mail(
@@ -52,7 +52,7 @@ def send_user_credentials_email(email, password):
     message = f"""
 Dear User,
 
-Greetings from the Career Counselling Team.
+Greetings from the TheCareerFront Team.
 
 Your account has been successfully created. Please find your login credentials below:
 
@@ -66,7 +66,7 @@ Password: {password}
 If you have any questions or require assistance, please feel free to contact our support team.
 
 Best regards,  
-Abhinav Career Scope
+TheCareerFront Team
 """
 
     send_mail(
@@ -218,7 +218,7 @@ ________________________________________
 Dashboard Access
 
 Login Link:
-https://cms.abhinavcareerscope.com/
+https://thecareerfront.ramsolutions.in/
 
 Login Credentials:
 
@@ -254,7 +254,7 @@ ________________________________________
 Online Session Details
 
 Zoom Link:
-https://us06web.zoom.us/j/78343615915?pwd=ZjU2UnlGNEl3K2JvcHY0WGYyb1ZKQT09
+#
 
 • Ensure a stable internet connection
 • Keep audio/video ready
@@ -273,11 +273,11 @@ Offline Session Process
 
 Office Address:
 
-Mrs. Reena Bhutada
-Abhinav Career Scope, Pune
-Bhagwati Maestros, Miller 403
-LMD Chowk, Above Indian Smart Bazaar
-Bavdhan, Pune – 411021
+Right Analysis Matter Technology Pvt. Ltd.
+Golden Arch, B1 Flat No. 4, 
+1st Floor, Shivangya, Apartment, 
+Lane No. 4C, next to Prabhat Society, 
+Bavdhan, Pune, Maharashtra 411021
 
 📌 Important Notes:
 
@@ -305,12 +305,12 @@ ________________________________________
 For any queries or assistance:
 
 Call / WhatsApp:
-+91 99226 95424 | +91 82080 30557
++91 84849 05526 | +91 84849 06643
 
 We look forward to guiding you in your career journey.
 
 Best Regards,
-Abhinav Career Scope
+TheCareerFront Team
 """
 
     # ==========================================
@@ -352,7 +352,7 @@ Password: {password}
 If you did not perform this action, please contact support immediately.
 
 Regards,
-Abhinav Career Scope
+TheCareerFront Team
 """
 
     send_mail(

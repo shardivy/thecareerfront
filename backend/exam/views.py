@@ -1189,8 +1189,8 @@ class LaunchTestAPIView(APIView):
             )
 
             params = {
-                "id": "1090",
-                "pass": "Uxor2kwB",
+                "id": "2649",
+                "pass": "e4WzEwV2",
                 "name": test.first_name,
                 "email": test.email,
                 "passw": test.password,
@@ -1202,8 +1202,8 @@ class LaunchTestAPIView(APIView):
 
             url = (
                 f"http://www.careerfutura.com/business-associate-link?"
-                f"id=1090"
-                f"&&pass=Uxor2kwB"
+                f"id=2649"
+                f"&&pass=e4WzEwV2"
                 f"&&name={test.first_name}"
                 f"&&email={test.email}"
                 f"&&passw={test.password}"

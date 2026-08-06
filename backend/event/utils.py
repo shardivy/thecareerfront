@@ -47,7 +47,7 @@ def generate_handholding_reminder(participant_session, participant):
         participant_session.status or ""
     ).lower()
 
-    subject = "Handholding Session Reminder | Abhinav Career Scope"
+    subject = "Handholding Session Reminder | TheCareerFront Team"
 
     # ==========================================
     # 🔹 NOT BOOKED
@@ -55,13 +55,13 @@ def generate_handholding_reminder(participant_session, participant):
     if session_status == "not_booked":
 
         message = f"""
-Greetings from Abhinav Career Scope.
+Greetings from TheCareerFront Team.
 
 Your handholding session is not booked yet.
 Please book your session as soon as possible to continue your counselling process.
 
 Regards,
-Abhinav Career Scope.
+TheCareerFront Team.
 """.strip()
 
         return {
@@ -102,7 +102,7 @@ Abhinav Career Scope.
         if preferred_mode == "online":
 
             message = f"""
-Greetings from Abhinav Career Scope.
+Greetings from TheCareerFront Team.
 
 Your handholding session is scheduled on {session_date} at {session_time}.
 Please join 15 minutes before the scheduled time.
@@ -114,7 +114,7 @@ Instructions for Online:
 - Keep necessary documents ready
 
 Regards,
-Abhinav Career Scope.
+TheCareerFront Team.
 """.strip()
 
         # ==========================================
@@ -123,7 +123,7 @@ Abhinav Career Scope.
         else:
 
             message = f"""
-Greetings from Abhinav Career Scope.
+Greetings from TheCareerFront Team.
 
 Your handholding session is scheduled on {session_date} at {session_time}.
 Please reach half an hour before the scheduled time.
@@ -135,7 +135,7 @@ Instructions for Offline:
 - Contact counsellor if delayed
 
 Regards,
-Abhinav Career Scope.
+TheCareerFront Team.
 """.strip()
 
         return {

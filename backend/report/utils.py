@@ -136,7 +136,7 @@ Your Engineering Test Analysis report has been uploaded successfully.
 You can log in to the student portal and view your report.
 
 Further, please log in to book your slot for the session using this link:
-https://cms.abhinavcareerscope.com/student/slot-booking
+https://thecareerfront.ramsolutions.in/student/slot-booking
 """
 
     # ==========================================
@@ -152,7 +152,7 @@ The report is now available and unlocked.
 Please log in to the student portal to view your report.
 
 Further, please log in to book your slot for the session using this link:
-https://cms.abhinavcareerscope.com/student/slot-booking
+https://thecareerfront.ramsolutions.in/student/slot-booking
 """
 
     else:
@@ -187,7 +187,7 @@ ________________________________________
 ________________________________________
 
 Best Regards,
-Abhinav Career Scope
+TheCareerFront Team
 """
 
     send_mail(
