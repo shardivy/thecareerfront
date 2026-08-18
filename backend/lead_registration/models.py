@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 from django.utils import timezone
@@ -122,6 +124,12 @@ class StudentProfile(models.Model):
         ('offline', 'Offline'),
     )
     
+    global_student_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        db_index=True
+    )
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="student_profile", null=True)
     parent = models.ForeignKey(ParentProfile, on_delete=models.SET_NULL, null=True, related_name='children')
     study_class = models.CharField(max_length=20, blank=True, null=True)

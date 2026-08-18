@@ -1,6 +1,8 @@
 from datetime import timezone
 from email.utils import format_datetime
+import uuid
 from django.shortcuts import get_object_or_404, render
+import requests
 from counselling_slot.tasks import create_system_notification
 from exam.utils import send_exam_approved_email, send_exam_rejected_email
 from counselling_slot.models import Booking
@@ -530,115 +532,161 @@ def safe_notify(admin_id, title, message):
         except Exception as inner_e:
             print("❌ Sync notification failed:", str(inner_e))                                                                                                                                                                                         
 
+# class UpdateExamToPendingApprovalAPIView(APIView):
+#     """
+#     Update student's latest exam status to pending_approval
+#     using student_id
+#     """
+
+#     permission_classes = [IsAuthenticated]
+
+#     def post(self, request, student_id):
+
+#         student = get_object_or_404(StudentProfile, id=student_id)
+#         user = student.user
+
+#         # 🔹 Get latest exam
+#         user_exam = UserExam.objects.filter(
+#             user=user,
+#             status__in=["in_progress", "not_started"]
+#         ).order_by("-created_at").first()
+
+#         if not user_exam:
+#             return Response(
+#                 {"message": "No in_progress exam found for this student"},
+#                 status=status.HTTP_404_NOT_FOUND
+#             )
+
+#         # 🔹 Update status
+#         user_exam.status = "pending_approval"
+#         user_exam.save()
+
+#         # =========================
+#         # 🔔 SEND NOTIFICATION TO SUPERADMIN (SAFE)
+#         # =========================
+#         User = get_user_model()
+
+#         student_name = f"{user.first_name} {user.last_name}"
+#         exam_name = user_exam.exam.name if user_exam.exam else "Exam"
+
+#         title = "Exam Approval Request"
+#         message = f"Student {student_name} has requested approval for exam '{exam_name}'."
+
+#         admin_users = User.objects.filter(is_superuser=True)
+
+#         for admin in admin_users:
+#             admin_id = admin.id
+
+#             print(f"DEBUG: Sending exam notification to admin_id={admin_id}")
+
+#             # ✅ SAFE CALL (no crash)
+#             on_commit(lambda admin_id=admin_id: safe_notify(
+#                 admin_id,
+#                 title,
+#                 message
+#             ))
+
+#         return Response(
+#             {
+#                 "message": "Exam status updated to pending approval",
+#                 "student_id": student.id,
+#                 "exam_id": user_exam.id,
+#                 "status": user_exam.status
+#             },
+#             status=status.HTTP_200_OK
+#         ) 
+
 class UpdateExamToPendingApprovalAPIView(APIView):
     """
     Update student's latest exam status to pending_approval
-    using student_id
+    using student_id.
     """
 
     permission_classes = [IsAuthenticated]
 
-    # def post(self, request, student_id):
-
-    #     student = get_object_or_404(StudentProfile, id=student_id)
-    #     user = student.user
-
-    #     # 🔹 Get latest completed exam
-    #     user_exam = UserExam.objects.filter(
-    #         user=user,
-    #         status__in=["in_progress", "not_started"]
-    #     ).order_by("-created_at").first()
-
-    #     if not user_exam:
-    #         return Response(
-    #             {"message": "No in_progress exam found for this student"},
-    #             status=status.HTTP_404_NOT_FOUND
-    #         )
-
-    #     # 🔹 Update status
-    #     user_exam.status = "pending_approval"
-    #     user_exam.save()
-        
-    #     # =========================
-    #     # 🔔 SEND NOTIFICATION TO SUPERADMIN
-    #     # =========================
-    #     User = get_user_model()
-
-    #     student_name = f"{user.first_name} {user.last_name}"
-    #     exam_name = user_exam.exam.name if user_exam.exam else "Exam"
-
-    #     title = "Exam Approval Request"
-
-    #     message = (
-    #         f"Student {student_name} has requested approval "
-    #         f"for exam '{exam_name}'."
-    #     )
-
-    #     admin_users = User.objects.filter(is_superuser=True)
-
-    #     for admin in admin_users:
-    #         admin_id = admin.id  # ✅ fix lambda issue
-
-    #         on_commit(lambda admin_id=admin_id: create_system_notification.delay(
-    #             admin_id,
-    #             title,
-    #             message
-    #         ))
-
-    #     return Response(
-    #         {
-    #             "message": "Exam status updated to pending approval",
-    #             "student_id": student.id,
-    #             "exam_id": user_exam.id,
-    #             "status": user_exam.status
-    #         },
-    #         status=status.HTTP_200_OK
-    #     )
     def post(self, request, student_id):
 
-        student = get_object_or_404(StudentProfile, id=student_id)
+        # =====================================================
+        # 1. GET STUDENT + USER IN ONE QUERY
+        # =====================================================
+
+        student = get_object_or_404(
+            StudentProfile.objects.select_related("user"),
+            id=student_id
+        )
+
         user = student.user
 
-        # 🔹 Get latest exam
-        user_exam = UserExam.objects.filter(
-            user=user,
-            status__in=["in_progress", "not_started"]
-        ).order_by("-created_at").first()
+        # =====================================================
+        # 2. GET LATEST EXAM
+        # =====================================================
+
+        user_exam = (
+            UserExam.objects
+            .select_related("exam")
+            .filter(
+                user=user,
+                status__in=["in_progress", "not_started"]
+            )
+            .order_by("-created_at")
+            .first()
+        )
 
         if not user_exam:
             return Response(
-                {"message": "No in_progress exam found for this student"},
+                {
+                    "message": "No in_progress exam found for this student"
+                },
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # 🔹 Update status
-        user_exam.status = "pending_approval"
-        user_exam.save()
+        # =====================================================
+        # 3. UPDATE STATUS
+        # =====================================================
 
-        # =========================
-        # 🔔 SEND NOTIFICATION TO SUPERADMIN (SAFE)
-        # =========================
+        user_exam.status = "pending_approval"
+        user_exam.save(update_fields=["status"])
+
+        # =====================================================
+        # 4. SEND NOTIFICATION ASYNC
+        # =====================================================
+
         User = get_user_model()
 
-        student_name = f"{user.first_name} {user.last_name}"
-        exam_name = user_exam.exam.name if user_exam.exam else "Exam"
+        student_name = f"{user.first_name} {user.last_name}".strip()
+
+        exam_name = (
+            user_exam.exam.name
+            if user_exam.exam
+            else "Exam"
+        )
 
         title = "Exam Approval Request"
-        message = f"Student {student_name} has requested approval for exam '{exam_name}'."
 
-        admin_users = User.objects.filter(is_superuser=True)
+        message = (
+            f"Student {student_name} has requested approval "
+            f"for exam '{exam_name}'."
+        )
 
-        for admin in admin_users:
-            admin_id = admin.id
+        admin_ids = list(
+            User.objects
+            .filter(is_superuser=True)
+            .values_list("id", flat=True)
+        )
 
-            print(f"DEBUG: Sending exam notification to admin_id={admin_id}")
+        # Queue notification only after DB transaction succeeds
+        for admin_id in admin_ids:
+            transaction.on_commit(
+                lambda admin_id=admin_id: create_system_notification.delay(
+                    admin_id,
+                    title,
+                    message
+                )
+            )
 
-            # ✅ SAFE CALL (no crash)
-            on_commit(lambda admin_id=admin_id: safe_notify(
-                admin_id,
-                title,
-                message
-            ))
+        # =====================================================
+        # 5. RETURN IMMEDIATELY
+        # =====================================================
 
         return Response(
             {
@@ -648,48 +696,60 @@ class UpdateExamToPendingApprovalAPIView(APIView):
                 "status": user_exam.status
             },
             status=status.HTTP_200_OK
-        ) 
-        
-     
-        
+        )
+
+
 # class StartExamAPIView(APIView):
 #     """
 #     Update student's latest exam status to 'in_progress'
-#     if current status is 'not_started'.
+#     only if CareerFuturaTest entry exists.
 #     """
 
 #     permission_classes = [IsAuthenticated]
 
 #     def post(self, request, student_id):
 
-#         # 🔹 Get student profile
+#         # Get student profile
 #         student = get_object_or_404(StudentProfile, id=student_id)
 #         user = student.user
-        
+
 #         program_id = request.query_params.get("program_id")
 #         package_id = request.query_params.get("package_id")
 
 #         if not program_id or not package_id:
 #             return Response(
 #                 {"message": "program_id and package_id are required"},
-#                 status=status.HTTP_400_BAD_REQUEST
+#                 status=status.HTTP_400_BAD_REQUEST,
 #             )
 
-#         # 🔹 Get latest exam with allowed statuses
+#         # Check CareerFutura entry exists
+#         career_futura_exists = CareerFuturaTest.objects.filter(
+#             student=student
+#         ).exists()
+
+#         if not career_futura_exists:
+#             return Response(
+#                 {
+#                     "message": "Career Futura test details not found. Please complete Career Futura registration first."
+#                 },
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+
+#         # Get latest not_started exam
 #         user_exam = UserExam.objects.filter(
 #             user=user,
 #             program_id=program_id,
 #             package_id=package_id,
-#             status__in=["not_started"]
+#             status="not_started",
 #         ).order_by("-created_at").first()
 
 #         if not user_exam:
 #             return Response(
 #                 {"message": "No not_started exam found for this student"},
-#                 status=status.HTTP_404_NOT_FOUND
+#                 status=status.HTTP_404_NOT_FOUND,
 #             )
 
-#         # 🔹 Update status
+#         # Update status
 #         user_exam.status = "in_progress"
 #         user_exam.save()
 
@@ -698,10 +758,11 @@ class UpdateExamToPendingApprovalAPIView(APIView):
 #                 "message": "Exam started successfully",
 #                 "student_id": student.id,
 #                 "exam_id": user_exam.id,
-#                 "status": user_exam.status
+#                 "status": user_exam.status,
 #             },
-#             status=status.HTTP_200_OK
+#             status=status.HTTP_200_OK,
 #         )
+
 
 class StartExamAPIView(APIView):
     """
@@ -725,20 +786,7 @@ class StartExamAPIView(APIView):
                 {"message": "program_id and package_id are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # Check CareerFutura entry exists
-        career_futura_exists = CareerFuturaTest.objects.filter(
-            student=student
-        ).exists()
-
-        if not career_futura_exists:
-            return Response(
-                {
-                    "message": "Career Futura test details not found. Please complete Career Futura registration first."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+            
         # Get latest not_started exam
         user_exam = UserExam.objects.filter(
             user=user,
@@ -756,13 +804,66 @@ class StartExamAPIView(APIView):
         # Update status
         user_exam.status = "in_progress"
         user_exam.save()
+        
+        # -----------------------------------------
+        # Sync student to CareerFront
+        # -----------------------------------------
+        
+        attempt_id = uuid.uuid4()
+
+        # careerfront_url = "http://localhost:8000/api/students/student/sync/"
+        careerfront_url = "https://careerfront-apt.ramsolutions.in/api/students/student/sync/"
+
+        payload = {
+            "global_student_id": str(student.global_student_id),
+            "first_name": student.user.first_name,
+            "last_name": student.user.last_name,
+            "grade_id": student.study_class,
+            "section_name": None,
+            "email": student.user.email,
+            "mobile": student.user.phone,
+            "attempt_id": str(attempt_id),
+            "parent_name": None,
+            "parent_mobile": None,
+        }
+
+        try:
+
+            careerfront_response = requests.post(
+                careerfront_url,
+                json=payload,
+                timeout=10
+            )
+
+            if careerfront_response.status_code not in [200, 201]:
+
+                return Response(
+                    {
+                        "message": "Exam started, but student could not be synced to CareerFront.",
+                        "careerfront_response": careerfront_response.json()
+                    },
+                    status=status.HTTP_502_BAD_GATEWAY
+                )
+
+        except requests.RequestException as e:
+
+            return Response(
+                {
+                    "message": "Exam started, but CareerFront is unavailable.",
+                    "error": str(e)
+                },
+                status=status.HTTP_502_BAD_GATEWAY
+            )
 
         return Response(
             {
                 "message": "Exam started successfully",
                 "student_id": student.id,
+                "global_id": str(student.global_student_id),  
                 "exam_id": user_exam.id,
+                "attempt_id": str(attempt_id),
                 "status": user_exam.status,
+                "careerfront_student": careerfront_response.json()  
             },
             status=status.HTTP_200_OK,
         )

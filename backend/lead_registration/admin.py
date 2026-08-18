@@ -6,6 +6,7 @@ from lead_registration.models import Hobby, Lead, ParentProfile, Stream, Student
 class StudentProfileAdmin(admin.ModelAdmin):
     list_display = (
         'id',
+        'global_student_id',
         'user',
         'parent',
         'study_class',
