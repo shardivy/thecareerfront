@@ -210,7 +210,6 @@ Dear Student,
 Congratulations!
 
 You have been successfully selected for the {program_name} under the {package_name} service.
-
 We are excited to support you in your career journey.
 
 ________________________________________
@@ -224,23 +223,33 @@ Login Credentials:
 
 Email: {email}
 Password: {password}
-
-________________________________________
-
-Session Fees
-
-Online Session: ₹5,000 (via GPay)
-
-Offline Session:
-₹500 via GPay + ₹4,500 cash during counselling
-
 ________________________________________
 
 Important Instructions
 
-• Join using a laptop only
-• Join 5 minutes before the session
-• Keep a notebook and pen ready
+Please follow the instructions below to start and complete the test smoothly.
+
+Steps to Start the Test:
+
+    1. Open the login link provided above and log in using the given credentials.
+    2. After logging in, navigate to Aptitude Test Management.
+    3. Click on the “Start Test” button.
+    4. You will be redirected to the Test Page.
+    5. Please read all the instructions carefully before beginning the test.
+    6. Click the “Start” button to begin the test.
+
+Test Instructions:
+
+    • The test consists of multiple sections that need to be completed one by one.
+    • Each section has a specific time limit, which will be displayed in the top-right corner of the test page.
+    • Please manage your time carefully and complete each section within the allotted time.
+    • You must complete all mandatory sections, which are identified with a green tick mark.
+
+Mandatory Sections:
+
+    1. Aptitude Test
+    2. Career Interest
+    3. Learning Orientation
 """
 
     # ==========================================
@@ -251,14 +260,6 @@ Important Instructions
         mode_message = """
 ________________________________________
 
-Online Session Details
-
-Zoom Link:
-#
-
-• Ensure a stable internet connection
-• Keep audio/video ready
-• Keep required documents handy
 """
 
     # ==========================================
@@ -292,14 +293,6 @@ Bavdhan, Pune, Maharashtra 411021
     # CLOSING MESSAGE
     # ==========================================
     closing_message = """
-________________________________________
-
-Fee Reminder
-
-Kindly pay the remaining ₹4,500 in cash at the time of counselling.
-
-(If already paid in full, please ignore this reminder.)
-
 ________________________________________
 
 For any queries or assistance:
