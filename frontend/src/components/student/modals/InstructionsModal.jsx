@@ -1,5 +1,4 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Modal,
   Typography,
@@ -28,20 +27,15 @@ const InstructionsModal = ({
   onConfirm,
 }) => {
   const { token } = useToken();
-  const navigate = useNavigate();
 
+  // Just closes the modal and hands control back to ExamManagement's
+  // onInstructionsConfirm, which calls the startExam API directly.
+  // No navigation happens here anymore.
   const handleStartTest = () => {
     onClose();
-
-    // Instead of jumping straight to the external test site,
-    // send the student to the internal registration page first.
-    setTimeout(() => {
-      navigate("/student/exam-register");
-
-      if (typeof onConfirm === "function") {
-        onConfirm();
-      }
-    }, 300);
+    if (typeof onConfirm === "function") {
+      onConfirm();
+    }
   };
 
   return (

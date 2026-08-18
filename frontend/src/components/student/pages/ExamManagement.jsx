@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Row,
   Col,
@@ -11,7 +11,8 @@ import {
   Badge,
   ConfigProvider,
   theme,
-  message
+  message,
+  Modal,
 } from "antd";
 import {
   ClockCircleOutlined,
@@ -27,7 +28,8 @@ import InstructionsModal from "../modals/InstructionsModal";
 import { useDispatch, useSelector } from "react-redux";
 import {
   sendExamForApproval,
-  fetchExamStatus
+  fetchExamStatus,
+  startExam,
 } from "../../../adminSlices/examSlice";
 
 const { Title, Text } = Typography;
@@ -39,6 +41,9 @@ const ExamManagement = () => {
   const [instructionsMode, setInstructionsMode] = useState("view");
   const [examStatus, setExamStatus] = useState("not_started");
   const [onInstructionsConfirm, setOnInstructionsConfirm] = useState(null);
+  const examTabOpenedRef = useRef(false);
+  const [isStartingExam, setIsStartingExam] = useState(false);
+  const [isMarkingCompleted, setIsMarkingCompleted] = useState(false);
 
   const { tracker } = useSelector((state) => state.exam);
   const dispatch = useDispatch();
@@ -78,6 +83,39 @@ const ExamManagement = () => {
     selectedPackageId,
   ]);
 
+  // useEffect(() => {
+  //   if (tracker?.status) {
+  //     setExamStatus(tracker.status);
+
+  //     if (tracker.status === "in_progress" && !examTabOpenedRef.current) {
+  //       examTabOpenedRef.current = true;
+
+  //       // Build query params from whatever we last stored, so the new tab
+  //       // gets the data even though it's on a different origin/port.
+  //       let query = "";
+  //       try {
+  //         const stored = localStorage.getItem("examSessionData");
+  //         if (stored) {
+  //           const parsed = JSON.parse(stored);
+  //           const params = new URLSearchParams(
+  //             Object.entries(parsed).reduce((acc, [k, v]) => {
+  //               if (v !== undefined && v !== null) acc[k] = String(v);
+  //               return acc;
+  //             }, {})
+  //           );
+  //           query = `?${params.toString()}`;
+  //         }
+  //       } catch (e) {
+  //         console.error("Failed to build exam session query params:", e);
+  //       }
+
+  //       window.open(`http://localhost:5173/test-selection${query}`, "_blank");
+  //     }
+  //   }
+  // }, [tracker]);
+
+
+  // REPLACE with just the status sync — no tab-opening here:
   useEffect(() => {
     if (tracker?.status) {
       setExamStatus(tracker.status);
@@ -85,38 +123,107 @@ const ExamManagement = () => {
   }, [tracker]);
 
   // START EXAM
-  // Note: the startExam API call no longer happens here. It now fires when
-  // the student clicks "Begin Test" on the registration page. Here we just
-  // route them to that page (prefilled with whatever profile data we have).
   const handleStartExam = () => {
     setInstructionsMode("start");
 
-    setOnInstructionsConfirm(() => () => {
-      navigate("/student/exam-register", {
-        state: {
-          // first_name: profile?.first_name,
-          first_name: profile?.first_name?.split("-").pop().trim(),
-          last_name: profile?.last_name,
-          email: profile?.email,
-          phone: profile?.phone,
-          password: profile?.password,
-          qualification: profile?.study_class,
-        },
-      });
-    });
+    setOnInstructionsConfirm(() => async () => {
+      try {
+        setInstructionsModalVisible(false);
+        setIsStartingExam(true);
 
+        const startExamRes = await dispatch(
+          startExam({
+            studentId,
+            programId: selectedProgramId,
+            packageId: selectedPackageId,
+          })
+        ).unwrap();
+
+        const student = startExamRes?.careerfront_student?.student;
+        const sessionData = {
+          globalId: startExamRes?.global_id || student?.global_student_id,
+          attemptId: startExamRes?.attempt_id,
+          studentName: [student?.first_name, student?.last_name]
+            .filter(Boolean)
+            .join(" "),
+          studentId: student?.id ?? startExamRes?.student_id,
+          examId: startExamRes?.exam_id,
+        };
+
+        localStorage.setItem("examSessionData", JSON.stringify(sessionData));
+        console.log("Wrote examSessionData:", localStorage.getItem("examSessionData"));
+        message.success("Exam started successfully!");
+
+        // 👇 Open the new tab HERE — right after a successful start,
+        // triggered only by this click, not by any status effect.
+        const params = new URLSearchParams(
+          Object.entries(sessionData).reduce((acc, [k, v]) => {
+            if (v !== undefined && v !== null) acc[k] = String(v);
+            return acc;
+          }, {})
+        );
+        window.open(
+          `https://careerfront-apt.ramsolutions.in/test-selection?${params.toString()}`,
+          "_blank"
+        );
+
+        await dispatch(
+          fetchExamStatus({
+            studentId,
+            programId: selectedProgramId,
+            packageId: selectedPackageId,
+          })
+        ).unwrap();
+      } catch (error) {
+        console.error("Start exam error:", error);
+        message.error(error?.message || "Failed to start exam");
+      } finally {
+        setIsStartingExam(false);
+      }
+    });
     setInstructionsModalVisible(true);
   };
 
   // MARK COMPLETED
-  const handleMarkCompleted = async () => {
-    try {
-      await dispatch(sendExamForApproval(studentId)).unwrap();
-      setExamStatus("pending_approval");
-      message.success("Exam sent for admin approval!");
-    } catch (error) {
-      message.error("Failed to send for approval");
-    }
+  const handleMarkCompleted = () => {
+    Modal.confirm({
+      title: "Confirm Test Completion",
+      content:
+        "Are you sure you want to mark the exam as completed? Once submitted, you will not be able to make any further changes.",
+      okText: "Yes, Mark as Completed",
+      cancelText: "Cancel",
+      centered: true,
+      closable: true,
+      maskClosable: true,
+      okButtonProps: {
+        danger: false,
+      },
+      onOk: async () => {
+        try {
+          setIsMarkingCompleted(true);
+
+          await dispatch(
+            sendExamForApproval(studentId)
+          ).unwrap();
+
+          setExamStatus("pending_approval");
+
+          message.success("Exam sent for admin approval!");
+        } catch (error) {
+          console.error("Mark completed error:", error);
+
+          message.error(
+            error?.message || "Failed to send for approval"
+          );
+
+          // Important: throw the error so the confirmation
+          // modal knows the API failed
+          throw error;
+        } finally {
+          setIsMarkingCompleted(false);
+        }
+      },
+    });
   };
 
   const { token } = theme.useToken();
@@ -346,6 +453,8 @@ const ExamManagement = () => {
                       type="primary"
                       size="large"
                       block
+                      loading={isStartingExam}
+                      disabled={isStartingExam}
                       style={{ borderRadius: 10, height: 48 }}
                       onClick={handleStartExam}
                     >
@@ -373,6 +482,8 @@ const ExamManagement = () => {
                       <Button
                         type="primary"
                         block
+                        loading={isMarkingCompleted}
+                        disabled={isMarkingCompleted}
                         style={{
                           marginTop: 12,
                           background: "#52c41a",
@@ -382,10 +493,10 @@ const ExamManagement = () => {
                       >
                         Mark as Completed
                       </Button>
-                 
+
 
                       {/* Important instruction note */}
-                      <div
+                      {/* <div
                         style={{
                           background: "#fffbe6",
                           border: "1px solid #ffe58f",
@@ -412,7 +523,7 @@ const ExamManagement = () => {
                           </a>
                           .
                         </Text>
-                      </div>
+                      </div> */}
                     </>
                   )}
 
