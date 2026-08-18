@@ -110,13 +110,12 @@ const InstructionsModal = ({
             }}
           >
             <img
-              src="/exam-img.jpeg"
+              src="/Careerfront.png"
               alt="Test Completion Example"
               style={{
                 width: "100%",
                 display: "block",
                 objectFit: "cover",
-                transform: "rotate(-1deg)",
                 transformOrigin: "center center",
               }}
             />
@@ -144,13 +143,8 @@ const InstructionsModal = ({
               </Text>{" "}
               is visible on all sections as shown in the image.
               <br />
-              <br />
-              Also,{" "}
-              <Text strong>
-                do not make any payment
-              </Text>{" "}
-              on the test website. Directly fill in your details and
-              begin the test.
+           
+            
             </Text>
           </div>
         </Card>
@@ -174,7 +168,7 @@ const InstructionsModal = ({
             dataSource={[
               "Use Laptop or Computer only (Mobile not allowed)",
               "Duration: Approximately 2 Hours",
-              "Timing: Between 11:00 AM – 6:00 PM",
+              // "Timing: Between 11:00 AM – 6:00 PM",
               "No prior preparation required",
             ]}
             renderItem={(item) => (
@@ -192,7 +186,7 @@ const InstructionsModal = ({
         </Card>
 
         {/* REGISTRATION */}
-        <Card
+        {/* <Card
           bodyStyle={{ padding: "12px 16px" }}
           style={{
             borderRadius: 16,
@@ -227,7 +221,7 @@ const InstructionsModal = ({
               </List.Item>
             )}
           />
-        </Card>
+        </Card> */}
 
         <Card
           bodyStyle={{ padding: "12px 16px" }}
@@ -248,10 +242,9 @@ const InstructionsModal = ({
           <List
             dataSource={[
               "Aptitude Test",
-              "Study Habit",
-              "Interest Test",
-              "Aspired Career",
-              "Personality Test (Only for 11th & 12th Standard Students)",
+                      "Career Interest",
+              "Learning Orientation",
+            
             ]}
             renderItem={(item) => (
               <List.Item style={{ padding: "4px 0" }}>
@@ -279,7 +272,7 @@ const InstructionsModal = ({
 
           <List
             dataSource={[
-              "Complete the test only between 11:00 AM and 6:00 PM",
+              "Complete the all the sections in one go, as the test cannot be paused or resumed",
               "Do not leave any section incomplete",
               "Ensure all sections show a green tick before exiting",
               "Do not make any payment on the website",
@@ -312,15 +305,7 @@ const InstructionsModal = ({
 
           <List
             dataSource={[
-              <>
-                {/* Watch the instructional video before starting.{" "}
-                <Link
-                  href="https://www.youtube.com/watch?v=32FdMJBfRy4"
-                  target="_blank"
-                >
-                  Click here to watch
-                </Link> */}
-              </>,
+             
               "For technical help call:  8484905526",
 
               "After completing all sections, call or WhatsApp to confirm your test submission",
