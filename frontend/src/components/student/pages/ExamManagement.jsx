@@ -83,106 +83,108 @@ const ExamManagement = () => {
     selectedPackageId,
   ]);
 
-  // useEffect(() => {
-  //   if (tracker?.status) {
-  //     setExamStatus(tracker.status);
+// useEffect(() => {
+//   if (tracker?.status) {
+//     setExamStatus(tracker.status);
 
-  //     if (tracker.status === "in_progress" && !examTabOpenedRef.current) {
-  //       examTabOpenedRef.current = true;
+//     if (tracker.status === "in_progress" && !examTabOpenedRef.current) {
+//       examTabOpenedRef.current = true;
 
-  //       // Build query params from whatever we last stored, so the new tab
-  //       // gets the data even though it's on a different origin/port.
-  //       let query = "";
-  //       try {
-  //         const stored = localStorage.getItem("examSessionData");
-  //         if (stored) {
-  //           const parsed = JSON.parse(stored);
-  //           const params = new URLSearchParams(
-  //             Object.entries(parsed).reduce((acc, [k, v]) => {
-  //               if (v !== undefined && v !== null) acc[k] = String(v);
-  //               return acc;
-  //             }, {})
-  //           );
-  //           query = `?${params.toString()}`;
-  //         }
-  //       } catch (e) {
-  //         console.error("Failed to build exam session query params:", e);
-  //       }
+//       // Build query params from whatever we last stored, so the new tab
+//       // gets the data even though it's on a different origin/port.
+//       let query = "";
+//       try {
+//         const stored = localStorage.getItem("examSessionData");
+//         if (stored) {
+//           const parsed = JSON.parse(stored);
+//           const params = new URLSearchParams(
+//             Object.entries(parsed).reduce((acc, [k, v]) => {
+//               if (v !== undefined && v !== null) acc[k] = String(v);
+//               return acc;
+//             }, {})
+//           );
+//           query = `?${params.toString()}`;
+//         }
+//       } catch (e) {
+//         console.error("Failed to build exam session query params:", e);
+//       }
 
-  //       window.open(`http://localhost:5173/test-selection${query}`, "_blank");
-  //     }
-  //   }
-  // }, [tracker]);
+//       window.open(`http://localhost:5173/test-selection${query}`, "_blank");
+//     }
+//   }
+// }, [tracker]);
 
 
-  // REPLACE with just the status sync — no tab-opening here:
-  useEffect(() => {
-    if (tracker?.status) {
-      setExamStatus(tracker.status);
-    }
-  }, [tracker]);
+// REPLACE with just the status sync — no tab-opening here:
+useEffect(() => {
+  if (tracker?.status) {
+    setExamStatus(tracker.status);
+  }
+}, [tracker]);
 
   // START EXAM
-  const handleStartExam = () => {
-    setInstructionsMode("start");
+const handleStartExam = () => {
+  setInstructionsMode("start");
 
-    setOnInstructionsConfirm(() => async () => {
-      try {
-        setInstructionsModalVisible(false);
-        setIsStartingExam(true);
+  setOnInstructionsConfirm(() => async () => {
+    try {
+      setInstructionsModalVisible(false);
+      setIsStartingExam(true);
 
-        const startExamRes = await dispatch(
-          startExam({
-            studentId,
-            programId: selectedProgramId,
-            packageId: selectedPackageId,
-          })
-        ).unwrap();
+      const startExamRes = await dispatch(
+        startExam({
+          studentId,
+          programId: selectedProgramId,
+          packageId: selectedPackageId,
+        })
+      ).unwrap();
 
-        const student = startExamRes?.careerfront_student?.student;
-        const sessionData = {
-          globalId: startExamRes?.global_id || student?.global_student_id,
-          attemptId: startExamRes?.attempt_id,
-          studentName: [student?.first_name, student?.last_name]
-            .filter(Boolean)
-            .join(" "),
-          studentId: student?.id ?? startExamRes?.student_id,
-          examId: startExamRes?.exam_id,
-        };
+      const student = startExamRes?.careerfront_student?.student;
+      const sessionData = {
+        globalId: startExamRes?.global_id || student?.global_student_id,
+        attemptId: startExamRes?.attempt_id,
+        studentName: [student?.first_name, student?.last_name]
+          .filter(Boolean)
+          .join(" "),
+        studentId: student?.id ?? startExamRes?.student_id,
+        examId: startExamRes?.exam_id,
+      };
 
-        localStorage.setItem("examSessionData", JSON.stringify(sessionData));
-        console.log("Wrote examSessionData:", localStorage.getItem("examSessionData"));
-        message.success("Exam started successfully!");
+      localStorage.setItem("examSessionData", JSON.stringify(sessionData));
+      console.log("Wrote examSessionData:", localStorage.getItem("examSessionData"));
+      message.success("Exam started successfully!");
 
-        // 👇 Open the new tab HERE — right after a successful start,
-        // triggered only by this click, not by any status effect.
-        const params = new URLSearchParams(
-          Object.entries(sessionData).reduce((acc, [k, v]) => {
-            if (v !== undefined && v !== null) acc[k] = String(v);
-            return acc;
-          }, {})
-        );
-        window.open(
-          `https://careerfront-apt.ramsolutions.in/test-selection?${params.toString()}`,
-          "_blank"
-        );
+      // 👇 Open the new tab HERE — right after a successful start,
+      // triggered only by this click, not by any status effect.
+      const params = new URLSearchParams(
+        Object.entries(sessionData).reduce((acc, [k, v]) => {
+          if (v !== undefined && v !== null) acc[k] = String(v);
+          return acc;
+        }, {})
+      );
+      window.open(`http://localhost:5173/test-selection?${params.toString()}`, "_blank");
 
-        await dispatch(
-          fetchExamStatus({
-            studentId,
-            programId: selectedProgramId,
-            packageId: selectedPackageId,
-          })
-        ).unwrap();
-      } catch (error) {
-        console.error("Start exam error:", error);
-        message.error(error?.message || "Failed to start exam");
-      } finally {
-        setIsStartingExam(false);
-      }
-    });
-    setInstructionsModalVisible(true);
-  };
+//            window.open(
+//   `https://careerfront-apt.ramsolutions.in/test-selection?${params.toString()}`,
+//   "_blank"
+// );
+
+      await dispatch(
+        fetchExamStatus({
+          studentId,
+          programId: selectedProgramId,
+          packageId: selectedPackageId,
+        })
+      ).unwrap();
+    } catch (error) {
+      console.error("Start exam error:", error);
+      message.error(error?.message || "Failed to start exam");
+    } finally {
+      setIsStartingExam(false);
+    }
+  });
+  setInstructionsModalVisible(true);
+};
 
   // MARK COMPLETED
   const handleMarkCompleted = () => {
