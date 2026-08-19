@@ -251,14 +251,12 @@ Mandatory Sections:
     2. Career Interest
     3. Learning Orientation
 """
-
     # ==========================================
     # ONLINE SESSION
     # ==========================================
     if preferred_mode == "online":
 
         mode_message = """
-________________________________________
 
 """
 
