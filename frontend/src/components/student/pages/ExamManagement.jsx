@@ -162,12 +162,12 @@ const handleStartExam = () => {
           return acc;
         }, {})
       );
-      window.open(`http://localhost:5173/test-selection?${params.toString()}`, "_blank");
+      // window.open(`http://localhost:5173/test-selection?${params.toString()}`, "_blank");
 
-//            window.open(
-//   `https://careerfront-apt.ramsolutions.in/test-selection?${params.toString()}`,
-//   "_blank"
-// );
+           window.open(
+  `https://careerfront-apt.ramsolutions.in/test-selection?${params.toString()}`,
+  "_blank"
+);
 
       await dispatch(
         fetchExamStatus({
