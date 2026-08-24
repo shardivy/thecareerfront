@@ -232,7 +232,7 @@ Please follow the instructions below to start and complete the test smoothly.
 Steps to Start the Test:
 
     1. Open the login link provided above and log in using the given credentials.
-    2. After logging in, navigate to Aptitude Test Management.
+    2. After logging in, click on navigate to Aptitude Test Management.
     3. Click on the “Start Test” button.
     4. You will be redirected to the Test Page.
     5. Please read all the instructions carefully before beginning the test.

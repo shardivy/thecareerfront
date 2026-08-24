@@ -818,7 +818,7 @@ class StartExamAPIView(APIView):
             "global_student_id": str(student.global_student_id),
             "first_name": student.user.first_name,
             "last_name": student.user.last_name,
-            "grade_id": student.study_class,
+            "grade_name": student.study_class,
             "section_name": None,
             "email": student.user.email,
             "mobile": student.user.phone,
@@ -828,42 +828,69 @@ class StartExamAPIView(APIView):
         }
 
         try:
-
             careerfront_response = requests.post(
                 careerfront_url,
                 json=payload,
                 timeout=10
             )
 
-            if careerfront_response.status_code not in [200, 201]:
-
-                return Response(
-                    {
-                        "message": "Exam started, but student could not be synced to CareerFront.",
-                        "careerfront_response": careerfront_response.json()
-                    },
-                    status=status.HTTP_502_BAD_GATEWAY
-                )
+            print("================================")
+            print("CareerFront Status:", careerfront_response.status_code)
+            print("CareerFront Headers:", careerfront_response.headers)
+            print("CareerFront Response:", repr(careerfront_response.text))
+            print("================================")
 
         except requests.RequestException as e:
-
             return Response(
                 {
-                    "message": "Exam started, but CareerFront is unavailable.",
+                    "message": "CareerFront is unavailable.",
                     "error": str(e)
                 },
                 status=status.HTTP_502_BAD_GATEWAY
             )
 
+
+        # -----------------------------------------
+        # Safely parse CareerFront response
+        # -----------------------------------------
+
+        try:
+            careerfront_data = careerfront_response.json()
+        except ValueError:
+            careerfront_data = {
+                "raw_response": careerfront_response.text
+            }
+
+
+        # -----------------------------------------
+        # CareerFront error
+        # -----------------------------------------
+
+        if careerfront_response.status_code not in [200, 201]:
+
+            return Response(
+                {
+                    "message": "Student could not be synced to CareerFront.",
+                    "careerfront_status": careerfront_response.status_code,
+                    "careerfront_response": careerfront_data,
+                },
+                status=status.HTTP_502_BAD_GATEWAY
+            )
+
+
+        # -----------------------------------------
+        # Success
+        # -----------------------------------------
+
         return Response(
             {
                 "message": "Exam started successfully",
                 "student_id": student.id,
-                "global_id": str(student.global_student_id),  
+                "global_id": str(student.global_student_id),
                 "exam_id": user_exam.id,
                 "attempt_id": str(attempt_id),
                 "status": user_exam.status,
-                "careerfront_student": careerfront_response.json()  
+                "careerfront_student": careerfront_data
             },
             status=status.HTTP_200_OK,
         )
