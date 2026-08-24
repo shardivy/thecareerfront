@@ -18,9 +18,9 @@ const AddPackageModal = ({
 
   const programs = useSelector((state) => state.programs.activeList);
   const programsLoading = useSelector((state) => state.programs.loading);
-const aptitudeTest = Form.useWatch("aptitude_test", form);
-const engineeringService = Form.useWatch("engineering_test_analysis", form);
-const handholdingProgram = Form.useWatch("is_handholding", form);
+  const aptitudeTest = Form.useWatch("aptitude_test", form);
+  const engineeringService = Form.useWatch("engineering_test_analysis", form);
+  const handholdingProgram = Form.useWatch("is_handholding", form);
 
   const { list: packages, loading } = useSelector((state) => state.packages);
 
@@ -51,9 +51,9 @@ const handholdingProgram = Form.useWatch("is_handholding", form);
           : [],
         aptitude_test:
           initialValues.aptitude_test ?? false,
-    engineering_test_analysis:
-  initialValues.engineering_test_analysis ?? false,
-  is_handholding: initialValues.is_handholding ?? false,
+        engineering_test_analysis:
+          initialValues.engineering_test_analysis ?? false,
+        is_handholding: initialValues.is_handholding ?? false,
       });
     } else {
       form.resetFields();
@@ -156,9 +156,13 @@ const handholdingProgram = Form.useWatch("is_handholding", form);
             rules={[{ required: true, message: "Please enter price" }]}
           >
             <Input
-              type="number"
+              // type="number"
               placeholder="e.g. 999"
               disabled={viewMode}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, "");
+                form.setFieldsValue({ price: value });
+              }}
             />
           </Form.Item>
 
@@ -176,75 +180,75 @@ const handholdingProgram = Form.useWatch("is_handholding", form);
             />
           </Form.Item>
 
-<div style={{ display: "flex", gap: 16 }}>
+          <div style={{ display: "flex", gap: 16 }}>
 
-  {/* APTITUDE TEST */}
-  <Form.Item
-    label="Aptitude Test Availability"
-    name="aptitude_test"
-    valuePropName="checked"
-    style={{ flex: 1 }}
-  >
-    <Switch
-      checkedChildren="Available"
-      unCheckedChildren="Unavailable"
-      disabled={viewMode || engineeringService || handholdingProgram} // ✅ FIX
-      onChange={(checked) => {
-        if (checked) {
-          form.setFieldsValue({
-            engineering_test_analysis: false,
-            handholding_program: false, // ✅ FIX
-          });
-        }
-      }}
-    />
-  </Form.Item>
+            {/* APTITUDE TEST */}
+            <Form.Item
+              label="Aptitude Test Availability"
+              name="aptitude_test"
+              valuePropName="checked"
+              style={{ flex: 1 }}
+            >
+              <Switch
+                checkedChildren="Available"
+                unCheckedChildren="Unavailable"
+                disabled={viewMode || engineeringService || handholdingProgram} // ✅ FIX
+                onChange={(checked) => {
+                  if (checked) {
+                    form.setFieldsValue({
+                      engineering_test_analysis: false,
+                      handholding_program: false, // ✅ FIX
+                    });
+                  }
+                }}
+              />
+            </Form.Item>
 
-  {/* ENGINEERING SERVICE */}
-  <Form.Item
-    label="Engineering Service"
-    name="engineering_test_analysis"
-    valuePropName="checked"
-    style={{ flex: 1 }}
-  >
-    <Switch
-      checkedChildren="Yes"
-      unCheckedChildren="No"
-      disabled={viewMode || aptitudeTest || handholdingProgram} // ✅ FIX
-      onChange={(checked) => {
-        if (checked) {
-          form.setFieldsValue({
-            aptitude_test: false,
-            handholding_program: false, // ✅ FIX
-          });
-        }
-      }}
-    />
-  </Form.Item>
+            {/* ENGINEERING SERVICE */}
+            <Form.Item
+              label="Engineering Service"
+              name="engineering_test_analysis"
+              valuePropName="checked"
+              style={{ flex: 1 }}
+            >
+              <Switch
+                checkedChildren="Yes"
+                unCheckedChildren="No"
+                disabled={viewMode || aptitudeTest || handholdingProgram} // ✅ FIX
+                onChange={(checked) => {
+                  if (checked) {
+                    form.setFieldsValue({
+                      aptitude_test: false,
+                      handholding_program: false, // ✅ FIX
+                    });
+                  }
+                }}
+              />
+            </Form.Item>
 
-  {/* HANDHOLDING PROGRAM */}
-  <Form.Item
-    label="Handholding Program"
-    name="is_handholding"
-    valuePropName="checked"
-    style={{ flex: 1 }}
-  >
-    <Switch
-      checkedChildren="Yes"
-      unCheckedChildren="No"
-      disabled={viewMode || aptitudeTest || engineeringService}
-      onChange={(checked) => {
-        if (checked) {
-          form.setFieldsValue({
-            aptitude_test: false,
-            engineering_test_analysis: false,
-          });
-        }
-      }}
-    />
-  </Form.Item>
+            {/* HANDHOLDING PROGRAM */}
+            <Form.Item
+              label="Handholding Program"
+              name="is_handholding"
+              valuePropName="checked"
+              style={{ flex: 1 }}
+            >
+              <Switch
+                checkedChildren="Yes"
+                unCheckedChildren="No"
+                disabled={viewMode || aptitudeTest || engineeringService}
+                onChange={(checked) => {
+                  if (checked) {
+                    form.setFieldsValue({
+                      aptitude_test: false,
+                      engineering_test_analysis: false,
+                    });
+                  }
+                }}
+              />
+            </Form.Item>
 
-</div>
+          </div>
 
           {/* ACTION BUTTONS */}
           {!viewMode && (
