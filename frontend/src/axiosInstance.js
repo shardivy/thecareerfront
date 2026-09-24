@@ -1,13 +1,13 @@
  import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "http://192.168.1.2:8003/api/",
+  // baseURL: "http://192.168.1.2:8003/api/",
   // baseURL: "http://192.168.247.38:8002/api",
   // baseURL: "http://10.45.19.38:8001/api",
   // baseURL: "https://fares-seek-adam-interracial.trycloudflare.com/api",
 
 //  baseURL: "https://staging.abhinavcareerscope.com/api",
-  // baseURL: "https://thecareerfront.ramsolutions.in/api",
+  baseURL: "https://thecareerfront.ramsolutions.in/api",
 
 
 });
